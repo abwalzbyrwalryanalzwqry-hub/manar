@@ -1,0 +1,57 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Icon, icons, Mark } from "@/components/manar/shell";
+
+export const Route = createFileRoute("/register")({
+  head: () => ({ meta: [{ title: "إنشاء حساب — منار" }] }),
+  component: Register,
+});
+
+function Register() {
+  return (
+    <div dir="rtl" className="min-h-screen bg-background">
+      <div className="mx-auto max-w-md px-6 pt-8 pb-14">
+        <Link to="/login" className="mb-6 inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card shadow-soft">
+          <span className="rotate-180"><Icon d={icons.back} size={18} /></span>
+        </Link>
+
+        <div className="text-center">
+          <Mark size={40} />
+          <h1 className="mt-4 font-display text-3xl font-medium">إنشاء حساب</h1>
+          <p className="mt-2 text-sm text-muted-foreground">انضم إلى منار وابدأ رحلتك</p>
+        </div>
+
+        <div className="mt-8 space-y-4">
+          <Field icon={icons.profile} label="الاسم الكامل" placeholder="محمد عبدالله" />
+          <Field icon={icons.mail} label="البريد الإلكتروني" placeholder="name@example.com" type="email" />
+          <Field icon={icons.lock} label="كلمة المرور" placeholder="••••••••" type="password" />
+          <Field icon={icons.lock} label="تأكيد كلمة المرور" placeholder="••••••••" type="password" />
+          <label className="flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground">
+            <span className="mt-0.5 h-4 w-4 rounded border border-border" />
+            أوافق على <span className="text-primary">الشروط والأحكام</span> و <span className="text-primary">سياسة الخصوصية</span>
+          </label>
+        </div>
+
+        <Link to="/home" className="gradient-primary mt-7 block rounded-2xl py-4 text-center text-sm font-medium text-primary-foreground shadow-glow">
+          إنشاء الحساب
+        </Link>
+
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          لديك حساب؟{" "}
+          <Link to="/login" className="font-medium text-primary">سجّل دخولك</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Field({ icon, label, placeholder, type = "text" }: { icon: string; label: string; placeholder: string; type?: string }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-xs font-medium">{label}</span>
+      <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft">
+        <span className="text-muted-foreground"><Icon d={icon} size={18} /></span>
+        <input type={type} placeholder={placeholder} className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60" />
+      </div>
+    </label>
+  );
+}
