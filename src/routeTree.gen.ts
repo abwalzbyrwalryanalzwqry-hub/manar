@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as QiblaRouteImport } from './routes/qibla'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
@@ -24,6 +25,11 @@ import { Route as TabsAzkarRouteImport } from './routes/_tabs.azkar'
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QiblaRoute = QiblaRouteImport.update({
+  id: '/qibla',
+  path: '/qibla',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
   '/azkar': typeof TabsAzkarRoute
   '/home': typeof TabsHomeRoute
@@ -93,6 +100,7 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
   '/azkar': typeof TabsAzkarRoute
   '/home': typeof TabsHomeRoute
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
   '/_tabs/azkar': typeof TabsAzkarRoute
   '/_tabs/home': typeof TabsHomeRoute
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/onboarding'
+    | '/qibla'
     | '/register'
     | '/azkar'
     | '/home'
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/onboarding'
+    | '/qibla'
     | '/register'
     | '/azkar'
     | '/home'
@@ -146,6 +157,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/onboarding'
+    | '/qibla'
     | '/register'
     | '/_tabs/azkar'
     | '/_tabs/home'
@@ -160,6 +172,7 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
+  QiblaRoute: typeof QiblaRoute
   RegisterRoute: typeof RegisterRoute
 }
 
@@ -170,6 +183,13 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/qibla': {
+      id: '/qibla'
+      path: '/qibla'
+      fullPath: '/qibla'
+      preLoaderRoute: typeof QiblaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -269,6 +289,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
+  QiblaRoute: QiblaRoute,
   RegisterRoute: RegisterRoute,
 }
 export const routeTree = rootRouteImport
