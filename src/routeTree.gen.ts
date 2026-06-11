@@ -17,6 +17,7 @@ import { Route as TabsRouteImport } from './routes/_tabs'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TabsQuranRouteImport } from './routes/_tabs.quran'
 import { Route as TabsPrayerRouteImport } from './routes/_tabs.prayer'
+import { Route as TabsMoreRouteImport } from './routes/_tabs.more'
 import { Route as TabsHomeRouteImport } from './routes/_tabs.home'
 import { Route as TabsAzkarRouteImport } from './routes/_tabs.azkar'
 
@@ -59,6 +60,11 @@ const TabsPrayerRoute = TabsPrayerRouteImport.update({
   path: '/prayer',
   getParentRoute: () => TabsRoute,
 } as any)
+const TabsMoreRoute = TabsMoreRouteImport.update({
+  id: '/more',
+  path: '/more',
+  getParentRoute: () => TabsRoute,
+} as any)
 const TabsHomeRoute = TabsHomeRouteImport.update({
   id: '/home',
   path: '/home',
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/azkar': typeof TabsAzkarRoute
   '/home': typeof TabsHomeRoute
+  '/more': typeof TabsMoreRoute
   '/prayer': typeof TabsPrayerRoute
   '/quran': typeof TabsQuranRoute
 }
@@ -89,6 +96,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/azkar': typeof TabsAzkarRoute
   '/home': typeof TabsHomeRoute
+  '/more': typeof TabsMoreRoute
   '/prayer': typeof TabsPrayerRoute
   '/quran': typeof TabsQuranRoute
 }
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/_tabs/azkar': typeof TabsAzkarRoute
   '/_tabs/home': typeof TabsHomeRoute
+  '/_tabs/more': typeof TabsMoreRoute
   '/_tabs/prayer': typeof TabsPrayerRoute
   '/_tabs/quran': typeof TabsQuranRoute
 }
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/azkar'
     | '/home'
+    | '/more'
     | '/prayer'
     | '/quran'
   fileRoutesByTo: FileRoutesByTo
@@ -126,6 +136,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/azkar'
     | '/home'
+    | '/more'
     | '/prayer'
     | '/quran'
   id:
@@ -138,6 +149,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/_tabs/azkar'
     | '/_tabs/home'
+    | '/_tabs/more'
     | '/_tabs/prayer'
     | '/_tabs/quran'
   fileRoutesById: FileRoutesById
@@ -209,6 +221,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TabsPrayerRouteImport
       parentRoute: typeof TabsRoute
     }
+    '/_tabs/more': {
+      id: '/_tabs/more'
+      path: '/more'
+      fullPath: '/more'
+      preLoaderRoute: typeof TabsMoreRouteImport
+      parentRoute: typeof TabsRoute
+    }
     '/_tabs/home': {
       id: '/_tabs/home'
       path: '/home'
@@ -229,6 +248,7 @@ declare module '@tanstack/react-router' {
 interface TabsRouteChildren {
   TabsAzkarRoute: typeof TabsAzkarRoute
   TabsHomeRoute: typeof TabsHomeRoute
+  TabsMoreRoute: typeof TabsMoreRoute
   TabsPrayerRoute: typeof TabsPrayerRoute
   TabsQuranRoute: typeof TabsQuranRoute
 }
@@ -236,6 +256,7 @@ interface TabsRouteChildren {
 const TabsRouteChildren: TabsRouteChildren = {
   TabsAzkarRoute: TabsAzkarRoute,
   TabsHomeRoute: TabsHomeRoute,
+  TabsMoreRoute: TabsMoreRoute,
   TabsPrayerRoute: TabsPrayerRoute,
   TabsQuranRoute: TabsQuranRoute,
 }
