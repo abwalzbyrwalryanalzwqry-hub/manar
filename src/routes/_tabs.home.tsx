@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Icon, icons, Screen, StatusBar, Mark } from "@/components/manar/shell";
+import { Arabesque, Icon, icons, Mark, RingProgress, Screen, SectionLabel, StatusBar } from "@/components/manar/shell";
 
 export const Route = createFileRoute("/_tabs/home")({
   head: () => ({ meta: [{ title: "الرئيسية — منار" }] }),
@@ -7,131 +7,167 @@ export const Route = createFileRoute("/_tabs/home")({
 });
 
 function Home() {
+  // Visual placeholder values
+  const progress = 0.74; // time elapsed between previous and next prayer
+
   return (
     <Screen>
       <StatusBar />
-      {/* Greeting */}
-      <div className="flex items-start justify-between px-5 pt-4">
-        <div>
-          <p className="text-xs text-muted-foreground">السلام عليكم</p>
-          <h1 className="font-display text-2xl font-medium">عبدالله</h1>
-        </div>
-        <div className="flex gap-2">
-          <button className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card shadow-soft">
-            <Icon d={icons.search} size={18} />
-          </button>
-          <button className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card shadow-soft">
-            <Icon d={icons.bell} size={18} />
-          </button>
-        </div>
-      </div>
 
-      {/* Hero: time + next prayer */}
-      <div className="px-5 pt-5">
-        <div className="gradient-hero relative overflow-hidden rounded-[28px] p-6 text-white shadow-elegant">
-          <div className="pattern-arabesque absolute inset-0 opacity-25" />
-          <div className="relative">
-            <div className="flex items-center justify-between">
-              <div className="rounded-full bg-white/15 px-3 py-1 text-[10px] tracking-widest backdrop-blur">القادمة</div>
-              <Mark size={26} tone="light" />
-            </div>
-            <div className="mt-6">
-              <div className="text-xs uppercase tracking-[0.3em] text-white/60">صلاة العصر</div>
-              <div className="font-display text-6xl font-black tabular-nums tracking-tight">١٥:٤٢</div>
-              <div className="mt-2 text-xs font-light text-white/80">باقي ٢ ساعة و ١٢ دقيقة</div>
-            </div>
-            <div className="mt-6 border-t border-white/15 pt-4">
-              <div className="flex justify-between text-[10px] uppercase tracking-widest text-white/60">
-                <span>التوقيت الحالي</span>
-                <span>الموقع</span>
+      {/* HERO — luxury composition: city + time + countdown ring */}
+      <div className="px-4 pt-3 animate-fade-up">
+        <div className="gradient-hero relative overflow-hidden rounded-[36px] p-6 text-white shadow-elegant">
+          <Arabesque className="absolute -right-10 -top-10 h-72 w-72 text-white/15 animate-spin-slow" />
+          <div className="grain-overlay absolute inset-0" />
+
+          {/* Top row */}
+          <div className="relative flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-1.5 text-[11px] text-white/70">
+                <Icon d={icons.location} size={12} /> الرياض · KSA
               </div>
-              <div className="mt-1 flex justify-between text-sm font-light">
-                <span className="tabular-nums">١٣:٣٠</span>
-                <span>الرياض · KSA</span>
+              <div className="mt-1 text-[10px] uppercase tracking-[0.3em] text-white/50">السلام عليكم</div>
+              <div className="font-display text-xl font-medium">عبدالله</div>
+            </div>
+            <div className="flex gap-2">
+              <IconBtn icon={icons.search} />
+              <IconBtn icon={icons.bell} dot />
+            </div>
+          </div>
+
+          {/* Time + ring */}
+          <div className="relative mt-6 flex items-center justify-between">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">التوقيت الآن</div>
+              <div className="font-display text-6xl font-black tabular-nums leading-none tracking-tight">١:٤٢</div>
+              <div className="mt-1 text-xs font-light text-white/70">ظهراً</div>
+            </div>
+
+            <RingProgress value={progress} size={130} stroke={5}>
+              <div className="text-center">
+                <div className="text-[9px] uppercase tracking-[0.25em] text-white/60">العصر</div>
+                <div className="font-display text-2xl font-bold tabular-nums leading-tight">٠٢:١٢</div>
+                <div className="text-[9px] text-white/60">المتبقي</div>
               </div>
+            </RingProgress>
+          </div>
+
+          {/* Date strip */}
+          <div className="relative mt-6 flex justify-between border-t border-white/15 pt-4">
+            <div>
+              <div className="text-[9px] uppercase tracking-[0.3em] text-white/50">هجري</div>
+              <div className="mt-0.5 text-sm font-medium">١٥ شعبان ١٤٤٧</div>
+            </div>
+            <div className="text-right">
+              <div className="text-[9px] uppercase tracking-[0.3em] text-white/50">ميلادي</div>
+              <div className="mt-0.5 text-sm font-medium">11 يونيو 2026</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Date pills */}
-      <div className="grid grid-cols-2 gap-3 px-5 pt-4">
-        <DatePill label="هجري" value="١٥ شعبان ١٤٤٧" />
-        <DatePill label="ميلادي" value="11 يونيو 2026" />
+      {/* NEXT PRAYER CARD — minimal */}
+      <div className="px-4 pt-3 animate-fade-up" style={{ animationDelay: "80ms" }}>
+        <div className="glass flex items-center gap-4 rounded-[24px] p-4">
+          <div className="gradient-gold flex h-12 w-12 items-center justify-center rounded-2xl text-navy shadow-gold">
+            <Icon d={icons.prayer} size={20} />
+          </div>
+          <div className="flex-1">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">الصلاة القادمة</div>
+            <div className="text-sm font-medium">العصر · ١٥:٤٢</div>
+          </div>
+          <div className="text-right">
+            <div className="font-display text-lg font-black tabular-nums">٠٢:١٢</div>
+            <div className="text-[10px] text-muted-foreground">س : د</div>
+          </div>
+        </div>
       </div>
 
-      {/* Quick actions */}
-      <SectionLabel>اختصارات سريعة</SectionLabel>
-      <div className="grid grid-cols-4 gap-3 px-5">
+      {/* QUICK ACTIONS */}
+      <SectionLabel hint="اختصارات">الوصول السريع</SectionLabel>
+      <div className="grid grid-cols-4 gap-3 px-4 stagger">
         {[
-          { l: "القرآن", i: icons.quran, to: "/quran" },
-          { l: "الأذكار", i: icons.azkar, to: "/azkar" },
-          { l: "القِبلة", i: icons.qibla, to: "/qibla" },
-          { l: "التقويم", i: icons.calendar, to: "/calendar" },
+          { l: "القرآن", i: icons.quran, to: "/quran" as const },
+          { l: "الأذكار", i: icons.azkar, to: "/azkar" as const },
+          { l: "القِبلة", i: icons.qibla, to: "/qibla" as const },
+          { l: "التقويم", i: icons.calendar, to: "/calendar" as const },
         ].map((q) => (
-          <Link key={q.l} to={q.to} className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-3 shadow-soft transition hover:shadow-elegant">
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary text-primary">
-              <Icon d={q.i} size={22} />
+          <Link
+            key={q.l}
+            to={q.to}
+            className="group flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-3 shadow-soft transition hover:-translate-y-0.5 hover:shadow-elegant"
+          >
+            <span className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-secondary text-primary">
+              <span className="absolute inset-0 opacity-0 transition group-hover:opacity-100 gradient-primary" />
+              <span className="relative transition group-hover:text-white">
+                <Icon d={q.i} size={20} />
+              </span>
             </span>
             <span className="text-[11px] text-muted-foreground">{q.l}</span>
           </Link>
         ))}
       </div>
 
-      {/* Daily Verse */}
+      {/* DAILY VERSE */}
       <SectionLabel hint="آية اليوم">القرآن الكريم</SectionLabel>
-      <div className="px-5">
-        <div className="glass relative overflow-hidden rounded-3xl p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-[0.3em] text-gold">سورة الكهف · ١٠</span>
-            <span className="text-xs text-muted-foreground">٤٥ ثانية قراءة</span>
+      <div className="px-4 animate-fade-up">
+        <div className="relative overflow-hidden rounded-3xl border border-border bg-card p-5 shadow-soft">
+          <div className="pointer-events-none absolute -left-12 -top-12 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
+          <div className="relative flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="gradient-gold inline-flex h-7 items-center rounded-full px-3 text-[10px] font-medium text-navy">سورة الكهف · ١٠</span>
+            </div>
+            <span className="text-[10px] text-muted-foreground">٤٥ ثانية</span>
           </div>
-          <p className="mt-4 text-right font-display text-lg leading-loose">
+          <p className="relative mt-5 text-right font-display text-xl leading-loose">
             ﴿ رَبَّنَا آتِنَا مِنْ لَدُنْكَ رَحْمَةً وَهَيِّئْ لَنَا مِنْ أَمْرِنَا رَشَدًا ﴾
           </p>
-          <div className="mt-4 flex gap-2">
-            <button className="flex-1 rounded-full bg-primary py-2 text-xs font-medium text-primary-foreground">استمع</button>
-            <button className="flex h-9 w-9 items-center justify-center rounded-full border border-border"><Icon d={icons.bookmark} size={16} /></button>
-            <button className="flex h-9 w-9 items-center justify-center rounded-full border border-border"><Icon d={icons.share} size={16} /></button>
+          <p className="relative mt-3 text-[11px] leading-relaxed text-muted-foreground">
+            ربنا أعطنا من عندك رحمة، ويسّر لنا أمرنا على الطريق الصواب.
+          </p>
+          <div className="relative mt-5 flex gap-2">
+            <button className="gradient-primary flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-xs font-medium text-primary-foreground shadow-glow">
+              <Icon d={icons.play} size={12} /> استمع
+            </button>
+            <button className="flex h-10 w-10 items-center justify-center rounded-full border border-border"><Icon d={icons.bookmark} size={14} /></button>
+            <button className="flex h-10 w-10 items-center justify-center rounded-full border border-border"><Icon d={icons.share} size={14} /></button>
           </div>
         </div>
       </div>
 
-      {/* Daily Hadith */}
+      {/* DAILY HADITH */}
       <SectionLabel hint="حديث اليوم">السنة النبوية</SectionLabel>
-      <div className="px-5">
-        <div className="rounded-3xl border border-border bg-card p-5 shadow-soft">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-gold">
-            <span className="h-1 w-6 bg-gold" /> صحيح البخاري
+      <div className="px-4 animate-fade-up">
+        <div className="gradient-night relative overflow-hidden rounded-3xl p-5 text-white shadow-elegant">
+          <Arabesque className="absolute -bottom-10 -right-10 h-44 w-44 text-gold/30" />
+          <div className="relative flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-gold">
+            <span className="h-1 w-6 bg-gold" /> صحيح البخاري · حديث ١
           </div>
-          <p className="mt-3 font-display text-base leading-loose">
+          <p className="relative mt-4 font-display text-lg leading-loose">
             «إنما الأعمال بالنيات، وإنما لكل امرئٍ ما نوى»
           </p>
-          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+          <p className="relative mt-3 text-[11px] text-white/70">
             رواه عمر بن الخطاب رضي الله عنه
           </p>
+          <div className="relative mt-5 flex items-center justify-between border-t border-white/10 pt-4">
+            <div className="flex items-center gap-2 text-[10px] text-white/60">
+              <Mark size={16} tone="light" /> منار · يومياً
+            </div>
+            <button className="flex items-center gap-1 text-[11px] text-gold">
+              اقرأ المزيد <span className="rotate-180"><Icon d={icons.chevron} size={12} /></span>
+            </button>
+          </div>
         </div>
       </div>
-
-      <div className="h-6" />
     </Screen>
   );
 }
 
-function DatePill({ label, value }: { label: string; value: string }) {
+function IconBtn({ icon, dot }: { icon: string; dot?: boolean }) {
   return (
-    <div className="rounded-2xl border border-border bg-card px-4 py-3 shadow-soft">
-      <div className="text-[10px] uppercase tracking-widest text-gold">{label}</div>
-      <div className="mt-1 text-sm font-medium">{value}</div>
-    </div>
-  );
-}
-
-function SectionLabel({ children, hint }: { children: React.ReactNode; hint?: React.ReactNode }) {
-  return (
-    <div className="mt-6 mb-3 flex items-center justify-between px-5">
-      <h2 className="text-sm font-medium">{children}</h2>
-      {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
-    </div>
+    <button className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-md">
+      <Icon d={icon} size={16} />
+      {dot && <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-gold" />}
+    </button>
   );
 }
