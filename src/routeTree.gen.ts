@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as TabsRouteImport } from './routes/_tabs'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TabsPrayerRouteImport } from './routes/_tabs.prayer'
 import { Route as TabsHomeRouteImport } from './routes/_tabs.home'
 
 const RegisterRoute = RegisterRouteImport.update({
@@ -46,6 +47,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TabsPrayerRoute = TabsPrayerRouteImport.update({
+  id: '/prayer',
+  path: '/prayer',
+  getParentRoute: () => TabsRoute,
+} as any)
 const TabsHomeRoute = TabsHomeRouteImport.update({
   id: '/home',
   path: '/home',
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/register': typeof RegisterRoute
   '/home': typeof TabsHomeRoute
+  '/prayer': typeof TabsPrayerRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/register': typeof RegisterRoute
   '/home': typeof TabsHomeRoute
+  '/prayer': typeof TabsPrayerRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/register': typeof RegisterRoute
   '/_tabs/home': typeof TabsHomeRoute
+  '/_tabs/prayer': typeof TabsPrayerRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/register'
     | '/home'
+    | '/prayer'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/register'
     | '/home'
+    | '/prayer'
   id:
     | '__root__'
     | '/'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/register'
     | '/_tabs/home'
+    | '/_tabs/prayer'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -159,6 +171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_tabs/prayer': {
+      id: '/_tabs/prayer'
+      path: '/prayer'
+      fullPath: '/prayer'
+      preLoaderRoute: typeof TabsPrayerRouteImport
+      parentRoute: typeof TabsRoute
+    }
     '/_tabs/home': {
       id: '/_tabs/home'
       path: '/home'
@@ -171,10 +190,12 @@ declare module '@tanstack/react-router' {
 
 interface TabsRouteChildren {
   TabsHomeRoute: typeof TabsHomeRoute
+  TabsPrayerRoute: typeof TabsPrayerRoute
 }
 
 const TabsRouteChildren: TabsRouteChildren = {
   TabsHomeRoute: TabsHomeRoute,
+  TabsPrayerRoute: TabsPrayerRoute,
 }
 
 const TabsRouteWithChildren = TabsRoute._addFileChildren(TabsRouteChildren)
