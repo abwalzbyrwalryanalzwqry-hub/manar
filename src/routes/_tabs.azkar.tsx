@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
+import { useState } from "react";
+import { Arabesque, Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
 
 export const Route = createFileRoute("/_tabs/azkar")({
   head: () => ({ meta: [{ title: "الأذكار — منار" }] }),
@@ -7,56 +8,78 @@ export const Route = createFileRoute("/_tabs/azkar")({
 });
 
 const CATS = [
-  { ar: "أذكار الصباح", en: "Morning", count: 28, tone: "gradient-primary" },
-  { ar: "أذكار المساء", en: "Evening", count: 28, tone: "gradient-night" },
-  { ar: "أذكار النوم", en: "Sleep", count: 16, tone: "bg-navy" },
-  { ar: "أذكار الاستيقاظ", en: "Waking", count: 8, tone: "gradient-gold" },
-  { ar: "أذكار بعد الصلاة", en: "After Prayer", count: 12, tone: "gradient-primary" },
-  { ar: "أذكار متنوعة", en: "Various", count: 40, tone: "bg-navy" },
+  { ar: "أذكار الصباح", en: "Morning", count: 28, icon: icons.sun, accent: "from-amber-300/30 to-orange-400/20" },
+  { ar: "أذكار المساء", en: "Evening", count: 28, icon: icons.moon, accent: "from-indigo-400/30 to-violet-500/20" },
+  { ar: "أذكار النوم", en: "Sleep", count: 16, icon: icons.bed, accent: "from-blue-400/30 to-slate-500/20" },
+  { ar: "أذكار بعد الصلاة", en: "Prayer", count: 12, icon: icons.prayer, accent: "from-emerald-400/30 to-teal-500/20" },
+  { ar: "أذكار السفر", en: "Travel", count: 9, icon: icons.plane, accent: "from-sky-400/30 to-cyan-500/20" },
+  { ar: "أذكار متنوعة", en: "Various", count: 40, icon: icons.sparkle, accent: "from-rose-300/30 to-pink-500/20" },
 ];
 
 function Azkar() {
+  const [count, setCount] = useState(33);
   return (
     <Screen>
       <ScreenHeader title="الأذكار" subtitle="حصن المسلم اليومي" />
 
-      {/* Counter card */}
-      <div className="px-5">
-        <div className="glass relative overflow-hidden rounded-[28px] p-6 text-center">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-gold">عداد التسبيح</div>
-          <div className="mt-3 font-display text-7xl font-black text-primary tabular-nums">٣٣</div>
-          <div className="mt-1 text-xs text-muted-foreground">سبحان الله</div>
-          <div className="mt-5 flex justify-center gap-2">
-            <button className="rounded-full border border-border bg-card px-4 py-2 text-xs">إعادة</button>
-            <button className="gradient-primary rounded-full px-6 py-2 text-xs font-medium text-primary-foreground shadow-glow">+ ذكر</button>
+      {/* Premium tasbih counter */}
+      <div className="px-4 animate-fade-up">
+        <div className="gradient-night relative overflow-hidden rounded-[32px] p-6 text-center text-white shadow-elegant">
+          <Arabesque className="absolute -right-10 -top-10 h-72 w-72 text-gold/25 animate-spin-slow" />
+          <div className="grain-overlay absolute inset-0" />
+          <div className="relative">
+            <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">عداد التسبيح</div>
+            <button
+              onClick={() => setCount((c) => c + 1)}
+              className="mx-auto mt-4 flex h-44 w-44 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/15 transition active:scale-95"
+            >
+              <div className="gradient-gold absolute h-44 w-44 rounded-full opacity-20 blur-2xl animate-breath" />
+              <div className="text-gradient-gold relative font-display text-7xl font-black tabular-nums">
+                {String(count).padStart(2, "٠")}
+              </div>
+            </button>
+            <div className="mt-4 font-display text-base font-light text-white/90">سبحان الله وبحمده</div>
+            <div className="text-[10px] text-white/50">٣٣ × ٣ مرة لكل صلاة</div>
+            <div className="mt-5 flex justify-center gap-2">
+              <button onClick={() => setCount(0)} className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[11px] backdrop-blur">
+                إعادة
+              </button>
+              <button onClick={() => setCount((c) => c + 1)} className="gradient-gold rounded-full px-6 py-2 text-[11px] font-medium text-navy shadow-gold">
+                + سبّح
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <SectionLabel>الفئات</SectionLabel>
-      <div className="grid grid-cols-2 gap-3 px-5">
+      <SectionLabel hint={`${CATS.length} فئات`}>الفئات</SectionLabel>
+      <div className="grid grid-cols-2 gap-3 px-4 stagger">
         {CATS.map((c) => (
-          <button key={c.en} className={`${c.tone} relative overflow-hidden rounded-3xl p-5 text-right text-white shadow-elegant`}>
-            <div className="pattern-arabesque absolute inset-0 opacity-20" />
-            <div className="relative">
-              <Icon d={icons.azkar} size={26} />
-              <div className="mt-4 font-display text-lg font-medium">{c.ar}</div>
-              <div className="mt-1 text-[10px] uppercase tracking-widest text-white/70">{c.en}</div>
-              <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] backdrop-blur">
-                {c.count} ذكر
-              </div>
+          <button key={c.en} className="group relative overflow-hidden rounded-3xl border border-border bg-card p-4 text-right shadow-soft transition hover:-translate-y-0.5 hover:shadow-elegant">
+            <div className={`pointer-events-none absolute -left-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br ${c.accent} blur-xl`} />
+            <div className="relative flex items-start justify-between">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary text-primary">
+                <Icon d={c.icon} size={20} />
+              </span>
+              <span className="rounded-full border border-border bg-background/50 px-2 py-0.5 text-[10px] text-muted-foreground">{c.count}</span>
             </div>
+            <div className="relative mt-5 font-display text-base font-medium">{c.ar}</div>
+            <div className="relative mt-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">{c.en}</div>
           </button>
         ))}
       </div>
 
       <SectionLabel>ذكر اليوم</SectionLabel>
-      <div className="px-5">
-        <div className="rounded-3xl border border-border bg-card p-5 shadow-soft">
-          <p className="text-right font-display text-base leading-loose">
+      <div className="px-4">
+        <div className="glass relative overflow-hidden rounded-3xl p-5">
+          <p className="text-right font-display text-lg leading-loose">
             «سبحان الله وبحمده، سبحان الله العظيم»
           </p>
-          <p className="mt-3 text-xs text-muted-foreground">كلمتان خفيفتان على اللسان، ثقيلتان في الميزان.</p>
+          <p className="mt-3 text-[11px] text-muted-foreground">كلمتان خفيفتان على اللسان، ثقيلتان في الميزان، حبيبتان إلى الرحمن.</p>
+          <div className="mt-4 flex items-center justify-between text-[10px] text-muted-foreground">
+            <span>صحيح البخاري · ٦٤٠٦</span>
+            <span className="flex items-center gap-1"><Icon d={icons.heart} size={12} /> ١.٢ك</span>
+          </div>
         </div>
       </div>
     </Screen>
