@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as StatisticsRouteImport } from './routes/statistics'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as QiblaRouteImport } from './routes/qibla'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
@@ -23,6 +24,11 @@ import { Route as TabsMoreRouteImport } from './routes/_tabs.more'
 import { Route as TabsHomeRouteImport } from './routes/_tabs.home'
 import { Route as TabsAzkarRouteImport } from './routes/_tabs.azkar'
 
+const StatisticsRoute = StatisticsRouteImport.update({
+  id: '/statistics',
+  path: '/statistics',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
+  '/statistics': typeof StatisticsRoute
   '/azkar': typeof TabsAzkarRoute
   '/home': typeof TabsHomeRoute
   '/more': typeof TabsMoreRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
+  '/statistics': typeof StatisticsRoute
   '/azkar': typeof TabsAzkarRoute
   '/home': typeof TabsHomeRoute
   '/more': typeof TabsMoreRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
+  '/statistics': typeof StatisticsRoute
   '/_tabs/azkar': typeof TabsAzkarRoute
   '/_tabs/home': typeof TabsHomeRoute
   '/_tabs/more': typeof TabsMoreRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/qibla'
     | '/register'
+    | '/statistics'
     | '/azkar'
     | '/home'
     | '/more'
@@ -156,6 +166,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/qibla'
     | '/register'
+    | '/statistics'
     | '/azkar'
     | '/home'
     | '/more'
@@ -171,6 +182,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/qibla'
     | '/register'
+    | '/statistics'
     | '/_tabs/azkar'
     | '/_tabs/home'
     | '/_tabs/more'
@@ -187,10 +199,18 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   QiblaRoute: typeof QiblaRoute
   RegisterRoute: typeof RegisterRoute
+  StatisticsRoute: typeof StatisticsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/statistics': {
+      id: '/statistics'
+      path: '/statistics'
+      fullPath: '/statistics'
+      preLoaderRoute: typeof StatisticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register': {
       id: '/register'
       path: '/register'
@@ -312,6 +332,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   QiblaRoute: QiblaRoute,
   RegisterRoute: RegisterRoute,
+  StatisticsRoute: StatisticsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
