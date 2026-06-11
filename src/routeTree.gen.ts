@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StatisticsRouteImport } from './routes/statistics'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as QiblaRouteImport } from './routes/qibla'
 import { Route as ProfileRouteImport } from './routes/profile'
@@ -28,6 +29,11 @@ import { Route as TabsAzkarRouteImport } from './routes/_tabs.azkar'
 const StatisticsRoute = StatisticsRouteImport.update({
   id: '/statistics',
   path: '/statistics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterRoute = RegisterRouteImport.update({
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
+  '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
   '/azkar': typeof TabsAzkarRoute
   '/home': typeof TabsHomeRoute
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
+  '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
   '/azkar': typeof TabsAzkarRoute
   '/home': typeof TabsHomeRoute
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
+  '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
   '/_tabs/azkar': typeof TabsAzkarRoute
   '/_tabs/home': typeof TabsHomeRoute
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/qibla'
     | '/register'
+    | '/settings'
     | '/statistics'
     | '/azkar'
     | '/home'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/qibla'
     | '/register'
+    | '/settings'
     | '/statistics'
     | '/azkar'
     | '/home'
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/qibla'
     | '/register'
+    | '/settings'
     | '/statistics'
     | '/_tabs/azkar'
     | '/_tabs/home'
@@ -212,6 +224,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   QiblaRoute: typeof QiblaRoute
   RegisterRoute: typeof RegisterRoute
+  SettingsRoute: typeof SettingsRoute
   StatisticsRoute: typeof StatisticsRoute
 }
 
@@ -222,6 +235,13 @@ declare module '@tanstack/react-router' {
       path: '/statistics'
       fullPath: '/statistics'
       preLoaderRoute: typeof StatisticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register': {
@@ -353,6 +373,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   QiblaRoute: QiblaRoute,
   RegisterRoute: RegisterRoute,
+  SettingsRoute: SettingsRoute,
   StatisticsRoute: StatisticsRoute,
 }
 export const routeTree = rootRouteImport
