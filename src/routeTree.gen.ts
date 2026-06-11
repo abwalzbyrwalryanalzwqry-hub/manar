@@ -9,38 +9,317 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as StatisticsRouteImport } from './routes/statistics'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as QiblaRouteImport } from './routes/qibla'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as TabsRouteImport } from './routes/_tabs'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TabsQuranRouteImport } from './routes/_tabs.quran'
+import { Route as TabsPrayerRouteImport } from './routes/_tabs.prayer'
+import { Route as TabsMoreRouteImport } from './routes/_tabs.more'
+import { Route as TabsHomeRouteImport } from './routes/_tabs.home'
+import { Route as TabsAzkarRouteImport } from './routes/_tabs.azkar'
 
+const StatisticsRoute = StatisticsRouteImport.update({
+  id: '/statistics',
+  path: '/statistics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QiblaRoute = QiblaRouteImport.update({
+  id: '/qibla',
+  path: '/qibla',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TabsRoute = TabsRouteImport.update({
+  id: '/_tabs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TabsQuranRoute = TabsQuranRouteImport.update({
+  id: '/quran',
+  path: '/quran',
+  getParentRoute: () => TabsRoute,
+} as any)
+const TabsPrayerRoute = TabsPrayerRouteImport.update({
+  id: '/prayer',
+  path: '/prayer',
+  getParentRoute: () => TabsRoute,
+} as any)
+const TabsMoreRoute = TabsMoreRouteImport.update({
+  id: '/more',
+  path: '/more',
+  getParentRoute: () => TabsRoute,
+} as any)
+const TabsHomeRoute = TabsHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => TabsRoute,
+} as any)
+const TabsAzkarRoute = TabsAzkarRouteImport.update({
+  id: '/azkar',
+  path: '/azkar',
+  getParentRoute: () => TabsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/calendar': typeof CalendarRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
+  '/profile': typeof ProfileRoute
+  '/qibla': typeof QiblaRoute
+  '/register': typeof RegisterRoute
+  '/settings': typeof SettingsRoute
+  '/statistics': typeof StatisticsRoute
+  '/azkar': typeof TabsAzkarRoute
+  '/home': typeof TabsHomeRoute
+  '/more': typeof TabsMoreRoute
+  '/prayer': typeof TabsPrayerRoute
+  '/quran': typeof TabsQuranRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/calendar': typeof CalendarRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
+  '/profile': typeof ProfileRoute
+  '/qibla': typeof QiblaRoute
+  '/register': typeof RegisterRoute
+  '/settings': typeof SettingsRoute
+  '/statistics': typeof StatisticsRoute
+  '/azkar': typeof TabsAzkarRoute
+  '/home': typeof TabsHomeRoute
+  '/more': typeof TabsMoreRoute
+  '/prayer': typeof TabsPrayerRoute
+  '/quran': typeof TabsQuranRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_tabs': typeof TabsRouteWithChildren
+  '/about': typeof AboutRoute
+  '/calendar': typeof CalendarRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
+  '/profile': typeof ProfileRoute
+  '/qibla': typeof QiblaRoute
+  '/register': typeof RegisterRoute
+  '/settings': typeof SettingsRoute
+  '/statistics': typeof StatisticsRoute
+  '/_tabs/azkar': typeof TabsAzkarRoute
+  '/_tabs/home': typeof TabsHomeRoute
+  '/_tabs/more': typeof TabsMoreRoute
+  '/_tabs/prayer': typeof TabsPrayerRoute
+  '/_tabs/quran': typeof TabsQuranRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/calendar'
+    | '/forgot-password'
+    | '/login'
+    | '/onboarding'
+    | '/profile'
+    | '/qibla'
+    | '/register'
+    | '/settings'
+    | '/statistics'
+    | '/azkar'
+    | '/home'
+    | '/more'
+    | '/prayer'
+    | '/quran'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/about'
+    | '/calendar'
+    | '/forgot-password'
+    | '/login'
+    | '/onboarding'
+    | '/profile'
+    | '/qibla'
+    | '/register'
+    | '/settings'
+    | '/statistics'
+    | '/azkar'
+    | '/home'
+    | '/more'
+    | '/prayer'
+    | '/quran'
+  id:
+    | '__root__'
+    | '/'
+    | '/_tabs'
+    | '/about'
+    | '/calendar'
+    | '/forgot-password'
+    | '/login'
+    | '/onboarding'
+    | '/profile'
+    | '/qibla'
+    | '/register'
+    | '/settings'
+    | '/statistics'
+    | '/_tabs/azkar'
+    | '/_tabs/home'
+    | '/_tabs/more'
+    | '/_tabs/prayer'
+    | '/_tabs/quran'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  TabsRoute: typeof TabsRouteWithChildren
+  AboutRoute: typeof AboutRoute
+  CalendarRoute: typeof CalendarRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
+  LoginRoute: typeof LoginRoute
+  OnboardingRoute: typeof OnboardingRoute
+  ProfileRoute: typeof ProfileRoute
+  QiblaRoute: typeof QiblaRoute
+  RegisterRoute: typeof RegisterRoute
+  SettingsRoute: typeof SettingsRoute
+  StatisticsRoute: typeof StatisticsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/statistics': {
+      id: '/statistics'
+      path: '/statistics'
+      fullPath: '/statistics'
+      preLoaderRoute: typeof StatisticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/qibla': {
+      id: '/qibla'
+      path: '/qibla'
+      fullPath: '/qibla'
+      preLoaderRoute: typeof QiblaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_tabs': {
+      id: '/_tabs'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof TabsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +327,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_tabs/quran': {
+      id: '/_tabs/quran'
+      path: '/quran'
+      fullPath: '/quran'
+      preLoaderRoute: typeof TabsQuranRouteImport
+      parentRoute: typeof TabsRoute
+    }
+    '/_tabs/prayer': {
+      id: '/_tabs/prayer'
+      path: '/prayer'
+      fullPath: '/prayer'
+      preLoaderRoute: typeof TabsPrayerRouteImport
+      parentRoute: typeof TabsRoute
+    }
+    '/_tabs/more': {
+      id: '/_tabs/more'
+      path: '/more'
+      fullPath: '/more'
+      preLoaderRoute: typeof TabsMoreRouteImport
+      parentRoute: typeof TabsRoute
+    }
+    '/_tabs/home': {
+      id: '/_tabs/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof TabsHomeRouteImport
+      parentRoute: typeof TabsRoute
+    }
+    '/_tabs/azkar': {
+      id: '/_tabs/azkar'
+      path: '/azkar'
+      fullPath: '/azkar'
+      preLoaderRoute: typeof TabsAzkarRouteImport
+      parentRoute: typeof TabsRoute
+    }
   }
 }
 
+interface TabsRouteChildren {
+  TabsAzkarRoute: typeof TabsAzkarRoute
+  TabsHomeRoute: typeof TabsHomeRoute
+  TabsMoreRoute: typeof TabsMoreRoute
+  TabsPrayerRoute: typeof TabsPrayerRoute
+  TabsQuranRoute: typeof TabsQuranRoute
+}
+
+const TabsRouteChildren: TabsRouteChildren = {
+  TabsAzkarRoute: TabsAzkarRoute,
+  TabsHomeRoute: TabsHomeRoute,
+  TabsMoreRoute: TabsMoreRoute,
+  TabsPrayerRoute: TabsPrayerRoute,
+  TabsQuranRoute: TabsQuranRoute,
+}
+
+const TabsRouteWithChildren = TabsRoute._addFileChildren(TabsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  TabsRoute: TabsRouteWithChildren,
+  AboutRoute: AboutRoute,
+  CalendarRoute: CalendarRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
+  LoginRoute: LoginRoute,
+  OnboardingRoute: OnboardingRoute,
+  ProfileRoute: ProfileRoute,
+  QiblaRoute: QiblaRoute,
+  RegisterRoute: RegisterRoute,
+  SettingsRoute: SettingsRoute,
+  StatisticsRoute: StatisticsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
