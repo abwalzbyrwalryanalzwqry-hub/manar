@@ -1,5 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Arabesque, Icon, icons, Mark, RingProgress, Screen, SectionLabel, StatusBar } from "@/components/manar/shell";
+import { LocationSheet } from "@/components/manar/location-sheet";
+import { PRAYER_LABELS, usePrayerSchedule } from "@/lib/prayer";
+import { ampmAr, formatCountdown, formatGregorianAr, formatHHMM, formatHijriAr, formatWeekdayAr, toArabicDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/_tabs/home")({
   head: () => ({ meta: [{ title: "الرئيسية — منار" }] }),
@@ -7,14 +11,32 @@ export const Route = createFileRoute("/_tabs/home")({
 });
 
 function Home() {
-  // Visual placeholder values
-  const progress = 0.74; // time elapsed between previous and next prayer
+  const [sheet, setSheet] = useState(false);
+  const [askedOnce, setAskedOnce] = useState(false);
+  const {
+    now, location, setLocation, requestGps, locStatus, locError,
+    next, remainingMs, progress,
+  } = usePrayerSchedule();
+
+  // Auto-prompt for location once on first launch
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const flag = window.localStorage.getItem("manar.askedLocation");
+    if (!flag && location.source === "default" && !askedOnce) {
+      setAskedOnce(true);
+      window.localStorage.setItem("manar.askedLocation", "1");
+      setSheet(true);
+    }
+  }, [location.source, askedOnce]);
+
+  const countdown = formatCountdown(remainingMs);
+  const nextLabel = PRAYER_LABELS[next.key].ar;
 
   return (
     <Screen>
       <StatusBar />
 
-      {/* HERO — luxury composition: city + time + countdown ring */}
+      {/* HERO */}
       <div className="px-4 pt-3 animate-fade-up">
         <div className="gradient-hero relative overflow-hidden rounded-[36px] p-6 text-white shadow-elegant">
           <Arabesque className="absolute -right-10 -top-10 h-72 w-72 text-white/15 animate-spin-slow" />
@@ -22,31 +44,42 @@ function Home() {
 
           {/* Top row */}
           <div className="relative flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-1.5 text-[11px] text-white/70">
-                <Icon d={icons.location} size={12} /> الرياض · KSA
-              </div>
-              <div className="mt-1 text-[10px] uppercase tracking-[0.3em] text-white/50">السلام عليكم</div>
-              <div className="font-display text-xl font-medium">عبدالله</div>
-            </div>
+            <button
+              onClick={() => setSheet(true)}
+              className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] text-white/90 backdrop-blur-md"
+            >
+              <Icon d={icons.location} size={12} />
+              {location.city}
+              {location.country && <span className="text-white/60">· {location.country}</span>}
+            </button>
             <div className="flex gap-2">
               <IconBtn icon={icons.search} />
               <IconBtn icon={icons.bell} dot />
             </div>
           </div>
 
+          {/* Greeting */}
+          <div className="relative mt-5">
+            <div className="text-[10px] uppercase tracking-[0.3em] text-white/50">{formatWeekdayAr(now)}</div>
+            <div className="font-display text-xl font-medium text-white/90">السلام عليكم</div>
+          </div>
+
           {/* Time + ring */}
-          <div className="relative mt-6 flex items-center justify-between">
+          <div className="relative mt-5 flex items-center justify-between">
             <div>
               <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">التوقيت الآن</div>
-              <div className="font-display text-6xl font-black tabular-nums leading-none tracking-tight">١:٤٢</div>
-              <div className="mt-1 text-xs font-light text-white/70">ظهراً</div>
+              <div className="font-display text-6xl font-black tabular-nums leading-none tracking-tight">
+                {formatHHMM(now)}
+              </div>
+              <div className="mt-1 text-xs font-light text-white/70">{ampmAr(now)}</div>
             </div>
 
-            <RingProgress value={progress} size={130} stroke={5}>
+            <RingProgress value={progress} size={132} stroke={5}>
               <div className="text-center">
-                <div className="text-[9px] uppercase tracking-[0.25em] text-white/60">العصر</div>
-                <div className="font-display text-2xl font-bold tabular-nums leading-tight">٠٢:١٢</div>
+                <div className="text-[9px] uppercase tracking-[0.25em] text-white/60">{nextLabel}</div>
+                <div className="font-display text-xl font-bold tabular-nums leading-tight">
+                  {countdown.h}:{countdown.m}
+                </div>
                 <div className="text-[9px] text-white/60">المتبقي</div>
               </div>
             </RingProgress>
@@ -56,17 +89,17 @@ function Home() {
           <div className="relative mt-6 flex justify-between border-t border-white/15 pt-4">
             <div>
               <div className="text-[9px] uppercase tracking-[0.3em] text-white/50">هجري</div>
-              <div className="mt-0.5 text-sm font-medium">١٥ شعبان ١٤٤٧</div>
+              <div className="mt-0.5 text-sm font-medium">{formatHijriAr(now)}</div>
             </div>
             <div className="text-right">
               <div className="text-[9px] uppercase tracking-[0.3em] text-white/50">ميلادي</div>
-              <div className="mt-0.5 text-sm font-medium">11 يونيو 2026</div>
+              <div className="mt-0.5 text-sm font-medium">{formatGregorianAr(now)}</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* NEXT PRAYER CARD — minimal */}
+      {/* NEXT PRAYER CARD — live */}
       <div className="px-4 pt-3 animate-fade-up" style={{ animationDelay: "80ms" }}>
         <div className="glass flex items-center gap-4 rounded-[24px] p-4">
           <div className="gradient-gold flex h-12 w-12 items-center justify-center rounded-2xl text-navy shadow-gold">
@@ -74,10 +107,12 @@ function Home() {
           </div>
           <div className="flex-1">
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground">الصلاة القادمة</div>
-            <div className="text-sm font-medium">العصر · ١٥:٤٢</div>
+            <div className="text-sm font-medium">
+              {nextLabel} · {toArabicDigits(formatHHMM(next.at))}
+            </div>
           </div>
           <div className="text-right">
-            <div className="font-display text-lg font-black tabular-nums">٠٢:١٢</div>
+            <div className="font-display text-lg font-black tabular-nums">{countdown.h}:{countdown.m}</div>
             <div className="text-[10px] text-muted-foreground">س : د</div>
           </div>
         </div>
@@ -114,9 +149,7 @@ function Home() {
         <div className="relative overflow-hidden rounded-3xl border border-border bg-card p-5 shadow-soft">
           <div className="pointer-events-none absolute -left-12 -top-12 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
           <div className="relative flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="gradient-gold inline-flex h-7 items-center rounded-full px-3 text-[10px] font-medium text-navy">سورة الكهف · ١٠</span>
-            </div>
+            <span className="gradient-gold inline-flex h-7 items-center rounded-full px-3 text-[10px] font-medium text-navy">سورة الكهف · ١٠</span>
             <span className="text-[10px] text-muted-foreground">٤٥ ثانية</span>
           </div>
           <p className="relative mt-5 text-right font-display text-xl leading-loose">
@@ -146,9 +179,7 @@ function Home() {
           <p className="relative mt-4 font-display text-lg leading-loose">
             «إنما الأعمال بالنيات، وإنما لكل امرئٍ ما نوى»
           </p>
-          <p className="relative mt-3 text-[11px] text-white/70">
-            رواه عمر بن الخطاب رضي الله عنه
-          </p>
+          <p className="relative mt-3 text-[11px] text-white/70">رواه عمر بن الخطاب رضي الله عنه</p>
           <div className="relative mt-5 flex items-center justify-between border-t border-white/10 pt-4">
             <div className="flex items-center gap-2 text-[10px] text-white/60">
               <Mark size={16} tone="light" /> منار · يومياً
@@ -159,6 +190,15 @@ function Home() {
           </div>
         </div>
       </div>
+
+      <LocationSheet
+        open={sheet}
+        onClose={() => setSheet(false)}
+        onPick={setLocation}
+        onUseGps={requestGps}
+        status={locStatus}
+        error={locError}
+      />
     </Screen>
   );
 }
