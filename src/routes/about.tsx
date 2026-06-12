@@ -55,7 +55,7 @@ function About() {
       <div className="mt-8 px-5 pb-4 text-center">
         <div className="font-display text-lg text-gold">﷽</div>
         <p className="mt-2 text-[11px] text-muted-foreground">
-          صُنع بحب في الرياض · © Manar 2026
+          صُنع بحب في اليمن · Adamin Idris Zoqri · © Manar 2026
         </p>
       </div>
     </Screen>
