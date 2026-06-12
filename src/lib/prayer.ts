@@ -219,10 +219,9 @@ export function usePrayerSchedule() {
   const { current, next } = useMemo(() => {
     const t = pickNextPrayer(today, now);
     if (!t.next) {
-      // After Isha → next prayer is tomorrow's Fajr
       return { current: t.current, next: { key: "fajr" as PrayerKey, at: tomorrow.fajr } };
     }
-    return t;
+    return { current: t.current, next: t.next };
   }, [today, tomorrow, now]);
 
   const remainingMs = Math.max(0, next.at.getTime() - now.getTime());
