@@ -15,9 +15,12 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as QiblaRouteImport } from './routes/qibla'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as IqamaRouteImport } from './routes/iqama'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as AdhanRouteImport } from './routes/adhan'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as TabsRouteImport } from './routes/_tabs'
 import { Route as IndexRouteImport } from './routes/index'
@@ -57,9 +60,19 @@ const OnboardingRoute = OnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IqamaRoute = IqamaRouteImport.update({
+  id: '/iqama',
+  path: '/iqama',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -70,6 +83,11 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
 const CalendarRoute = CalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdhanRoute = AdhanRouteImport.update({
+  id: '/adhan',
+  path: '/adhan',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -115,9 +133,12 @@ const TabsAzkarRoute = TabsAzkarRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/adhan': typeof AdhanRoute
   '/calendar': typeof CalendarRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/iqama': typeof IqamaRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
@@ -133,9 +154,12 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/adhan': typeof AdhanRoute
   '/calendar': typeof CalendarRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/iqama': typeof IqamaRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
@@ -153,9 +177,12 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_tabs': typeof TabsRouteWithChildren
   '/about': typeof AboutRoute
+  '/adhan': typeof AdhanRoute
   '/calendar': typeof CalendarRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/iqama': typeof IqamaRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
@@ -173,9 +200,12 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/adhan'
     | '/calendar'
     | '/forgot-password'
+    | '/iqama'
     | '/login'
+    | '/notifications'
     | '/onboarding'
     | '/profile'
     | '/qibla'
@@ -191,9 +221,12 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/adhan'
     | '/calendar'
     | '/forgot-password'
+    | '/iqama'
     | '/login'
+    | '/notifications'
     | '/onboarding'
     | '/profile'
     | '/qibla'
@@ -210,9 +243,12 @@ export interface FileRouteTypes {
     | '/'
     | '/_tabs'
     | '/about'
+    | '/adhan'
     | '/calendar'
     | '/forgot-password'
+    | '/iqama'
     | '/login'
+    | '/notifications'
     | '/onboarding'
     | '/profile'
     | '/qibla'
@@ -230,9 +266,12 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   TabsRoute: typeof TabsRouteWithChildren
   AboutRoute: typeof AboutRoute
+  AdhanRoute: typeof AdhanRoute
   CalendarRoute: typeof CalendarRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  IqamaRoute: typeof IqamaRoute
   LoginRoute: typeof LoginRoute
+  NotificationsRoute: typeof NotificationsRoute
   OnboardingRoute: typeof OnboardingRoute
   ProfileRoute: typeof ProfileRoute
   QiblaRoute: typeof QiblaRoute
@@ -285,11 +324,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/iqama': {
+      id: '/iqama'
+      path: '/iqama'
+      fullPath: '/iqama'
+      preLoaderRoute: typeof IqamaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -304,6 +357,13 @@ declare module '@tanstack/react-router' {
       path: '/calendar'
       fullPath: '/calendar'
       preLoaderRoute: typeof CalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adhan': {
+      id: '/adhan'
+      path: '/adhan'
+      fullPath: '/adhan'
+      preLoaderRoute: typeof AdhanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -387,9 +447,12 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   TabsRoute: TabsRouteWithChildren,
   AboutRoute: AboutRoute,
+  AdhanRoute: AdhanRoute,
   CalendarRoute: CalendarRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  IqamaRoute: IqamaRoute,
   LoginRoute: LoginRoute,
+  NotificationsRoute: NotificationsRoute,
   OnboardingRoute: OnboardingRoute,
   ProfileRoute: ProfileRoute,
   QiblaRoute: QiblaRoute,
