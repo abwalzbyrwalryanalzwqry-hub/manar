@@ -43,8 +43,8 @@ export function AdhanProvider() {
     let wake: WakeLockSentinel | null = null;
     const askWake = async () => {
       try {
-        // @ts-expect-error - wakeLock is not in all TS libs
-        wake = await navigator.wakeLock?.request?.("screen");
+        const nav = navigator as Navigator & { wakeLock?: { request: (t: string) => Promise<WakeLockSentinel> } };
+        if (nav.wakeLock?.request) wake = await nav.wakeLock.request("screen");
       } catch { /* ignore */ }
     };
     void askWake();
