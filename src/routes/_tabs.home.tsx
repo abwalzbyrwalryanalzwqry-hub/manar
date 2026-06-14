@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Arabesque, Icon, icons, Mark, prayerIcon, RingProgress, Screen, SectionLabel, StatusBar } from "@/components/manar/shell";
 import { LocationSheet } from "@/components/manar/location-sheet";
 import { PRAYER_LABELS, usePrayerSchedule } from "@/lib/prayer";
-import { ampmAr, formatCountdown, formatGregorianAr, formatHHMM, formatHijriAr, formatWeekdayAr, toArabicDigits } from "@/lib/format";
+import { ampmAr, formatCountdown, formatGregorianAr, formatHHMM, formatHijriAr, formatWeekdayAr } from "@/lib/format";
 
 export const Route = createFileRoute("/_tabs/home")({
   head: () => ({ meta: [{ title: "الرئيسية — منار" }] }),
