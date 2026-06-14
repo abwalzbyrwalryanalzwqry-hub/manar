@@ -15,6 +15,13 @@ const ADJUSTABLE: PrayerKey[] = PRAYER_ORDER.filter((p) => p !== "sunrise");
 
 function IqamaSettings() {
   const { settings, update, updateDeep } = useAdhanSettings();
+  const [playing, setPlaying] = useState<IqamaVariant | null>(null);
+
+  const previewIqama = (v: IqamaVariant) => {
+    if (playing === v) { stopAdhan(); setPlaying(null); return; }
+    setPlaying(v);
+    playIqama(v, { volume: settings.volume, onEnd: () => setPlaying(null) });
+  };
 
   const setOffset = (p: PrayerKey, v: number) =>
     updateDeep((s) => ({ ...s, iqamaOffsets: { ...s.iqamaOffsets, [p]: Math.max(0, Math.min(60, v)) } }));
