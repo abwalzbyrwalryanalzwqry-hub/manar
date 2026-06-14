@@ -1,5 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import type { PrayerKey } from "@/lib/prayer";
+
+
 
 /* ---------- Iconography ---------- */
 export const Icon = ({ d, size = 22, strokeWidth = 1.6 }: { d: string; size?: number; strokeWidth?: number }) => (
