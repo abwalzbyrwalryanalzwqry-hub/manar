@@ -83,6 +83,20 @@ export function AdhanProvider() {
           }
         }
 
+        // First Adhan of Fajr (e.g. 20 min before Fajr)
+        if (p === "fajr" && s.fajrFirstAdhanEnabled && s.adhanEnabled) {
+          const offset = Math.max(1, s.fajrFirstAdhanOffset || 20);
+          if (Math.abs(diffSec - offset * 60) <= 1) {
+            const k = `${dk}:fajr:first`;
+            if (!firedRef.current.has(k)) {
+              firedRef.current.add(k);
+              notify("الأذان الأول للفجر", `${location.city} · يتبقى ${offset} دقيقة على أذان الفجر`);
+              if (s.vibrationEnabled) vibrate([200, 100, 200]);
+              if (!s.silentMode && s.soundEnabled) playAdhan("short", { volume: s.volume * 0.85 });
+            }
+          }
+        }
+
         // Adhan
         if (s.adhanEnabled && per.adhan && Math.abs(diffSec) <= 1) {
           const k = `${dk}:${p}:adhan`;
@@ -92,12 +106,20 @@ export function AdhanProvider() {
             if (s.vibrationEnabled) vibrate([300, 120, 300, 120, 600]);
             if (!s.silentMode && s.soundEnabled) {
               const variant = p === "fajr" && s.fajrUseSeparate ? s.fajrAdhan : s.selectedAdhan;
-              playAdhan(variant, { volume: s.volume });
+              playAdhan(variant, {
+                volume: s.volume,
+                onEnd: () => {
+                  // Append tathweeb after Fajr adhan
+                  if (p === "fajr" && s.fajrTathweebEnabled && !s.silentMode && s.soundEnabled) {
+                    playAdhan("fajr_tathweeb", { volume: s.volume * 0.9 });
+                  }
+                },
+              });
             }
           }
         }
 
-        // Iqama
+        // Iqama — uses selected iqama variant
         if (s.iqamaEnabled && per.iqama) {
           const offset = s.iqamaOffsets[p] ?? 0;
           if (offset > 0 && Math.abs(diffSec + offset * 60) <= 1) {
@@ -106,7 +128,9 @@ export function AdhanProvider() {
               firedRef.current.add(k);
               notify(`إقامة ${PRAYER_LABELS[p].ar}`, `حان موعد إقامة الصلاة الآن`);
               if (s.vibrationEnabled) vibrate([200, 100, 200]);
-              if (s.iqamaSoundEnabled && !s.silentMode) playChime(s.volume * 0.75);
+              if (s.iqamaSoundEnabled && !s.silentMode) {
+                playIqama(s.iqamaVariant, { volume: s.volume * 0.85 });
+              }
             }
           }
         }
