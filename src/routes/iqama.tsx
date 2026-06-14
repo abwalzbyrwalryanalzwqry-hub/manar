@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { Arabesque, Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
-import { DEFAULT_IQAMA, useAdhanSettings } from "@/lib/adhan-settings";
+import { DEFAULT_IQAMA, IQAMA_CATEGORIES, useAdhanSettings } from "@/lib/adhan-settings";
 import { PRAYER_LABELS, PRAYER_ORDER, type PrayerKey } from "@/lib/prayer";
 import { toArabicDigits } from "@/lib/format";
+import { playIqama, stopAdhan, type IqamaVariant } from "@/lib/adhan-sound";
 
 export const Route = createFileRoute("/iqama")({
   head: () => ({ meta: [{ title: "الإقامة — منار" }] }),
