@@ -67,7 +67,6 @@ export const icons = {
 
 export type IconKey = keyof typeof icons;
 
-import type { PrayerKey } from "@/lib/prayer";
 export function prayerIcon(p: PrayerKey): string {
   return icons[p as IconKey] ?? icons.prayer;
 }
