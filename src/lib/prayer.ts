@@ -131,16 +131,71 @@ export function useNow(intervalMs = 1000) {
   return now;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Shared, reactive location store                                    */
+/* ------------------------------------------------------------------ */
+
+const EVT_LOCATION = "manar:location";
+
+function readLocation(): LocationState {
+  return safeGet(LS_LOCATION, DEFAULT_LOCATION);
+}
+function writeLocation(next: LocationState) {
+  safeSet(LS_LOCATION, next);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(EVT_LOCATION));
+  }
+}
+
+export function getLocation(): LocationState {
+  return readLocation();
+}
+
+/** Great-circle bearing (degrees from True North) to the Kaaba. */
+export function qiblaBearing(loc: { lat: number; lng: number }): number {
+  const KAABA_LAT = 21.4225;
+  const KAABA_LNG = 39.8262;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const toDeg = (r: number) => (r * 180) / Math.PI;
+  const φ1 = toRad(loc.lat);
+  const φ2 = toRad(KAABA_LAT);
+  const Δλ = toRad(KAABA_LNG - loc.lng);
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+/** Great-circle distance in km. */
+export function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
 export function useLocation() {
-  const [location, setLocationState] = useState<LocationState>(() => safeGet(LS_LOCATION, DEFAULT_LOCATION));
+  const [location, setLocationState] = useState<LocationState>(() => readLocation());
   const [status, setStatus] = useState<"idle" | "requesting" | "granted" | "denied" | "unsupported">(
     location.source === "gps" ? "granted" : "idle",
   );
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sync = () => setLocationState(readLocation());
+    window.addEventListener(EVT_LOCATION, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(EVT_LOCATION, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
   const setLocation = (next: LocationState) => {
     setLocationState(next);
-    safeSet(LS_LOCATION, next);
+    writeLocation(next);
   };
 
   const requestGps = () => {
@@ -152,12 +207,27 @@ export function useLocation() {
     setStatus("requesting");
     setError(null);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
+        let city = "موقعي الحالي";
+        let country = location.country;
+        // Best-effort reverse geocoding (graceful offline fallback).
+        try {
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&accept-language=ar&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=10`,
+          );
+          if (r.ok) {
+            const j = await r.json();
+            const a = j.address ?? {};
+            city = a.city || a.town || a.village || a.county || a.state || city;
+            country = a.country || country;
+          }
+        } catch { /* keep generic label */ }
+
         const next: LocationState = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
-          city: location.city || "موقعي",
-          country: location.country,
+          city,
+          country,
           source: "gps",
         };
         setLocation(next);
@@ -167,7 +237,7 @@ export function useLocation() {
         setStatus("denied");
         setError(err.message || "تم رفض إذن الموقع");
       },
-      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 10 * 60_000 },
+      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 5 * 60_000 },
     );
   };
 
