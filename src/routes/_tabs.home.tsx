@@ -99,23 +99,23 @@ function Home() {
         </div>
       </div>
 
-      {/* NEXT PRAYER CARD — live */}
+      {/* NEXT PRAYER CARD — live, deep-links to notifications */}
       <div className="px-4 pt-3 animate-fade-up" style={{ animationDelay: "80ms" }}>
-        <div className="glass flex items-center gap-4 rounded-[24px] p-4">
+        <Link to="/notifications" className="glass flex items-center gap-4 rounded-[24px] p-4">
           <div className="gradient-gold flex h-12 w-12 items-center justify-center rounded-2xl text-navy shadow-gold">
-            <Icon d={icons.prayer} size={20} />
+            <Icon d={prayerIcon(next.key)} size={20} />
           </div>
           <div className="flex-1">
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground">الصلاة القادمة</div>
             <div className="text-sm font-medium">
-              {nextLabel} · {toArabicDigits(formatHHMM(next.at))}
+              {nextLabel} · {formatHHMM(next.at)}
             </div>
           </div>
           <div className="text-right">
-            <div className="font-display text-lg font-black tabular-nums">{countdown.h}:{countdown.m}</div>
-            <div className="text-[10px] text-muted-foreground">س : د</div>
+            <div className="font-display text-lg font-black tabular-nums">{countdown.h}:{countdown.m}:{countdown.s}</div>
+            <div className="text-[10px] text-muted-foreground">س : د : ث</div>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* QUICK ACTIONS */}
