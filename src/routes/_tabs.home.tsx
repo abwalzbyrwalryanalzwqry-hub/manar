@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Arabesque, Icon, icons, Mark, RingProgress, Screen, SectionLabel, StatusBar } from "@/components/manar/shell";
+import { Arabesque, Icon, icons, Mark, prayerIcon, RingProgress, Screen, SectionLabel, StatusBar } from "@/components/manar/shell";
 import { LocationSheet } from "@/components/manar/location-sheet";
 import { PRAYER_LABELS, usePrayerSchedule } from "@/lib/prayer";
 import { ampmAr, formatCountdown, formatGregorianAr, formatHHMM, formatHijriAr, formatWeekdayAr, toArabicDigits } from "@/lib/format";
