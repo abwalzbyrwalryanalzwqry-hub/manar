@@ -135,6 +135,18 @@ function AdhanLibrary() {
           onToggle={() => update({ fajrUseSeparate: !settings.fajrUseSeparate })}
         />
         <Row
+          label="الأذان الأول للفجر"
+          hint={`تنبيه قبل أذان الفجر بـ ${settings.fajrFirstAdhanOffset} دقيقة`}
+          on={settings.fajrFirstAdhanEnabled}
+          onToggle={() => update({ fajrFirstAdhanEnabled: !settings.fajrFirstAdhanEnabled })}
+        />
+        <Row
+          label="تثويب الفجر — الصلاة خير من النوم"
+          hint="يُلحَق بأذان الفجر"
+          on={settings.fajrTathweebEnabled}
+          onToggle={() => update({ fajrTathweebEnabled: !settings.fajrTathweebEnabled })}
+        />
+        <Row
           label="تذكير الفجر"
           hint="تنبيه ناعم قبل صلاة الفجر"
           on={settings.fajrReminderEnabled}
