@@ -12,11 +12,14 @@ export const icons = {
   home: "M3 11l9-8 9 8v10a2 2 0 01-2 2h-4v-7h-6v7H5a2 2 0 01-2-2V11z",
   prayer: "M12 3v18M5 10c0-3 3-5 7-5s7 2 7 5M5 14c0 3 3 5 7 5s7-2 7-5",
   quran: "M4 4h12a4 4 0 014 4v12H8a4 4 0 01-4-4V4z M4 4v12a4 4 0 004 4",
-  azkar: "M12 3a9 9 0 100 18 9 9 0 000-18z M12 7v5l3 2",
+  // Tasbih beads on a string
+  azkar: "M5 12a7 7 0 0114 0 M5 12a7 7 0 0014 0 M8 6.5h.01 M6 10h.01 M6 14h.01 M8 17.5h.01 M16 6.5h.01 M18 10h.01 M18 14h.01 M16 17.5h.01 M12 3.5h.01 M12 20.5h.01",
   more: "M5 12h.01M12 12h.01M19 12h.01",
-  qibla: "M12 3l4 9-4 9-4-9 4-9z",
-  calendar: "M3 8h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z M8 3v4 M16 3v4",
-  stats: "M4 20V10M10 20V4M16 20v-8M22 20H2",
+  // Compass with N marker — Qibla
+  qibla: "M12 21a9 9 0 100-18 9 9 0 000 18z M12 7l3 8-3-2-3 2 3-8z M12 3v1.5",
+  // Calendar with crescent inside — Islamic Calendar
+  calendar: "M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z M3 9h18 M8 3v4 M16 3v4 M15 15a3 3 0 11-3-3 2.4 2.4 0 003 3z",
+  stats: "M4 20V10M10 20V4M16 20v-8M22 20H2 M3 20h18",
   profile: "M16 8a4 4 0 11-8 0 4 4 0 018 0z M4 21a8 8 0 0116 0",
   settings: "M12 8a4 4 0 100 8 4 4 0 000-8z M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1A2 2 0 114.4 17l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8L4.2 7A2 2 0 117 4.2l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1A2 2 0 1119.8 7l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z",
   info: "M12 21a9 9 0 100-18 9 9 0 000 18z M12 8h.01 M11 12h1v4h1",
@@ -43,7 +46,28 @@ export const icons = {
   location: "M12 22s-7-6.5-7-12a7 7 0 0114 0c0 5.5-7 12-7 12z M12 10a2 2 0 100 4 2 2 0 000-4z",
   flame: "M12 2s4 4 4 9a4 4 0 11-8 0c0-2 1-3 1-3s-1 4 1 4 0-3 2-6 0-4 0-4z",
   trend: "M3 17l6-6 4 4 8-8 M14 7h7v7",
+
+  /* ----- Per-prayer iconography (sun/moon arc) ----- */
+  // Fajr — pre-dawn star + horizon
+  fajr: "M3 18h18 M6 15l1.5-1.5 M16.5 13.5L18 15 M12 10v4 M9 11h6 M5 21h14",
+  // Sunrise — half sun rising over horizon
+  sunrise: "M3 18h18 M12 4v3 M5.5 9.5L7 11 M17 11l1.5-1.5 M7 18a5 5 0 0110 0",
+  // Dhuhr — sun overhead with rays
+  dhuhr: "M12 4V2 M12 22v-2 M4 12H2 M22 12h-2 M5.6 5.6L4.2 4.2 M19.8 19.8l-1.4-1.4 M5.6 18.4L4.2 19.8 M19.8 4.2l-1.4 1.4 M12 7a5 5 0 100 10 5 5 0 000-10z",
+  // Asr — afternoon sun at angle with longer shadows
+  asr: "M16 6l3-3 M14 10l4-2 M13 14l5 0 M16 18l2 2 M3 21h12 M9 21a6 6 0 015-9",
+  // Maghrib — sun setting below horizon
+  maghrib: "M3 18h18 M12 8v6 M7 18a5 5 0 0110 0 M5.5 11.5L4 13 M18.5 11.5L20 13 M9 4l3 3 3-3",
+  // Isha — crescent moon + star
+  isha: "M19 14.8A8 8 0 119.2 5a6 6 0 109.8 9.8z M6 7l.6 1.2L8 9l-1.4.6L6 11l-.6-1.4L4 9l1.4-.6z",
 };
+
+export type IconKey = keyof typeof icons;
+
+import type { PrayerKey } from "@/lib/prayer";
+export function prayerIcon(p: PrayerKey): string {
+  return icons[p as IconKey] ?? icons.prayer;
+}
 
 /* ---------- Decorative ---------- */
 export function Arabesque({ className = "" }: { className?: string }) {
