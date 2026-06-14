@@ -12,7 +12,7 @@ import { useEffect, useRef } from "react";
 import { computePrayerTimes, PRAYER_ORDER, PRAYER_LABELS, type PrayerKey } from "@/lib/prayer";
 import { useLocation, useSettings } from "@/lib/prayer";
 import { getAdhanSettings } from "@/lib/adhan-settings";
-import { playAdhan, playChime, vibrate, stopAdhan } from "@/lib/adhan-sound";
+import { playAdhan, playChime, playIqama, vibrate, stopAdhan } from "@/lib/adhan-sound";
 
 type FiredKey = string; // `${dayKey}:${prayer}:${kind}:${minute?}`
 
