@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Arabesque, Icon, icons, RingProgress, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
+import { Arabesque, Icon, icons, prayerIcon, RingProgress, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
 import { LocationSheet } from "@/components/manar/location-sheet";
 import { PRAYER_LABELS, PRAYER_ORDER, usePrayerSchedule, type PrayerKey } from "@/lib/prayer";
+import { useAdhanSettings } from "@/lib/adhan-settings";
 import { formatCountdown, formatHHMM, formatHijriAr, toArabicDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/_tabs/prayer")({
