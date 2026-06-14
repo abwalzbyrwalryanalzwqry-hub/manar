@@ -1,7 +1,13 @@
 /* Manar — Synthesized Adhan & Iqama tones (Web Audio API)
- * Works fully offline. No external audio dependency.
- * Each "variant" produces a distinct maqam-flavored chime sequence
- * so the user can audibly distinguish previews.
+ * Works fully offline. Each variant uses a distinct maqam, tempo,
+ * timbre and length so previews are audibly different.
+ *
+ * Notes:
+ *   • Real, copyright-cleared adhan recordings can later be plugged in
+ *     by replacing playAdhan() with an <audio> element fed from
+ *     ADHAN_CATEGORIES[variant].asset — the call sites already exist.
+ *   • Until an audio asset exists for a variant we render a
+ *     maqam-flavoured chime so the user can distinguish selections.
  */
 
 export type AdhanVariant =
@@ -10,22 +16,111 @@ export type AdhanVariant =
   | "aqsa"
   | "gulf"
   | "egyptian"
+  | "fajr_tathweeb"   // الصلاة خير من النوم
   | "takbir"
   | "short"
   | "silent";
 
-type Note = { f: number; d: number; g?: number };
+export type IqamaVariant =
+  | "iqama_full"      // إقامة كاملة
+  | "iqama_qad"       // قد قامت الصلاة (mid length)
+  | "iqama_short"     // تنبيه قصير
+  | "iqama_chime"     // نغمة لطيفة
+  | "silent";
 
-/* Maqam-inspired note sets (Hz) — purely decorative for preview */
-const VARIANTS: Record<AdhanVariant, { notes: Note[]; wave: OscillatorType; reverb?: boolean }> = {
-  makkah:   { notes: [{f:293.66,d:.9},{f:329.63,d:.5},{f:392,d:.7},{f:440,d:.9},{f:392,d:.6},{f:329.63,d:.9}], wave: "sine", reverb: true },
-  madinah:  { notes: [{f:261.63,d:.8},{f:311.13,d:.5},{f:349.23,d:.7},{f:392,d:.9},{f:349.23,d:.6},{f:293.66,d:1}], wave: "sine", reverb: true },
-  aqsa:     { notes: [{f:246.94,d:.9},{f:293.66,d:.5},{f:329.63,d:.7},{f:392,d:.7},{f:440,d:.8},{f:349.23,d:1}], wave: "sine", reverb: true },
-  gulf:     { notes: [{f:293.66,d:.6},{f:392,d:.5},{f:349.23,d:.5},{f:440,d:.7},{f:392,d:.8}], wave: "triangle", reverb: true },
-  egyptian: { notes: [{f:277.18,d:.9},{f:329.63,d:.6},{f:369.99,d:.7},{f:415.3,d:.8},{f:369.99,d:.6},{f:311.13,d:1}], wave: "sine", reverb: true },
-  takbir:   { notes: [{f:329.63,d:.5},{f:392,d:.5},{f:329.63,d:.5},{f:261.63,d:.9}], wave: "sine" },
-  short:    { notes: [{f:392,d:.4},{f:440,d:.4},{f:349.23,d:.7}], wave: "sine" },
-  silent:   { notes: [], wave: "sine" },
+type Note = { f: number; d: number; g?: number };
+type Pattern = { notes: Note[]; wave: OscillatorType; reverb?: boolean; gap?: number; repeat?: number };
+
+/* Maqam-flavoured patterns. Different scales/tempos make each
+ * variant clearly distinguishable on preview. */
+const ADHAN_PATTERNS: Record<AdhanVariant, Pattern> = {
+  /* Hejaz — slow, ornamented, characteristic Makkan call */
+  makkah: {
+    wave: "sine", reverb: true, gap: 0.35,
+    notes: [
+      {f:293.66,d:1.1},{f:329.63,d:.6},{f:349.23,d:.5},{f:392,d:1.0},
+      {f:440,d:.6},{f:392,d:.5},{f:349.23,d:.5},{f:329.63,d:1.1},
+      {f:293.66,d:.6},{f:261.63,d:1.2},
+    ],
+  },
+  /* Bayati — softer, longer notes (Madinah) */
+  madinah: {
+    wave: "sine", reverb: true, gap: 0.4,
+    notes: [
+      {f:261.63,d:1.0},{f:311.13,d:.55},{f:349.23,d:.55},{f:392,d:1.2},
+      {f:349.23,d:.55},{f:311.13,d:.55},{f:293.66,d:1.4},{f:261.63,d:1.2},
+    ],
+  },
+  /* Hijaz w/ a higher tessitura — Aqsa */
+  aqsa: {
+    wave: "triangle", reverb: true, gap: 0.3,
+    notes: [
+      {f:246.94,d:.9},{f:293.66,d:.4},{f:329.63,d:.5},{f:392,d:.7},
+      {f:440,d:.7},{f:466.16,d:.5},{f:440,d:.5},{f:349.23,d:1.1},
+      {f:329.63,d:.5},{f:293.66,d:1.0},
+    ],
+  },
+  /* Nahawand — minor, drier (Gulf) */
+  gulf: {
+    wave: "triangle", reverb: false, gap: 0.22,
+    notes: [
+      {f:293.66,d:.55},{f:349.23,d:.4},{f:392,d:.4},{f:466.16,d:.55},
+      {f:392,d:.55},{f:349.23,d:.4},{f:293.66,d:.65},{f:261.63,d:.9},
+    ],
+  },
+  /* Saba — distinctly oriental, slower (Egyptian) */
+  egyptian: {
+    wave: "sine", reverb: true, gap: 0.5,
+    notes: [
+      {f:277.18,d:1.1},{f:329.63,d:.55},{f:349.23,d:.55},{f:415.3,d:.9},
+      {f:369.99,d:.55},{f:349.23,d:.65},{f:311.13,d:.9},{f:277.18,d:1.3},
+      {f:246.94,d:1.4},
+    ],
+  },
+  /* Tathweeb — الصلاة خير من النوم — short ascending phrase */
+  fajr_tathweeb: {
+    wave: "sine", reverb: true, gap: 0.35,
+    notes: [
+      {f:293.66,d:.6},{f:349.23,d:.5},{f:392,d:.55},{f:440,d:.9},
+      {f:392,d:.55},{f:349.23,d:.7},{f:293.66,d:1.0},
+    ],
+  },
+  takbir: {
+    wave: "sine", reverb: true, gap: 0.25, repeat: 2,
+    notes: [{f:329.63,d:.45},{f:392,d:.45},{f:329.63,d:.45},{f:261.63,d:.9}],
+  },
+  short: {
+    wave: "sine", reverb: true, gap: 0.2,
+    notes: [{f:392,d:.35},{f:440,d:.35},{f:349.23,d:.6}],
+  },
+  silent: { wave: "sine", notes: [] },
+};
+
+/* Iqama patterns — shorter, more rhythmic */
+const IQAMA_PATTERNS: Record<Exclude<IqamaVariant,"silent">, Pattern> = {
+  iqama_full: {
+    wave: "sine", reverb: true, gap: 0.18,
+    notes: [
+      {f:392,d:.4},{f:440,d:.4},{f:392,d:.4},{f:349.23,d:.6},
+      {f:392,d:.4},{f:440,d:.5},{f:392,d:.4},{f:349.23,d:.5},
+      {f:329.63,d:.5},{f:293.66,d:.7},
+    ],
+  },
+  iqama_qad: {
+    wave: "sine", reverb: true, gap: 0.18,
+    notes: [
+      {f:349.23,d:.45},{f:392,d:.45},{f:440,d:.5},
+      {f:392,d:.45},{f:349.23,d:.45},{f:293.66,d:.7},
+    ],
+  },
+  iqama_short: {
+    wave: "triangle", reverb: false, gap: 0.1,
+    notes: [{f:440,d:.25},{f:523.25,d:.25},{f:392,d:.4}],
+  },
+  iqama_chime: {
+    wave: "sine", reverb: true, gap: 0.08,
+    notes: [{f:880,d:.18},{f:1175,d:.18},{f:1568,d:.32}],
+  },
 };
 
 let ctx: AudioContext | null = null;
@@ -40,8 +135,7 @@ function getCtx(): AudioContext | null {
   return ctx;
 }
 
-/** Subtle convolution reverb tail using a generated impulse */
-function makeReverb(c: AudioContext, seconds = 2.2): ConvolverNode {
+function makeReverb(c: AudioContext, seconds = 2.4): ConvolverNode {
   const rate = c.sampleRate;
   const len = Math.floor(rate * seconds);
   const impulse = c.createBuffer(2, len, rate);
@@ -63,14 +157,9 @@ export function stopAdhan() {
 
 export type PlayOptions = { volume?: number; onEnd?: () => void };
 
-/** Play a synthesized adhan/iqama variant. Returns a stop fn. */
-export function playAdhan(variant: AdhanVariant, opts: PlayOptions = {}): () => void {
+function playPattern(p: Pattern, opts: PlayOptions): () => void {
   stopAdhan();
-  const v = VARIANTS[variant];
-  if (!v || variant === "silent" || !v.notes.length) {
-    opts.onEnd?.();
-    return () => {};
-  }
+  if (!p.notes.length) { opts.onEnd?.(); return () => {}; }
   const c = getCtx();
   if (!c) { opts.onEnd?.(); return () => {}; }
 
@@ -79,52 +168,45 @@ export function playAdhan(variant: AdhanVariant, opts: PlayOptions = {}): () => 
   master.connect(c.destination);
 
   let tail: AudioNode = master;
-  if (v.reverb) {
+  if (p.reverb) {
     const rev = makeReverb(c, 2.4);
-    const wet = c.createGain();
-    wet.gain.value = 0.35;
-    rev.connect(wet).connect(master);
+    rev.connect(master);
     tail = rev;
   }
 
   const oscs: OscillatorNode[] = [];
   let t = c.currentTime + 0.05;
-  for (const n of v.notes) {
-    const o = c.createOscillator();
-    const g = c.createGain();
-    o.type = v.wave;
-    o.frequency.value = n.f;
-    // Octave doubling for richness
-    const o2 = c.createOscillator();
-    const g2 = c.createGain();
-    o2.type = "sine";
-    o2.frequency.value = n.f * 2;
-    g2.gain.value = 0;
-
-    const peak = (n.g ?? 0.9);
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(peak, t + 0.08);
-    g.gain.linearRampToValueAtTime(0.0001, t + n.d);
-
-    g2.gain.setValueAtTime(0, t);
-    g2.gain.linearRampToValueAtTime(peak * 0.25, t + 0.1);
-    g2.gain.linearRampToValueAtTime(0.0001, t + n.d);
-
-    o.connect(g).connect(tail);
-    o2.connect(g2).connect(tail);
-    if (tail !== master) { g.connect(master); g2.connect(master); }
-
-    o.start(t);
-    o2.start(t);
-    o.stop(t + n.d + 0.05);
-    o2.stop(t + n.d + 0.05);
-    oscs.push(o, o2);
-    t += n.d * 0.85;
+  const repeat = p.repeat ?? 1;
+  const gap = p.gap ?? 0.25;
+  for (let r = 0; r < repeat; r++) {
+    for (const n of p.notes) {
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = p.wave;
+      o.frequency.value = n.f;
+      const o2 = c.createOscillator();
+      const g2 = c.createGain();
+      o2.type = "sine";
+      o2.frequency.value = n.f * 2;
+      const peak = n.g ?? 0.85;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(peak, t + 0.08);
+      g.gain.linearRampToValueAtTime(0.0001, t + n.d);
+      g2.gain.setValueAtTime(0, t);
+      g2.gain.linearRampToValueAtTime(peak * 0.22, t + 0.1);
+      g2.gain.linearRampToValueAtTime(0.0001, t + n.d);
+      o.connect(g).connect(tail);
+      o2.connect(g2).connect(tail);
+      if (tail !== master) { g.connect(master); g2.connect(master); }
+      o.start(t); o2.start(t);
+      o.stop(t + n.d + 0.05); o2.stop(t + n.d + 0.05);
+      oscs.push(o, o2);
+      t += n.d * 0.7 + gap;
+    }
   }
 
-  const totalMs = (t - c.currentTime) * 1000 + 300;
+  const totalMs = (t - c.currentTime) * 1000 + 400;
   const timer = window.setTimeout(() => opts.onEnd?.(), totalMs);
-
   const stop = () => {
     window.clearTimeout(timer);
     oscs.forEach((o) => { try { o.stop(); } catch { /* ignore */ } });
@@ -134,7 +216,20 @@ export function playAdhan(variant: AdhanVariant, opts: PlayOptions = {}): () => 
   return stop;
 }
 
-/** Short notification chime (used for reminders / iqama) */
+export function playAdhan(variant: AdhanVariant, opts: PlayOptions = {}): () => void {
+  const p = ADHAN_PATTERNS[variant];
+  if (!p || variant === "silent") { opts.onEnd?.(); return () => {}; }
+  return playPattern(p, opts);
+}
+
+export function playIqama(variant: IqamaVariant, opts: PlayOptions = {}): () => void {
+  if (variant === "silent") { opts.onEnd?.(); return () => {}; }
+  const p = IQAMA_PATTERNS[variant];
+  if (!p) { opts.onEnd?.(); return () => {}; }
+  return playPattern(p, opts);
+}
+
+/** Short notification chime (used for reminders) */
 export function playChime(volume = 0.4) {
   const c = getCtx();
   if (!c) return;
