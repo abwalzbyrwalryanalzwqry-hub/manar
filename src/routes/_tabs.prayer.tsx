@@ -28,16 +28,19 @@ const METHOD_LABELS: Record<string, string> = {
 
 function Prayer() {
   const [sheet, setSheet] = useState(false);
-  const [bells, setBells] = useState<Record<PrayerKey, boolean>>({
-    fajr: true, sunrise: false, dhuhr: true, asr: true, maghrib: true, isha: true,
-  });
+  const { settings, updateDeep } = useAdhanSettings();
 
   const {
     now, today, current, next, remainingMs, progress,
-    location, setLocation, requestGps, locStatus, locError, settings,
+    location, setLocation, requestGps, locStatus, locError, settings: calc,
   } = usePrayerSchedule();
 
   const cd = formatCountdown(remainingMs);
+  const toggleBell = (k: PrayerKey) =>
+    updateDeep((s) => ({
+      ...s,
+      perPrayer: { ...s.perPrayer, [k]: { ...s.perPrayer[k], adhan: !s.perPrayer[k].adhan } },
+    }));
 
   return (
     <Screen>
