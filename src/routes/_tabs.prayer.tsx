@@ -112,10 +112,13 @@ function Prayer() {
               }`}
             >
               {active && <Arabesque className="absolute -right-6 -top-6 h-32 w-32 text-white/15" />}
-              <div className="relative flex items-center justify-between px-4 py-4">
+              <Link
+                to="/notifications"
+                className="relative flex items-center justify-between px-4 py-4"
+              >
                 <div className="flex items-center gap-3">
                   <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${active ? "bg-white/20" : "bg-secondary text-primary"}`}>
-                    <Icon d={icons.prayer} size={18} />
+                    <Icon d={prayerIcon(k)} size={20} />
                   </span>
                   <div>
                     <div className={`text-sm font-medium ${passed && !active ? "opacity-60" : ""}`}>
@@ -136,20 +139,20 @@ function Prayer() {
                     </div>
                   </div>
                   <button
-                    onClick={() => setBells((b) => ({ ...b, [k]: !b[k] }))}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleBell(k); }}
                     className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
                       active
                         ? "border-white/30 bg-white/15 text-white"
-                        : bells[k]
+                        : settings.perPrayer[k].adhan
                           ? "border-primary/30 bg-primary/10 text-primary"
                           : "border-border bg-card text-muted-foreground"
                     }`}
                     aria-label="notification"
                   >
-                    <Icon d={bells[k] ? icons.bell : icons.bellOff} size={14} />
+                    <Icon d={settings.perPrayer[k].adhan ? icons.bell : icons.bellOff} size={14} />
                   </button>
                 </div>
-              </div>
+              </Link>
             </div>
           );
         })}
