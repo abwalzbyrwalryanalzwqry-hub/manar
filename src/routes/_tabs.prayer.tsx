@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Arabesque, Icon, icons, RingProgress, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
+import { Arabesque, Icon, icons, prayerIcon, RingProgress, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
 import { LocationSheet } from "@/components/manar/location-sheet";
 import { PRAYER_LABELS, PRAYER_ORDER, usePrayerSchedule, type PrayerKey } from "@/lib/prayer";
+import { useAdhanSettings } from "@/lib/adhan-settings";
 import { formatCountdown, formatHHMM, formatHijriAr, toArabicDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/_tabs/prayer")({
@@ -27,16 +28,19 @@ const METHOD_LABELS: Record<string, string> = {
 
 function Prayer() {
   const [sheet, setSheet] = useState(false);
-  const [bells, setBells] = useState<Record<PrayerKey, boolean>>({
-    fajr: true, sunrise: false, dhuhr: true, asr: true, maghrib: true, isha: true,
-  });
+  const { settings, updateDeep } = useAdhanSettings();
 
   const {
     now, today, current, next, remainingMs, progress,
-    location, setLocation, requestGps, locStatus, locError, settings,
+    location, setLocation, requestGps, locStatus, locError, settings: calc,
   } = usePrayerSchedule();
 
   const cd = formatCountdown(remainingMs);
+  const toggleBell = (k: PrayerKey) =>
+    updateDeep((s) => ({
+      ...s,
+      perPrayer: { ...s.perPrayer, [k]: { ...s.perPrayer[k], adhan: !s.perPrayer[k].adhan } },
+    }));
 
   return (
     <Screen>
@@ -108,10 +112,13 @@ function Prayer() {
               }`}
             >
               {active && <Arabesque className="absolute -right-6 -top-6 h-32 w-32 text-white/15" />}
-              <div className="relative flex items-center justify-between px-4 py-4">
+              <Link
+                to="/notifications"
+                className="relative flex items-center justify-between px-4 py-4"
+              >
                 <div className="flex items-center gap-3">
                   <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${active ? "bg-white/20" : "bg-secondary text-primary"}`}>
-                    <Icon d={icons.prayer} size={18} />
+                    <Icon d={prayerIcon(k)} size={20} />
                   </span>
                   <div>
                     <div className={`text-sm font-medium ${passed && !active ? "opacity-60" : ""}`}>
@@ -132,20 +139,20 @@ function Prayer() {
                     </div>
                   </div>
                   <button
-                    onClick={() => setBells((b) => ({ ...b, [k]: !b[k] }))}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleBell(k); }}
                     className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
                       active
                         ? "border-white/30 bg-white/15 text-white"
-                        : bells[k]
+                        : settings.perPrayer[k].adhan
                           ? "border-primary/30 bg-primary/10 text-primary"
                           : "border-border bg-card text-muted-foreground"
                     }`}
                     aria-label="notification"
                   >
-                    <Icon d={bells[k] ? icons.bell : icons.bellOff} size={14} />
+                    <Icon d={settings.perPrayer[k].adhan ? icons.bell : icons.bellOff} size={14} />
                   </button>
                 </div>
-              </div>
+              </Link>
             </div>
           );
         })}
@@ -155,8 +162,8 @@ function Prayer() {
       <div className="space-y-2 px-4">
         {[
           { l: "الموقع", v: location.city, onClick: () => setSheet(true) },
-          { l: "طريقة الحساب", v: METHOD_LABELS[settings.method] ?? settings.method },
-          { l: "المذهب", v: settings.madhab === "hanafi" ? "الحنفي" : "الجمهور" },
+          { l: "طريقة الحساب", v: METHOD_LABELS[calc.method] ?? calc.method },
+          { l: "المذهب", v: calc.madhab === "hanafi" ? "الحنفي" : "الجمهور" },
         ].map((r) => (
           <button
             key={r.l}

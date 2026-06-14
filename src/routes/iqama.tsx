@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { Arabesque, Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
-import { DEFAULT_IQAMA, useAdhanSettings } from "@/lib/adhan-settings";
+import { DEFAULT_IQAMA, IQAMA_CATEGORIES, useAdhanSettings } from "@/lib/adhan-settings";
 import { PRAYER_LABELS, PRAYER_ORDER, type PrayerKey } from "@/lib/prayer";
 import { toArabicDigits } from "@/lib/format";
+import { playIqama, stopAdhan, type IqamaVariant } from "@/lib/adhan-sound";
 
 export const Route = createFileRoute("/iqama")({
   head: () => ({ meta: [{ title: "الإقامة — منار" }] }),
@@ -13,6 +15,13 @@ const ADJUSTABLE: PrayerKey[] = PRAYER_ORDER.filter((p) => p !== "sunrise");
 
 function IqamaSettings() {
   const { settings, update, updateDeep } = useAdhanSettings();
+  const [playing, setPlaying] = useState<IqamaVariant | null>(null);
+
+  const previewIqama = (v: IqamaVariant) => {
+    if (playing === v) { stopAdhan(); setPlaying(null); return; }
+    setPlaying(v);
+    playIqama(v, { volume: settings.volume, onEnd: () => setPlaying(null) });
+  };
 
   const setOffset = (p: PrayerKey, v: number) =>
     updateDeep((s) => ({ ...s, iqamaOffsets: { ...s.iqamaOffsets, [p]: Math.max(0, Math.min(60, v)) } }));
@@ -51,6 +60,47 @@ function IqamaSettings() {
           on={settings.iqamaSoundEnabled}
           onToggle={() => update({ iqamaSoundEnabled: !settings.iqamaSoundEnabled })}
         />
+      </div>
+
+      <SectionLabel hint="انقر للاستماع">مكتبة الإقامة</SectionLabel>
+      <div className="space-y-2 px-4 stagger">
+        {IQAMA_CATEGORIES.map((c) => {
+          const isSel = settings.iqamaVariant === c.id;
+          const isPlaying = playing === c.id;
+          return (
+            <div
+              key={c.id}
+              className={`relative overflow-hidden rounded-2xl border transition ${
+                isSel ? "border-transparent gradient-primary text-primary-foreground shadow-glow" : "border-border bg-card shadow-soft"
+              }`}
+            >
+              {isSel && <Arabesque className="absolute -right-6 -top-6 h-32 w-32 text-white/15" />}
+              <div className="relative flex items-center gap-3 p-4">
+                <button
+                  onClick={() => previewIqama(c.id)}
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition ${
+                    isSel ? "border-white/30 bg-white/15 text-white" : "border-border bg-secondary text-primary"
+                  }`}
+                  aria-label="استماع"
+                >
+                  <Icon d={isPlaying ? icons.pause : icons.play} size={16} />
+                </button>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{c.name}</div>
+                  <div className={`text-[11px] truncate ${isSel ? "text-white/70" : "text-muted-foreground"}`}>{c.hint}</div>
+                </div>
+                <button
+                  onClick={() => update({ iqamaVariant: c.id })}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
+                    isSel ? "bg-white/20 text-white" : "border border-primary/30 bg-primary/10 text-primary"
+                  }`}
+                >
+                  {isSel ? "محدد" : "اختر"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <SectionLabel hint="بالدقائق">مدة الفاصل لكل صلاة</SectionLabel>
