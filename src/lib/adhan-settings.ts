@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import type { PrayerKey } from "./prayer";
-import type { AdhanVariant } from "./adhan-sound";
+import type { AdhanVariant, IqamaVariant } from "./adhan-sound";
 
 export type AdhanCategory = {
   id: AdhanVariant;
@@ -16,14 +16,30 @@ export type AdhanCategory = {
 };
 
 export const ADHAN_CATEGORIES: AdhanCategory[] = [
-  { id: "makkah",   name: "أذان مكة المكرمة", reciter: "الشيخ علي ملا",      origin: "المسجد الحرام", tone: "مَقام رست",  duration: "٣:١٢" },
-  { id: "madinah",  name: "أذان المدينة المنوّرة", reciter: "الشيخ عبدالمجيد السريحي", origin: "المسجد النبوي", tone: "مَقام بياتي", duration: "٣:٤٥" },
-  { id: "aqsa",     name: "أذان المسجد الأقصى",   reciter: "الشيخ فراس قزموز",   origin: "القدس الشريف",  tone: "مَقام حجاز",  duration: "٢:٥٨" },
-  { id: "gulf",     name: "أذان خليجي",          reciter: "الشيخ مشاري العفاسي",  origin: "الكويت",        tone: "مَقام نهاوند", duration: "٢:٤٠" },
-  { id: "egyptian", name: "أذان مصري",           reciter: "الشيخ محمد رفعت",     origin: "القاهرة",       tone: "مَقام صبا",   duration: "٤:٠٢" },
-  { id: "takbir",   name: "تكبير فقط",           reciter: "—",                  origin: "—",            tone: "—",           duration: "٠:٢٠" },
-  { id: "short",    name: "أذان مختصر",          reciter: "—",                  origin: "—",            tone: "—",           duration: "٠:٣٠" },
-  { id: "silent",   name: "إشعار صامت",          reciter: "—",                  origin: "—",            tone: "—",           duration: "—" },
+  { id: "makkah",        name: "أذان مكة المكرمة",        reciter: "الشيخ علي ملا",            origin: "المسجد الحرام",  tone: "مَقام حجاز",   duration: "٣:١٢" },
+  { id: "madinah",       name: "أذان المدينة المنوّرة",     reciter: "الشيخ عبدالمجيد السريحي",   origin: "المسجد النبوي",  tone: "مَقام بياتي",  duration: "٣:٤٥" },
+  { id: "aqsa",          name: "أذان المسجد الأقصى",       reciter: "الشيخ فراس قزموز",         origin: "القدس الشريف",   tone: "مَقام حجاز",   duration: "٢:٥٨" },
+  { id: "gulf",          name: "أذان خليجي",              reciter: "الشيخ مشاري العفاسي",      origin: "الكويت",         tone: "مَقام نهاوند", duration: "٢:٤٠" },
+  { id: "egyptian",      name: "أذان مصري",               reciter: "الشيخ محمد رفعت",          origin: "القاهرة",        tone: "مَقام صبا",    duration: "٤:٠٢" },
+  { id: "fajr_tathweeb", name: "الصلاة خير من النوم",      reciter: "تثويب الفجر",              origin: "—",             tone: "مَقام حجاز",   duration: "٠:٤٠" },
+  { id: "takbir",        name: "تكبير فقط",               reciter: "—",                       origin: "—",             tone: "—",            duration: "٠:٢٠" },
+  { id: "short",         name: "أذان مختصر",              reciter: "—",                       origin: "—",             tone: "—",            duration: "٠:٣٠" },
+  { id: "silent",        name: "إشعار صامت",              reciter: "—",                       origin: "—",             tone: "—",            duration: "—" },
+];
+
+export type IqamaCategory = {
+  id: IqamaVariant;
+  name: string;
+  hint: string;
+  duration: string;
+};
+
+export const IQAMA_CATEGORIES: IqamaCategory[] = [
+  { id: "iqama_full",  name: "إقامة كاملة",              hint: "إقامة تقليدية ممتدة",        duration: "٠:٤٥" },
+  { id: "iqama_qad",   name: "قد قامت الصلاة",            hint: "تنبيه قِصار للإقامة",         duration: "٠:٢٥" },
+  { id: "iqama_short", name: "تنبيه قصير",                hint: "نغمة قصيرة تَنبيهية",         duration: "٠:١٠" },
+  { id: "iqama_chime", name: "نغمة ناعمة",                hint: "تنبيه لطيف غير مزعج",        duration: "٠:٠٦" },
+  { id: "silent",      name: "إشعار صامت",                hint: "إشعار بدون صوت",            duration: "—" },
 ];
 
 export type ReminderMinutes = 5 | 10 | 15 | 30;
@@ -33,24 +49,28 @@ export type AdhanSettings = {
   /* Adhan */
   adhanEnabled: boolean;
   selectedAdhan: AdhanVariant;
-  fajrAdhan: AdhanVariant; // distinct selection for Fajr
+  fajrAdhan: AdhanVariant;
   fajrUseSeparate: boolean;
+  fajrFirstAdhanEnabled: boolean;     // First Adhan (about 20 min before Fajr)
+  fajrFirstAdhanOffset: number;       // minutes before Fajr
+  fajrTathweebEnabled: boolean;       // الصلاة خير من النوم
   fajrReminderEnabled: boolean;
 
   /* Reminders */
   remindersEnabled: boolean;
-  reminderMinutes: ReminderMinutes[]; // multi-select
+  reminderMinutes: ReminderMinutes[];
 
   /* Iqama */
   iqamaEnabled: boolean;
   iqamaSoundEnabled: boolean;
-  iqamaOffsets: Record<PrayerKey, number>; // minutes after adhan
+  iqamaVariant: IqamaVariant;
+  iqamaOffsets: Record<PrayerKey, number>;
 
   /* Notifications */
   soundEnabled: boolean;
   vibrationEnabled: boolean;
   silentMode: boolean;
-  volume: number; // 0..1
+  volume: number;
 
   /* Per-prayer toggles */
   perPrayer: Record<PrayerKey, { adhan: boolean; reminder: boolean; iqama: boolean }>;
@@ -65,11 +85,15 @@ const DEFAULTS: AdhanSettings = {
   selectedAdhan: "makkah",
   fajrAdhan: "madinah",
   fajrUseSeparate: true,
+  fajrFirstAdhanEnabled: false,
+  fajrFirstAdhanOffset: 20,
+  fajrTathweebEnabled: true,
   fajrReminderEnabled: true,
   remindersEnabled: true,
   reminderMinutes: [15, 5],
   iqamaEnabled: true,
   iqamaSoundEnabled: true,
+  iqamaVariant: "iqama_qad",
   iqamaOffsets: { ...DEFAULT_IQAMA },
   soundEnabled: true,
   vibrationEnabled: true,
