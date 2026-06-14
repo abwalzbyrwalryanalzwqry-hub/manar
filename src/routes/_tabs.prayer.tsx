@@ -162,8 +162,8 @@ function Prayer() {
       <div className="space-y-2 px-4">
         {[
           { l: "الموقع", v: location.city, onClick: () => setSheet(true) },
-          { l: "طريقة الحساب", v: METHOD_LABELS[settings.method] ?? settings.method },
-          { l: "المذهب", v: settings.madhab === "hanafi" ? "الحنفي" : "الجمهور" },
+          { l: "طريقة الحساب", v: METHOD_LABELS[calc.method] ?? calc.method },
+          { l: "المذهب", v: calc.madhab === "hanafi" ? "الحنفي" : "الجمهور" },
         ].map((r) => (
           <button
             key={r.l}
