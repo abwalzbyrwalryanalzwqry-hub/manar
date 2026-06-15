@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Arabesque, Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
-import { ADHAN_CATEGORIES, REMINDER_OPTIONS, useAdhanSettings } from "@/lib/adhan-settings";
+import { REMINDER_OPTIONS, useAdhanSettings } from "@/lib/adhan-settings";
 import { PRAYER_LABELS, PRAYER_ORDER, type PrayerKey } from "@/lib/prayer";
 import { toArabicDigits } from "@/lib/format";
 import { requestNotificationPermission } from "@/components/manar/adhan-provider";
-import { playChime } from "@/lib/adhan-sound";
+import { playReminder, adhanVariantLabel } from "@/lib/adhan-sound";
 
 export const Route = createFileRoute("/notifications")({
   head: () => ({ meta: [{ title: "مركز التنبيهات — منار" }] }),
@@ -29,8 +29,8 @@ function Notifications() {
     setShowPermSheet(false);
   };
 
-  const selectedAdhan = ADHAN_CATEGORIES.find((c) => c.id === settings.selectedAdhan)?.name ?? "—";
-  const fajrAdhan = ADHAN_CATEGORIES.find((c) => c.id === settings.fajrAdhan)?.name ?? "—";
+  const selectedAdhan = adhanVariantLabel(settings.selectedAdhan);
+  const fajrAdhan = adhanVariantLabel(settings.fajrAdhan);
 
   return (
     <Screen>
@@ -113,7 +113,7 @@ function Notifications() {
             className="w-full accent-[hsl(var(--primary))]" dir="ltr"
           />
           <button
-            onClick={() => playChime(settings.volume)}
+            onClick={() => playReminder({ volume: settings.volume })}
             className="mt-3 w-full rounded-xl border border-border bg-secondary/40 py-2 text-xs"
           >
             تجربة الصوت

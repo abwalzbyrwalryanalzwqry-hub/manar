@@ -1,258 +1,146 @@
-/* Manar — Synthesized Adhan & Iqama tones (Web Audio API)
- * Works fully offline. Each variant uses a distinct maqam, tempo,
- * timbre and length so previews are audibly different.
+/* Manar — Adhan / Iqama / Reminder asset library.
  *
- * Notes:
- *   • Real, copyright-cleared adhan recordings can later be plugged in
- *     by replacing playAdhan() with an <audio> element fed from
- *     ADHAN_CATEGORIES[variant].asset — the call sites already exist.
- *   • Until an audio asset exists for a variant we render a
- *     maqam-flavoured chime so the user can distinguish selections.
+ * No synthesized audio. All playback is delegated to the real audio
+ * engine and points at real MP3/WAV/OGG files served from /audio/*.
+ * If a file is missing, the engine shows an Arabic toast and aborts —
+ * we never play a placeholder tone.
  */
 
+import { play as enginePlay, stop as engineStop, vibrate as engineVibrate, type PlayOptions } from "./audio-engine";
+
+/* ----------------------------- Reciters ------------------------------ */
+
+export const RECITERS = [
+  "makkah", "madinah", "aqsa", "gulf", "egyptian", "turkish", "hijazi", "yemeni",
+] as const;
+export type Reciter = (typeof RECITERS)[number];
+
+export const ADHAN_STYLES = ["full", "short", "takbir"] as const;
+export type AdhanStyle = (typeof ADHAN_STYLES)[number];
+
 export type AdhanVariant =
-  | "makkah"
-  | "madinah"
-  | "aqsa"
-  | "gulf"
-  | "egyptian"
-  | "fajr_tathweeb"   // الصلاة خير من النوم
-  | "takbir"
-  | "short"
+  | `${Reciter}_${AdhanStyle}`
+  | "fajr_first"
+  | "fajr_second"
+  | "fajr_tathweeb"
   | "silent";
 
 export type IqamaVariant =
-  | "iqama_full"      // إقامة كاملة
-  | "iqama_qad"       // قد قامت الصلاة (mid length)
-  | "iqama_short"     // تنبيه قصير
-  | "iqama_chime"     // نغمة لطيفة
+  | "iqama_full"
+  | "iqama_qad"
+  | "iqama_short"
+  | "iqama_masjid"
   | "silent";
 
-type Note = { f: number; d: number; g?: number };
-type Pattern = { notes: Note[]; wave: OscillatorType; reverb?: boolean; gap?: number; repeat?: number };
+export type ReminderVariant = "reminder_default" | "reminder_chime";
 
-/* Maqam-flavoured patterns. Different scales/tempos make each
- * variant clearly distinguishable on preview. */
-const ADHAN_PATTERNS: Record<AdhanVariant, Pattern> = {
-  /* Hejaz — slow, ornamented, characteristic Makkan call */
-  makkah: {
-    wave: "sine", reverb: true, gap: 0.35,
-    notes: [
-      {f:293.66,d:1.1},{f:329.63,d:.6},{f:349.23,d:.5},{f:392,d:1.0},
-      {f:440,d:.6},{f:392,d:.5},{f:349.23,d:.5},{f:329.63,d:1.1},
-      {f:293.66,d:.6},{f:261.63,d:1.2},
-    ],
-  },
-  /* Bayati — softer, longer notes (Madinah) */
-  madinah: {
-    wave: "sine", reverb: true, gap: 0.4,
-    notes: [
-      {f:261.63,d:1.0},{f:311.13,d:.55},{f:349.23,d:.55},{f:392,d:1.2},
-      {f:349.23,d:.55},{f:311.13,d:.55},{f:293.66,d:1.4},{f:261.63,d:1.2},
-    ],
-  },
-  /* Hijaz w/ a higher tessitura — Aqsa */
-  aqsa: {
-    wave: "triangle", reverb: true, gap: 0.3,
-    notes: [
-      {f:246.94,d:.9},{f:293.66,d:.4},{f:329.63,d:.5},{f:392,d:.7},
-      {f:440,d:.7},{f:466.16,d:.5},{f:440,d:.5},{f:349.23,d:1.1},
-      {f:329.63,d:.5},{f:293.66,d:1.0},
-    ],
-  },
-  /* Nahawand — minor, drier (Gulf) */
-  gulf: {
-    wave: "triangle", reverb: false, gap: 0.22,
-    notes: [
-      {f:293.66,d:.55},{f:349.23,d:.4},{f:392,d:.4},{f:466.16,d:.55},
-      {f:392,d:.55},{f:349.23,d:.4},{f:293.66,d:.65},{f:261.63,d:.9},
-    ],
-  },
-  /* Saba — distinctly oriental, slower (Egyptian) */
-  egyptian: {
-    wave: "sine", reverb: true, gap: 0.5,
-    notes: [
-      {f:277.18,d:1.1},{f:329.63,d:.55},{f:349.23,d:.55},{f:415.3,d:.9},
-      {f:369.99,d:.55},{f:349.23,d:.65},{f:311.13,d:.9},{f:277.18,d:1.3},
-      {f:246.94,d:1.4},
-    ],
-  },
-  /* Tathweeb — الصلاة خير من النوم — short ascending phrase */
-  fajr_tathweeb: {
-    wave: "sine", reverb: true, gap: 0.35,
-    notes: [
-      {f:293.66,d:.6},{f:349.23,d:.5},{f:392,d:.55},{f:440,d:.9},
-      {f:392,d:.55},{f:349.23,d:.7},{f:293.66,d:1.0},
-    ],
-  },
-  takbir: {
-    wave: "sine", reverb: true, gap: 0.25, repeat: 2,
-    notes: [{f:329.63,d:.45},{f:392,d:.45},{f:329.63,d:.45},{f:261.63,d:.9}],
-  },
-  short: {
-    wave: "sine", reverb: true, gap: 0.2,
-    notes: [{f:392,d:.35},{f:440,d:.35},{f:349.23,d:.6}],
-  },
-  silent: { wave: "sine", notes: [] },
+/* ------------------------ Reciter metadata --------------------------- */
+
+export type ReciterInfo = {
+  id: Reciter;
+  name: string;     // Arabic display name
+  origin: string;
+  reciter: string;
+  tone: string;
 };
 
-/* Iqama patterns — shorter, more rhythmic */
-const IQAMA_PATTERNS: Record<Exclude<IqamaVariant,"silent">, Pattern> = {
-  iqama_full: {
-    wave: "sine", reverb: true, gap: 0.18,
-    notes: [
-      {f:392,d:.4},{f:440,d:.4},{f:392,d:.4},{f:349.23,d:.6},
-      {f:392,d:.4},{f:440,d:.5},{f:392,d:.4},{f:349.23,d:.5},
-      {f:329.63,d:.5},{f:293.66,d:.7},
-    ],
-  },
-  iqama_qad: {
-    wave: "sine", reverb: true, gap: 0.18,
-    notes: [
-      {f:349.23,d:.45},{f:392,d:.45},{f:440,d:.5},
-      {f:392,d:.45},{f:349.23,d:.45},{f:293.66,d:.7},
-    ],
-  },
-  iqama_short: {
-    wave: "triangle", reverb: false, gap: 0.1,
-    notes: [{f:440,d:.25},{f:523.25,d:.25},{f:392,d:.4}],
-  },
-  iqama_chime: {
-    wave: "sine", reverb: true, gap: 0.08,
-    notes: [{f:880,d:.18},{f:1175,d:.18},{f:1568,d:.32}],
-  },
+export const RECITER_INFO: Record<Reciter, ReciterInfo> = {
+  makkah:   { id: "makkah",   name: "أذان مكة المكرمة",      origin: "المسجد الحرام",  reciter: "الشيخ علي ملا",          tone: "مَقام حجاز"   },
+  madinah:  { id: "madinah",  name: "أذان المدينة المنوّرة",   origin: "المسجد النبوي",  reciter: "الشيخ عبدالمجيد السريحي", tone: "مَقام بياتي"  },
+  aqsa:     { id: "aqsa",     name: "أذان المسجد الأقصى",     origin: "القدس الشريف",  reciter: "الشيخ فراس قزموز",       tone: "مَقام حجاز"   },
+  gulf:     { id: "gulf",     name: "أذان خليجي",            origin: "الكويت",        reciter: "الشيخ مشاري العفاسي",    tone: "مَقام نهاوند" },
+  egyptian: { id: "egyptian", name: "أذان مصري",             origin: "القاهرة",       reciter: "الشيخ محمد رفعت",        tone: "مَقام صبا"   },
+  turkish:  { id: "turkish",  name: "أذان تركي",             origin: "إسطنبول",       reciter: "أئمة ديانت",            tone: "مَقام صبا"   },
+  hijazi:   { id: "hijazi",   name: "أذان حجازي",            origin: "الحجاز",        reciter: "تراث الحجاز",           tone: "مَقام حجاز"   },
+  yemeni:   { id: "yemeni",   name: "أذان يمني",             origin: "صنعاء",         reciter: "تراث اليمن",            tone: "مَقام بياتي"  },
 };
 
-let ctx: AudioContext | null = null;
-let currentStop: (() => void) | null = null;
+export const ADHAN_STYLE_LABELS: Record<AdhanStyle, { name: string; hint: string; duration: string }> = {
+  full:   { name: "أذان كامل",  hint: "الأذان كاملاً",            duration: "٣:٠٠" },
+  short:  { name: "أذان مختصر", hint: "نسخة مختصرة من الأذان",    duration: "١:١٠" },
+  takbir: { name: "تكبير فقط",  hint: "التكبيرات الأربع فقط",     duration: "٠:٢٠" },
+};
 
-function getCtx(): AudioContext | null {
-  if (typeof window === "undefined") return null;
-  const AC = (window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
-  if (!AC) return null;
-  if (!ctx) ctx = new AC();
-  if (ctx.state === "suspended") void ctx.resume();
-  return ctx;
+/* --------------------------- URL mapping ----------------------------- */
+
+const FAJR_URL: Record<"fajr_first" | "fajr_second" | "fajr_tathweeb", string> = {
+  fajr_first:    "/audio/fajr/fajr-first.mp3",
+  fajr_second:   "/audio/fajr/fajr-second.mp3",
+  fajr_tathweeb: "/audio/fajr/fajr-tathweeb.mp3",
+};
+
+const IQAMA_URL: Record<Exclude<IqamaVariant, "silent">, string> = {
+  iqama_full:   "/audio/iqama/iqama-full.mp3",
+  iqama_qad:    "/audio/iqama/iqama-qad.mp3",
+  iqama_short:  "/audio/iqama/iqama-short.mp3",
+  iqama_masjid: "/audio/iqama/iqama-masjid.mp3",
+};
+
+const REMINDER_URL: Record<ReminderVariant, string> = {
+  reminder_default: "/audio/reminders/reminder-default.mp3",
+  reminder_chime:   "/audio/reminders/reminder-chime.mp3",
+};
+
+export function adhanVariantUrl(v: AdhanVariant): string | null {
+  if (v === "silent") return null;
+  if (v === "fajr_first" || v === "fajr_second" || v === "fajr_tathweeb") return FAJR_URL[v];
+  const [reciter, style] = v.split("_") as [Reciter, AdhanStyle];
+  return `/audio/adhan/${reciter}-${style}.mp3`;
 }
 
-function makeReverb(c: AudioContext, seconds = 2.4): ConvolverNode {
-  const rate = c.sampleRate;
-  const len = Math.floor(rate * seconds);
-  const impulse = c.createBuffer(2, len, rate);
-  for (let ch = 0; ch < 2; ch++) {
-    const d = impulse.getChannelData(ch);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.5);
-  }
-  const conv = c.createConvolver();
-  conv.buffer = impulse;
-  return conv;
+export function iqamaVariantUrl(v: IqamaVariant): string | null {
+  if (v === "silent") return null;
+  return IQAMA_URL[v];
 }
+
+export function reminderUrl(v: ReminderVariant = "reminder_default"): string {
+  return REMINDER_URL[v];
+}
+
+export function makeAdhanVariant(reciter: Reciter, style: AdhanStyle): AdhanVariant {
+  return `${reciter}_${style}`;
+}
+
+export function parseAdhanVariant(v: AdhanVariant): { reciter: Reciter; style: AdhanStyle } | null {
+  if (v === "silent" || v === "fajr_first" || v === "fajr_second" || v === "fajr_tathweeb") return null;
+  const [reciter, style] = v.split("_") as [Reciter, AdhanStyle];
+  return { reciter, style };
+}
+
+export function adhanVariantLabel(v: AdhanVariant): string {
+  if (v === "silent") return "إشعار صامت";
+  if (v === "fajr_first") return "الأذان الأول للفجر";
+  if (v === "fajr_second") return "الأذان الثاني للفجر";
+  if (v === "fajr_tathweeb") return "الصلاة خير من النوم";
+  const p = parseAdhanVariant(v)!;
+  return `${RECITER_INFO[p.reciter].name} · ${ADHAN_STYLE_LABELS[p.style].name}`;
+}
+
+/* ------------------------------ API ---------------------------------- */
+
+export type AudioOptions = PlayOptions;
 
 export function stopAdhan() {
-  if (currentStop) {
-    try { currentStop(); } catch { /* ignore */ }
-    currentStop = null;
-  }
+  engineStop();
 }
 
-export type PlayOptions = { volume?: number; onEnd?: () => void };
-
-function playPattern(p: Pattern, opts: PlayOptions): () => void {
-  stopAdhan();
-  if (!p.notes.length) { opts.onEnd?.(); return () => {}; }
-  const c = getCtx();
-  if (!c) { opts.onEnd?.(); return () => {}; }
-
-  const master = c.createGain();
-  master.gain.value = opts.volume ?? 0.45;
-  master.connect(c.destination);
-
-  let tail: AudioNode = master;
-  if (p.reverb) {
-    const rev = makeReverb(c, 2.4);
-    rev.connect(master);
-    tail = rev;
-  }
-
-  const oscs: OscillatorNode[] = [];
-  let t = c.currentTime + 0.05;
-  const repeat = p.repeat ?? 1;
-  const gap = p.gap ?? 0.25;
-  for (let r = 0; r < repeat; r++) {
-    for (const n of p.notes) {
-      const o = c.createOscillator();
-      const g = c.createGain();
-      o.type = p.wave;
-      o.frequency.value = n.f;
-      const o2 = c.createOscillator();
-      const g2 = c.createGain();
-      o2.type = "sine";
-      o2.frequency.value = n.f * 2;
-      const peak = n.g ?? 0.85;
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(peak, t + 0.08);
-      g.gain.linearRampToValueAtTime(0.0001, t + n.d);
-      g2.gain.setValueAtTime(0, t);
-      g2.gain.linearRampToValueAtTime(peak * 0.22, t + 0.1);
-      g2.gain.linearRampToValueAtTime(0.0001, t + n.d);
-      o.connect(g).connect(tail);
-      o2.connect(g2).connect(tail);
-      if (tail !== master) { g.connect(master); g2.connect(master); }
-      o.start(t); o2.start(t);
-      o.stop(t + n.d + 0.05); o2.stop(t + n.d + 0.05);
-      oscs.push(o, o2);
-      t += n.d * 0.7 + gap;
-    }
-  }
-
-  const totalMs = (t - c.currentTime) * 1000 + 400;
-  const timer = window.setTimeout(() => opts.onEnd?.(), totalMs);
-  const stop = () => {
-    window.clearTimeout(timer);
-    oscs.forEach((o) => { try { o.stop(); } catch { /* ignore */ } });
-    try { master.disconnect(); } catch { /* ignore */ }
-  };
-  currentStop = stop;
-  return stop;
-}
-
-export function playAdhan(variant: AdhanVariant, opts: PlayOptions = {}): () => void {
-  const p = ADHAN_PATTERNS[variant];
-  if (!p || variant === "silent") { opts.onEnd?.(); return () => {}; }
-  return playPattern(p, opts);
-}
-
-export function playIqama(variant: IqamaVariant, opts: PlayOptions = {}): () => void {
+export function playAdhan(variant: AdhanVariant, opts: AudioOptions = {}): () => void {
   if (variant === "silent") { opts.onEnd?.(); return () => {}; }
-  const p = IQAMA_PATTERNS[variant];
-  if (!p) { opts.onEnd?.(); return () => {}; }
-  return playPattern(p, opts);
+  const url = adhanVariantUrl(variant);
+  if (!url) { opts.onEnd?.(); return () => {}; }
+  return enginePlay(url, { ...opts, label: adhanVariantLabel(variant) });
 }
 
-/** Short notification chime (used for reminders) */
-export function playChime(volume = 0.4) {
-  const c = getCtx();
-  if (!c) return;
-  const g = c.createGain();
-  g.gain.value = volume;
-  g.connect(c.destination);
-  [880, 1175, 1568].forEach((f, i) => {
-    const o = c.createOscillator();
-    const og = c.createGain();
-    o.type = "sine";
-    o.frequency.value = f;
-    const start = c.currentTime + i * 0.12;
-    og.gain.setValueAtTime(0, start);
-    og.gain.linearRampToValueAtTime(0.8, start + 0.04);
-    og.gain.linearRampToValueAtTime(0.0001, start + 0.4);
-    o.connect(og).connect(g);
-    o.start(start);
-    o.stop(start + 0.45);
-  });
+export function playIqama(variant: IqamaVariant, opts: AudioOptions = {}): () => void {
+  if (variant === "silent") { opts.onEnd?.(); return () => {}; }
+  const url = iqamaVariantUrl(variant);
+  if (!url) { opts.onEnd?.(); return () => {}; }
+  return enginePlay(url, { ...opts, label: "الإقامة" });
 }
 
-export function vibrate(pattern: number | number[]) {
-  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-    try { navigator.vibrate(pattern); } catch { /* ignore */ }
-  }
+export function playReminder(opts: AudioOptions & { variant?: ReminderVariant } = {}): () => void {
+  const url = reminderUrl(opts.variant ?? "reminder_default");
+  return enginePlay(url, { ...opts, label: "تنبيه قبل الصلاة" });
 }
+
+export const vibrate = engineVibrate;
