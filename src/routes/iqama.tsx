@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Arabesque, Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
-import { DEFAULT_IQAMA, IQAMA_CATEGORIES, useAdhanSettings } from "@/lib/adhan-settings";
-import { PRAYER_LABELS, PRAYER_ORDER, type PrayerKey } from "@/lib/prayer";
+import { ADJUSTABLE_PRAYERS, DEFAULT_IQAMA, IQAMA_CATEGORIES, useAdhanSettings } from "@/lib/adhan-settings";
+import { PRAYER_LABELS, type PrayerKey } from "@/lib/prayer";
 import { toArabicDigits } from "@/lib/format";
 import { playIqama, stopAdhan, type IqamaVariant } from "@/lib/adhan-sound";
 
@@ -11,8 +11,6 @@ export const Route = createFileRoute("/iqama")({
   component: IqamaSettings,
 });
 
-const ADJUSTABLE: PrayerKey[] = PRAYER_ORDER.filter((p) => p !== "sunrise");
-
 function IqamaSettings() {
   const { settings, update, updateDeep } = useAdhanSettings();
   const [playing, setPlaying] = useState<IqamaVariant | null>(null);
@@ -20,7 +18,11 @@ function IqamaSettings() {
   const previewIqama = (v: IqamaVariant) => {
     if (playing === v) { stopAdhan(); setPlaying(null); return; }
     setPlaying(v);
-    playIqama(v, { volume: settings.volume, onEnd: () => setPlaying(null) });
+    playIqama(v, {
+      volume: settings.volume,
+      onEnd: () => setPlaying(null),
+      onError: () => setPlaying(null),
+    });
   };
 
   const setOffset = (p: PrayerKey, v: number) =>
@@ -28,7 +30,7 @@ function IqamaSettings() {
 
   return (
     <Screen>
-      <ScreenHeader title="إعدادات الإقامة" subtitle="مدة الفاصل بين الأذان والإقامة" backTo="/more" />
+      <ScreenHeader title="إعدادات الإقامة" subtitle="مكتبة الإقامة والفاصل بين الأذان والإقامة" backTo="/more" />
 
       <div className="px-4 animate-fade-up">
         <div className="gradient-hero relative overflow-hidden rounded-[28px] p-6 text-white shadow-elegant">
@@ -39,8 +41,8 @@ function IqamaSettings() {
             </span>
             <div>
               <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">الإقامة</div>
-              <div className="font-display text-xl">تنبيه قبل الصلاة بـ دقائق</div>
-              <div className="mt-0.5 text-[11px] text-white/70">يمكن تخصيص كل صلاة على حدة</div>
+              <div className="font-display text-xl">٤ أنواع إقامة فاخرة</div>
+              <div className="mt-0.5 text-[11px] text-white/70">ملفات صوتية حقيقية · MP3 / WAV / OGG</div>
             </div>
           </div>
         </div>
@@ -56,7 +58,7 @@ function IqamaSettings() {
         />
         <Toggle
           label="صوت الإقامة"
-          hint="نغمة قصيرة للإقامة"
+          hint="تشغيل ملف صوت الإقامة"
           on={settings.iqamaSoundEnabled}
           onToggle={() => update({ iqamaSoundEnabled: !settings.iqamaSoundEnabled })}
         />
@@ -82,6 +84,7 @@ function IqamaSettings() {
                     isSel ? "border-white/30 bg-white/15 text-white" : "border-border bg-secondary text-primary"
                   }`}
                   aria-label="استماع"
+                  disabled={c.id === "silent"}
                 >
                   <Icon d={isPlaying ? icons.pause : icons.play} size={16} />
                 </button>
@@ -89,6 +92,9 @@ function IqamaSettings() {
                   <div className="text-sm font-medium truncate">{c.name}</div>
                   <div className={`text-[11px] truncate ${isSel ? "text-white/70" : "text-muted-foreground"}`}>{c.hint}</div>
                 </div>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${isSel ? "bg-white/15 text-white/80" : "bg-secondary text-muted-foreground"}`}>
+                  {c.duration}
+                </span>
                 <button
                   onClick={() => update({ iqamaVariant: c.id })}
                   className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
@@ -105,8 +111,9 @@ function IqamaSettings() {
 
       <SectionLabel hint="بالدقائق">مدة الفاصل لكل صلاة</SectionLabel>
       <div className="space-y-2 px-4 stagger">
-        {ADJUSTABLE.map((p) => {
+        {ADJUSTABLE_PRAYERS.map((p) => {
           const v = settings.iqamaOffsets[p];
+          const perVariant = settings.perPrayerIqama[p] ?? settings.iqamaVariant;
           return (
             <div key={p} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
               <div className="mb-3 flex items-center justify-between">
@@ -150,6 +157,24 @@ function IqamaSettings() {
                 <span>الإفتراضي: {toArabicDigits(DEFAULT_IQAMA[p])}</span>
                 <span>{toArabicDigits(45)}</span>
               </div>
+              <div className="mt-3">
+                <label className="text-[10px] text-muted-foreground">صوت الإقامة لهذه الصلاة</label>
+                <select
+                  value={perVariant}
+                  onChange={(e) =>
+                    updateDeep((s) => ({
+                      ...s,
+                      perPrayerIqama: { ...s.perPrayerIqama, [p]: e.target.value as IqamaVariant },
+                    }))
+                  }
+                  className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-2 text-xs"
+                  dir="rtl"
+                >
+                  {IQAMA_CATEGORIES.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           );
         })}
@@ -157,7 +182,7 @@ function IqamaSettings() {
 
       <div className="mt-6 px-4">
         <button
-          onClick={() => updateDeep((s) => ({ ...s, iqamaOffsets: { ...DEFAULT_IQAMA } }))}
+          onClick={() => updateDeep((s) => ({ ...s, iqamaOffsets: { ...DEFAULT_IQAMA }, perPrayerIqama: {} }))}
           className="w-full rounded-2xl border border-border bg-card py-3 text-sm shadow-soft"
         >
           استعادة القيم الافتراضية
