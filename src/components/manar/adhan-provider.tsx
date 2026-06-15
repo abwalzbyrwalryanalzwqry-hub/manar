@@ -2,19 +2,19 @@
  * Mounts once at root. Polls every second, tracks fired events
  * for the current day, and fires:
  *   - pre-prayer reminders (5/10/15/30 min)
- *   - Adhan at exact prayer time
+ *   - Adhan at exact prayer time (per-prayer audio assignment)
  *   - Iqama notification N minutes after Adhan
- * Survives tab visibility changes; uses requestWakeLock when possible.
- * Works fully offline (everything is computed locally).
+ *
+ * All audio is real (MP3/WAV/OGG). No synthesized fallbacks.
  */
 
 import { useEffect, useRef } from "react";
-import { computePrayerTimes, PRAYER_ORDER, PRAYER_LABELS, type PrayerKey } from "@/lib/prayer";
+import { computePrayerTimes, PRAYER_ORDER, PRAYER_LABELS } from "@/lib/prayer";
 import { useLocation, useSettings } from "@/lib/prayer";
-import { getAdhanSettings } from "@/lib/adhan-settings";
-import { playAdhan, playChime, playIqama, vibrate, stopAdhan } from "@/lib/adhan-sound";
+import { getAdhanSettings, resolveAdhanForPrayer, resolveIqamaForPrayer } from "@/lib/adhan-settings";
+import { playAdhan, playIqama, playReminder, vibrate, stopAdhan } from "@/lib/adhan-sound";
 
-type FiredKey = string; // `${dayKey}:${prayer}:${kind}:${minute?}`
+type FiredKey = string;
 
 function dayKey(d: Date) {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -39,7 +39,6 @@ export function AdhanProvider() {
     if (typeof window === "undefined") return;
     let cancelled = false;
 
-    // Request a screen wake-lock so timers stay accurate when possible.
     let wake: WakeLockSentinel | null = null;
     const askWake = async () => {
       try {
@@ -76,14 +75,16 @@ export function AdhanProvider() {
               if (!firedRef.current.has(k)) {
                 firedRef.current.add(k);
                 notify("تذكير الصلاة", `تبقى ${m} دقيقة على صلاة ${PRAYER_LABELS[p].ar}`);
-                if (s.soundEnabled && !s.silentMode) playChime(s.volume * 0.6);
+                if (s.soundEnabled && !s.silentMode) {
+                  playReminder({ volume: s.volume * 0.6, silentOnMissing: true });
+                }
                 if (s.vibrationEnabled) vibrate([120, 80, 120]);
               }
             }
           }
         }
 
-        // First Adhan of Fajr (e.g. 20 min before Fajr)
+        // First Adhan of Fajr
         if (p === "fajr" && s.fajrFirstAdhanEnabled && s.adhanEnabled) {
           const offset = Math.max(1, s.fajrFirstAdhanOffset || 20);
           if (Math.abs(diffSec - offset * 60) <= 1) {
@@ -92,7 +93,9 @@ export function AdhanProvider() {
               firedRef.current.add(k);
               notify("الأذان الأول للفجر", `${location.city} · يتبقى ${offset} دقيقة على أذان الفجر`);
               if (s.vibrationEnabled) vibrate([200, 100, 200]);
-              if (!s.silentMode && s.soundEnabled) playAdhan("short", { volume: s.volume * 0.85 });
+              if (!s.silentMode && s.soundEnabled) {
+                playAdhan(s.fajrFirstAdhanAudio, { volume: s.volume * 0.85 });
+              }
             }
           }
         }
@@ -105,13 +108,12 @@ export function AdhanProvider() {
             notify(`حان الآن وقت ${PRAYER_LABELS[p].ar}`, `${location.city} · أذان ${PRAYER_LABELS[p].ar}`);
             if (s.vibrationEnabled) vibrate([300, 120, 300, 120, 600]);
             if (!s.silentMode && s.soundEnabled) {
-              const variant = p === "fajr" && s.fajrUseSeparate ? s.fajrAdhan : s.selectedAdhan;
+              const variant = resolveAdhanForPrayer(s, p);
               playAdhan(variant, {
                 volume: s.volume,
                 onEnd: () => {
-                  // Append tathweeb after Fajr adhan
                   if (p === "fajr" && s.fajrTathweebEnabled && !s.silentMode && s.soundEnabled) {
-                    playAdhan("fajr_tathweeb", { volume: s.volume * 0.9 });
+                    playAdhan(s.fajrTathweebAudio, { volume: s.volume * 0.9 });
                   }
                 },
               });
@@ -119,7 +121,7 @@ export function AdhanProvider() {
           }
         }
 
-        // Iqama — uses selected iqama variant
+        // Iqama
         if (s.iqamaEnabled && per.iqama) {
           const offset = s.iqamaOffsets[p] ?? 0;
           if (offset > 0 && Math.abs(diffSec + offset * 60) <= 1) {
@@ -129,7 +131,8 @@ export function AdhanProvider() {
               notify(`إقامة ${PRAYER_LABELS[p].ar}`, `حان موعد إقامة الصلاة الآن`);
               if (s.vibrationEnabled) vibrate([200, 100, 200]);
               if (s.iqamaSoundEnabled && !s.silentMode) {
-                playIqama(s.iqamaVariant, { volume: s.volume * 0.85 });
+                const iv = resolveIqamaForPrayer(s, p);
+                playIqama(iv, { volume: s.volume * 0.85 });
               }
             }
           }
