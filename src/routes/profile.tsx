@@ -1,5 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Arabesque, Icon, icons, Mark, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
+import { useAuth } from "@/lib/auth-context";
+import { pushAll, pullAll } from "@/lib/cloud-sync";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({ meta: [{ title: "الملف الشخصي — منار" }] }),
@@ -7,17 +11,79 @@ export const Route = createFileRoute("/profile")({
 });
 
 function Profile() {
+  const nav = useNavigate();
+  const { user, profile, isGuest, signOut, updateProfile, refreshProfile } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [country, setCountry] = useState("");
+  const [city, setCity] = useState("");
+  const [language, setLanguage] = useState("ar");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name ?? "");
+      setCountry(profile.country ?? "");
+      setCity(profile.city ?? "");
+      setLanguage(profile.preferred_language ?? "ar");
+    }
+  }, [profile]);
+
+  if (isGuest && !user) return <GuestProfile onSignIn={() => nav({ to: "/login" })} />;
+
+  const save = async () => {
+    setBusy(true);
+    const { error } = await updateProfile({
+      full_name: fullName, country, city, preferred_language: language,
+    });
+    setBusy(false);
+    if (error) toast.error(error);
+    else { toast.success("تم حفظ التغييرات"); setEditing(false); }
+  };
+
+  const displayName = profile?.full_name || user?.email?.split("@")[0] || "—";
+  const memberSince = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString("ar", { year: "numeric", month: "long" })
+    : "—";
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success("تم تسجيل الخروج");
+    nav({ to: "/login" });
+  };
+
+  const handleBackup = async () => {
+    if (!user) return;
+    setBusy(true);
+    try { await pushAll(user.id); toast.success("تم رفع نسخة احتياطية"); }
+    catch { toast.error("فشل الرفع"); }
+    finally { setBusy(false); }
+  };
+
+  const handleRestore = async () => {
+    if (!user) return;
+    setBusy(true);
+    try { await pullAll(user.id); toast.success("تم استرجاع الإعدادات"); await refreshProfile(); }
+    catch { toast.error("فشل الاسترجاع"); }
+    finally { setBusy(false); }
+  };
+
   return (
     <Screen>
       <ScreenHeader
         title="الملف الشخصي"
         backTo="/more"
         action={
-          <button className="rounded-full border border-border bg-card px-4 py-2 text-xs">تعديل</button>
+          <button
+            onClick={() => (editing ? save() : setEditing(true))}
+            disabled={busy}
+            className="rounded-full border border-border bg-card px-4 py-2 text-xs"
+          >
+            {editing ? (busy ? "حفظ…" : "حفظ") : "تعديل"}
+          </button>
         }
       />
 
-      {/* Premium identity card */}
       <div className="px-4 animate-fade-up">
         <div className="gradient-hero relative overflow-hidden rounded-[32px] p-6 text-white shadow-elegant">
           <Arabesque className="absolute -right-12 -bottom-12 h-72 w-72 text-white/15 animate-spin-slow" />
@@ -25,65 +91,91 @@ function Profile() {
           <div className="relative flex flex-col items-center text-center">
             <div className="relative">
               <div className="absolute inset-0 -m-2 rounded-[28px] bg-gold/30 blur-xl animate-breath" />
-              <div className="relative flex h-24 w-24 items-center justify-center rounded-[24px] bg-white/15 backdrop-blur ring-1 ring-white/25">
-                <Mark size={48} tone="light" />
+              <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-[24px] bg-white/15 backdrop-blur ring-1 ring-white/25">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <Mark size={48} tone="light" />
+                )}
               </div>
             </div>
-            <h2 className="mt-5 font-display text-2xl font-medium">عبدالله محمد</h2>
-            <p className="text-[11px] text-white/70">abdullah@manar.app</p>
+            <h2 className="mt-5 font-display text-2xl font-medium">{displayName}</h2>
+            <p className="text-[11px] text-white/70">{user?.email ?? "—"}</p>
             <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-gold px-3 py-1 text-[11px] font-medium text-navy shadow-gold">
-              <Icon d={icons.star} size={11} /> عضو منار +
+              <Icon d={icons.star} size={11} /> {profile?.plan === "premium" ? "عضو منار +" : "عضو منار"}
             </div>
-            <div className="mt-5 grid w-full grid-cols-3 gap-3 border-t border-white/15 pt-5">
-              {[
-                ["٤٢", "سلسلة"],
-                ["٣٥", "صلوات/أسبوع"],
-                ["١٤٢", "ذكر"],
-              ].map(([v, l]) => (
-                <div key={l}>
-                  <div className="font-display text-xl font-black tabular-nums">{v}</div>
-                  <div className="text-[9px] uppercase tracking-widest text-white/60">{l}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <SectionLabel>الإنجاز الحالي</SectionLabel>
-      <div className="px-4">
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="gradient-gold flex h-12 w-12 items-center justify-center rounded-2xl text-navy shadow-gold">
-                <Icon d={icons.flame} size={20} />
-              </span>
-              <div>
-                <div className="text-sm font-medium">مواظب الفجر</div>
-                <div className="text-[11px] text-muted-foreground">٤٢ يوماً متتالياً</div>
-              </div>
-            </div>
-            <div className="font-display text-lg font-black tabular-nums text-primary">٨٧٪</div>
-          </div>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-            <div className="gradient-gold h-full" style={{ width: "87%" }} />
           </div>
         </div>
       </div>
 
       <SectionLabel>المعلومات الشخصية</SectionLabel>
       <div className="space-y-2 px-4">
-        <Row icon={icons.profile} l="الاسم" v="عبدالله محمد" />
-        <Row icon={icons.mail} l="البريد الإلكتروني" v="abdullah@manar.app" />
-        <Row icon={icons.location} l="المدينة" v="الرياض، KSA" />
-        <Row icon={icons.calendar} l="تاريخ الانضمام" v="١ يونيو ٢٠٢٦" />
+        {editing ? (
+          <>
+            <EditField label="الاسم الكامل" value={fullName} onChange={setFullName} />
+            <EditField label="الدولة" value={country} onChange={setCountry} />
+            <EditField label="المدينة" value={city} onChange={setCity} />
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+              <div className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">اللغة المفضلة</div>
+              <div className="flex gap-2">
+                {[["ar", "العربية"], ["en", "English"]].map(([v, l]) => (
+                  <button key={v} onClick={() => setLanguage(v)}
+                    className={`flex-1 rounded-xl border py-2 text-sm ${language === v ? "border-primary bg-primary/10 text-primary" : "border-border"}`}>{l}</button>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <Row icon={icons.profile} l="الاسم" v={displayName} />
+            <Row icon={icons.mail} l="البريد الإلكتروني" v={user?.email ?? "—"} />
+            <Row icon={icons.location} l="المدينة" v={[city, country].filter(Boolean).join("، ") || "—"} />
+            <Row icon={icons.calendar} l="تاريخ الانضمام" v={memberSince} />
+          </>
+        )}
       </div>
 
-      <SectionLabel>تفضيلاتي</SectionLabel>
+      <SectionLabel>المزامنة السحابية</SectionLabel>
       <div className="space-y-2 px-4">
-        <Row icon={icons.quran} l="القارئ المفضل" v="مشاري العفاسي" />
-        <Row icon={icons.prayer} l="طريقة الحساب" v="أم القرى" />
-        <Row icon={icons.azkar} l="الورد اليومي" v="٣ صفحات" />
+        <button onClick={handleBackup} disabled={busy || !user} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft disabled:opacity-60">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-primary"><Icon d={icons.bell} size={16} /></span>
+          <div className="flex-1 text-right">
+            <div className="text-sm font-medium">رفع نسخة احتياطية الآن</div>
+            <div className="text-[11px] text-muted-foreground">حفظ كل إعداداتك في السحابة</div>
+          </div>
+        </button>
+        <button onClick={handleRestore} disabled={busy || !user} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft disabled:opacity-60">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-primary"><Icon d={icons.azkar} size={16} /></span>
+          <div className="flex-1 text-right">
+            <div className="text-sm font-medium">استرجاع من السحابة</div>
+            <div className="text-[11px] text-muted-foreground">إعادة تطبيق آخر نسخة محفوظة</div>
+          </div>
+        </button>
+      </div>
+
+      <SectionLabel>الحساب</SectionLabel>
+      <div className="px-4 pb-4">
+        <button onClick={handleSignOut} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 py-3.5 text-sm font-medium text-destructive">
+          تسجيل الخروج
+        </button>
+      </div>
+    </Screen>
+  );
+}
+
+function GuestProfile({ onSignIn }: { onSignIn: () => void }) {
+  return (
+    <Screen>
+      <ScreenHeader title="الملف الشخصي" backTo="/more" />
+      <div className="px-5">
+        <div className="rounded-[28px] border border-border bg-card p-6 text-center shadow-soft">
+          <div className="gradient-gold mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl text-navy"><Icon d={icons.profile} size={28} /></div>
+          <div className="font-display text-xl font-medium">أنت تستخدم وضع الزائر</div>
+          <p className="mt-2 text-xs text-muted-foreground leading-relaxed">سجّل دخولك لمزامنة إعداداتك وحفظ تقدمك عبر أجهزتك.</p>
+          <button onClick={onSignIn} className="gradient-primary mt-5 block w-full rounded-2xl py-3.5 text-sm font-medium text-primary-foreground shadow-glow">
+            إنشاء حساب أو تسجيل الدخول
+          </button>
+        </div>
       </div>
     </Screen>
   );
@@ -91,7 +183,7 @@ function Profile() {
 
 function Row({ icon, l, v }: { icon: string; l: string; v: string }) {
   return (
-    <button className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft transition hover:shadow-elegant">
+    <div className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft">
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-primary">
         <Icon d={icon} size={16} />
       </span>
@@ -99,7 +191,15 @@ function Row({ icon, l, v }: { icon: string; l: string; v: string }) {
         <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{l}</div>
         <div className="text-sm font-medium">{v}</div>
       </div>
-      <span className="rotate-180 text-muted-foreground"><Icon d={icons.chevron} size={14} /></span>
-    </button>
+    </div>
+  );
+}
+
+function EditField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="block rounded-2xl border border-border bg-card px-4 py-3 shadow-soft">
+      <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      <input value={value} onChange={(e) => onChange(e.target.value)} className="w-full bg-transparent text-sm font-medium outline-none" />
+    </label>
   );
 }

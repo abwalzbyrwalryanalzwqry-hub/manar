@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StatisticsRouteImport } from './routes/statistics'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as QiblaRouteImport } from './routes/qibla'
 import { Route as ProfileRouteImport } from './routes/profile'
@@ -38,6 +39,11 @@ const StatisticsRoute = StatisticsRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterRoute = RegisterRouteImport.update({
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
   '/azkar': typeof TabsAzkarRoute
@@ -164,6 +171,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
   '/azkar': typeof TabsAzkarRoute
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
   '/_tabs/azkar': typeof TabsAzkarRoute
@@ -210,6 +219,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/qibla'
     | '/register'
+    | '/reset-password'
     | '/settings'
     | '/statistics'
     | '/azkar'
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/qibla'
     | '/register'
+    | '/reset-password'
     | '/settings'
     | '/statistics'
     | '/azkar'
@@ -253,6 +264,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/qibla'
     | '/register'
+    | '/reset-password'
     | '/settings'
     | '/statistics'
     | '/_tabs/azkar'
@@ -276,6 +288,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   QiblaRoute: typeof QiblaRoute
   RegisterRoute: typeof RegisterRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
   StatisticsRoute: typeof StatisticsRoute
 }
@@ -294,6 +307,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register': {
@@ -457,6 +477,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   QiblaRoute: QiblaRoute,
   RegisterRoute: RegisterRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,
   StatisticsRoute: StatisticsRoute,
 }

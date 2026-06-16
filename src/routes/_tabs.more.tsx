@@ -1,5 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { Icon, icons, Screen, ScreenHeader, SectionLabel, Mark } from "@/components/manar/shell";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/_tabs/more")({
   head: () => ({ meta: [{ title: "المزيد — منار" }] }),
@@ -19,20 +21,35 @@ const ITEMS = [
 ] as const;
 
 function More() {
+  const nav = useNavigate();
+  const { user, profile, isGuest, signOut } = useAuth();
+  const name = profile?.full_name || user?.email?.split("@")[0] || "زائر";
+  const sub = user
+    ? (profile?.created_at ? `عضو منذ ${new Date(profile.created_at).toLocaleDateString("ar", { year: "numeric", month: "long" })}` : "مرحباً بك")
+    : "وضع الزائر — سجّل لمزامنة بياناتك";
+
+  const doSignOut = async () => {
+    await signOut();
+    toast.success("تم تسجيل الخروج");
+    nav({ to: "/login" });
+  };
+
   return (
     <Screen>
       <ScreenHeader title="المزيد" subtitle="إعدادات وأدوات إضافية" />
 
       <div className="px-5">
         <div className="glass flex items-center gap-4 rounded-[24px] p-4 shadow-soft">
-          <div className="gradient-primary flex h-14 w-14 items-center justify-center rounded-2xl shadow-glow">
-            <Mark size={26} tone="light" />
+          <div className="gradient-primary flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl shadow-glow">
+            {profile?.avatar_url ? <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" /> : <Mark size={26} tone="light" />}
           </div>
           <div className="flex-1">
-            <div className="font-display text-lg font-medium">عبدالله محمد</div>
-            <div className="text-xs text-muted-foreground">عضو منذ يونيو ٢٠٢٦</div>
+            <div className="font-display text-lg font-medium">{name}</div>
+            <div className="text-xs text-muted-foreground">{sub}</div>
           </div>
-          <Link to="/profile" className="rounded-full border border-border px-3 py-1.5 text-[11px]">عرض</Link>
+          <Link to={user ? "/profile" : "/login"} className="rounded-full border border-border px-3 py-1.5 text-[11px]">
+            {user ? "عرض" : "دخول"}
+          </Link>
         </div>
       </div>
 
@@ -58,10 +75,17 @@ function More() {
 
       <SectionLabel>الحساب</SectionLabel>
       <div className="px-5">
-        <Link to="/login" className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 py-3.5 text-sm font-medium text-destructive">
-          تسجيل الخروج
-        </Link>
+        {user ? (
+          <button onClick={doSignOut} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 py-3.5 text-sm font-medium text-destructive">
+            تسجيل الخروج
+          </button>
+        ) : (
+          <Link to="/login" className="gradient-primary flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-medium text-primary-foreground shadow-glow">
+            {isGuest ? "تسجيل الدخول وحفظ تقدمي" : "تسجيل الدخول"}
+          </Link>
+        )}
       </div>
     </Screen>
   );
 }
+
