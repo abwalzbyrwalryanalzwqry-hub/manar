@@ -34,7 +34,7 @@ export async function pushAll(userId: string) {
   for (const [table, keys] of Object.entries(SYNC_MAP)) {
     const data = collect(keys);
     if (Object.keys(data).length === 0) continue;
-    await supabase.from(table as "user_settings").upsert({ user_id: userId, data });
+    await supabase.from(table as "user_settings").upsert({ user_id: userId, data: data as never });
   }
 }
 
