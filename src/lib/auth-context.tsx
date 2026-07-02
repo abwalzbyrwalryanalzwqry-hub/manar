@@ -35,16 +35,22 @@ type AuthCtx = {
 const Ctx = createContext<AuthCtx | null>(null);
 
 const GUEST_KEY = "manar-guest-mode";
+const LOG = (...a: unknown[]) => console.log("[منار/auth]", ...a);
 
 function arabicAuthError(msg: string | undefined): string {
   if (!msg) return "حدث خطأ غير متوقع";
   const m = msg.toLowerCase();
-  if (m.includes("invalid login")) return "البريد الإلكتروني أو كلمة المرور غير صحيحة";
+  if (m.includes("invalid login") || m.includes("invalid_credentials"))
+    return "البريد أو كلمة المرور غير صحيحة. إن كنت سجّلت بحساب Google، فادخل عبر Google.";
   if (m.includes("email not confirmed")) return "يرجى تأكيد بريدك الإلكتروني أولاً";
   if (m.includes("user already registered")) return "هذا البريد مسجّل بالفعل";
   if (m.includes("password should be")) return "كلمة المرور قصيرة جداً (٦ أحرف على الأقل)";
-  if (m.includes("rate limit")) return "محاولات كثيرة، حاول لاحقاً";
-  if (m.includes("network")) return "تحقق من اتصالك بالإنترنت";
+  if (m.includes("rate limit") || m.includes("too many")) return "محاولات كثيرة، حاول بعد قليل";
+  if (m.includes("network") || m.includes("failed to fetch")) return "تحقق من اتصالك بالإنترنت";
+  if (m.includes("popup") && m.includes("closed")) return "أُغلقت نافذة Google قبل إكمال الدخول";
+  if (m.includes("cancel")) return "تم إلغاء تسجيل الدخول من نافذة Google";
+  if (m.includes("redirect")) return "رابط إعادة التوجيه غير مسموح. راجع إعدادات المصادقة";
+  if (m.includes("provider is not enabled")) return "مزوّد Google غير مفعّل في الخادم";
   return msg;
 }
 
@@ -63,7 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      LOG("event", event, "user:", s?.user?.email ?? null);
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
@@ -74,7 +81,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
       }
     });
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(({ data, error }) => {
+      LOG("initial session", { hasSession: !!data.session, error: error?.message });
       setSession(data.session);
       setUser(data.session?.user ?? null);
       if (data.session?.user) loadProfile(data.session.user.id);
@@ -84,12 +92,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInEmail: AuthCtx["signInEmail"] = async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return error ? { error: arabicAuthError(error.message) } : {};
+    LOG("signInEmail →", email);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      LOG("signInEmail error", error.status, error.message);
+      // If the account exists but is OAuth-only, give a precise hint.
+      if (/invalid/i.test(error.message)) {
+        try {
+          const probe = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
+          LOG("probe reset (silent)", probe.error?.message ?? "ok");
+        } catch { /* ignore */ }
+      }
+      return { error: arabicAuthError(error.message) };
+    }
+    LOG("signInEmail ok", data.user?.id);
+    return {};
   };
 
   const signUpEmail: AuthCtx["signUpEmail"] = async (email, password, fullName) => {
-    const { error } = await supabase.auth.signUp({
+    LOG("signUpEmail →", email);
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -97,13 +119,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data: { full_name: fullName },
       },
     });
-    return error ? { error: arabicAuthError(error.message) } : {};
+    if (error) { LOG("signUpEmail error", error.message); return { error: arabicAuthError(error.message) }; }
+    LOG("signUpEmail ok", { userId: data.user?.id, needsConfirm: !data.session });
+    return {};
   };
 
   const signInGoogle: AuthCtx["signInGoogle"] = async () => {
-    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/home" });
-    if (r.error) return { error: arabicAuthError(r.error.message) };
-    return {};
+    LOG("signInGoogle → origin", window.location.origin);
+    try {
+      const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+      LOG("signInGoogle result", { redirected: r.redirected, error: r.error?.message });
+      if (r.error) return { error: arabicAuthError(r.error.message) };
+      return {};
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      LOG("signInGoogle threw", msg);
+      return { error: arabicAuthError(msg) };
+    }
   };
 
   const resetPassword: AuthCtx["resetPassword"] = async (email) => {
