@@ -35,16 +35,22 @@ type AuthCtx = {
 const Ctx = createContext<AuthCtx | null>(null);
 
 const GUEST_KEY = "manar-guest-mode";
+const LOG = (...a: unknown[]) => console.log("[منار/auth]", ...a);
 
 function arabicAuthError(msg: string | undefined): string {
   if (!msg) return "حدث خطأ غير متوقع";
   const m = msg.toLowerCase();
-  if (m.includes("invalid login")) return "البريد الإلكتروني أو كلمة المرور غير صحيحة";
+  if (m.includes("invalid login") || m.includes("invalid_credentials"))
+    return "البريد أو كلمة المرور غير صحيحة. إن كنت سجّلت بحساب Google، فادخل عبر Google.";
   if (m.includes("email not confirmed")) return "يرجى تأكيد بريدك الإلكتروني أولاً";
   if (m.includes("user already registered")) return "هذا البريد مسجّل بالفعل";
   if (m.includes("password should be")) return "كلمة المرور قصيرة جداً (٦ أحرف على الأقل)";
-  if (m.includes("rate limit")) return "محاولات كثيرة، حاول لاحقاً";
-  if (m.includes("network")) return "تحقق من اتصالك بالإنترنت";
+  if (m.includes("rate limit") || m.includes("too many")) return "محاولات كثيرة، حاول بعد قليل";
+  if (m.includes("network") || m.includes("failed to fetch")) return "تحقق من اتصالك بالإنترنت";
+  if (m.includes("popup") && m.includes("closed")) return "أُغلقت نافذة Google قبل إكمال الدخول";
+  if (m.includes("cancel")) return "تم إلغاء تسجيل الدخول من نافذة Google";
+  if (m.includes("redirect")) return "رابط إعادة التوجيه غير مسموح. راجع إعدادات المصادقة";
+  if (m.includes("provider is not enabled")) return "مزوّد Google غير مفعّل في الخادم";
   return msg;
 }
 
