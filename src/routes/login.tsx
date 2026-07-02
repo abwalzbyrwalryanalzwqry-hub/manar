@@ -28,7 +28,9 @@ function Login() {
   const google = async () => {
     setBusy(true);
     const { error } = await signInGoogle();
-    if (error) { setBusy(false); toast.error(error); }
+    setBusy(false);
+    if (error) toast.error(error);
+    else { toast.success("تم تسجيل الدخول عبر Google"); nav({ to: "/home" }); }
   };
 
   const guest = () => { enableGuest(); nav({ to: "/home" }); };
