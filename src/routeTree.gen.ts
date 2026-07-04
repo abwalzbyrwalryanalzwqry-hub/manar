@@ -25,6 +25,12 @@ import { Route as AdhanRouteImport } from './routes/adhan'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as TabsRouteImport } from './routes/_tabs'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as QuranTafsirRouteImport } from './routes/quran.tafsir'
+import { Route as QuranSearchRouteImport } from './routes/quran.search'
+import { Route as QuranRecitationsRouteImport } from './routes/quran.recitations'
+import { Route as QuranMushafRouteImport } from './routes/quran.mushaf'
+import { Route as QuranLastReadRouteImport } from './routes/quran.last-read'
+import { Route as QuranBookmarksRouteImport } from './routes/quran.bookmarks'
 import { Route as TabsQuranRouteImport } from './routes/_tabs.quran'
 import { Route as TabsPrayerRouteImport } from './routes/_tabs.prayer'
 import { Route as TabsMoreRouteImport } from './routes/_tabs.more'
@@ -110,6 +116,36 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const QuranTafsirRoute = QuranTafsirRouteImport.update({
+  id: '/quran/tafsir',
+  path: '/quran/tafsir',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuranSearchRoute = QuranSearchRouteImport.update({
+  id: '/quran/search',
+  path: '/quran/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuranRecitationsRoute = QuranRecitationsRouteImport.update({
+  id: '/quran/recitations',
+  path: '/quran/recitations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuranMushafRoute = QuranMushafRouteImport.update({
+  id: '/quran/mushaf',
+  path: '/quran/mushaf',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuranLastReadRoute = QuranLastReadRouteImport.update({
+  id: '/quran/last-read',
+  path: '/quran/last-read',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuranBookmarksRoute = QuranBookmarksRouteImport.update({
+  id: '/quran/bookmarks',
+  path: '/quran/bookmarks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TabsQuranRoute = TabsQuranRouteImport.update({
   id: '/quran',
   path: '/quran',
@@ -157,6 +193,12 @@ export interface FileRoutesByFullPath {
   '/more': typeof TabsMoreRoute
   '/prayer': typeof TabsPrayerRoute
   '/quran': typeof TabsQuranRoute
+  '/quran/bookmarks': typeof QuranBookmarksRoute
+  '/quran/last-read': typeof QuranLastReadRoute
+  '/quran/mushaf': typeof QuranMushafRoute
+  '/quran/recitations': typeof QuranRecitationsRoute
+  '/quran/search': typeof QuranSearchRoute
+  '/quran/tafsir': typeof QuranTafsirRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -179,6 +221,12 @@ export interface FileRoutesByTo {
   '/more': typeof TabsMoreRoute
   '/prayer': typeof TabsPrayerRoute
   '/quran': typeof TabsQuranRoute
+  '/quran/bookmarks': typeof QuranBookmarksRoute
+  '/quran/last-read': typeof QuranLastReadRoute
+  '/quran/mushaf': typeof QuranMushafRoute
+  '/quran/recitations': typeof QuranRecitationsRoute
+  '/quran/search': typeof QuranSearchRoute
+  '/quran/tafsir': typeof QuranTafsirRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -203,6 +251,12 @@ export interface FileRoutesById {
   '/_tabs/more': typeof TabsMoreRoute
   '/_tabs/prayer': typeof TabsPrayerRoute
   '/_tabs/quran': typeof TabsQuranRoute
+  '/quran/bookmarks': typeof QuranBookmarksRoute
+  '/quran/last-read': typeof QuranLastReadRoute
+  '/quran/mushaf': typeof QuranMushafRoute
+  '/quran/recitations': typeof QuranRecitationsRoute
+  '/quran/search': typeof QuranSearchRoute
+  '/quran/tafsir': typeof QuranTafsirRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -227,6 +281,12 @@ export interface FileRouteTypes {
     | '/more'
     | '/prayer'
     | '/quran'
+    | '/quran/bookmarks'
+    | '/quran/last-read'
+    | '/quran/mushaf'
+    | '/quran/recitations'
+    | '/quran/search'
+    | '/quran/tafsir'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -249,6 +309,12 @@ export interface FileRouteTypes {
     | '/more'
     | '/prayer'
     | '/quran'
+    | '/quran/bookmarks'
+    | '/quran/last-read'
+    | '/quran/mushaf'
+    | '/quran/recitations'
+    | '/quran/search'
+    | '/quran/tafsir'
   id:
     | '__root__'
     | '/'
@@ -272,6 +338,12 @@ export interface FileRouteTypes {
     | '/_tabs/more'
     | '/_tabs/prayer'
     | '/_tabs/quran'
+    | '/quran/bookmarks'
+    | '/quran/last-read'
+    | '/quran/mushaf'
+    | '/quran/recitations'
+    | '/quran/search'
+    | '/quran/tafsir'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -291,6 +363,12 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
   StatisticsRoute: typeof StatisticsRoute
+  QuranBookmarksRoute: typeof QuranBookmarksRoute
+  QuranLastReadRoute: typeof QuranLastReadRoute
+  QuranMushafRoute: typeof QuranMushafRoute
+  QuranRecitationsRoute: typeof QuranRecitationsRoute
+  QuranSearchRoute: typeof QuranSearchRoute
+  QuranTafsirRoute: typeof QuranTafsirRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -407,6 +485,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/quran/tafsir': {
+      id: '/quran/tafsir'
+      path: '/quran/tafsir'
+      fullPath: '/quran/tafsir'
+      preLoaderRoute: typeof QuranTafsirRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quran/search': {
+      id: '/quran/search'
+      path: '/quran/search'
+      fullPath: '/quran/search'
+      preLoaderRoute: typeof QuranSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quran/recitations': {
+      id: '/quran/recitations'
+      path: '/quran/recitations'
+      fullPath: '/quran/recitations'
+      preLoaderRoute: typeof QuranRecitationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quran/mushaf': {
+      id: '/quran/mushaf'
+      path: '/quran/mushaf'
+      fullPath: '/quran/mushaf'
+      preLoaderRoute: typeof QuranMushafRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quran/last-read': {
+      id: '/quran/last-read'
+      path: '/quran/last-read'
+      fullPath: '/quran/last-read'
+      preLoaderRoute: typeof QuranLastReadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quran/bookmarks': {
+      id: '/quran/bookmarks'
+      path: '/quran/bookmarks'
+      fullPath: '/quran/bookmarks'
+      preLoaderRoute: typeof QuranBookmarksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_tabs/quran': {
       id: '/_tabs/quran'
       path: '/quran'
@@ -480,17 +600,13 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,
   StatisticsRoute: StatisticsRoute,
+  QuranBookmarksRoute: QuranBookmarksRoute,
+  QuranLastReadRoute: QuranLastReadRoute,
+  QuranMushafRoute: QuranMushafRoute,
+  QuranRecitationsRoute: QuranRecitationsRoute,
+  QuranSearchRoute: QuranSearchRoute,
+  QuranTafsirRoute: QuranTafsirRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
