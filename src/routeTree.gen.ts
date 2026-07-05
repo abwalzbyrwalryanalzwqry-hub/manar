@@ -26,8 +26,10 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as TabsRouteImport } from './routes/_tabs'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as QuranTafsirRouteImport } from './routes/quran.tafsir'
+import { Route as QuranShareRouteImport } from './routes/quran.share'
 import { Route as QuranSearchRouteImport } from './routes/quran.search'
 import { Route as QuranRecitationsRouteImport } from './routes/quran.recitations'
+import { Route as QuranReaderSettingsRouteImport } from './routes/quran.reader-settings'
 import { Route as QuranMushafRouteImport } from './routes/quran.mushaf'
 import { Route as QuranLastReadRouteImport } from './routes/quran.last-read'
 import { Route as QuranBookmarksRouteImport } from './routes/quran.bookmarks'
@@ -121,6 +123,11 @@ const QuranTafsirRoute = QuranTafsirRouteImport.update({
   path: '/quran/tafsir',
   getParentRoute: () => rootRouteImport,
 } as any)
+const QuranShareRoute = QuranShareRouteImport.update({
+  id: '/quran/share',
+  path: '/quran/share',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const QuranSearchRoute = QuranSearchRouteImport.update({
   id: '/quran/search',
   path: '/quran/search',
@@ -129,6 +136,11 @@ const QuranSearchRoute = QuranSearchRouteImport.update({
 const QuranRecitationsRoute = QuranRecitationsRouteImport.update({
   id: '/quran/recitations',
   path: '/quran/recitations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuranReaderSettingsRoute = QuranReaderSettingsRouteImport.update({
+  id: '/quran/reader-settings',
+  path: '/quran/reader-settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const QuranMushafRoute = QuranMushafRouteImport.update({
@@ -196,8 +208,10 @@ export interface FileRoutesByFullPath {
   '/quran/bookmarks': typeof QuranBookmarksRoute
   '/quran/last-read': typeof QuranLastReadRoute
   '/quran/mushaf': typeof QuranMushafRoute
+  '/quran/reader-settings': typeof QuranReaderSettingsRoute
   '/quran/recitations': typeof QuranRecitationsRoute
   '/quran/search': typeof QuranSearchRoute
+  '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
 }
 export interface FileRoutesByTo {
@@ -224,8 +238,10 @@ export interface FileRoutesByTo {
   '/quran/bookmarks': typeof QuranBookmarksRoute
   '/quran/last-read': typeof QuranLastReadRoute
   '/quran/mushaf': typeof QuranMushafRoute
+  '/quran/reader-settings': typeof QuranReaderSettingsRoute
   '/quran/recitations': typeof QuranRecitationsRoute
   '/quran/search': typeof QuranSearchRoute
+  '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
 }
 export interface FileRoutesById {
@@ -254,8 +270,10 @@ export interface FileRoutesById {
   '/quran/bookmarks': typeof QuranBookmarksRoute
   '/quran/last-read': typeof QuranLastReadRoute
   '/quran/mushaf': typeof QuranMushafRoute
+  '/quran/reader-settings': typeof QuranReaderSettingsRoute
   '/quran/recitations': typeof QuranRecitationsRoute
   '/quran/search': typeof QuranSearchRoute
+  '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
 }
 export interface FileRouteTypes {
@@ -284,8 +302,10 @@ export interface FileRouteTypes {
     | '/quran/bookmarks'
     | '/quran/last-read'
     | '/quran/mushaf'
+    | '/quran/reader-settings'
     | '/quran/recitations'
     | '/quran/search'
+    | '/quran/share'
     | '/quran/tafsir'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -312,8 +332,10 @@ export interface FileRouteTypes {
     | '/quran/bookmarks'
     | '/quran/last-read'
     | '/quran/mushaf'
+    | '/quran/reader-settings'
     | '/quran/recitations'
     | '/quran/search'
+    | '/quran/share'
     | '/quran/tafsir'
   id:
     | '__root__'
@@ -341,8 +363,10 @@ export interface FileRouteTypes {
     | '/quran/bookmarks'
     | '/quran/last-read'
     | '/quran/mushaf'
+    | '/quran/reader-settings'
     | '/quran/recitations'
     | '/quran/search'
+    | '/quran/share'
     | '/quran/tafsir'
   fileRoutesById: FileRoutesById
 }
@@ -366,8 +390,10 @@ export interface RootRouteChildren {
   QuranBookmarksRoute: typeof QuranBookmarksRoute
   QuranLastReadRoute: typeof QuranLastReadRoute
   QuranMushafRoute: typeof QuranMushafRoute
+  QuranReaderSettingsRoute: typeof QuranReaderSettingsRoute
   QuranRecitationsRoute: typeof QuranRecitationsRoute
   QuranSearchRoute: typeof QuranSearchRoute
+  QuranShareRoute: typeof QuranShareRoute
   QuranTafsirRoute: typeof QuranTafsirRoute
 }
 
@@ -492,6 +518,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof QuranTafsirRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/quran/share': {
+      id: '/quran/share'
+      path: '/quran/share'
+      fullPath: '/quran/share'
+      preLoaderRoute: typeof QuranShareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/quran/search': {
       id: '/quran/search'
       path: '/quran/search'
@@ -504,6 +537,13 @@ declare module '@tanstack/react-router' {
       path: '/quran/recitations'
       fullPath: '/quran/recitations'
       preLoaderRoute: typeof QuranRecitationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quran/reader-settings': {
+      id: '/quran/reader-settings'
+      path: '/quran/reader-settings'
+      fullPath: '/quran/reader-settings'
+      preLoaderRoute: typeof QuranReaderSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/quran/mushaf': {
@@ -603,8 +643,10 @@ const rootRouteChildren: RootRouteChildren = {
   QuranBookmarksRoute: QuranBookmarksRoute,
   QuranLastReadRoute: QuranLastReadRoute,
   QuranMushafRoute: QuranMushafRoute,
+  QuranReaderSettingsRoute: QuranReaderSettingsRoute,
   QuranRecitationsRoute: QuranRecitationsRoute,
   QuranSearchRoute: QuranSearchRoute,
+  QuranShareRoute: QuranShareRoute,
   QuranTafsirRoute: QuranTafsirRoute,
 }
 export const routeTree = rootRouteImport
