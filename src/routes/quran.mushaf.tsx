@@ -419,13 +419,14 @@ function MushafReader() {
 
           <div className="mt-3 max-h-[65vh] overflow-y-auto px-4 pb-5">
             <div className="grid grid-cols-3 gap-2">
-              {JUZ_LIST.map((j) => {
-                const active = j.number === state.juz;
+              {JUZ_LIST_META.map((j) => {
+                const active = j.id === state.juz;
+                const startSurah = SURAH_LIST[j.start.surah - 1];
                 return (
                   <button
-                    key={j.number}
+                    key={j.id}
                     onClick={() => {
-                      update({ juz: j.number });
+                      update({ juz: j.id });
                       setJuzOpen(false);
                     }}
                     className={`flex flex-col items-center rounded-2xl border p-3 text-center transition active:scale-95 ${
@@ -442,10 +443,10 @@ function MushafReader() {
                         active ? "text-primary" : "text-foreground"
                       }`}
                     >
-                      {toArabicDigits(j.number)}
+                      {toArabicDigits(j.id)}
                     </span>
                     <span className="mt-1 line-clamp-1 text-[10px] text-muted-foreground">
-                      {j.startsAt}
+                      {startSurah.nameAr} · {toArabicDigits(j.start.ayah)}
                     </span>
                   </button>
                 );
