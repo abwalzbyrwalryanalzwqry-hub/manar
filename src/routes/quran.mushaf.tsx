@@ -192,14 +192,80 @@ function MushafReader() {
           </div>
         </div>
 
-        {/* Mushaf page placeholder */}
-        <div className="mt-5 px-4 animate-fade-up">
-          <div className="relative overflow-hidden rounded-[32px] border border-border/60 bg-card/70 shadow-elegant backdrop-blur-2xl">
+        {/* Surah metadata — driven by repository */}
+        <section
+          key={`meta-${activeSurah.id}`}
+          className="mt-5 px-4 animate-fade-up"
+          aria-label="بطاقة السورة"
+        >
+          <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-card/70 p-5 shadow-elegant backdrop-blur-2xl">
+            <Arabesque className="pointer-events-none absolute -top-16 -left-16 h-48 w-48 text-primary/10" />
+            <Arabesque className="pointer-events-none absolute -bottom-16 -right-16 h-48 w-48 text-gold/15" />
+
+            <div className="relative flex items-start gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-soft">
+                <Icon d={icons.quran} size={22} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                  {activeSurah.nameEn} · {activeSurah.meaningEn}
+                </div>
+                <h2 className="mt-0.5 font-display text-2xl font-medium leading-snug">
+                  سورة {activeSurah.nameAr}
+                </h2>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <Chip
+                    tone={activeSurah.revelation === "makki" ? "gold" : "primary"}
+                    label={revelationLabel}
+                  />
+                  <Chip label={`ترتيبها ${toArabicDigits(activeSurah.id)}`} />
+                  <Chip label={`نزولها ${toArabicDigits(activeSurah.revelationOrder)}`} />
+                </div>
+              </div>
+            </div>
+
+            <div className="relative mt-5 grid grid-cols-2 gap-2.5">
+              <MetaStat label="عدد الآيات" value={toArabicDigits(activeSurah.ayatCount)} />
+              <MetaStat
+                label="الجزء"
+                value={formatRangeAr(activeSurah.juz.start, activeSurah.juz.end)}
+              />
+              <MetaStat
+                label="الحزب"
+                value={formatRangeAr(activeSurah.hizb.start, activeSurah.hizb.end)}
+              />
+              <MetaStat
+                label="الصفحات"
+                value={formatRangeAr(activeSurah.pages.start, activeSurah.pages.end)}
+              />
+              <MetaStat
+                label="تبدأ في صفحة"
+                value={toArabicDigits(activeSurah.pages.start)}
+              />
+              <MetaStat
+                label="تنتهي في صفحة"
+                value={toArabicDigits(activeSurah.pages.end)}
+              />
+            </div>
+
+            {detail?.summaryAr && (
+              <div className="relative mt-4 rounded-2xl border border-border/40 bg-background/50 p-3.5">
+                <div className="text-[10px] font-medium uppercase tracking-[0.25em] text-gold">
+                  نبذة
+                </div>
+                <p className="mt-1 text-[13px] leading-relaxed text-foreground/85">
+                  {detail.summaryAr}
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Scrollable reading container — awaiting verses in the next phase */}
+        <section className="mt-5 px-4 animate-fade-up" aria-label="منطقة قراءة الآيات">
+          <div className="relative overflow-hidden rounded-[32px] border border-border/60 bg-card/60 shadow-elegant backdrop-blur-2xl">
             <div className="pointer-events-none absolute inset-3 rounded-[26px] border border-gold/25" />
             <div className="pointer-events-none absolute inset-5 rounded-[22px] border border-gold/10" />
-            <Arabesque className="pointer-events-none absolute -top-16 -left-16 h-56 w-56 text-primary/10" />
-            <Arabesque className="pointer-events-none absolute -bottom-16 -right-16 h-56 w-56 text-gold/15" />
-
             {["top-4 right-4", "top-4 left-4", "bottom-4 right-4", "bottom-4 left-4"].map(
               (pos) => (
                 <span
@@ -209,42 +275,27 @@ function MushafReader() {
               ),
             )}
 
-            <div className="relative flex min-h-[440px] flex-col items-center justify-center px-8 py-14 text-center">
-              <div className="relative flex h-24 w-24 items-center justify-center">
-                <svg viewBox="0 0 100 100" className="absolute inset-0 text-primary/20" aria-hidden>
-                  <path d="M50 6 L86 26 V66 L50 90 L14 66 V26 Z" fill="none" stroke="currentColor" strokeWidth="0.9" />
-                  <path d="M50 18 L74 32 V60 L50 76 L26 60 V32 Z" fill="none" stroke="currentColor" strokeWidth="0.7" />
-                </svg>
-                <div className="gradient-primary relative flex h-16 w-16 items-center justify-center rounded-2xl text-primary-foreground shadow-glow">
-                  <Icon d={icons.quran} size={26} />
+            <div
+              key={`reader-${activeSurah.id}`}
+              className="relative max-h-[62vh] min-h-[360px] overflow-y-auto px-7 py-10"
+              dir="rtl"
+              data-quran-reader-scroll
+            >
+              <div className="flex flex-col items-center gap-4 text-center">
+                <span className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.3em] text-gold">
+                  المرحلة القادمة
+                </span>
+                <div className="font-display text-lg leading-relaxed text-foreground/70">
+                  سورة {activeSurah.nameAr}
                 </div>
-                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-gold shadow-gold animate-pulse" />
-              </div>
-
-              <div className="mt-6 rounded-full border border-gold/40 bg-gold/10 px-3.5 py-1">
-                <span className="text-[10px] font-medium uppercase tracking-[0.3em] text-gold">
-                  قريبًا
-                </span>
-              </div>
-
-              <h2 className="mt-5 font-display text-2xl font-medium leading-snug">
-                سورة {activeSurah.name}
-              </h2>
-              <p className="mt-3 max-w-[18rem] text-sm leading-relaxed text-muted-foreground">
-                نُجهّز حاليًا مصحفًا متكاملًا بخط عثماني واضح وتجربة قراءة فاخرة.
-                ستضاف الآيات في المرحلة القادمة بإذن الله.
-              </p>
-
-              <div className="mt-6 flex items-center gap-2">
-                <span className="h-px w-8 bg-gold/50" />
-                <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                  منار
-                </span>
-                <span className="h-px w-8 bg-gold/50" />
+                <div className="h-px w-16 bg-gold/40" />
+                <p className="max-w-[20rem] text-[12px] leading-relaxed text-muted-foreground">
+                  الحاوية جاهزة لاستقبال الآيات بالخط العثماني بإذن الله.
+                </p>
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Primary action bar */}
         <div className="mt-5 px-4">
