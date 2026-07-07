@@ -358,12 +358,12 @@ function MushafReader() {
           <div className="mt-3 max-h-[65vh] overflow-y-auto px-3 pb-4">
             <ul className="grid gap-1.5">
               {filteredSurahs.map((s) => {
-                const active = s.number === state.surah;
+                const active = s.id === state.surah;
                 return (
-                  <li key={s.number}>
+                  <li key={s.id}>
                     <button
                       onClick={() => {
-                        update({ surah: s.number });
+                        update({ surah: s.id });
                         setSurahOpen(false);
                         setQuery("");
                       }}
@@ -380,14 +380,14 @@ function MushafReader() {
                             : "border-gold/30 bg-gold/10 text-gold"
                         }`}
                       >
-                        {toArabicDigits(s.number)}
+                        {toArabicDigits(s.id)}
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-display text-base font-medium">
-                          {s.name}
+                          {s.nameAr}
                         </div>
                         <div className="text-[10px] text-muted-foreground">
-                          {s.type} · {toArabicDigits(s.verses)} آية
+                          {REVELATION_LABEL_AR[s.revelation]} · {toArabicDigits(s.ayatCount)} آية
                         </div>
                       </div>
                       {active && (
