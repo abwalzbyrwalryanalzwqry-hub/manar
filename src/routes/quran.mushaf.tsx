@@ -85,10 +85,10 @@ function MushafReader() {
               className="min-w-0 text-center transition active:scale-[0.98]"
             >
               <div className="font-display text-base font-medium leading-tight truncate">
-                {activeSurah.name}
+                {activeSurah.nameAr}
               </div>
               <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                المصحف · قارئ منار
+                {activeSurah.nameEn} · قارئ منار
               </div>
             </button>
             <button
@@ -133,20 +133,20 @@ function MushafReader() {
         <div className="mt-4 grid grid-cols-2 gap-3 px-4 stagger">
           <SelectorPill
             label="السورة"
-            value={activeSurah.name}
+            value={activeSurah.nameAr}
             iconKey="quran"
             onClick={() => setSurahOpen(true)}
           />
           <SelectorPill
             label="الجزء"
-            value={toArabicDigits(activeJuz.number)}
+            value={toArabicDigits(activeJuz.id)}
             iconKey="bookmark"
             onClick={() => setJuzOpen(true)}
           />
         </div>
 
-        {/* Dynamic reading progress card */}
-        <div className="mt-4 px-4 animate-fade-up">
+        {/* Dynamic reading progress card — driven by repository */}
+        <div key={`progress-${activeSurah.id}-${activeJuz.id}`} className="mt-4 px-4 animate-fade-up">
           <div className="glass rounded-3xl border border-border/60 p-4">
             <div className="flex items-center gap-4">
               <div className="flex flex-col items-center rounded-2xl border border-gold/40 bg-gold/10 px-3 py-2">
@@ -154,7 +154,7 @@ function MushafReader() {
                   الجزء
                 </span>
                 <span className="font-display text-xl font-medium tabular-nums text-foreground">
-                  {toArabicDigits(activeJuz.number)}
+                  {toArabicDigits(activeJuz.id)}
                 </span>
               </div>
               <div className="min-w-0 flex-1">
@@ -167,22 +167,24 @@ function MushafReader() {
                   </span>
                 </div>
                 <div className="mt-1 truncate font-display text-sm">
-                  سورة {activeSurah.name}
+                  سورة {activeSurah.nameAr}
                   <span className="mx-1.5 text-muted-foreground">·</span>
                   <span className="text-muted-foreground">
-                    {activeSurah.type} · {toArabicDigits(activeSurah.verses)} آية
+                    {revelationLabel} · {toArabicDigits(activeSurah.ayatCount)} آية
                   </span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
                   <div
                     className="gradient-gold h-full transition-all duration-700"
-                    style={{ width: `${(state.juz / 30) * 100}%` }}
+                    style={{ width: `${progressPercent}%` }}
                   />
                 </div>
                 <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
-                  <span>يبدأ عند: {activeJuz.startsAt}</span>
+                  <span>
+                    يبدأ عند: سورة {SURAH_LIST[activeJuz.start.surah - 1].nameAr} · آية {toArabicDigits(activeJuz.start.ayah)}
+                  </span>
                   <span className="tabular-nums">
-                    {toArabicDigits(Math.round((state.juz / 30) * 100))}٪
+                    {toArabicDigits(progressPercent)}٪
                   </span>
                 </div>
               </div>
