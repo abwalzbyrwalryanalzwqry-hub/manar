@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Arabesque, Icon, icons } from "@/components/manar/shell";
 import {
   Dialog,
@@ -7,13 +7,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SURAHS, JUZ_LIST, toArabicDigits } from "@/lib/quran-data";
+import {
+  quranRepository,
+  toArabicDigits,
+  REVELATION_LABEL_AR,
+  formatRangeAr,
+} from "@/lib/quran";
 import { formatRelativeArabic, useReaderState } from "@/lib/quran-reader-state";
 
 export const Route = createFileRoute("/quran/mushaf")({
   head: () => ({ meta: [{ title: "المصحف — منار" }] }),
   component: MushafReader,
 });
+
+const SURAH_LIST = quranRepository.listSurahs();
+const JUZ_LIST_META = quranRepository.listJuz();
 
 function MushafReader() {
   const navigate = useNavigate();
@@ -23,16 +31,32 @@ function MushafReader() {
   const [juzOpen, setJuzOpen] = useState(false);
   const [query, setQuery] = useState("");
 
-  const activeSurah = SURAHS[state.surah - 1] ?? SURAHS[0];
-  const activeJuz = JUZ_LIST[state.juz - 1] ?? JUZ_LIST[0];
+  // Default to Al-Fatihah if no valid selection.
+  useEffect(() => {
+    if (!state.surah || state.surah < 1 || state.surah > 114) {
+      update({ surah: 1 });
+    }
+  }, [state.surah, update]);
+
+  const activeSurah =
+    quranRepository.getSurah(state.surah) ?? quranRepository.getSurah(1)!;
+  const activeJuz =
+    quranRepository.getJuz(state.juz) ?? quranRepository.getJuz(1)!;
+  const detail = quranRepository.getSurahDetail(activeSurah.id);
 
   const filteredSurahs = useMemo(() => {
     const q = query.trim();
-    if (!q) return SURAHS;
-    return SURAHS.filter(
-      (s) => s.name.includes(q) || String(s.number).includes(q),
+    if (!q) return SURAH_LIST;
+    return SURAH_LIST.filter(
+      (s) =>
+        s.nameAr.includes(q) ||
+        s.nameEn.toLowerCase().includes(q.toLowerCase()) ||
+        String(s.id).includes(q),
     );
   }, [query]);
+
+  const revelationLabel = REVELATION_LABEL_AR[activeSurah.revelation];
+  const progressPercent = Math.round((state.juz / 30) * 100);
 
   return (
     <div dir="rtl" className="relative min-h-screen bg-background text-foreground">
