@@ -566,3 +566,32 @@ function ToolCard({
     </Link>
   );
 }
+
+function Chip({ label, tone = "muted" }: { label: string; tone?: "muted" | "gold" | "primary" }) {
+  const toneClass =
+    tone === "gold"
+      ? "border-gold/40 bg-gold/10 text-gold"
+      : tone === "primary"
+        ? "border-primary/40 bg-primary/10 text-primary"
+        : "border-border/60 bg-background/70 text-muted-foreground";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${toneClass}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function MetaStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="glass rounded-2xl border border-border/50 p-3 text-right transition hover:-translate-y-0.5 hover:shadow-soft">
+      <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-1 font-display text-lg font-medium tabular-nums text-foreground">
+        {value}
+      </div>
+    </div>
+  );
+}
