@@ -21,4 +21,7 @@ export { SURAH_DETAILS, MOCK_SURAH_IDS, type SurahDetail } from "./mock-data";
 
 export { QuranRepository, quranRepository } from "./repository";
 
+export { QuranTextService, quranTextService } from "./text-service";
+export type { AyahText, SurahText, QuranIndex } from "./text-types";
+
 export { toArabicDigits, surahDisplayName, formatRangeAr } from "./format";
