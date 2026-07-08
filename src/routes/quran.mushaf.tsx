@@ -1,5 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { SurahRenderer } from "@/components/manar/surah-renderer";
+import { useSurahText } from "@/hooks/use-surah-text";
 import { Arabesque, Icon, icons } from "@/components/manar/shell";
 import {
   Dialog,
