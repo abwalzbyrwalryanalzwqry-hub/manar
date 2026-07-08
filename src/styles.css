@@ -50,6 +50,7 @@
   --font-sans: "Thmanyah", "IBM Plex Sans Arabic", "Inter", system-ui, sans-serif;
   --font-display: "Thmanyah", "Amiri", serif;
   --font-arabic: "Thmanyah", "Cairo", "Tajawal", sans-serif;
+  --font-quran: "Amiri Quran", "Scheherazade New", "Traditional Arabic", "KFGQPC Uthmanic Hafs", serif;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);

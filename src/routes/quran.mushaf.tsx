@@ -1,5 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { SurahRenderer } from "@/components/manar/surah-renderer";
+import { useSurahText } from "@/hooks/use-surah-text";
 import { Arabesque, Icon, icons } from "@/components/manar/shell";
 import {
   Dialog,
@@ -261,41 +263,9 @@ function MushafReader() {
           </div>
         </section>
 
-        {/* Scrollable reading container — awaiting verses in the next phase */}
-        <section className="mt-5 px-4 animate-fade-up" aria-label="منطقة قراءة الآيات">
-          <div className="relative overflow-hidden rounded-[32px] border border-border/60 bg-card/60 shadow-elegant backdrop-blur-2xl">
-            <div className="pointer-events-none absolute inset-3 rounded-[26px] border border-gold/25" />
-            <div className="pointer-events-none absolute inset-5 rounded-[22px] border border-gold/10" />
-            {["top-4 right-4", "top-4 left-4", "bottom-4 right-4", "bottom-4 left-4"].map(
-              (pos) => (
-                <span
-                  key={pos}
-                  className={`pointer-events-none absolute ${pos} h-4 w-4 rotate-45 border border-gold/40`}
-                />
-              ),
-            )}
+        {/* Scrollable reading container — authentic Uthmani text */}
+        <MushafReadingArea surahId={activeSurah.id} surahNameAr={activeSurah.nameAr} />
 
-            <div
-              key={`reader-${activeSurah.id}`}
-              className="relative max-h-[62vh] min-h-[360px] overflow-y-auto px-7 py-10"
-              dir="rtl"
-              data-quran-reader-scroll
-            >
-              <div className="flex flex-col items-center gap-4 text-center">
-                <span className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.3em] text-gold">
-                  المرحلة القادمة
-                </span>
-                <div className="font-display text-lg leading-relaxed text-foreground/70">
-                  سورة {activeSurah.nameAr}
-                </div>
-                <div className="h-px w-16 bg-gold/40" />
-                <p className="max-w-[20rem] text-[12px] leading-relaxed text-muted-foreground">
-                  الحاوية جاهزة لاستقبال الآيات بالخط العثماني بإذن الله.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
 
         {/* Primary action bar */}
         <div className="mt-5 px-4">
@@ -459,7 +429,54 @@ function MushafReader() {
   );
 }
 
+/* ---------- Reading area (loads Uthmani text via service) ---------- */
+
+function MushafReadingArea({
+  surahId,
+  surahNameAr,
+}: {
+  surahId: number;
+  surahNameAr: string;
+}) {
+  const state = useSurahText(surahId);
+  const [reloadKey, setReloadKey] = useState(0);
+  return (
+    <section
+      className="mt-5 px-4 animate-fade-up"
+      aria-label="منطقة قراءة الآيات"
+      key={reloadKey}
+    >
+      <div className="relative overflow-hidden rounded-[32px] border border-border/60 bg-card/60 shadow-elegant backdrop-blur-2xl">
+        <div className="pointer-events-none absolute inset-3 rounded-[26px] border border-gold/25" />
+        <div className="pointer-events-none absolute inset-5 rounded-[22px] border border-gold/10" />
+        {["top-4 right-4", "top-4 left-4", "bottom-4 right-4", "bottom-4 left-4"].map(
+          (pos) => (
+            <span
+              key={pos}
+              className={`pointer-events-none absolute ${pos} h-4 w-4 rotate-45 border border-gold/40`}
+            />
+          ),
+        )}
+
+        <div
+          className="relative max-h-[68vh] min-h-[380px] overflow-y-auto overscroll-contain px-6 py-8 scroll-smooth"
+          dir="rtl"
+          data-quran-reader-scroll
+        >
+          <SurahRenderer
+            surahId={surahId}
+            surahNameAr={surahNameAr}
+            state={state}
+            onRetry={() => setReloadKey((k) => k + 1)}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ---------- Sub-components ---------- */
+
 
 const MORE_ACTIONS: { label: string; icon: string; to: string }[] = [
   { label: "مشاركة", icon: icons.share, to: "/quran/share" },
