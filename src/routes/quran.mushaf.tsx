@@ -1,7 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SurahRenderer } from "@/components/manar/surah-renderer";
+import { MushafPageRenderer } from "@/components/manar/mushaf-page-renderer";
 import { useSurahText } from "@/hooks/use-surah-text";
+import { useMushafPage } from "@/hooks/use-mushaf-page";
+import {
+  clampPage,
+  MUSHAF_PAGE_COUNT,
+  quranPageService,
+} from "@/lib/quran/page-service";
 import { Arabesque, Icon, icons } from "@/components/manar/shell";
 import {
   Dialog,
@@ -16,6 +23,7 @@ import {
   formatRangeAr,
 } from "@/lib/quran";
 import { formatRelativeArabic, useReaderState } from "@/lib/quran-reader-state";
+
 
 export const Route = createFileRoute("/quran/mushaf")({
   head: () => ({ meta: [{ title: "المصحف — منار" }] }),
