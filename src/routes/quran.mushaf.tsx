@@ -139,8 +139,34 @@ function MushafReader() {
           )}
         </header>
 
+        {/* Reading mode switch — السورة / المصحف */}
+        <div className="mt-4 px-4">
+          <div className="glass grid grid-cols-2 gap-1 rounded-full border border-border/60 p-1.5 shadow-soft">
+            {(["surah", "mushaf"] as const).map((m) => {
+              const active = state.mode === m;
+              return (
+                <button
+                  key={m}
+                  onClick={() => update({ mode: m })}
+                  className={`rounded-full py-2 text-[12px] font-medium transition active:scale-95 ${
+                    active
+                      ? "gradient-primary text-primary-foreground shadow-glow"
+                      : "text-muted-foreground hover:bg-background/60 hover:text-foreground"
+                  }`}
+                  aria-pressed={active}
+                >
+                  {m === "surah" ? "السورة" : "المصحف"}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {isSurahMode && (
+        <>
         {/* Selectors row */}
         <div className="mt-4 grid grid-cols-2 gap-3 px-4 stagger">
+
           <SelectorPill
             label="السورة"
             value={activeSurah.nameAr}
