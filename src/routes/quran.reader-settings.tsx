@@ -81,7 +81,7 @@ function ReaderSettingsScreen() {
 
         <OptionGroup
           title="نوع خط القرآن"
-          icon={icons.book ?? icons.sparkle}
+          icon={icons.quran}
           options={QURAN_FONT_OPTIONS.map((o) => ({
             key: o.key,
             label: o.label,
