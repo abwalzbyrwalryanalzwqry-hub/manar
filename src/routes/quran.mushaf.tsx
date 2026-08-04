@@ -273,6 +273,17 @@ function MushafReader() {
 
         {/* Scrollable reading container — authentic Uthmani text */}
         <MushafReadingArea surahId={activeSurah.id} surahNameAr={activeSurah.nameAr} />
+        </>
+        )}
+
+        {!isSurahMode && (
+          <MushafPagesMode
+            page={pageNumber}
+            onChange={(p) => update({ page: clampPage(p) })}
+          />
+        )}
+
+
 
 
         {/* Primary action bar */}
