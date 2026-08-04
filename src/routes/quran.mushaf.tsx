@@ -523,7 +523,206 @@ function MushafReadingArea({
   );
 }
 
+/* ---------- Mushaf pages mode (1..604) ---------- */
+
+function MushafPagesMode({
+  page,
+  onChange,
+}: {
+  page: number;
+  onChange: (page: number) => void;
+}) {
+  const state = useMushafPage(page);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [jumpOpen, setJumpOpen] = useState(false);
+  const [jumpValue, setJumpValue] = useState(String(page));
+  const touchRef = useRef<{ x: number; y: number } | null>(null);
+
+  const go = useCallback(
+    (delta: number) => {
+      const next = clampPage(page + delta);
+      if (next !== page) onChange(next);
+    },
+    [page, onChange],
+  );
+
+  useEffect(() => {
+    quranPageService.prefetch([page - 1, page + 1]);
+  }, [page]);
+
+  const data = state.status === "ready" ? state.data : undefined;
+  const surahNames = data?.segments.map((s) => s.nameAr).join(" · ") ?? "—";
+  const progress = Math.round((page / MUSHAF_PAGE_COUNT) * 100);
+
+  return (
+    <section className="mt-4 px-4" aria-label="وضع المصحف">
+      {/* Page info card */}
+      <div className="glass rounded-3xl border border-border/60 p-4">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => {
+              setJumpValue(String(page));
+              setJumpOpen(true);
+            }}
+            className="flex flex-col items-center rounded-2xl border border-gold/40 bg-gold/10 px-3 py-2 transition active:scale-95"
+            aria-label="الانتقال إلى صفحة"
+          >
+            <span className="text-[9px] uppercase tracking-[0.25em] text-gold">
+              صفحة
+            </span>
+            <span className="font-display text-xl font-medium tabular-nums text-foreground">
+              {toArabicDigits(page)}
+            </span>
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-display text-sm">{surahNames}</div>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <Chip label={`الجزء ${toArabicDigits(data?.juz ?? 1)}`} tone="primary" />
+              {data?.hizb !== undefined && (
+                <Chip label={`الحزب ${toArabicDigits(data.hizb)}`} tone="gold" />
+              )}
+              <Chip label={`من ${toArabicDigits(MUSHAF_PAGE_COUNT)}`} />
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="gradient-gold h-full transition-all duration-700"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Page surface — swipeable */}
+      <div
+        className="relative mt-4 overflow-hidden rounded-[32px] border border-border/60 bg-card/60 shadow-elegant backdrop-blur-2xl"
+        key={reloadKey}
+        onTouchStart={(e) => {
+          const t = e.touches[0];
+          touchRef.current = { x: t.clientX, y: t.clientY };
+        }}
+        onTouchEnd={(e) => {
+          const start = touchRef.current;
+          touchRef.current = null;
+          if (!start) return;
+          const t = e.changedTouches[0];
+          const dx = t.clientX - start.x;
+          const dy = t.clientY - start.y;
+          if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+          // RTL: swipe right-to-left → next page.
+          go(dx < 0 ? 1 : -1);
+        }}
+      >
+        <div className="pointer-events-none absolute inset-3 rounded-[26px] border border-gold/25" />
+        <div className="pointer-events-none absolute inset-5 rounded-[22px] border border-gold/10" />
+        {["top-4 right-4", "top-4 left-4", "bottom-4 right-4", "bottom-4 left-4"].map(
+          (pos) => (
+            <span
+              key={pos}
+              className={`pointer-events-none absolute ${pos} h-4 w-4 rotate-45 border border-gold/40`}
+            />
+          ),
+        )}
+
+        <div
+          className="relative max-h-[68vh] min-h-[380px] overflow-y-auto overscroll-contain px-6 py-8 scroll-smooth"
+          dir="rtl"
+          data-quran-page-scroll
+        >
+          <MushafPageRenderer
+            page={page}
+            state={state}
+            onRetry={() => setReloadKey((k) => k + 1)}
+          />
+        </div>
+
+        {/* Compact page indicator */}
+        <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2">
+          <span className="rounded-full border border-gold/40 bg-background/85 px-3 py-1 text-[10px] font-medium tabular-nums text-gold shadow-soft backdrop-blur">
+            {toArabicDigits(page)} / {toArabicDigits(MUSHAF_PAGE_COUNT)}
+          </span>
+        </div>
+      </div>
+
+      {/* Page navigation */}
+      <div className="mt-4 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
+        <button
+          onClick={() => go(-1)}
+          disabled={page <= 1}
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/70 text-foreground shadow-soft transition disabled:opacity-40 active:scale-95"
+          aria-label="الصفحة السابقة"
+        >
+          <Icon d={icons.chevron} size={18} />
+        </button>
+        <button
+          onClick={() => {
+            setJumpValue(String(page));
+            setJumpOpen(true);
+          }}
+          className="rounded-full border border-border/60 bg-card/70 py-2.5 text-[12px] font-medium shadow-soft transition active:scale-[0.98]"
+        >
+          الانتقال إلى صفحة
+        </button>
+        <button
+          onClick={() => go(1)}
+          disabled={page >= MUSHAF_PAGE_COUNT}
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/70 text-foreground shadow-soft transition disabled:opacity-40 active:scale-95"
+          aria-label="الصفحة التالية"
+        >
+          <span className="rotate-180">
+            <Icon d={icons.chevron} size={18} />
+          </span>
+        </button>
+      </div>
+
+      <p className="mt-4 text-center text-[11px] leading-relaxed text-muted-foreground">
+        اسحب يمينًا أو يسارًا لتقليب صفحات المصحف · ٦٠٤ صفحة
+      </p>
+
+      <Dialog open={jumpOpen} onOpenChange={setJumpOpen}>
+        <DialogContent
+          className="max-w-sm rounded-3xl border-border/60 bg-card/95 backdrop-blur-2xl sm:rounded-3xl"
+          dir="rtl"
+        >
+          <DialogHeader className="text-right">
+            <DialogTitle className="font-display text-xl">الانتقال إلى صفحة</DialogTitle>
+            <p className="text-[11px] text-muted-foreground">
+              أدخل رقمًا بين ١ و ٦٠٤
+            </p>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const n = Number(jumpValue);
+              if (Number.isFinite(n)) onChange(clampPage(n));
+              setJumpOpen(false);
+            }}
+            className="grid gap-3"
+          >
+            <input
+              type="number"
+              min={1}
+              max={MUSHAF_PAGE_COUNT}
+              value={jumpValue}
+              onChange={(e) => setJumpValue(e.target.value)}
+              className="w-full rounded-2xl border border-border/60 bg-background/70 px-4 py-3 text-center text-lg tabular-nums outline-none focus:border-primary/50"
+              dir="ltr"
+            />
+            <button
+              type="submit"
+              className="gradient-primary rounded-2xl py-3 text-sm font-medium text-primary-foreground shadow-glow transition active:scale-[0.98]"
+            >
+              انتقال
+            </button>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
 /* ---------- Sub-components ---------- */
+
 
 
 const MORE_ACTIONS: { label: string; icon: string; to: string }[] = [
