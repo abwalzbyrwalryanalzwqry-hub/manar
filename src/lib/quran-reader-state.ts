@@ -2,10 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 
 const KEY = "manar.quran.reader.v1";
 
+export type ReaderMode = "surah" | "mushaf";
+
 export type ReaderState = {
   surah: number; // 1..114
   juz: number; // 1..30
   bookmarked: boolean;
+  mode: ReaderMode;
+  page: number; // 1..604 — last opened Mushaf page
   updatedAt: number; // ms
 };
 
@@ -13,8 +17,11 @@ const DEFAULT: ReaderState = {
   surah: 1,
   juz: 1,
   bookmarked: false,
+  mode: "surah",
+  page: 1,
   updatedAt: Date.now(),
 };
+
 
 function read(): ReaderState {
   if (typeof window === "undefined") return DEFAULT;
