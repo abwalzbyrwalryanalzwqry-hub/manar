@@ -1,5 +1,6 @@
 import { Icon, icons } from "@/components/manar/shell";
 import { toArabicDigits } from "@/lib/quran";
+import { useReadingPrefs } from "@/lib/quran/reading-prefs";
 import type { SurahText } from "@/lib/quran/text-types";
 import { useEffect, useState } from "react";
 
@@ -13,6 +14,9 @@ interface Props {
   onRetry: () => void;
 }
 
+/** Canonical Basmala, as authored in the Uthmani dataset. */
+const BASMALA = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
+
 /**
  * Renders a Surah's Uthmani text inside the reading container.
  * Text comes from the QuranTextService — never hardcoded.
@@ -21,6 +25,7 @@ export function SurahRenderer({ surahId, surahNameAr, state, onRetry }: Props) {
   // Force fade animation on surah change
   const [tick, setTick] = useState(0);
   useEffect(() => setTick((t) => t + 1), [surahId]);
+  const { style } = useReadingPrefs();
 
   if (state.status === "loading") {
     return <ReaderLoading nameAr={surahNameAr} />;
@@ -30,17 +35,29 @@ export function SurahRenderer({ surahId, surahNameAr, state, onRetry }: Props) {
     return <ReaderError error={state.error} onRetry={onRetry} />;
   }
 
-  const { ayahs } = state.data;
   const isFatihah = surahId === 1;
-  const isTawbah = surahId === 9;
-  // Al-Fatihah's first ayah IS the Basmala; other surahs (except Tawbah)
-  // conventionally show Basmala as a header, not as ayah 1.
-  const showBasmalaHeader = !isFatihah && !isTawbah;
+  // Al-Fatihah's first ayah IS the Basmala — keep it as a verse, no header.
+  // At-Tawbah (9) has no Basmala at all.
+  // Every other surah carries the Basmala prefixed onto ayah 1 in the dataset:
+  // lift it into the decorative header and strip it from the verse so it
+  // appears exactly once.
+  const rawAyahs = state.data.ayahs;
+  let ayahs = rawAyahs;
+  let showBasmalaHeader = false;
+
+  if (!isFatihah && rawAyahs.length > 0) {
+    const first = rawAyahs[0];
+    if (first.t.startsWith(BASMALA)) {
+      showBasmalaHeader = true;
+      const stripped = first.t.slice(BASMALA.length).trim();
+      ayahs = [{ ...first, t: stripped }, ...rawAyahs.slice(1)];
+    }
+  }
 
   return (
     <div key={tick} className="animate-fade-up">
       {/* Ornamental surah header */}
-      <div className="mb-6 flex flex-col items-center gap-2 text-center">
+      <div className="mb-7 flex flex-col items-center gap-2 text-center">
         <div className="flex items-center gap-3">
           <span className="h-px w-10 bg-gold/40" />
           <span className="font-display text-[11px] uppercase tracking-[0.3em] text-gold">
@@ -53,50 +70,56 @@ export function SurahRenderer({ surahId, surahNameAr, state, onRetry }: Props) {
         </div>
         {showBasmalaHeader && (
           <div
-            className="mt-4 font-quran text-2xl leading-[2.2] text-foreground/90"
-            style={{ fontFamily: "var(--font-quran)" }}
+            className="mt-5 text-[1.35em] leading-[2.1] text-foreground/90"
+            style={{
+              fontFamily: style.fontFamily,
+              fontSize: `${Math.round(style.fontSizePx * 0.92)}px`,
+            }}
+            lang="ar"
           >
-            بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
+            {BASMALA}
           </div>
         )}
       </div>
 
       {/* Verses — flowing mushaf-style paragraph */}
-      <p
-        className="text-justify text-[26px] leading-[2.4] text-foreground"
-        style={{
-          fontFamily: "var(--font-quran)",
-          textAlignLast: "center",
-          wordSpacing: "0.05em",
-        }}
-        lang="ar"
-      >
-        {ayahs.map((a) => (
-          <span key={a.n} className="inline">
-            <span>{a.t}</span>
-            <span
-              className="mx-1 inline-flex h-7 w-7 select-none items-center justify-center align-middle text-[11px] font-medium tabular-nums text-gold"
-              aria-label={`آية ${a.n}`}
-              style={{
-                background:
-                  "radial-gradient(circle, hsl(var(--gold) / 0.12) 55%, transparent 60%)",
-              }}
-            >
-              ۝{toArabicDigits(a.n)}
-            </span>{" "}
-          </span>
-        ))}
-      </p>
+      <div className="mx-auto" style={{ maxWidth: style.maxWidth }}>
+        <p
+          className="text-justify text-foreground"
+          style={{
+            fontFamily: style.fontFamily,
+            fontSize: `${style.fontSizePx}px`,
+            lineHeight: style.lineHeight,
+            textAlignLast: "center",
+            wordSpacing: "0.06em",
+            paddingInline: "0.15rem",
+          }}
+          lang="ar"
+        >
+          {ayahs.map((a) => (
+            <span key={a.n} className="inline">
+              <span>{a.t}</span>
+              <span
+                className="mx-1.5 inline-flex h-8 min-w-8 select-none items-center justify-center rounded-full border border-gold/50 bg-gold/15 px-1 align-middle text-[13px] font-medium leading-none tabular-nums text-gold"
+                aria-label={`آية ${a.n}`}
+                title={`آية ${a.n}`}
+              >
+                {toArabicDigits(a.n)}
+              </span>{" "}
+            </span>
+          ))}
+        </p>
+      </div>
 
       {/* End-of-surah ornament */}
-      <div className="mt-8 flex flex-col items-center gap-2">
+      <div className="mt-10 flex flex-col items-center gap-2">
         <div className="flex items-center gap-2 text-gold/70">
           <span className="h-px w-8 bg-gold/40" />
           <Icon d={icons.sparkle} size={14} />
           <span className="h-px w-8 bg-gold/40" />
         </div>
         <p className="text-[11px] text-muted-foreground">
-          صدق الله العظيم · {toArabicDigits(ayahs.length)} آية
+          صدق الله العظيم · {toArabicDigits(rawAyahs.length)} آية
         </p>
       </div>
     </div>
