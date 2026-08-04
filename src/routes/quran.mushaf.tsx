@@ -67,6 +67,9 @@ function MushafReader() {
 
   const revelationLabel = REVELATION_LABEL_AR[activeSurah.revelation];
   const progressPercent = Math.round((state.juz / 30) * 100);
+  const isSurahMode = state.mode !== "mushaf";
+  const pageNumber = clampPage(state.page || 1);
+
 
   return (
     <div dir="rtl" className="relative min-h-screen bg-background text-foreground">
