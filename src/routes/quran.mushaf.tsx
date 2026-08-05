@@ -54,6 +54,16 @@ function MushafReader() {
     quranRepository.getJuz(state.juz) ?? quranRepository.getJuz(1)!;
   const detail = quranRepository.getSurahDetail(activeSurah.id);
 
+  // In Mushaf mode the header follows the page being read, like a printed Mushaf.
+  const headerSurah = useMemo(() => {
+    if (state.mode !== "mushaf") return activeSurah;
+    const p = state.page ?? 1;
+    const list = quranRepository.listSurahs();
+    const onPage = list.filter((s) => s.pages.start <= p && s.pages.end >= p);
+    return onPage[onPage.length - 1] ?? activeSurah;
+  }, [state.mode, state.page, activeSurah]);
+
+
   const filteredSurahs = useMemo(() => {
     const q = query.trim();
     if (!q) return SURAH_LIST;
@@ -98,10 +108,10 @@ function MushafReader() {
               className="min-w-0 text-center transition active:scale-[0.98]"
             >
               <div className="font-display text-base font-medium leading-tight truncate">
-                {activeSurah.nameAr}
+                {headerSurah.nameAr}
               </div>
               <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                {activeSurah.nameEn} · قارئ منار
+                {headerSurah.nameEn} · قارئ منار
               </div>
             </button>
             <button
@@ -202,7 +212,7 @@ function MushafReader() {
                     آخر قراءة
                   </span>
                   <span className="text-[10px] tabular-nums text-muted-foreground">
-                    {formatRelativeArabic(state.updatedAt)}
+                    <RelativeTime at={state.updatedAt} />
                   </span>
                 </div>
                 <div className="mt-1 truncate font-display text-sm">
@@ -311,10 +321,8 @@ function MushafReader() {
             onChange={(p) => update({ page: clampPage(p) })}
           />
         )}
-
-
-
-
+        {isSurahMode && (
+          <>
         {/* Primary action bar */}
         <div className="mt-5 px-4">
           <div className="glass grid grid-cols-5 gap-1 rounded-full border border-border/60 p-1.5 shadow-soft">
@@ -348,8 +356,11 @@ function MushafReader() {
         </div>
 
         <p className="mt-6 px-6 text-center text-[11px] leading-relaxed text-muted-foreground">
-          اختر السورة والجزء لتخصيص تجربة قراءتك. سيتم ربط الآيات في المرحلة القادمة.
+          اختر السورة والجزء لتخصيص تجربة قراءتك.
         </p>
+          </>
+        )}
+
       </div>
 
       {/* -------- Surah picker modal -------- */}
@@ -548,55 +559,14 @@ function MushafPagesMode({
   );
 
   useEffect(() => {
-    quranPageService.prefetch([page - 2, page - 1, page + 1, page + 2]);
+    quranPageService.prefetch([page - 2, page - 1, page + 1, page + 2, page + 3]);
   }, [page]);
 
-  const data = state.status === "ready" ? state.data : undefined;
-  const surahNames = data?.segments.map((s) => s.nameAr).join(" · ") ?? "—";
-  const progress = Math.round((page / MUSHAF_PAGE_COUNT) * 100);
-
   return (
-    <section className="mt-4 px-4" aria-label="وضع المصحف">
-      {/* Page info card */}
-      <div className="glass rounded-3xl border border-border/60 p-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => {
-              setJumpValue(String(page));
-              setJumpOpen(true);
-            }}
-            className="flex flex-col items-center rounded-2xl border border-gold/40 bg-gold/10 px-3 py-2 transition active:scale-95"
-            aria-label="الانتقال إلى صفحة"
-          >
-            <span className="text-[9px] uppercase tracking-[0.25em] text-gold">
-              صفحة
-            </span>
-            <span className="font-display text-xl font-medium tabular-nums text-foreground">
-              {toArabicDigits(page)}
-            </span>
-          </button>
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-display text-sm">{surahNames}</div>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              <Chip label={`الجزء ${toArabicDigits(data?.juz ?? 1)}`} tone="primary" />
-              {data?.hizb !== undefined && (
-                <Chip label={`الحزب ${toArabicDigits(data.hizb)}`} tone="gold" />
-              )}
-              <Chip label={`من ${toArabicDigits(MUSHAF_PAGE_COUNT)}`} />
-            </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-              <div
-                className="gradient-gold h-full transition-all duration-700"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Page surface — fixed reading viewport, horizontal swipe only */}
+    <section className="mt-3 px-3" aria-label="وضع المصحف">
+      {/* Printed page surface — full screen, never scrolls, never clipped */}
       <div
-        className="relative mt-4 select-none overflow-hidden rounded-[32px] border border-border/60 bg-card/75 shadow-elegant backdrop-blur-2xl"
+        className="relative select-none overflow-hidden rounded-[26px] border border-border/60 bg-card/85 shadow-elegant backdrop-blur-2xl"
         key={reloadKey}
         style={{ touchAction: "pan-y pinch-zoom" }}
         onTouchStart={(e) => {
@@ -610,7 +580,7 @@ function MushafPagesMode({
           const t = e.touches[0];
           const dx = t.clientX - start.x;
           const dy = t.clientY - start.y;
-          if (Math.abs(dx) > Math.abs(dy)) setDrag(Math.max(-90, Math.min(90, dx)));
+          if (Math.abs(dx) > Math.abs(dy)) setDrag(Math.max(-80, Math.min(80, dx)));
         }}
         onTouchEnd={(e) => {
           const start = touchRef.current;
@@ -620,29 +590,19 @@ function MushafPagesMode({
           const t = e.changedTouches[0];
           const dx = t.clientX - start.x;
           const dy = t.clientY - start.y;
-          if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
-          // RTL: swipe right-to-left → next page.
+          if (Math.abs(dx) < 46 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+          // Mushaf order is right → left: dragging leftwards turns to the next page.
           go(dx < 0 ? 1 : -1);
         }}
       >
-        <div className="pointer-events-none absolute inset-3 rounded-[26px] border border-gold/25" />
-        <div className="pointer-events-none absolute inset-5 rounded-[22px] border border-gold/10" />
-        {["top-4 right-4", "top-4 left-4", "bottom-4 right-4", "bottom-4 left-4"].map(
-          (pos) => (
-            <span
-              key={pos}
-              className={`pointer-events-none absolute ${pos} h-4 w-4 rotate-45 border border-gold/40`}
-            />
-          ),
-        )}
+        <div className="pointer-events-none absolute inset-2.5 rounded-[20px] border border-gold/25" />
 
         <div
-          className="relative h-[64dvh] min-h-[430px] max-h-[720px] overflow-hidden px-7 pt-8 pb-12 sm:h-[70dvh] sm:px-10"
+          className="relative h-[calc(100dvh-172px)] min-h-[420px] overflow-hidden px-5 pt-4 pb-3"
           dir="rtl"
           style={{
             transform: `translateX(${drag}px)`,
             transition: drag === 0 ? "transform 200ms ease-out" : "none",
-            opacity: state.status === "loading" ? 0.7 : 1,
           }}
         >
           <MushafPageRenderer
@@ -651,18 +611,10 @@ function MushafPagesMode({
             onRetry={() => setReloadKey((k) => k + 1)}
           />
         </div>
-
-        {/* Compact page indicator — always reflects the current page */}
-        <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2">
-          <span className="rounded-full border border-gold/40 bg-background/85 px-3 py-1 text-[10px] font-medium tabular-nums text-gold shadow-soft backdrop-blur">
-            {toArabicDigits(page)} / {toArabicDigits(MUSHAF_PAGE_COUNT)}
-          </span>
-        </div>
       </div>
 
-
-      {/* Page navigation */}
-      <div className="mt-4 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
+      {/* Page navigation — previous is on the right, next on the left */}
+      <div className="mt-3 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
         <button
           onClick={() => go(-1)}
           disabled={page <= 1}
@@ -676,9 +628,9 @@ function MushafPagesMode({
             setJumpValue(String(page));
             setJumpOpen(true);
           }}
-          className="rounded-full border border-border/60 bg-card/70 py-2.5 text-[12px] font-medium shadow-soft transition active:scale-[0.98]"
+          className="rounded-full border border-border/60 bg-card/70 py-2.5 text-[12px] font-medium tabular-nums shadow-soft transition active:scale-[0.98]"
         >
-          الانتقال إلى صفحة
+          صفحة {toArabicDigits(page)} من {toArabicDigits(MUSHAF_PAGE_COUNT)}
         </button>
         <button
           onClick={() => go(1)}
@@ -692,9 +644,6 @@ function MushafPagesMode({
         </button>
       </div>
 
-      <p className="mt-4 text-center text-[11px] leading-relaxed text-muted-foreground">
-        اسحب يمينًا أو يسارًا لتقليب صفحات المصحف · ٦٠٤ صفحة
-      </p>
 
       <Dialog open={jumpOpen} onOpenChange={setJumpOpen}>
         <DialogContent
@@ -875,4 +824,13 @@ function MetaStat({ label, value }: { label: string; value: string }) {
       </div>
     </div>
   );
+}
+
+/** Client-only relative timestamp (avoids SSR/CSR text mismatch). */
+function RelativeTime({ at }: { at: number }) {
+  const [label, setLabel] = useState<string | null>(null);
+  useEffect(() => {
+    setLabel(formatRelativeArabic(at));
+  }, [at]);
+  return <>{label ?? ""}</>;
 }
