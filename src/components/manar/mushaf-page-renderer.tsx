@@ -67,8 +67,9 @@ export function MushafPageRenderer({ page, state, onRetry }: Props) {
 /* ---------------- Auto-fit engine ---------------- */
 
 /**
- * Iteratively scales the typographic size (not a CSS transform) so the whole
- * page content fills the available height without overflowing.
+ * Fits the page body to the available height by scaling the typographic size
+ * (CSS var `--fit`) through a short synchronous convergence loop, so a page is
+ * always shown complete — no clipping, no scrolling.
  */
 function FitToPage({
   children,
@@ -79,56 +80,50 @@ function FitToPage({
 }) {
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState(1);
-  const passRef = useRef(0);
 
-  const measure = () => {
+  const fit = () => {
     const outer = outerRef.current;
     const inner = innerRef.current;
     if (!outer || !inner) return;
     const available = outer.clientHeight;
-    const natural = inner.scrollHeight;
-    if (!available || !natural) return;
-    const ratio = available / natural;
-    if (Math.abs(ratio - 1) < 0.02 || passRef.current > 7) return;
-    passRef.current += 1;
-    setFit((prev) => Math.min(1.6, Math.max(0.45, prev * ratio)));
+    if (!available) return;
+    let scale = 1;
+    inner.style.setProperty("--fit", "1");
+    for (let i = 0; i < 16; i += 1) {
+      const natural = inner.scrollHeight;
+      if (!natural) return;
+      const ratio = available / natural;
+      if (ratio > 0.985 && ratio < 1.015) break;
+      const next = Math.min(1.6, Math.max(0.4, scale * (ratio > 1 ? 1 + (ratio - 1) * 0.6 : ratio)));
+      if (Math.abs(next - scale) < 0.004) break;
+      scale = next;
+      inner.style.setProperty("--fit", String(scale));
+    }
   };
 
   useLayoutEffect(() => {
-    passRef.current = 0;
-    setFit(1);
+    fit();
+    const id = requestAnimationFrame(fit);
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deps]);
 
-  useLayoutEffect(() => {
-    const id = requestAnimationFrame(measure);
-    return () => cancelAnimationFrame(id);
-  });
-
   useEffect(() => {
-    const t = window.setTimeout(() => {
-      passRef.current = 0;
-      measure();
-    }, 320); // after webfonts settle
-    const onResize = () => {
-      passRef.current = 0;
-      measure();
-    };
-    window.addEventListener("resize", onResize);
+    const t = window.setTimeout(fit, 320); // after webfonts settle
+    const t2 = window.setTimeout(fit, 900);
+    window.addEventListener("resize", fit);
+    if (document.fonts?.ready) void document.fonts.ready.then(fit);
     return () => {
       window.clearTimeout(t);
-      window.removeEventListener("resize", onResize);
+      window.clearTimeout(t2);
+      window.removeEventListener("resize", fit);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deps]);
 
   return (
     <div ref={outerRef} className="relative min-h-0 flex-1 overflow-hidden">
-      <div
-        ref={innerRef}
-        className="animate-fade-up"
-        style={{ ["--fit" as string]: String(fit) } as React.CSSProperties}
-      >
+      <div ref={innerRef} className="animate-fade-up">
         {children}
       </div>
     </div>
