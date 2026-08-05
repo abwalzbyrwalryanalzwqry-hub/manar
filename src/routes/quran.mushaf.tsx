@@ -54,6 +54,16 @@ function MushafReader() {
     quranRepository.getJuz(state.juz) ?? quranRepository.getJuz(1)!;
   const detail = quranRepository.getSurahDetail(activeSurah.id);
 
+  // In Mushaf mode the header follows the page being read, like a printed Mushaf.
+  const headerSurah = useMemo(() => {
+    if (state.mode !== "mushaf") return activeSurah;
+    const p = state.page ?? 1;
+    const list = quranRepository.listSurahs();
+    const onPage = list.filter((s) => s.pages.start <= p && s.pages.end >= p);
+    return onPage[onPage.length - 1] ?? activeSurah;
+  }, [state.mode, state.page, activeSurah]);
+
+
   const filteredSurahs = useMemo(() => {
     const q = query.trim();
     if (!q) return SURAH_LIST;
