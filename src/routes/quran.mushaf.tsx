@@ -815,3 +815,12 @@ function MetaStat({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+/** Client-only relative timestamp (avoids SSR/CSR text mismatch). */
+function RelativeTime({ at }: { at: number }) {
+  const [label, setLabel] = useState<string | null>(null);
+  useEffect(() => {
+    setLabel(formatRelativeArabic(at));
+  }, [at]);
+  return <>{label ?? ""}</>;
+}
