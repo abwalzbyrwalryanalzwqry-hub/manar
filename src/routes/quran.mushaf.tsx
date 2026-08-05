@@ -536,6 +536,7 @@ function MushafPagesMode({
   const [reloadKey, setReloadKey] = useState(0);
   const [jumpOpen, setJumpOpen] = useState(false);
   const [jumpValue, setJumpValue] = useState(String(page));
+  const [drag, setDrag] = useState(0);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
 
   const go = useCallback(
@@ -547,7 +548,7 @@ function MushafPagesMode({
   );
 
   useEffect(() => {
-    quranPageService.prefetch([page - 1, page + 1]);
+    quranPageService.prefetch([page - 2, page - 1, page + 1, page + 2]);
   }, [page]);
 
   const data = state.status === "ready" ? state.data : undefined;
@@ -593,22 +594,33 @@ function MushafPagesMode({
         </div>
       </div>
 
-      {/* Page surface — swipeable */}
+      {/* Page surface — fixed reading viewport, horizontal swipe only */}
       <div
-        className="relative mt-4 overflow-hidden rounded-[32px] border border-border/60 bg-card/60 shadow-elegant backdrop-blur-2xl"
+        className="relative mt-4 select-none overflow-hidden rounded-[32px] border border-border/60 bg-card/75 shadow-elegant backdrop-blur-2xl"
         key={reloadKey}
+        style={{ touchAction: "pan-y pinch-zoom" }}
         onTouchStart={(e) => {
           const t = e.touches[0];
           touchRef.current = { x: t.clientX, y: t.clientY };
+          setDrag(0);
+        }}
+        onTouchMove={(e) => {
+          const start = touchRef.current;
+          if (!start) return;
+          const t = e.touches[0];
+          const dx = t.clientX - start.x;
+          const dy = t.clientY - start.y;
+          if (Math.abs(dx) > Math.abs(dy)) setDrag(Math.max(-90, Math.min(90, dx)));
         }}
         onTouchEnd={(e) => {
           const start = touchRef.current;
           touchRef.current = null;
+          setDrag(0);
           if (!start) return;
           const t = e.changedTouches[0];
           const dx = t.clientX - start.x;
           const dy = t.clientY - start.y;
-          if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+          if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
           // RTL: swipe right-to-left → next page.
           go(dx < 0 ? 1 : -1);
         }}
@@ -625,9 +637,13 @@ function MushafPagesMode({
         )}
 
         <div
-          className="relative max-h-[68vh] min-h-[380px] overflow-y-auto overscroll-contain px-6 py-8 scroll-smooth"
+          className="relative h-[64dvh] min-h-[430px] max-h-[720px] overflow-hidden px-7 pt-8 pb-12 sm:h-[70dvh] sm:px-10"
           dir="rtl"
-          data-quran-page-scroll
+          style={{
+            transform: `translateX(${drag}px)`,
+            transition: drag === 0 ? "transform 200ms ease-out" : "none",
+            opacity: state.status === "loading" ? 0.7 : 1,
+          }}
         >
           <MushafPageRenderer
             page={page}
@@ -636,13 +652,14 @@ function MushafPagesMode({
           />
         </div>
 
-        {/* Compact page indicator */}
+        {/* Compact page indicator — always reflects the current page */}
         <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2">
           <span className="rounded-full border border-gold/40 bg-background/85 px-3 py-1 text-[10px] font-medium tabular-nums text-gold shadow-soft backdrop-blur">
             {toArabicDigits(page)} / {toArabicDigits(MUSHAF_PAGE_COUNT)}
           </span>
         </div>
       </div>
+
 
       {/* Page navigation */}
       <div className="mt-4 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
