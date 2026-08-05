@@ -92,10 +92,10 @@ function FitToPage({
     const natural = inner.scrollHeight;
     if (!available || !natural) return;
     const ratio = available / natural;
-    if (ratio > 0.99 && ratio < 1.02) return;
-    if (framesRef.current > 24) return;
+    if (ratio > 0.995 && ratio < 1.015) return;
+    if (framesRef.current > 32) return;
     framesRef.current += 1;
-    const damped = ratio > 1 ? 1 + (ratio - 1) * 0.5 : ratio * 0.995;
+    const damped = ratio > 1 ? 1 + (ratio - 1) * 0.5 : ratio * 0.98;
     const next = Math.min(1.6, Math.max(0.34, scaleRef.current * damped));
     if (Math.abs(next - scaleRef.current) < 0.002) return;
     scaleRef.current = next;
