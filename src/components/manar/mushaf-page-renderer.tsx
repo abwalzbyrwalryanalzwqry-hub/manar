@@ -1,3 +1,4 @@
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon, icons } from "@/components/manar/shell";
 import { toArabicDigits } from "@/lib/quran";
 import { useReadingPrefs } from "@/lib/quran/reading-prefs";
@@ -13,6 +14,10 @@ interface Props {
 /**
  * Renders a single Madani-Mushaf page (1..604) using the same
  * authentic Uthmani text service as the Surah reader.
+ *
+ * The page is a fixed, non-scrolling viewport: content is proportionally
+ * fitted (never re-typed with a smaller preference) so the reader always
+ * sees one complete page at a time.
  */
 export function MushafPageRenderer({ page, state, onRetry }: Props) {
   const { style } = useReadingPrefs();
@@ -24,28 +29,91 @@ export function MushafPageRenderer({ page, state, onRetry }: Props) {
   const { segments } = state.data;
 
   return (
-    <div key={page} className="animate-fade-up">
-      <div className="mx-auto" style={{ maxWidth: style.maxWidth }}>
-        {segments.map((seg, i) => (
-          <Segment
-            key={`${seg.surahId}-${i}`}
-            seg={seg}
-            style={style}
-            withTopRule={i > 0}
-          />
-        ))}
-      </div>
+    <FitToPage
+      deps={`${page}|${style.fontSizePx}|${style.lineHeight}|${style.maxWidth}|${style.fontFamily}`}
+    >
+      <div key={page} className="animate-fade-up">
+        <div className="mx-auto" style={{ maxWidth: style.maxWidth }}>
+          {segments.map((seg, i) => (
+            <Segment
+              key={`${seg.surahId}-${i}`}
+              seg={seg}
+              style={style}
+              withTopRule={i > 0}
+            />
+          ))}
+        </div>
 
-      <div className="mt-8 flex items-center justify-center gap-2 text-gold/70">
-        <span className="h-px w-8 bg-gold/40" />
-        <span className="text-[11px] tabular-nums text-muted-foreground">
-          صفحة {toArabicDigits(page)}
-        </span>
-        <span className="h-px w-8 bg-gold/40" />
+        <div className="mt-6 flex items-center justify-center gap-2 text-gold/70">
+          <span className="h-px w-8 bg-gold/40" />
+          <span className="text-[11px] tabular-nums text-muted-foreground">
+            صفحة {toArabicDigits(page)}
+          </span>
+          <span className="h-px w-8 bg-gold/40" />
+        </div>
+      </div>
+    </FitToPage>
+  );
+}
+
+/**
+ * Scales its children down (never up) so the whole page fits the
+ * available height without any vertical scrolling.
+ */
+function FitToPage({
+  children,
+  deps,
+}: {
+  children: React.ReactNode;
+  deps: string;
+}) {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  const measure = () => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return;
+    const available = outer.clientHeight;
+    const natural = inner.scrollHeight;
+    if (!available || !natural) return;
+    setScale(Math.min(1, Math.max(0.55, available / natural)));
+  };
+
+  useLayoutEffect(() => {
+    setScale(1);
+    const id = requestAnimationFrame(measure);
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deps]);
+
+  useEffect(() => {
+    const t = window.setTimeout(measure, 260); // after webfont settle
+    window.addEventListener("resize", measure);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("resize", measure);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deps]);
+
+  return (
+    <div ref={outerRef} className="h-full w-full overflow-hidden">
+      <div
+        ref={innerRef}
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: "top center",
+          transition: "transform 180ms ease-out",
+        }}
+      >
+        {children}
       </div>
     </div>
   );
 }
+
 
 function Segment({
   seg,
