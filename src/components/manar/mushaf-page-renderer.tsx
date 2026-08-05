@@ -3,6 +3,7 @@ import { Icon, icons } from "@/components/manar/shell";
 import { toArabicDigits } from "@/lib/quran";
 import { useReadingPrefs } from "@/lib/quran/reading-prefs";
 import { BASMALA, type MushafSegment } from "@/lib/quran/page-service";
+import { bareSurahNameAr, juzLabelAr } from "@/lib/quran/page-labels";
 import type { MushafPageState } from "@/hooks/use-mushaf-page";
 
 interface Props {
@@ -12,12 +13,13 @@ interface Props {
 }
 
 /**
- * Renders a single Madani-Mushaf page (1..604) using the same
- * authentic Uthmani text service as the Surah reader.
+ * Renders one printed Madani-Mushaf page (1..604) exactly like a physical
+ * Mushaf: running head (juz on one side, surah names on the other), ornate
+ * surah banners, centred Basmala, justified Uthmani lines with ornamental
+ * ayah markers, and a framed page number at the foot.
  *
- * The page is a fixed, non-scrolling viewport: content is proportionally
- * fitted (never re-typed with a smaller preference) so the reader always
- * sees one complete page at a time.
+ * The whole page always fits its viewport — the text block is auto-fitted
+ * (shrunk or grown) so no ayah is ever cut off and no scrolling is needed.
  */
 export function MushafPageRenderer({ page, state, onRetry }: Props) {
   const { style } = useReadingPrefs();
@@ -26,39 +28,47 @@ export function MushafPageRenderer({ page, state, onRetry }: Props) {
   if (state.status === "error")
     return <PageError error={state.error} onRetry={onRetry} />;
 
-  const { segments } = state.data;
+  const { segments, juz } = state.data;
+  const headSurahs = segments
+    .map((s) => bareSurahNameAr(s.nameAr))
+    .join("  ");
 
   return (
-    <FitToPage
-      deps={`${page}|${style.fontSizePx}|${style.lineHeight}|${style.maxWidth}|${style.fontFamily}`}
-    >
-      <div key={page} className="animate-fade-up">
-        <div className="mx-auto" style={{ maxWidth: style.maxWidth }}>
-          {segments.map((seg, i) => (
-            <Segment
-              key={`${seg.surahId}-${i}`}
-              seg={seg}
-              style={style}
-              withTopRule={i > 0}
-            />
-          ))}
-        </div>
-
-        <div className="mt-6 flex items-center justify-center gap-2 text-gold/70">
-          <span className="h-px w-8 bg-gold/40" />
-          <span className="text-[11px] tabular-nums text-muted-foreground">
-            صفحة {toArabicDigits(page)}
-          </span>
-          <span className="h-px w-8 bg-gold/40" />
-        </div>
+    <div className="flex h-full w-full flex-col" dir="rtl">
+      {/* Running head */}
+      <div className="flex items-center justify-between gap-3 pb-2 text-[12px] text-muted-foreground">
+        <span className="truncate font-display">{headSurahs}</span>
+        <span className="shrink-0 font-display">{juzLabelAr(juz)}</span>
       </div>
-    </FitToPage>
+
+      {/* Page body — auto-fitted so the page is always complete */}
+      <FitToPage
+        key={page}
+        deps={`${page}|${style.fontSizePx}|${style.lineHeight}|${style.fontFamily}`}
+      >
+        {segments.map((seg, i) => (
+          <Segment
+            key={`${seg.surahId}-${i}`}
+            seg={seg}
+            style={style}
+            first={i === 0}
+          />
+        ))}
+      </FitToPage>
+
+      {/* Framed page number */}
+      <div className="flex justify-center pt-2">
+        <PageNumberPlate page={page} />
+      </div>
+    </div>
   );
 }
 
+/* ---------------- Auto-fit engine ---------------- */
+
 /**
- * Scales its children down (never up) so the whole page fits the
- * available height without any vertical scrolling.
+ * Iteratively scales the typographic size (not a CSS transform) so the whole
+ * page content fills the available height without overflowing.
  */
 function FitToPage({
   children,
@@ -69,7 +79,8 @@ function FitToPage({
 }) {
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
+  const [fit, setFit] = useState(1);
+  const passRef = useRef(0);
 
   const measure = () => {
     const outer = outerRef.current;
@@ -78,35 +89,45 @@ function FitToPage({
     const available = outer.clientHeight;
     const natural = inner.scrollHeight;
     if (!available || !natural) return;
-    setScale(Math.min(1, Math.max(0.55, available / natural)));
+    const ratio = available / natural;
+    if (Math.abs(ratio - 1) < 0.02 || passRef.current > 7) return;
+    passRef.current += 1;
+    setFit((prev) => Math.min(1.9, Math.max(0.42, prev * ratio)));
   };
 
   useLayoutEffect(() => {
-    setScale(1);
-    const id = requestAnimationFrame(measure);
-    return () => cancelAnimationFrame(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    passRef.current = 0;
+    setFit(1);
   }, [deps]);
 
+  useLayoutEffect(() => {
+    const id = requestAnimationFrame(measure);
+    return () => cancelAnimationFrame(id);
+  });
+
   useEffect(() => {
-    const t = window.setTimeout(measure, 260); // after webfont settle
-    window.addEventListener("resize", measure);
+    const t = window.setTimeout(() => {
+      passRef.current = 0;
+      measure();
+    }, 320); // after webfonts settle
+    const onResize = () => {
+      passRef.current = 0;
+      measure();
+    };
+    window.addEventListener("resize", onResize);
     return () => {
       window.clearTimeout(t);
-      window.removeEventListener("resize", measure);
+      window.removeEventListener("resize", onResize);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deps]);
 
   return (
-    <div ref={outerRef} className="h-full w-full overflow-hidden">
+    <div ref={outerRef} className="relative min-h-0 flex-1 overflow-hidden">
       <div
         ref={innerRef}
-        style={{
-          transform: `scale(${scale})`,
-          transformOrigin: "top center",
-          transition: "transform 180ms ease-out",
-        }}
+        className="animate-fade-up"
+        style={{ fontSize: `${fit}em` }}
       >
         {children}
       </div>
@@ -114,43 +135,32 @@ function FitToPage({
   );
 }
 
+/* ---------------- Page pieces ---------------- */
 
 function Segment({
   seg,
   style,
-  withTopRule,
+  first,
 }: {
   seg: MushafSegment;
   style: ReturnType<typeof useReadingPrefs>["style"];
-  withTopRule: boolean;
+  first: boolean;
 }) {
   return (
-    <div className={withTopRule ? "mt-8 border-t border-gold/20 pt-7" : ""}>
-      {seg.startsSurah && (
-        <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <div className="flex items-center gap-3">
-            <span className="h-px w-10 bg-gold/40" />
-            <span className="font-display text-[11px] uppercase tracking-[0.3em] text-gold">
-              سورة
-            </span>
-            <span className="h-px w-10 bg-gold/40" />
-          </div>
-          <div className="font-display text-2xl font-medium leading-none">
-            {seg.nameAr}
-          </div>
-          {seg.showBasmala && (
-            <div
-              className="mt-4 text-foreground/90"
-              style={{
-                fontFamily: style.fontFamily,
-                fontSize: `${Math.round(style.fontSizePx * 0.92)}px`,
-                lineHeight: 2,
-              }}
-              lang="ar"
-            >
-              {BASMALA}
-            </div>
-          )}
+    <div className={first ? "" : "mt-[0.6em]"}>
+      {seg.startsSurah && <SurahBanner nameAr={bareSurahNameAr(seg.nameAr)} />}
+
+      {seg.showBasmala && (
+        <div
+          className="mb-[0.35em] text-center text-foreground"
+          style={{
+            fontFamily: style.fontFamily,
+            fontSize: `${Math.round(style.fontSizePx * 0.86)}px`,
+            lineHeight: 1.9,
+          }}
+          lang="ar"
+        >
+          {BASMALA}
         </div>
       )}
 
@@ -161,21 +171,14 @@ function Segment({
           fontSize: `${style.fontSizePx}px`,
           lineHeight: style.lineHeight,
           textAlignLast: "center",
-          wordSpacing: "0.06em",
-          paddingInline: "0.15rem",
+          wordSpacing: "0.04em",
         }}
         lang="ar"
       >
         {seg.ayahs.map((a) => (
-          <span key={a.n} className="inline">
-            <span>{a.t}</span>
-            <span
-              className="mx-1.5 inline-flex h-8 min-w-8 select-none items-center justify-center rounded-full border border-gold/50 bg-gold/15 px-1 align-middle text-[13px] font-medium leading-none tabular-nums text-gold"
-              aria-label={`آية ${a.n}`}
-              title={`آية ${a.n}`}
-            >
-              {toArabicDigits(a.n)}
-            </span>{" "}
+          <span key={a.n}>
+            {a.t}
+            <AyahMark n={a.n} />
           </span>
         ))}
       </p>
@@ -183,9 +186,85 @@ function Segment({
   );
 }
 
+/** Ornamental surah headband, as printed in the Madani Mushaf. */
+function SurahBanner({ nameAr }: { nameAr: string }) {
+  return (
+    <div className="my-[0.5em] flex justify-center">
+      <div className="relative w-full overflow-hidden rounded-md border-2 border-primary/70 bg-primary/90 p-[3px] shadow-soft">
+        <div className="relative flex items-center justify-center overflow-hidden rounded-[3px] border border-gold/50 bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-card))] px-8 py-1.5">
+          <BannerFlourish className="absolute right-1 top-1/2 h-6 w-16 -translate-y-1/2 text-gold/70" />
+          <BannerFlourish className="absolute left-1 top-1/2 h-6 w-16 -translate-y-1/2 scale-x-[-1] text-gold/70" />
+          <span className="relative font-display text-[1.05em] font-medium leading-none text-foreground">
+            سُورَةُ {nameAr}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BannerFlourish({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 64 24" className={className} aria-hidden="true">
+      <g fill="none" stroke="currentColor" strokeWidth="1.2">
+        <circle cx="12" cy="12" r="7" />
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19 12c6-7 12-7 18 0-6 7-12 7-18 0Z" />
+        <path d="M39 12c5-5 10-5 15 0-5 5-10 5-15 0Z" />
+        <path d="M56 6c4 3 4 9 0 12" />
+      </g>
+    </svg>
+  );
+}
+
+/** Ornamental ayah end marker with the ayah number inside. */
+function AyahMark({ n }: { n: number }) {
+  return (
+    <span
+      className="relative mx-[0.15em] inline-flex select-none items-center justify-center align-middle"
+      style={{ width: "1.5em", height: "1.5em" }}
+      aria-label={`آية ${n}`}
+      title={`آية ${n}`}
+    >
+      <svg
+        viewBox="0 0 40 40"
+        className="absolute inset-0 h-full w-full text-gold"
+        aria-hidden="true"
+      >
+        <g fill="none" stroke="currentColor" strokeWidth="1.6">
+          <circle cx="20" cy="20" r="13" />
+          <circle cx="20" cy="20" r="16" strokeOpacity="0.45" />
+          <path d="M20 2.5 22.6 6.5 20 8.5 17.4 6.5Z" fill="currentColor" strokeWidth="0" />
+          <path d="M20 37.5 22.6 33.5 20 31.5 17.4 33.5Z" fill="currentColor" strokeWidth="0" />
+          <path d="M2.5 20 6.5 17.4 8.5 20 6.5 22.6Z" fill="currentColor" strokeWidth="0" />
+          <path d="M37.5 20 33.5 17.4 31.5 20 33.5 22.6Z" fill="currentColor" strokeWidth="0" />
+        </g>
+      </svg>
+      <span className="relative text-[0.42em] font-medium leading-none tabular-nums text-gold">
+        {toArabicDigits(n)}
+      </span>
+    </span>
+  );
+}
+
+/** Bottom page-number plate with a small arabesque, as printed. */
+function PageNumberPlate({ page }: { page: number }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <BannerFlourish className="h-4 w-10 scale-x-[-1] text-gold/60" />
+      <span className="rounded-md border border-primary/50 bg-primary/10 px-4 py-0.5 text-[12px] font-medium tabular-nums text-foreground">
+        {toArabicDigits(page)}
+      </span>
+      <BannerFlourish className="h-4 w-10 text-gold/60" />
+    </div>
+  );
+}
+
+/* ---------------- States ---------------- */
+
 function PageLoading({ page }: { page: number }) {
   return (
-    <div className="flex flex-col items-center gap-4 py-8 text-center">
+    <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
       <span className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.3em] text-gold">
         جارٍ التحميل
       </span>
@@ -193,7 +272,7 @@ function PageLoading({ page }: { page: number }) {
         صفحة {toArabicDigits(page)}
       </div>
       <div className="mt-2 grid w-full gap-3">
-        {[0, 1, 2, 3, 4].map((i) => (
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
           <div
             key={i}
             className="h-4 w-full animate-pulse rounded-full bg-muted/70"
@@ -207,7 +286,7 @@ function PageLoading({ page }: { page: number }) {
 
 function PageError({ error, onRetry }: { error: Error; onRetry: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-3 py-10 text-center">
+    <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
       <span className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
         <Icon d={icons.info} size={20} />
       </span>
