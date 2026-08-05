@@ -92,7 +92,7 @@ function FitToPage({
     const ratio = available / natural;
     if (Math.abs(ratio - 1) < 0.02 || passRef.current > 7) return;
     passRef.current += 1;
-    setFit((prev) => Math.min(1.9, Math.max(0.42, prev * ratio)));
+    setFit((prev) => Math.min(1.6, Math.max(0.45, prev * ratio)));
   };
 
   useLayoutEffect(() => {
@@ -127,7 +127,7 @@ function FitToPage({
       <div
         ref={innerRef}
         className="animate-fade-up"
-        style={{ fontSize: `${fit}em` }}
+        style={{ ["--fit" as string]: String(fit) } as React.CSSProperties}
       >
         {children}
       </div>
@@ -155,7 +155,7 @@ function Segment({
           className="mb-[0.35em] text-center text-foreground"
           style={{
             fontFamily: style.fontFamily,
-            fontSize: `${Math.round(style.fontSizePx * 0.86)}px`,
+            fontSize: `calc(${Math.round(style.fontSizePx * 0.86)}px * var(--fit, 1))`,
             lineHeight: 1.9,
           }}
           lang="ar"
@@ -168,7 +168,7 @@ function Segment({
         className="text-justify text-foreground"
         style={{
           fontFamily: style.fontFamily,
-          fontSize: `${style.fontSizePx}px`,
+          fontSize: `calc(${style.fontSizePx}px * var(--fit, 1))`,
           lineHeight: style.lineHeight,
           textAlignLast: "center",
           wordSpacing: "0.04em",
@@ -194,7 +194,10 @@ function SurahBanner({ nameAr }: { nameAr: string }) {
         <div className="relative flex items-center justify-center overflow-hidden rounded-[3px] border border-gold/50 bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-card))] px-8 py-1.5">
           <BannerFlourish className="absolute right-1 top-1/2 h-6 w-16 -translate-y-1/2 text-gold/70" />
           <BannerFlourish className="absolute left-1 top-1/2 h-6 w-16 -translate-y-1/2 scale-x-[-1] text-gold/70" />
-          <span className="relative font-display text-[1.05em] font-medium leading-none text-foreground">
+          <span
+            className="relative font-display font-medium leading-none text-foreground"
+            style={{ fontSize: "calc(15px * var(--fit, 1))" }}
+          >
             سُورَةُ {nameAr}
           </span>
         </div>
