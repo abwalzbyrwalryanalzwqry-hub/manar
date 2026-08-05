@@ -311,10 +311,8 @@ function MushafReader() {
             onChange={(p) => update({ page: clampPage(p) })}
           />
         )}
-
-
-
-
+        {isSurahMode && (
+          <>
         {/* Primary action bar */}
         <div className="mt-5 px-4">
           <div className="glass grid grid-cols-5 gap-1 rounded-full border border-border/60 p-1.5 shadow-soft">
@@ -348,8 +346,11 @@ function MushafReader() {
         </div>
 
         <p className="mt-6 px-6 text-center text-[11px] leading-relaxed text-muted-foreground">
-          اختر السورة والجزء لتخصيص تجربة قراءتك. سيتم ربط الآيات في المرحلة القادمة.
+          اختر السورة والجزء لتخصيص تجربة قراءتك.
         </p>
+          </>
+        )}
+
       </div>
 
       {/* -------- Surah picker modal -------- */}
