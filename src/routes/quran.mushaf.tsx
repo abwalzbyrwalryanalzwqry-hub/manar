@@ -202,7 +202,7 @@ function MushafReader() {
                     آخر قراءة
                   </span>
                   <span className="text-[10px] tabular-nums text-muted-foreground">
-                    {formatRelativeArabic(state.updatedAt)}
+                    <RelativeTime at={state.updatedAt} />
                   </span>
                 </div>
                 <div className="mt-1 truncate font-display text-sm">
