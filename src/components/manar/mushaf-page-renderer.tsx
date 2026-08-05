@@ -81,42 +81,47 @@ function FitToPage({
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
 
-  const fit = () => {
+  const scaleRef = useRef(1);
+  const framesRef = useRef(0);
+
+  const step = () => {
     const outer = outerRef.current;
     const inner = innerRef.current;
     if (!outer || !inner) return;
     const available = outer.clientHeight;
-    if (!available) return;
-    let scale = 1;
-    inner.style.setProperty("--fit", "1");
-    for (let i = 0; i < 16; i += 1) {
-      const natural = inner.scrollHeight;
-      if (!natural) return;
-      const ratio = available / natural;
-      if (ratio > 0.985 && ratio < 1.015) break;
-      const next = Math.min(1.6, Math.max(0.4, scale * (ratio > 1 ? 1 + (ratio - 1) * 0.6 : ratio)));
-      if (Math.abs(next - scale) < 0.004) break;
-      scale = next;
-      inner.style.setProperty("--fit", String(scale));
-    }
+    const natural = inner.scrollHeight;
+    if (!available || !natural) return;
+    const ratio = available / natural;
+    if (ratio > 0.99 && ratio < 1.02) return;
+    if (framesRef.current > 24) return;
+    framesRef.current += 1;
+    const damped = ratio > 1 ? 1 + (ratio - 1) * 0.5 : ratio * 0.995;
+    const next = Math.min(1.6, Math.max(0.34, scaleRef.current * damped));
+    if (Math.abs(next - scaleRef.current) < 0.002) return;
+    scaleRef.current = next;
+    inner.style.setProperty("--fit", String(next));
+    requestAnimationFrame(step);
+  };
+
+  const refit = () => {
+    framesRef.current = 0;
+    requestAnimationFrame(step);
   };
 
   useLayoutEffect(() => {
-    fit();
-    const id = requestAnimationFrame(fit);
-    return () => cancelAnimationFrame(id);
+    scaleRef.current = 1;
+    innerRef.current?.style.setProperty("--fit", "1");
+    refit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deps]);
 
   useEffect(() => {
-    const t = window.setTimeout(fit, 320); // after webfonts settle
-    const t2 = window.setTimeout(fit, 900);
-    window.addEventListener("resize", fit);
-    if (document.fonts?.ready) void document.fonts.ready.then(fit);
+    const timers = [220, 700, 1500].map((ms) => window.setTimeout(refit, ms));
+    window.addEventListener("resize", refit);
+    if (document.fonts?.ready) void document.fonts.ready.then(refit);
     return () => {
-      window.clearTimeout(t);
-      window.clearTimeout(t2);
-      window.removeEventListener("resize", fit);
+      timers.forEach((t) => window.clearTimeout(t));
+      window.removeEventListener("resize", refit);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deps]);
