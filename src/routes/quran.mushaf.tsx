@@ -536,6 +536,7 @@ function MushafPagesMode({
   const [reloadKey, setReloadKey] = useState(0);
   const [jumpOpen, setJumpOpen] = useState(false);
   const [jumpValue, setJumpValue] = useState(String(page));
+  const [drag, setDrag] = useState(0);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
 
   const go = useCallback(
@@ -547,7 +548,7 @@ function MushafPagesMode({
   );
 
   useEffect(() => {
-    quranPageService.prefetch([page - 1, page + 1]);
+    quranPageService.prefetch([page - 2, page - 1, page + 1, page + 2]);
   }, [page]);
 
   const data = state.status === "ready" ? state.data : undefined;
