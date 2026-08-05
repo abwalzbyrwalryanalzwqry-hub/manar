@@ -108,10 +108,10 @@ function MushafReader() {
               className="min-w-0 text-center transition active:scale-[0.98]"
             >
               <div className="font-display text-base font-medium leading-tight truncate">
-                {activeSurah.nameAr}
+                {headerSurah.nameAr}
               </div>
               <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                {activeSurah.nameEn} · قارئ منار
+                {headerSurah.nameEn} · قارئ منار
               </div>
             </button>
             <button
