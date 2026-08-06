@@ -1,5 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useAzkarBook } from "@/hooks/use-azkar";
 import { Arabesque, Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
 
 export const Route = createFileRoute("/_tabs/azkar")({
@@ -7,17 +8,9 @@ export const Route = createFileRoute("/_tabs/azkar")({
   component: Azkar,
 });
 
-const CATS = [
-  { ar: "أذكار الصباح", en: "Morning", count: 28, icon: icons.sun, accent: "from-amber-300/30 to-orange-400/20" },
-  { ar: "أذكار المساء", en: "Evening", count: 28, icon: icons.moon, accent: "from-indigo-400/30 to-violet-500/20" },
-  { ar: "أذكار النوم", en: "Sleep", count: 16, icon: icons.bed, accent: "from-blue-400/30 to-slate-500/20" },
-  { ar: "أذكار بعد الصلاة", en: "Prayer", count: 12, icon: icons.prayer, accent: "from-emerald-400/30 to-teal-500/20" },
-  { ar: "أذكار السفر", en: "Travel", count: 9, icon: icons.plane, accent: "from-sky-400/30 to-cyan-500/20" },
-  { ar: "أذكار متنوعة", en: "Various", count: 40, icon: icons.sparkle, accent: "from-rose-300/30 to-pink-500/20" },
-];
-
 function Azkar() {
   const [count, setCount] = useState(33);
+  const { book } = useAzkarBook();
   return (
     <Screen>
       <ScreenHeader title="الأذكار" subtitle="حصن المسلم اليومي" />
@@ -52,22 +45,35 @@ function Azkar() {
         </div>
       </div>
 
-      <SectionLabel hint={`${CATS.length} فئات`}>الفئات</SectionLabel>
-      <div className="grid grid-cols-2 gap-3 px-4 stagger">
-        {CATS.map((c) => (
-          <button key={c.en} className="group relative overflow-hidden rounded-3xl border border-border bg-card p-4 text-right shadow-soft transition hover:-translate-y-0.5 hover:shadow-elegant">
-            <div className={`pointer-events-none absolute -left-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br ${c.accent} blur-xl`} />
-            <div className="relative flex items-start justify-between">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary text-primary">
-                <Icon d={c.icon} size={20} />
-              </span>
-              <span className="rounded-full border border-border bg-background/50 px-2 py-0.5 text-[10px] text-muted-foreground">{c.count}</span>
-            </div>
-            <div className="relative mt-5 font-display text-base font-medium">{c.ar}</div>
-            <div className="relative mt-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">{c.en}</div>
-          </button>
-        ))}
+      <SectionLabel hint={book ? `${book.chapters.length} باب` : "حصن المسلم"}>أبواب حصن المسلم</SectionLabel>
+      <div className="grid grid-cols-1 gap-3 px-4 stagger">
+        {!book && <div className="skeleton h-24 rounded-3xl" />}
+        {book?.groups.map((g) => {
+          const chapters = book.chapters.filter((c) => c.group === g.id);
+          const first = chapters[0];
+          if (!first) return null;
+          return (
+            <Link
+              key={g.id}
+              to="/azkar/$chapter"
+              params={{ chapter: String(first.id) }}
+              className="group relative overflow-hidden rounded-3xl border border-border bg-card p-4 text-right shadow-soft transition hover:-translate-y-0.5 hover:shadow-elegant"
+            >
+              <div className="flex items-center justify-between">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary text-primary">
+                  <Icon d={icons.azkar} size={20} />
+                </span>
+                <span className="rounded-full border border-border bg-background/50 px-2 py-0.5 text-[10px] text-muted-foreground">
+                  {chapters.length} باب
+                </span>
+              </div>
+              <div className="mt-4 font-display text-base font-medium">{g.title}</div>
+              <div className="mt-0.5 text-[10px] text-muted-foreground">{first.title}</div>
+            </Link>
+          );
+        })}
       </div>
+
 
       <SectionLabel>ذكر اليوم</SectionLabel>
       <div className="px-4">
