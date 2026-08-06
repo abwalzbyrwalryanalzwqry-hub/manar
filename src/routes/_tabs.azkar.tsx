@@ -1,5 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useAzkarBook } from "@/hooks/use-azkar";
 import { Arabesque, Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
 
 export const Route = createFileRoute("/_tabs/azkar")({
@@ -18,6 +19,7 @@ const CATS = [
 
 function Azkar() {
   const [count, setCount] = useState(33);
+  const { book } = useAzkarBook();
   return (
     <Screen>
       <ScreenHeader title="الأذكار" subtitle="حصن المسلم اليومي" />
