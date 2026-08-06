@@ -8,15 +8,6 @@ export const Route = createFileRoute("/_tabs/azkar")({
   component: Azkar,
 });
 
-const CATS = [
-  { ar: "أذكار الصباح", en: "Morning", count: 28, icon: icons.sun, accent: "from-amber-300/30 to-orange-400/20" },
-  { ar: "أذكار المساء", en: "Evening", count: 28, icon: icons.moon, accent: "from-indigo-400/30 to-violet-500/20" },
-  { ar: "أذكار النوم", en: "Sleep", count: 16, icon: icons.bed, accent: "from-blue-400/30 to-slate-500/20" },
-  { ar: "أذكار بعد الصلاة", en: "Prayer", count: 12, icon: icons.prayer, accent: "from-emerald-400/30 to-teal-500/20" },
-  { ar: "أذكار السفر", en: "Travel", count: 9, icon: icons.plane, accent: "from-sky-400/30 to-cyan-500/20" },
-  { ar: "أذكار متنوعة", en: "Various", count: 40, icon: icons.sparkle, accent: "from-rose-300/30 to-pink-500/20" },
-];
-
 function Azkar() {
   const [count, setCount] = useState(33);
   const { book } = useAzkarBook();
