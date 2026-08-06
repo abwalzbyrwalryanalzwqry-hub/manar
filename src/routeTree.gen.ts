@@ -33,6 +33,7 @@ import { Route as QuranReaderSettingsRouteImport } from './routes/quran.reader-s
 import { Route as QuranMushafRouteImport } from './routes/quran.mushaf'
 import { Route as QuranLastReadRouteImport } from './routes/quran.last-read'
 import { Route as QuranBookmarksRouteImport } from './routes/quran.bookmarks'
+import { Route as AzkarChapterRouteImport } from './routes/azkar.$chapter'
 import { Route as TabsQuranRouteImport } from './routes/_tabs.quran'
 import { Route as TabsPrayerRouteImport } from './routes/_tabs.prayer'
 import { Route as TabsMoreRouteImport } from './routes/_tabs.more'
@@ -158,6 +159,11 @@ const QuranBookmarksRoute = QuranBookmarksRouteImport.update({
   path: '/quran/bookmarks',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AzkarChapterRoute = AzkarChapterRouteImport.update({
+  id: '/azkar/$chapter',
+  path: '/azkar/$chapter',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TabsQuranRoute = TabsQuranRouteImport.update({
   id: '/quran',
   path: '/quran',
@@ -205,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/more': typeof TabsMoreRoute
   '/prayer': typeof TabsPrayerRoute
   '/quran': typeof TabsQuranRoute
+  '/azkar/$chapter': typeof AzkarChapterRoute
   '/quran/bookmarks': typeof QuranBookmarksRoute
   '/quran/last-read': typeof QuranLastReadRoute
   '/quran/mushaf': typeof QuranMushafRoute
@@ -235,6 +242,7 @@ export interface FileRoutesByTo {
   '/more': typeof TabsMoreRoute
   '/prayer': typeof TabsPrayerRoute
   '/quran': typeof TabsQuranRoute
+  '/azkar/$chapter': typeof AzkarChapterRoute
   '/quran/bookmarks': typeof QuranBookmarksRoute
   '/quran/last-read': typeof QuranLastReadRoute
   '/quran/mushaf': typeof QuranMushafRoute
@@ -267,6 +275,7 @@ export interface FileRoutesById {
   '/_tabs/more': typeof TabsMoreRoute
   '/_tabs/prayer': typeof TabsPrayerRoute
   '/_tabs/quran': typeof TabsQuranRoute
+  '/azkar/$chapter': typeof AzkarChapterRoute
   '/quran/bookmarks': typeof QuranBookmarksRoute
   '/quran/last-read': typeof QuranLastReadRoute
   '/quran/mushaf': typeof QuranMushafRoute
@@ -299,6 +308,7 @@ export interface FileRouteTypes {
     | '/more'
     | '/prayer'
     | '/quran'
+    | '/azkar/$chapter'
     | '/quran/bookmarks'
     | '/quran/last-read'
     | '/quran/mushaf'
@@ -329,6 +339,7 @@ export interface FileRouteTypes {
     | '/more'
     | '/prayer'
     | '/quran'
+    | '/azkar/$chapter'
     | '/quran/bookmarks'
     | '/quran/last-read'
     | '/quran/mushaf'
@@ -360,6 +371,7 @@ export interface FileRouteTypes {
     | '/_tabs/more'
     | '/_tabs/prayer'
     | '/_tabs/quran'
+    | '/azkar/$chapter'
     | '/quran/bookmarks'
     | '/quran/last-read'
     | '/quran/mushaf'
@@ -387,6 +399,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
   StatisticsRoute: typeof StatisticsRoute
+  AzkarChapterRoute: typeof AzkarChapterRoute
   QuranBookmarksRoute: typeof QuranBookmarksRoute
   QuranLastReadRoute: typeof QuranLastReadRoute
   QuranMushafRoute: typeof QuranMushafRoute
@@ -567,6 +580,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof QuranBookmarksRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/azkar/$chapter': {
+      id: '/azkar/$chapter'
+      path: '/azkar/$chapter'
+      fullPath: '/azkar/$chapter'
+      preLoaderRoute: typeof AzkarChapterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_tabs/quran': {
       id: '/_tabs/quran'
       path: '/quran'
@@ -640,6 +660,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,
   StatisticsRoute: StatisticsRoute,
+  AzkarChapterRoute: AzkarChapterRoute,
   QuranBookmarksRoute: QuranBookmarksRoute,
   QuranLastReadRoute: QuranLastReadRoute,
   QuranMushafRoute: QuranMushafRoute,
@@ -652,13 +673,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
