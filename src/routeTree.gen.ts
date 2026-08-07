@@ -39,6 +39,7 @@ import { Route as TabsPrayerRouteImport } from './routes/_tabs.prayer'
 import { Route as TabsMoreRouteImport } from './routes/_tabs.more'
 import { Route as TabsHomeRouteImport } from './routes/_tabs.home'
 import { Route as TabsAzkarRouteImport } from './routes/_tabs.azkar'
+import { Route as AzkarGroupGroupRouteImport } from './routes/azkar.group.$group'
 
 const StatisticsRoute = StatisticsRouteImport.update({
   id: '/statistics',
@@ -189,6 +190,11 @@ const TabsAzkarRoute = TabsAzkarRouteImport.update({
   path: '/azkar',
   getParentRoute: () => TabsRoute,
 } as any)
+const AzkarGroupGroupRoute = AzkarGroupGroupRouteImport.update({
+  id: '/azkar/group/$group',
+  path: '/azkar/group/$group',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -220,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/quran/search': typeof QuranSearchRoute
   '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
+  '/azkar/group/$group': typeof AzkarGroupGroupRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -251,6 +258,7 @@ export interface FileRoutesByTo {
   '/quran/search': typeof QuranSearchRoute
   '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
+  '/azkar/group/$group': typeof AzkarGroupGroupRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -284,6 +292,7 @@ export interface FileRoutesById {
   '/quran/search': typeof QuranSearchRoute
   '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
+  '/azkar/group/$group': typeof AzkarGroupGroupRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -317,6 +326,7 @@ export interface FileRouteTypes {
     | '/quran/search'
     | '/quran/share'
     | '/quran/tafsir'
+    | '/azkar/group/$group'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -348,6 +358,7 @@ export interface FileRouteTypes {
     | '/quran/search'
     | '/quran/share'
     | '/quran/tafsir'
+    | '/azkar/group/$group'
   id:
     | '__root__'
     | '/'
@@ -380,6 +391,7 @@ export interface FileRouteTypes {
     | '/quran/search'
     | '/quran/share'
     | '/quran/tafsir'
+    | '/azkar/group/$group'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -408,6 +420,7 @@ export interface RootRouteChildren {
   QuranSearchRoute: typeof QuranSearchRoute
   QuranShareRoute: typeof QuranShareRoute
   QuranTafsirRoute: typeof QuranTafsirRoute
+  AzkarGroupGroupRoute: typeof AzkarGroupGroupRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -622,6 +635,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TabsAzkarRouteImport
       parentRoute: typeof TabsRoute
     }
+    '/azkar/group/$group': {
+      id: '/azkar/group/$group'
+      path: '/azkar/group/$group'
+      fullPath: '/azkar/group/$group'
+      preLoaderRoute: typeof AzkarGroupGroupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -669,17 +689,8 @@ const rootRouteChildren: RootRouteChildren = {
   QuranSearchRoute: QuranSearchRoute,
   QuranShareRoute: QuranShareRoute,
   QuranTafsirRoute: QuranTafsirRoute,
+  AzkarGroupGroupRoute: AzkarGroupGroupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
