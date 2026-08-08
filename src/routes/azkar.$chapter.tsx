@@ -1,136 +1,160 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo } from "react";
-import { Icon, icons, Screen, ScreenHeader, Skeleton } from "@/components/manar/shell";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Arabesque, Icon, icons, Screen, ScreenHeader, Skeleton } from "@/components/manar/shell";
 import { useAzkarBook } from "@/hooks/use-azkar";
 import { useAzkarProgress } from "@/lib/azkar/progress";
 import type { AzkarChapter, Zikr } from "@/lib/azkar/types";
 import { toArabicDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/azkar/$chapter")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    zikr: search.zikr != null && !Number.isNaN(Number(search.zikr)) ? Number(search.zikr) : undefined,
+  }),
   head: () => ({
     meta: [
-      { title: "حصن المسلم — منار" },
-      { name: "description", content: "أذكار وأدعية من كتاب حصن المسلم بنصوص موثّقة وعدّاد تكرار لكل ذكر." },
-      { property: "og:title", content: "حصن المسلم — منار" },
-      { property: "og:description", content: "أذكار وأدعية موثّقة مع عدّاد تكرار لكل ذكر وحفظ للتقدّم." },
+      { title: "جلسة الأذكار — منار" },
+      { name: "description", content: "جلسة أذكار متسلسلة من حصن المسلم: ذكر واحد في كل شاشة مع عدّاد تكرار وانتقال تلقائي." },
+      { property: "og:title", content: "جلسة الأذكار — منار" },
+      { property: "og:description", content: "اقرأ أذكار الباب ذكرًا بعد ذكر مع عدّاد تكرار وحفظ تلقائي للتقدّم." },
       { property: "og:type", content: "article" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: ChapterReader,
+  component: AzkarSession,
 });
 
-function ChapterReader() {
+function AzkarSession() {
   const { chapter: chapterParam } = Route.useParams();
+  const { zikr: zikrParam } = Route.useSearch();
   const id = Number(chapterParam);
+  const navigate = useNavigate();
   const { book, loading, error } = useAzkarBook();
-  const { progress, tap, resetZikr, toggleBookmark, setLast } = useAzkarProgress();
+  const { progress, tap, resetMany, toggleBookmark, setLast } = useAzkarProgress();
 
   const chapter = useMemo(() => book?.chapters.find((c) => c.id === id), [book, id]);
-  const firstZikr = chapter?.azkar[0];
+  const azkar = chapter?.azkar ?? [];
+
+  const [index, setIndex] = useState(0);
+  const [initialized, setInitialized] = useState(false);
+  const [finished, setFinished] = useState(false);
+  const [pulse, setPulse] = useState(false);
+  const [dir, setDir] = useState<1 | -1>(1);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const advancing = useRef(false);
+
+  const backTo = chapter ? `/azkar/group/${chapter.group}` : "/azkar";
+
+  /** Resume logic — runs once when the chapter is available. */
+  useEffect(() => {
+    if (initialized || !chapter || !azkar.length) return;
+    if (zikrParam != null) {
+      const i = azkar.findIndex((z) => z.id === zikrParam);
+      if (i >= 0) {
+        setIndex(i);
+        setInitialized(true);
+        return;
+      }
+    }
+    const partial = azkar.findIndex((z) => {
+      const c = progress.counters[z.id] ?? 0;
+      return c > 0 && c < z.repeat;
+    });
+    if (partial >= 0) {
+      setIndex(partial);
+    } else {
+      const firstIncomplete = azkar.findIndex((z) => (progress.counters[z.id] ?? 0) < z.repeat);
+      if (firstIncomplete < 0) setFinished(true);
+      setIndex(Math.max(0, firstIncomplete));
+    }
+    setInitialized(true);
+  }, [initialized, chapter, azkar, progress.counters, zikrParam]);
+
+  const current: Zikr | undefined = azkar[index];
+  const count = current ? Math.min(progress.counters[current.id] ?? 0, current.repeat) : 0;
+  const doneCount = azkar.filter((z) => (progress.counters[z.id] ?? 0) >= z.repeat).length;
 
   useEffect(() => {
-    if (chapter && firstZikr) setLast(chapter.id, firstZikr.id);
-  }, [chapter, firstZikr, setLast]);
+    if (chapter && current) setLast(chapter.id, current.id);
+  }, [chapter, current, setLast]);
 
-  const backTo = chapter ? "/azkar/group/$group" : "/azkar";
+  /** Reset vertical scroll when the active zikr changes. */
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [index]);
 
-  return (
-    <Screen>
-      <ScreenHeader
-        title={chapter?.title ?? "حصن المسلم"}
-        subtitle={
-          chapter
-            ? `الباب ${toArabicDigits(chapter.id)} · ${toArabicDigits(chapter.azkar.length)} ذكر`
-            : "من أذكار الكتاب والسنة"
-        }
-        backTo={chapter ? backTo.replace("$group", chapter.group) : "/azkar"}
-      />
-
-      {loading && (
-        <div className="space-y-3 px-4">
-          <Skeleton className="h-52 rounded-3xl" />
-          <Skeleton className="h-52 rounded-3xl" />
-        </div>
-      )}
-      {error && <p className="px-5 text-sm text-muted-foreground">{error}</p>}
-
-      {chapter && (
-        <div className="space-y-4 px-4">
-          {chapter.azkar.map((zikr, idx) => (
-            <ZikrCard
-              key={zikr.id}
-              zikr={zikr}
-              index={idx + 1}
-              total={chapter.azkar.length}
-              chapter={chapter}
-              count={progress.counters[zikr.id] ?? 0}
-              done={progress.completed.includes(zikr.id)}
-              marked={progress.bookmarks.includes(zikr.id)}
-              onTap={() => tap(zikr.id, zikr.repeat)}
-              onReset={() => resetZikr(zikr.id)}
-              onBookmark={() => toggleBookmark(zikr.id)}
-            />
-          ))}
-
-          {chapter.references.length > 0 && (
-            <div className="rounded-3xl border border-border bg-card p-4">
-              <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">التخريج</div>
-              <ul className="mt-2 space-y-1 text-[11px] leading-relaxed text-muted-foreground">
-                {chapter.references.map((r, i) => (
-                  <li key={i}>{r}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div className="flex justify-between pt-2 text-[11px] text-muted-foreground">
-            {id > 1 ? (
-              <Link to="/azkar/$chapter" params={{ chapter: String(id - 1) }}>
-                الباب السابق
-              </Link>
-            ) : (
-              <span />
-            )}
-            {book && id < book.chapters.length ? (
-              <Link to="/azkar/$chapter" params={{ chapter: String(id + 1) }}>
-                الباب التالي
-              </Link>
-            ) : (
-              <span />
-            )}
-          </div>
-        </div>
-      )}
-    </Screen>
+  const goTo = useCallback(
+    (next: number, direction: 1 | -1) => {
+      if (next < 0 || next >= azkar.length) return;
+      setDir(direction);
+      setIndex(next);
+    },
+    [azkar.length],
   );
-}
 
-function ZikrCard({
-  zikr,
-  index,
-  total,
-  chapter,
-  count,
-  done,
-  marked,
-  onTap,
-  onReset,
-  onBookmark,
-}: {
-  zikr: Zikr;
-  index: number;
-  total: number;
-  chapter: AzkarChapter;
-  count: number;
-  done: boolean;
-  marked: boolean;
-  onTap: () => void;
-  onReset: () => void;
-  onBookmark: () => void;
-}) {
+  /** Finish the chapter: brief completion state, then back to the door list. */
+  const finish = useCallback(() => {
+    setFinished(true);
+    const t = window.setTimeout(() => {
+      navigate({ to: "/azkar/group/$group", params: { group: chapter?.group ?? "" } });
+    }, 1600);
+    return () => window.clearTimeout(t);
+  }, [navigate, chapter]);
+
+  const onTap = useCallback(() => {
+    if (!current || advancing.current) return;
+    const next = Math.min(current.repeat, count + 1);
+    tap(current.id, current.repeat);
+    setPulse(true);
+    window.setTimeout(() => setPulse(false), 260);
+    if (next >= current.repeat) {
+      advancing.current = true;
+      window.setTimeout(() => {
+        advancing.current = false;
+        if (index + 1 < azkar.length) goTo(index + 1, 1);
+        else finish();
+      }, 620);
+    }
+  }, [current, count, tap, index, azkar.length, goTo, finish]);
+
+  // ---- intentional horizontal swipe with direction locking ----
+  const touch = useRef<{ x: number; y: number; lock: "none" | "x" | "y" } | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touch.current = { x: t.clientX, y: t.clientY, lock: "none" };
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const s = touch.current;
+    if (!s) return;
+    const t = e.touches[0];
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    if (s.lock === "none" && (Math.abs(dx) > 12 || Math.abs(dy) > 12)) {
+      s.lock = Math.abs(dx) > Math.abs(dy) * 1.5 ? "x" : "y";
+    }
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const s = touch.current;
+    touch.current = null;
+    if (!s || s.lock !== "x") return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s.x;
+    if (Math.abs(dx) < 70) return; // accidental swipe — ignore
+    // RTL: swipe left → next, swipe right → previous
+    if (dx < 0) goTo(index + 1, 1);
+    else goTo(index - 1, -1);
+  };
+
+  const restart = () => {
+    resetMany(azkar.map((z) => z.id));
+    setConfirmReset(false);
+    setFinished(false);
+    setIndex(0);
+  };
+
   const share = async () => {
-    const text = `${chapter.title}\n\n${zikr.text}\n\n— حصن المسلم · تطبيق منار`;
+    if (!current || !chapter) return;
+    const text = `${chapter.title}\n\n${current.text}\n\n— حصن المسلم · تطبيق منار`;
     try {
       if (navigator.share) await navigator.share({ text });
       else await navigator.clipboard.writeText(text);
@@ -139,63 +163,163 @@ function ZikrCard({
     }
   };
 
-  const pct = Math.min(100, (count / Math.max(1, zikr.repeat)) * 100);
-
   return (
-    <div className="glass relative overflow-hidden rounded-[28px] p-5">
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-        <span className="tabular-nums">
-          {toArabicDigits(index)} من {toArabicDigits(total)}
-        </span>
-        <span className="rounded-full border border-border/60 bg-background/60 px-2 py-0.5 tabular-nums">
-          التكرار {toArabicDigits(zikr.repeat)}
-        </span>
-      </div>
+    <Screen>
+      <ScreenHeader
+        title={chapter?.title ?? "جلسة الأذكار"}
+        subtitle={
+          chapter
+            ? `الباب ${toArabicDigits(chapter.id)} · أتممت ${toArabicDigits(doneCount)} من ${toArabicDigits(azkar.length)}`
+            : "من أذكار الكتاب والسنة"
+        }
+        backTo={backTo}
+      />
 
-      <p className="mt-3 text-right font-display text-[21px] leading-[2.1]">{zikr.text}</p>
-
-      <div className="mt-4 h-1 overflow-hidden rounded-full bg-border/60">
-        <div className={`h-full ${done ? "gradient-gold" : "gradient-primary"}`} style={{ width: `${pct}%` }} />
-      </div>
-
-      <div className="mt-4 flex items-center justify-between">
-        <button
-          onClick={onTap}
-          className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition active:scale-95 ${
-            done ? "bg-secondary text-primary" : "gradient-primary text-primary-foreground shadow-glow"
-          }`}
-        >
-          <Icon d={done ? icons.check : icons.azkar} size={16} />
-          <span className="tabular-nums">
-            {toArabicDigits(count)} / {toArabicDigits(zikr.repeat)}
-          </span>
-        </button>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onReset}
-            aria-label="إعادة العدّاد"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground"
-          >
-            <Icon d={icons.back} size={16} />
-          </button>
-          <button
-            onClick={onBookmark}
-            aria-label="حفظ الذكر"
-            className={`flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card ${
-              marked ? "text-gold" : "text-muted-foreground"
-            }`}
-          >
-            <Icon d={icons.bookmark} size={16} />
-          </button>
-          <button
-            onClick={share}
-            aria-label="مشاركة الذكر"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground"
-          >
-            <Icon d={icons.share} size={16} />
-          </button>
+      {loading && (
+        <div className="px-4">
+          <Skeleton className="h-[26rem] rounded-[32px]" />
         </div>
-      </div>
-    </div>
+      )}
+      {error && <p className="px-5 text-sm text-muted-foreground">{error}</p>}
+
+      {chapter && finished && (
+        <div className="px-4 animate-fade-up">
+          <div className="glass relative overflow-hidden rounded-[32px] p-8 text-center">
+            <Arabesque className="pointer-events-none absolute -bottom-12 -left-12 h-44 w-44 text-gold/20" />
+            <span className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-secondary text-primary">
+              <Icon d={icons.check} size={26} />
+            </span>
+            <div className="relative mt-4 font-display text-xl">تمّت أذكار هذا الباب</div>
+            <p className="relative mt-2 text-xs leading-relaxed text-muted-foreground">
+              أتممت {toArabicDigits(azkar.length)} ذكرًا · تقبّل الله منك.
+            </p>
+            <div className="relative mt-6 flex flex-col gap-2">
+              {confirmReset ? (
+                <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
+                  <p className="text-xs text-muted-foreground">هل تريد إعادة أذكار هذا الباب من البداية؟</p>
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={restart} className="flex-1 rounded-full gradient-primary py-2 text-xs text-primary-foreground">
+                      نعم، أعِد
+                    </button>
+                    <button
+                      onClick={() => setConfirmReset(false)}
+                      className="flex-1 rounded-full border border-border py-2 text-xs text-muted-foreground"
+                    >
+                      إلغاء
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmReset(true)}
+                  className="rounded-full border border-border bg-card py-2.5 text-xs font-medium"
+                >
+                  إعادة الأذكار
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {chapter && current && !finished && (
+        <div className="px-4" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+          <div
+            key={current.id}
+            className={`glass relative overflow-hidden rounded-[32px] p-5 ${dir === 1 ? "animate-fade-up" : "animate-fade-up"}`}
+          >
+            <Arabesque className="pointer-events-none absolute -bottom-14 -left-14 h-40 w-40 text-primary/10" />
+
+            <div className="relative flex items-center justify-between text-[11px] text-muted-foreground">
+              <span className="tabular-nums">
+                الذكر {toArabicDigits(index + 1)} من {toArabicDigits(azkar.length)}
+              </span>
+              <button
+                onClick={() => toggleBookmark(current.id)}
+                aria-label="حفظ الذكر"
+                className={`flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card ${
+                  progress.bookmarks.includes(current.id) ? "text-gold" : "text-muted-foreground"
+                }`}
+              >
+                <Icon d={icons.bookmark} size={15} />
+              </button>
+            </div>
+
+            {/* chapter progress */}
+            <div className="relative mt-3 flex gap-1">
+              {azkar.map((z, i) => (
+                <span
+                  key={z.id}
+                  className={`h-1 flex-1 rounded-full ${
+                    (progress.counters[z.id] ?? 0) >= z.repeat
+                      ? "bg-gold"
+                      : i === index
+                        ? "bg-primary"
+                        : "bg-border/70"
+                  }`}
+                />
+              ))}
+            </div>
+
+            {/* current zikr — the only scrollable area */}
+            <div ref={scrollRef} className="relative mt-4 max-h-[46vh] overflow-y-auto pl-1 overscroll-contain">
+              <p className="text-right font-display text-[22px] leading-[2.15]">{current.text}</p>
+
+              {chapter.references.length > 0 && (
+                <div className="mt-5 rounded-2xl border border-border/60 bg-background/50 p-3">
+                  <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">التخريج</div>
+                  <ul className="mt-1.5 space-y-1 text-[11px] leading-relaxed text-muted-foreground">
+                    {chapter.references.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* counter */}
+            <div className="relative mt-5 flex flex-col items-center">
+              <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">التكرار</span>
+              <button
+                onClick={onTap}
+                className={`mt-2 flex h-24 w-24 flex-col items-center justify-center rounded-full gradient-primary text-primary-foreground shadow-glow transition active:scale-95 ${
+                  pulse ? "scale-105" : ""
+                }`}
+              >
+                <span className="font-display text-2xl tabular-nums">{toArabicDigits(count)}</span>
+                <span className="text-[11px] tabular-nums opacity-80">من {toArabicDigits(current.repeat)}</span>
+              </button>
+              <span className="mt-2 text-[10px] text-muted-foreground">اضغط للعدّ · ينتقل تلقائيًا عند الإتمام</span>
+            </div>
+
+            {/* manual navigation */}
+            <div className="relative mt-5 flex items-center justify-between">
+              <button
+                onClick={() => goTo(index - 1, -1)}
+                disabled={index === 0}
+                className="flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs text-foreground disabled:opacity-40"
+              >
+                <span className="rotate-180"><Icon d={icons.back} size={14} /></span>
+                السابق
+              </button>
+              <button
+                onClick={share}
+                aria-label="مشاركة الذكر"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground"
+              >
+                <Icon d={icons.share} size={15} />
+              </button>
+              <button
+                onClick={() => (index + 1 < azkar.length ? goTo(index + 1, 1) : finish())}
+                className="flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs text-foreground"
+              >
+                التالي
+                <Icon d={icons.back} size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Screen>
   );
 }
