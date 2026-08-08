@@ -124,5 +124,5 @@ export function useAzkarProgress() {
     [patch],
   );
 
-  return { progress: state, tap, resetZikr, toggleBookmark, setLast };
+  return { progress: state, tap, resetZikr, resetMany, toggleBookmark, setLast };
 }
