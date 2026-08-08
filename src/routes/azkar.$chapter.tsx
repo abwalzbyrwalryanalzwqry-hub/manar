@@ -95,30 +95,48 @@ function AzkarSession() {
     [azkar.length],
   );
 
-  /** Finish the chapter: brief completion state, then back to the door list. */
+  /** Finish the chapter: show the completion state (progress stays saved). */
   const finish = useCallback(() => {
     setFinished(true);
-    const t = window.setTimeout(() => {
-      navigate({ to: "/azkar/group/$group", params: { group: chapter?.group ?? "" } });
-    }, 1600);
-    return () => window.clearTimeout(t);
+  }, []);
+
+  /** Leaves the session immediately, keeping every counter untouched. */
+  const exitSession = useCallback(() => {
+    navigate({ to: "/azkar/group/$group", params: { group: chapter?.group ?? "" } });
   }, [navigate, chapter]);
+
+  /** Flash the auto-save confirmation. */
+  const flashSaved = useCallback(() => {
+    setSaved(true);
+    if (savedTimer.current) window.clearTimeout(savedTimer.current);
+    savedTimer.current = window.setTimeout(() => setSaved(false), 1400);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (savedTimer.current) window.clearTimeout(savedTimer.current);
+    },
+    [],
+  );
 
   const onTap = useCallback(() => {
     if (!current || advancing.current) return;
     const next = Math.min(current.repeat, count + 1);
     tap(current.id, current.repeat);
+    flashSaved();
     setPulse(true);
     window.setTimeout(() => setPulse(false), 260);
     if (next >= current.repeat) {
       advancing.current = true;
+      // hold briefly so the user sees the saved confirmation before moving on
       window.setTimeout(() => {
         advancing.current = false;
         if (index + 1 < azkar.length) goTo(index + 1, 1);
         else finish();
-      }, 620);
+      }, 900);
     }
-  }, [current, count, tap, index, azkar.length, goTo, finish]);
+  }, [current, count, tap, flashSaved, index, azkar.length, goTo, finish]);
+
 
   // ---- intentional horizontal swipe with direction locking ----
   const touch = useRef<{ x: number; y: number; lock: "none" | "x" | "y" } | null>(null);
