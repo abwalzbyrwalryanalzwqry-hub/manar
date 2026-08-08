@@ -399,9 +399,19 @@ function AzkarSession() {
                 <Icon d={icons.back} size={14} />
               </button>
             </div>
+
+            {/* stop session — keeps every counter as-is */}
+            <button
+              onClick={exitSession}
+              className="relative mt-4 flex w-full items-center justify-center gap-1.5 rounded-full border border-border/70 bg-background/50 py-2.5 text-[11px] text-muted-foreground transition active:scale-[0.98]"
+            >
+              <Icon d={icons.back} size={13} />
+              إيقاف الجلسة والعودة إلى قائمة الباب (يُحفظ التقدّم)
+            </button>
           </div>
         </div>
       )}
+
     </Screen>
   );
 }
