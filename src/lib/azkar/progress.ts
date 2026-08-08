@@ -19,9 +19,19 @@ export interface AzkarProgress {
   last: { chapter: number; zikr: number; at: number } | null;
   /** YYYY-MM-DD of the counters/completed day */
   day: string;
+  /** timestamp of the last saved change */
+  updatedAt: number | null;
 }
 
-const EMPTY: AzkarProgress = { counters: {}, completed: [], bookmarks: [], last: null, day: today() };
+const EMPTY: AzkarProgress = {
+  counters: {},
+  completed: [],
+  bookmarks: [],
+  last: null,
+  day: today(),
+  updatedAt: null,
+};
+
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
