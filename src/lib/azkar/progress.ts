@@ -76,11 +76,12 @@ export function useAzkarProgress() {
 
   const patch = useCallback((fn: (prev: AzkarProgress) => AzkarProgress) => {
     setState((prev) => {
-      const next = fn(prev);
+      const next = { ...fn(prev), updatedAt: Date.now() };
       write(next);
       return next;
     });
   }, []);
+
 
   const tap = useCallback(
     (zikrId: number, repeat: number) =>
