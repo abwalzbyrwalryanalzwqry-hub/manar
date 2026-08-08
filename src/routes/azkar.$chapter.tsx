@@ -4,7 +4,7 @@ import { Arabesque, Icon, icons, Screen, ScreenHeader, Skeleton } from "@/compon
 import { useAzkarBook } from "@/hooks/use-azkar";
 import { useAzkarProgress } from "@/lib/azkar/progress";
 import type { AzkarChapter, Zikr } from "@/lib/azkar/types";
-import { toArabicDigits } from "@/lib/format";
+import { formatArTime, toArabicDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/azkar/$chapter")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -276,7 +276,7 @@ function AzkarSession() {
           <div className="glass relative w-full max-w-sm overflow-hidden rounded-[28px] p-6 text-center">
             <Arabesque className="pointer-events-none absolute -top-10 -left-10 h-32 w-32 text-gold/20" />
             <span className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-gold">
-              <Icon d={icons.refresh ?? icons.check} size={22} />
+              <Icon d={icons.check} size={22} />
             </span>
             <div className="relative mt-4 font-display text-lg">إعادة أذكار هذا الباب؟</div>
             <p className="relative mt-2 text-[12px] leading-relaxed text-muted-foreground">
