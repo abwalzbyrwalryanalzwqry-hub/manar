@@ -129,11 +129,18 @@ export function useAzkarProgress() {
     [patch],
   );
 
+  /** Records the last opened zikr without touching the "progress saved" timestamp. */
   const setLast = useCallback(
     (chapter: number, zikr: number) =>
-      patch((p) => ({ ...p, last: { chapter, zikr, at: Date.now() } })),
-    [patch],
+      setState((prev) => {
+        if (prev.last?.chapter === chapter && prev.last?.zikr === zikr) return prev;
+        const next = { ...prev, last: { chapter, zikr, at: Date.now() } };
+        write(next);
+        return next;
+      }),
+    [],
   );
+
 
   return { progress: state, tap, resetZikr, resetMany, toggleBookmark, setLast };
 }
