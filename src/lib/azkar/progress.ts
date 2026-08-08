@@ -103,6 +103,21 @@ export function useAzkarProgress() {
     [patch],
   );
 
+  /** Reset a set of azkar (one chapter) without touching others. */
+  const resetMany = useCallback(
+    (zikrIds: number[]) =>
+      patch((p) => {
+        const counters = { ...p.counters };
+        for (const id of zikrIds) counters[id] = 0;
+        return {
+          ...p,
+          counters,
+          completed: p.completed.filter((id) => !zikrIds.includes(id)),
+        };
+      }),
+    [patch],
+  );
+
   const setLast = useCallback(
     (chapter: number, zikr: number) =>
       patch((p) => ({ ...p, last: { chapter, zikr, at: Date.now() } })),
