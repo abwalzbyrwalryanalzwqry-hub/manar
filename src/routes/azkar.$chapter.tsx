@@ -4,7 +4,7 @@ import { Arabesque, Icon, icons, Screen, ScreenHeader, Skeleton } from "@/compon
 import { useAzkarBook } from "@/hooks/use-azkar";
 import { useAzkarProgress } from "@/lib/azkar/progress";
 import type { AzkarChapter, Zikr } from "@/lib/azkar/types";
-import { toArabicDigits } from "@/lib/format";
+import { formatArTime, toArabicDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/azkar/$chapter")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -40,8 +40,11 @@ function AzkarSession() {
   const [pulse, setPulse] = useState(false);
   const [dir, setDir] = useState<1 | -1>(1);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [saved, setSaved] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const advancing = useRef(false);
+  const savedTimer = useRef<number | null>(null);
+
 
   const backTo = chapter ? `/azkar/group/${chapter.group}` : "/azkar";
 
@@ -92,30 +95,48 @@ function AzkarSession() {
     [azkar.length],
   );
 
-  /** Finish the chapter: brief completion state, then back to the door list. */
+  /** Finish the chapter: show the completion state (progress stays saved). */
   const finish = useCallback(() => {
     setFinished(true);
-    const t = window.setTimeout(() => {
-      navigate({ to: "/azkar/group/$group", params: { group: chapter?.group ?? "" } });
-    }, 1600);
-    return () => window.clearTimeout(t);
+  }, []);
+
+  /** Leaves the session immediately, keeping every counter untouched. */
+  const exitSession = useCallback(() => {
+    navigate({ to: "/azkar/group/$group", params: { group: chapter?.group ?? "" } });
   }, [navigate, chapter]);
+
+  /** Flash the auto-save confirmation. */
+  const flashSaved = useCallback(() => {
+    setSaved(true);
+    if (savedTimer.current) window.clearTimeout(savedTimer.current);
+    savedTimer.current = window.setTimeout(() => setSaved(false), 1400);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (savedTimer.current) window.clearTimeout(savedTimer.current);
+    },
+    [],
+  );
 
   const onTap = useCallback(() => {
     if (!current || advancing.current) return;
     const next = Math.min(current.repeat, count + 1);
     tap(current.id, current.repeat);
+    flashSaved();
     setPulse(true);
     window.setTimeout(() => setPulse(false), 260);
     if (next >= current.repeat) {
       advancing.current = true;
+      // hold briefly so the user sees the saved confirmation before moving on
       window.setTimeout(() => {
         advancing.current = false;
         if (index + 1 < azkar.length) goTo(index + 1, 1);
         else finish();
-      }, 620);
+      }, 900);
     }
-  }, [current, count, tap, index, azkar.length, goTo, finish]);
+  }, [current, count, tap, flashSaved, index, azkar.length, goTo, finish]);
+
 
   // ---- intentional horizontal swipe with direction locking ----
   const touch = useRef<{ x: number; y: number; lock: "none" | "x" | "y" } | null>(null);
@@ -147,6 +168,7 @@ function AzkarSession() {
 
   const restart = () => {
     resetMany(azkar.map((z) => z.id));
+    flashSaved();
     setConfirmReset(false);
     setFinished(false);
     setIndex(0);
@@ -154,7 +176,13 @@ function AzkarSession() {
 
   const share = async () => {
     if (!current || !chapter) return;
-    const text = `${chapter.title}\n\n${current.text}\n\n— حصن المسلم · تطبيق منار`;
+    const text =
+      `${chapter.title} — الباب ${toArabicDigits(chapter.id)}\n` +
+      `الذكر ${toArabicDigits(index + 1)} من ${toArabicDigits(azkar.length)} · التكرار المطلوب: ${toArabicDigits(current.repeat)}\n` +
+      `المُنجَز: ${toArabicDigits(count)} من ${toArabicDigits(current.repeat)}` +
+      `${count >= current.repeat ? " ✓ مكتمل" : ""}\n` +
+      `تقدّم الباب: ${toArabicDigits(doneCount)} من ${toArabicDigits(azkar.length)}\n\n` +
+      `${current.text}\n\n— حصن المسلم · تطبيق منار`;
     try {
       if (navigator.share) await navigator.share({ text });
       else await navigator.clipboard.writeText(text);
@@ -162,6 +190,11 @@ function AzkarSession() {
       /* ignore cancel */
     }
   };
+
+  /** Last started zikr inside this chapter + last save time. */
+  const lastHere = progress.last?.chapter === chapter?.id ? progress.last : null;
+  const lastStartedNo = lastHere ? azkar.findIndex((z) => z.id === lastHere.zikr) + 1 : 0;
+  const updatedLabel = progress.updatedAt ? formatArTime(new Date(progress.updatedAt)) : null;
 
   return (
     <Screen>
@@ -182,6 +215,32 @@ function AzkarSession() {
       )}
       {error && <p className="px-5 text-sm text-muted-foreground">{error}</p>}
 
+      {/* session status bar: last started zikr + last save time */}
+      {chapter && (
+        <div className="mb-3 px-4">
+          <div className="flex items-center justify-between gap-2 rounded-2xl border border-border/60 bg-card/70 px-3.5 py-2.5 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <Icon d={icons.bookmark} size={13} />
+              {lastStartedNo > 0 ? (
+                <span>
+                  بدأت بالذكر {toArabicDigits(lastStartedNo)} من {toArabicDigits(azkar.length)}
+                </span>
+              ) : (
+                <span>لم تبدأ هذا الباب بعد</span>
+              )}
+            </span>
+            <span
+              className={`flex items-center gap-1.5 tabular-nums transition-colors ${
+                saved ? "text-primary" : ""
+              }`}
+            >
+              <Icon d={icons.check} size={13} />
+              {saved ? "تم حفظ التقدّم" : updatedLabel ? `آخر تحديث ${updatedLabel}` : "الحفظ تلقائي"}
+            </span>
+          </div>
+        </div>
+      )}
+
       {chapter && finished && (
         <div className="px-4 animate-fade-up">
           <div className="glass relative overflow-hidden rounded-[32px] p-8 text-center">
@@ -191,36 +250,59 @@ function AzkarSession() {
             </span>
             <div className="relative mt-4 font-display text-xl">تمّت أذكار هذا الباب</div>
             <p className="relative mt-2 text-xs leading-relaxed text-muted-foreground">
-              أتممت {toArabicDigits(azkar.length)} ذكرًا · تقبّل الله منك.
+              أتممت {toArabicDigits(azkar.length)} ذكرًا · تقبّل الله منك. تم حفظ تقدّمك تلقائيًا.
             </p>
             <div className="relative mt-6 flex flex-col gap-2">
-              {confirmReset ? (
-                <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
-                  <p className="text-xs text-muted-foreground">هل تريد إعادة أذكار هذا الباب من البداية؟</p>
-                  <div className="mt-3 flex gap-2">
-                    <button onClick={restart} className="flex-1 rounded-full gradient-primary py-2 text-xs text-primary-foreground">
-                      نعم، أعِد
-                    </button>
-                    <button
-                      onClick={() => setConfirmReset(false)}
-                      className="flex-1 rounded-full border border-border py-2 text-xs text-muted-foreground"
-                    >
-                      إلغاء
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setConfirmReset(true)}
-                  className="rounded-full border border-border bg-card py-2.5 text-xs font-medium"
-                >
-                  إعادة الأذكار
-                </button>
-              )}
+              <button
+                onClick={exitSession}
+                className="rounded-full gradient-primary py-2.5 text-xs font-medium text-primary-foreground"
+              >
+                العودة إلى قائمة الباب
+              </button>
+              <button
+                onClick={() => setConfirmReset(true)}
+                className="rounded-full border border-border bg-card py-2.5 text-xs font-medium"
+              >
+                إعادة الأذكار
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* elegant reset confirmation */}
+      {confirmReset && chapter && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/70 px-4 pb-6 backdrop-blur-sm animate-fade-up">
+          <div className="glass relative w-full max-w-sm overflow-hidden rounded-[28px] p-6 text-center">
+            <Arabesque className="pointer-events-none absolute -top-10 -left-10 h-32 w-32 text-gold/20" />
+            <span className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-gold">
+              <Icon d={icons.check} size={22} />
+            </span>
+            <div className="relative mt-4 font-display text-lg">إعادة أذكار هذا الباب؟</div>
+            <p className="relative mt-2 text-[12px] leading-relaxed text-muted-foreground">
+              سيتم تصفير عدّادات {toArabicDigits(azkar.length)} ذكرًا في «{chapter.title}» فقط، والبدء من الذكر الأول.
+              <br />
+              لن يتأثّر تقدّمك في أي باب آخر، ولا الأذكار المحفوظة.
+            </p>
+            <div className="relative mt-5 flex gap-2">
+              <button
+                onClick={restart}
+                className="flex-1 rounded-full gradient-primary py-2.5 text-xs font-medium text-primary-foreground"
+              >
+                نعم، أعِد هذا الباب
+              </button>
+              <button
+                onClick={() => setConfirmReset(false)}
+                className="flex-1 rounded-full border border-border bg-card py-2.5 text-xs text-muted-foreground"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
 
       {chapter && current && !finished && (
         <div className="px-4" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
@@ -317,9 +399,19 @@ function AzkarSession() {
                 <Icon d={icons.back} size={14} />
               </button>
             </div>
+
+            {/* stop session — keeps every counter as-is */}
+            <button
+              onClick={exitSession}
+              className="relative mt-4 flex w-full items-center justify-center gap-1.5 rounded-full border border-border/70 bg-background/50 py-2.5 text-[11px] text-muted-foreground transition active:scale-[0.98]"
+            >
+              <Icon d={icons.back} size={13} />
+              إيقاف الجلسة والعودة إلى قائمة الباب (يُحفظ التقدّم)
+            </button>
           </div>
         </div>
       )}
+
     </Screen>
   );
 }

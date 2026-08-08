@@ -19,9 +19,19 @@ export interface AzkarProgress {
   last: { chapter: number; zikr: number; at: number } | null;
   /** YYYY-MM-DD of the counters/completed day */
   day: string;
+  /** timestamp of the last saved change */
+  updatedAt: number | null;
 }
 
-const EMPTY: AzkarProgress = { counters: {}, completed: [], bookmarks: [], last: null, day: today() };
+const EMPTY: AzkarProgress = {
+  counters: {},
+  completed: [],
+  bookmarks: [],
+  last: null,
+  day: today(),
+  updatedAt: null,
+};
+
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -66,11 +76,12 @@ export function useAzkarProgress() {
 
   const patch = useCallback((fn: (prev: AzkarProgress) => AzkarProgress) => {
     setState((prev) => {
-      const next = fn(prev);
+      const next = { ...fn(prev), updatedAt: Date.now() };
       write(next);
       return next;
     });
   }, []);
+
 
   const tap = useCallback(
     (zikrId: number, repeat: number) =>
@@ -118,11 +129,18 @@ export function useAzkarProgress() {
     [patch],
   );
 
+  /** Records the last opened zikr without touching the "progress saved" timestamp. */
   const setLast = useCallback(
     (chapter: number, zikr: number) =>
-      patch((p) => ({ ...p, last: { chapter, zikr, at: Date.now() } })),
-    [patch],
+      setState((prev) => {
+        if (prev.last?.chapter === chapter && prev.last?.zikr === zikr) return prev;
+        const next = { ...prev, last: { chapter, zikr, at: Date.now() } };
+        write(next);
+        return next;
+      }),
+    [],
   );
+
 
   return { progress: state, tap, resetZikr, resetMany, toggleBookmark, setLast };
 }
