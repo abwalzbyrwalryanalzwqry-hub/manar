@@ -40,8 +40,11 @@ function AzkarSession() {
   const [pulse, setPulse] = useState(false);
   const [dir, setDir] = useState<1 | -1>(1);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [saved, setSaved] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const advancing = useRef(false);
+  const savedTimer = useRef<number | null>(null);
+
 
   const backTo = chapter ? `/azkar/group/${chapter.group}` : "/azkar";
 
