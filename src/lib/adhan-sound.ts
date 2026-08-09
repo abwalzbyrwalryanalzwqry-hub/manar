@@ -88,12 +88,25 @@ const REMINDER_URL: Record<ReminderVariant, string> = {
   reminder_chime:   "/audio/reminders/reminder-chime.mp3",
 };
 
+/** Migrate a legacy synthetic variant id to a supplied recording when one exists. */
+export function migrateAdhanVariant(v: AdhanVariant): AdhanVariant {
+  if (typeof v !== "string") return v;
+  if (isAdhanAssetId(v)) return v;
+  return (LEGACY_VARIANT_MIGRATION[v] as AdhanVariant | undefined) ?? v;
+}
+
 export function adhanVariantUrl(v: AdhanVariant): string | null {
   if (v === "silent") return null;
+  const asset = getAdhanAsset(v);
+  if (asset) return asset.url;
+  const migrated = migrateAdhanVariant(v);
+  const migratedAsset = migrated === v ? null : getAdhanAsset(migrated);
+  if (migratedAsset) return migratedAsset.url;
   if (v === "fajr_first" || v === "fajr_second" || v === "fajr_tathweeb") return FAJR_URL[v];
   const [reciter, style] = v.split("_") as [Reciter, AdhanStyle];
   return `/audio/adhan/${reciter}-${style}.mp3`;
 }
+
 
 export function iqamaVariantUrl(v: IqamaVariant): string | null {
   if (v === "silent") return null;
