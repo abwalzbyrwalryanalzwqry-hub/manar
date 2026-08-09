@@ -149,16 +149,19 @@ function AdhanLibrary() {
       {/* Library */}
       {target === "tathweeb" ? (
         <>
-          <SectionLabel>الصلاة خير من النوم</SectionLabel>
-          <div className="px-4">
-            <SingleAssetCard
-              label="الصلاة خير من النوم"
-              hint="يُلحَق بأذان الفجر تلقائياً"
-              selected={selectedForTarget === "fajr_tathweeb"}
-              playing={playing === "fajr_tathweeb"}
-              onPreview={() => preview("fajr_tathweeb")}
-              onChoose={() => choose("fajr_tathweeb")}
-            />
+          <SectionLabel hint="انقر للاستماع">الصلاة خير من النوم</SectionLabel>
+          <div className="space-y-2 px-4">
+            {TATHWEEB_LIBRARY.map((a) => (
+              <SingleAssetCard
+                key={a.id}
+                label={a.name}
+                hint="يُلحَق بأذان الفجر تلقائياً"
+                selected={selectedForTarget === a.id}
+                playing={playing === a.id}
+                onPreview={() => preview(a.id)}
+                onChoose={() => choose(a.id)}
+              />
+            ))}
           </div>
         </>
       ) : (
