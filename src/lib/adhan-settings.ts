@@ -15,6 +15,13 @@ import {
   type IqamaVariant,
   type Reciter,
 } from "./adhan-sound";
+import { migrateAdhanVariant } from "./adhan-sound";
+import {
+  ADHAN_ASSETS,
+  LEGACY_VARIANT_MIGRATION,
+  assetDurationLabel,
+} from "./adhan-library-assets";
+export { ADHAN_ASSET_RIGHTS_NOTICE } from "./adhan-library-assets";
 
 /* ----------------------------- Catalogs ----------------------------- */
 
