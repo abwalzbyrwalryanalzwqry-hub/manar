@@ -224,8 +224,11 @@ function write(next: AdhanSettings) {
 }
 
 export function useAdhanSettings() {
-  const [settings, setState] = useState<AdhanSettings>(() => read());
+  // Start from DEFAULTS on both server and first client render so the
+  // hydrated markup matches; stored settings are applied right after mount.
+  const [settings, setState] = useState<AdhanSettings>(DEFAULTS);
   useEffect(() => {
+    setState(read());
     const onChange = () => setState(read());
     window.addEventListener(EVT, onChange);
     window.addEventListener("storage", onChange);
@@ -234,6 +237,7 @@ export function useAdhanSettings() {
       window.removeEventListener("storage", onChange);
     };
   }, []);
+
   const update = (patch: Partial<AdhanSettings>) => {
     const next = { ...read(), ...patch };
     write(next);
