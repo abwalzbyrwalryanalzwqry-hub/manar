@@ -15,12 +15,19 @@ import {
   type IqamaVariant,
   type Reciter,
 } from "./adhan-sound";
+import { migrateAdhanVariant } from "./adhan-sound";
+import {
+  ADHAN_ASSETS,
+  LEGACY_VARIANT_MIGRATION,
+  assetDurationLabel,
+} from "./adhan-library-assets";
+export { ADHAN_ASSET_RIGHTS_NOTICE } from "./adhan-library-assets";
 
 /* ----------------------------- Catalogs ----------------------------- */
 
 export type AdhanLibraryEntry = {
   id: AdhanVariant;
-  reciter: Reciter;
+  reciter: Reciter | null;
   style: AdhanStyle;
   name: string;
   styleName: string;
@@ -28,9 +35,30 @@ export type AdhanLibraryEntry = {
   reciterName: string;
   tone: string;
   duration: string;
+  /** true = a real supplied recording exists for this entry. */
+  available: boolean;
+  rightsStatus?: "UNVERIFIED";
 };
 
-export const ADHAN_LIBRARY: AdhanLibraryEntry[] = RECITERS.flatMap((r) =>
+/** Supplied recordings (MANAR_AUDIO_PACKAGE) mapped into the existing entry shape. */
+const SUPPLIED_ENTRIES: AdhanLibraryEntry[] = ADHAN_ASSETS.filter(
+  (a) => a.style !== null && (a.slot === "adhan" || a.slot === "fajr_second"),
+).map<AdhanLibraryEntry>((a) => ({
+  id: a.id,
+  reciter: null,
+  style: a.style as AdhanStyle,
+  name: a.name,
+  styleName: a.role,
+  origin: a.region,
+  reciterName: a.role,
+  tone: a.format.toUpperCase(),
+  duration: assetDurationLabel(a),
+  available: true,
+  rightsStatus: "UNVERIFIED",
+}));
+
+/** Pre-existing catalog entries — preserved with their original ids. */
+const LEGACY_ENTRIES: AdhanLibraryEntry[] = RECITERS.flatMap((r) =>
   ADHAN_STYLES.map<AdhanLibraryEntry>((s) => ({
     id: makeAdhanVariant(r, s),
     reciter: r,
@@ -41,8 +69,15 @@ export const ADHAN_LIBRARY: AdhanLibraryEntry[] = RECITERS.flatMap((r) =>
     reciterName: RECITER_INFO[r].reciter,
     tone: RECITER_INFO[r].tone,
     duration: ADHAN_STYLE_LABELS[s].duration,
+    available: false,
   })),
-);
+).filter((e) => !LEGACY_VARIANT_MIGRATION[e.id as string]);
+
+export const ADHAN_LIBRARY: AdhanLibraryEntry[] = [...SUPPLIED_ENTRIES, ...LEGACY_ENTRIES];
+
+/** Tathweeb (الصلاة خير من النوم) recordings supplied by the package. */
+export const TATHWEEB_LIBRARY = ADHAN_ASSETS.filter((a) => a.slot === "tathweeb");
+
 
 export type IqamaCategory = {
   id: IqamaVariant;
@@ -111,17 +146,17 @@ export const DEFAULT_IQAMA: AdhanSettings["iqamaOffsets"] = {
 
 const DEFAULTS: AdhanSettings = {
   adhanEnabled: true,
-  selectedAdhan: "makkah_full",
+  selectedAdhan: "asset:makkah-mulla-1",
   samePerPrayer: true,
   perPrayerAudio: {},
-  fajrAdhan: "madinah_full",
+  fajrAdhan: "asset:madinah-qassas",
   fajrUseSeparate: true,
   fajrFirstAdhanEnabled: false,
   fajrFirstAdhanOffset: 20,
-  fajrFirstAdhanAudio: "fajr_first",
-  fajrSecondAdhanAudio: "fajr_second",
+  fajrFirstAdhanAudio: "asset:madinah-short",
+  fajrSecondAdhanAudio: "asset:fajr-dossary-second",
   fajrTathweebEnabled: true,
-  fajrTathweebAudio: "fajr_tathweeb",
+  fajrTathweebAudio: "asset:tathweeb-madinah",
   fajrReminderEnabled: true,
   remindersEnabled: true,
   reminderMinutes: [15, 5],
@@ -155,12 +190,23 @@ function read(): AdhanSettings {
     const raw = window.localStorage.getItem(LS_KEY);
     if (!raw) return DEFAULTS;
     const parsed = JSON.parse(raw);
+    const mig = (v: unknown, fb: AdhanVariant): AdhanVariant =>
+      typeof v === "string" ? migrateAdhanVariant(v as AdhanVariant) : fb;
+    const perPrayerAudio: Partial<Record<PrayerKey, AdhanVariant>> = {};
+    for (const [k, v] of Object.entries(parsed.perPrayerAudio ?? {})) {
+      if (typeof v === "string") perPrayerAudio[k as PrayerKey] = migrateAdhanVariant(v as AdhanVariant);
+    }
     return {
       ...DEFAULTS,
       ...parsed,
+      selectedAdhan:        mig(parsed.selectedAdhan, DEFAULTS.selectedAdhan),
+      fajrAdhan:            mig(parsed.fajrAdhan, DEFAULTS.fajrAdhan),
+      fajrFirstAdhanAudio:  mig(parsed.fajrFirstAdhanAudio, DEFAULTS.fajrFirstAdhanAudio),
+      fajrSecondAdhanAudio: mig(parsed.fajrSecondAdhanAudio, DEFAULTS.fajrSecondAdhanAudio),
+      fajrTathweebAudio:    mig(parsed.fajrTathweebAudio, DEFAULTS.fajrTathweebAudio),
       iqamaOffsets:   { ...DEFAULT_IQAMA, ...(parsed.iqamaOffsets ?? {}) },
       perPrayer:      { ...DEFAULTS.perPrayer, ...(parsed.perPrayer ?? {}) },
-      perPrayerAudio: { ...(parsed.perPrayerAudio ?? {}) },
+      perPrayerAudio,
       perPrayerIqama: { ...(parsed.perPrayerIqama ?? {}) },
       reminderMinutes: Array.isArray(parsed.reminderMinutes) ? parsed.reminderMinutes : DEFAULTS.reminderMinutes,
     };
@@ -178,8 +224,11 @@ function write(next: AdhanSettings) {
 }
 
 export function useAdhanSettings() {
-  const [settings, setState] = useState<AdhanSettings>(() => read());
+  // Start from DEFAULTS on both server and first client render so the
+  // hydrated markup matches; stored settings are applied right after mount.
+  const [settings, setState] = useState<AdhanSettings>(DEFAULTS);
   useEffect(() => {
+    setState(read());
     const onChange = () => setState(read());
     window.addEventListener(EVT, onChange);
     window.addEventListener("storage", onChange);
@@ -188,6 +237,7 @@ export function useAdhanSettings() {
       window.removeEventListener("storage", onChange);
     };
   }, []);
+
   const update = (patch: Partial<AdhanSettings>) => {
     const next = { ...read(), ...patch };
     write(next);

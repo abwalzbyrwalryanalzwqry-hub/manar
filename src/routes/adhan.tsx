@@ -2,23 +2,21 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Arabesque, Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
 import {
+  ADHAN_ASSET_RIGHTS_NOTICE,
   ADHAN_LIBRARY,
   ADJUSTABLE_PRAYERS,
+  TATHWEEB_LIBRARY,
   useAdhanSettings,
 } from "@/lib/adhan-settings";
 import {
   ADHAN_STYLES,
   ADHAN_STYLE_LABELS,
-  RECITERS,
-  RECITER_INFO,
   adhanVariantLabel,
-  makeAdhanVariant,
   parseAdhanVariant,
   playAdhan,
   stopAdhan,
   type AdhanStyle,
   type AdhanVariant,
-  type Reciter,
 } from "@/lib/adhan-sound";
 import { PRAYER_LABELS, type PrayerKey } from "@/lib/prayer";
 
@@ -43,8 +41,10 @@ function AdhanLibrary() {
                              settings.selectedAdhan;
 
   const visibleEntries = useMemo(() => {
-    if (target === "tathweeb") return [] as typeof ADHAN_LIBRARY; // tathweeb uses dedicated asset
-    return ADHAN_LIBRARY.filter((e) => e.style === style);
+    if (target === "tathweeb") return [] as typeof ADHAN_LIBRARY; // tathweeb uses dedicated assets
+    const inStyle = ADHAN_LIBRARY.filter((e) => e.style === style);
+    const supplied = inStyle.filter((e) => e.available);
+    return supplied.length > 0 ? supplied : inStyle;
   }, [style, target]);
 
   const preview = (v: AdhanVariant) => {
@@ -75,11 +75,15 @@ function AdhanLibrary() {
           <Arabesque className="absolute -left-10 -top-10 h-56 w-56 text-white/15" />
           <div className="relative">
             <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">المكتبة الصوتية</div>
-            <div className="mt-2 font-display text-2xl">٨ مؤذنين فاخرة</div>
-            <div className="mt-1 text-xs text-white/70">جودة عالية · ملفات حقيقية · MP3 / WAV / OGG</div>
+            <div className="mt-2 font-display text-2xl">تسجيلات أذان حقيقية</div>
+            <div className="mt-1 text-xs text-white/70">مكة · المدينة · الأقصى · خليجي · عام · MP3 / M4A</div>
+            <div className="mt-3 rounded-2xl bg-white/10 px-3 py-2 text-[10px] leading-relaxed text-white/80">
+              {ADHAN_ASSET_RIGHTS_NOTICE}
+            </div>
           </div>
         </div>
       </div>
+
 
       {/* Target switch */}
       <SectionLabel>تخصيص الصوت لـ</SectionLabel>
@@ -141,16 +145,19 @@ function AdhanLibrary() {
       {/* Library */}
       {target === "tathweeb" ? (
         <>
-          <SectionLabel>الصلاة خير من النوم</SectionLabel>
-          <div className="px-4">
-            <SingleAssetCard
-              label="الصلاة خير من النوم"
-              hint="يُلحَق بأذان الفجر تلقائياً"
-              selected={selectedForTarget === "fajr_tathweeb"}
-              playing={playing === "fajr_tathweeb"}
-              onPreview={() => preview("fajr_tathweeb")}
-              onChoose={() => choose("fajr_tathweeb")}
-            />
+          <SectionLabel hint="انقر للاستماع">الصلاة خير من النوم</SectionLabel>
+          <div className="space-y-2 px-4">
+            {TATHWEEB_LIBRARY.map((a) => (
+              <SingleAssetCard
+                key={a.id}
+                label={a.name}
+                hint="يُلحَق بأذان الفجر تلقائياً"
+                selected={selectedForTarget === a.id}
+                playing={playing === a.id}
+                onPreview={() => preview(a.id)}
+                onChoose={() => choose(a.id)}
+              />
+            ))}
           </div>
         </>
       ) : (
@@ -330,9 +337,8 @@ function PerPrayerAudio({ prayer, value, onChange }: {
   value: AdhanVariant;
   onChange: (v: AdhanVariant) => void;
 }) {
-  const parsed = parseAdhanVariant(value);
-  const reciter: Reciter = parsed?.reciter ?? "makkah";
-  const style: AdhanStyle = parsed?.style ?? "full";
+  const options = ADHAN_LIBRARY.filter((e) => e.available);
+  const has = options.some((e) => e.id === value);
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
@@ -348,28 +354,20 @@ function PerPrayerAudio({ prayer, value, onChange }: {
         </div>
         <div className="text-[10px] text-muted-foreground">{adhanVariantLabel(value)}</div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <select
-          value={reciter}
-          onChange={(e) => onChange(makeAdhanVariant(e.target.value as Reciter, style))}
-          className="rounded-xl border border-border bg-card px-3 py-2 text-xs"
-          dir="rtl"
-        >
-          {RECITERS.map((r) => (
-            <option key={r} value={r}>{RECITER_INFO[r].name}</option>
-          ))}
-        </select>
-        <select
-          value={style}
-          onChange={(e) => onChange(makeAdhanVariant(reciter, e.target.value as AdhanStyle))}
-          className="rounded-xl border border-border bg-card px-3 py-2 text-xs"
-          dir="rtl"
-        >
-          {ADHAN_STYLES.map((s) => (
-            <option key={s} value={s}>{ADHAN_STYLE_LABELS[s].name}</option>
-          ))}
-        </select>
-      </div>
+      <select
+        value={has ? value : ""}
+        onChange={(e) => onChange(e.target.value as AdhanVariant)}
+        className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs"
+        dir="rtl"
+      >
+        {!has && <option value="">{adhanVariantLabel(value)}</option>}
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.name} · {o.styleName} · {o.duration}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
+

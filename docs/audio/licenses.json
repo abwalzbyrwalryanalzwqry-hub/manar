@@ -1,0 +1,48 @@
+{
+  "policy": "No license is asserted by this package. Verify commercial use and redistribution rights for every audio file before publishing.",
+  "files_requiring_verification": [
+    "مكي_علي_أحمد_الملا_كامل.m4a",
+    "مكي_علي_ملا_كامل.m4a",
+    "العفاسي_كامل_1.mp3",
+    "العفاسي_كامل_2.mp3",
+    "ياسر_الدوسري_فجر_الثاني.m4a",
+    "الأقصى_قصير.m4a",
+    "خليجي_خشوع_كامل.mp3",
+    "مدني_تكبيرتين.m4a",
+    "مدني_قصير.m4a",
+    "النبوي_محمد_القصاص_كامل.m4a",
+    "الأقصى_كامل_1.m4a",
+    "ناصر_القطامي_كامل.m4a",
+    "عمر_هاشم_كامل.m4a",
+    "الصلاة_خير_من_النوم_المدني.m4a",
+    "الصلاة_خير_من_النوم_المكي.m4a",
+    "الصلاة_خير_من_النوم_السريحي.m4a",
+    "الله_أكبر_تكبير.m4a",
+    "حي_على_الصلاة_فلسطيني.m4a",
+    "حي_على_الصلاة_1.m4a",
+    "ياسر_الدوسري_قصير.m4a"
+  ],
+  "exact_duplicates": [
+    {
+      "original_filename": "حي على الصلاة صوت جميل.m4a",
+      "duplicate_of": "حي على الصلاة.m4a",
+      "sha256": "ae0cfe3d476b41d7a237f93d182763daead1f956d6e2b99679e42b60c0353843",
+      "duration_seconds": 14.652,
+      "reason": "Exact byte-for-byte duplicate; not copied twice into the app library."
+    },
+    {
+      "original_filename": "اذان عثماني (أذان كامل).m4a",
+      "duplicate_of": "أذان المسجد الأقصى (قصير).m4a",
+      "sha256": "57a5de9c35c25c7277bd59b1a6552ed64436c72a7b0406f6b7fa4e7bbab257a7",
+      "duration_seconds": 29.361,
+      "reason": "Exact byte-for-byte duplicate; not copied twice into the app library."
+    },
+    {
+      "original_filename": "المسجد الأقصى (أذان كامل).m4a",
+      "duplicate_of": "عمر هاشم صوت جميل. (أذان كامل).m4a",
+      "sha256": "6b514816f055f1ff4522c3f5c9013501a6d9a71c2cfb00afd260c6b6eda275e5",
+      "duration_seconds": 179.978,
+      "reason": "Exact byte-for-byte duplicate; not copied twice into the app library."
+    }
+  ]
+}

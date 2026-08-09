@@ -56,6 +56,7 @@ function GroupChapters() {
               key={c.id}
               to="/azkar/$chapter"
               params={{ chapter: String(c.id) }}
+              search={{ zikr: undefined }}
               className="flex items-center gap-3 rounded-3xl border border-border/60 bg-card/70 p-4 text-right shadow-soft backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-elegant"
             >
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary font-display text-sm text-primary tabular-nums">

@@ -7,6 +7,12 @@
  */
 
 import { play as enginePlay, stop as engineStop, vibrate as engineVibrate, type PlayOptions } from "./audio-engine";
+import {
+  LEGACY_VARIANT_MIGRATION,
+  getAdhanAsset,
+  isAdhanAssetId,
+  type AdhanAssetId,
+} from "./adhan-library-assets";
 
 /* ----------------------------- Reciters ------------------------------ */
 
@@ -23,7 +29,8 @@ export type AdhanVariant =
   | "fajr_first"
   | "fajr_second"
   | "fajr_tathweeb"
-  | "silent";
+  | "silent"
+  | AdhanAssetId;
 
 export type IqamaVariant =
   | "iqama_full"
@@ -81,12 +88,25 @@ const REMINDER_URL: Record<ReminderVariant, string> = {
   reminder_chime:   "/audio/reminders/reminder-chime.mp3",
 };
 
+/** Migrate a legacy synthetic variant id to a supplied recording when one exists. */
+export function migrateAdhanVariant(v: AdhanVariant): AdhanVariant {
+  if (typeof v !== "string") return v;
+  if (isAdhanAssetId(v)) return v;
+  return (LEGACY_VARIANT_MIGRATION[v] as AdhanVariant | undefined) ?? v;
+}
+
 export function adhanVariantUrl(v: AdhanVariant): string | null {
   if (v === "silent") return null;
+  const asset = getAdhanAsset(v);
+  if (asset) return asset.url;
+  const migrated = migrateAdhanVariant(v);
+  const migratedAsset = migrated === v ? null : getAdhanAsset(migrated);
+  if (migratedAsset) return migratedAsset.url;
   if (v === "fajr_first" || v === "fajr_second" || v === "fajr_tathweeb") return FAJR_URL[v];
   const [reciter, style] = v.split("_") as [Reciter, AdhanStyle];
   return `/audio/adhan/${reciter}-${style}.mp3`;
 }
+
 
 export function iqamaVariantUrl(v: IqamaVariant): string | null {
   if (v === "silent") return null;
@@ -103,16 +123,21 @@ export function makeAdhanVariant(reciter: Reciter, style: AdhanStyle): AdhanVari
 
 export function parseAdhanVariant(v: AdhanVariant): { reciter: Reciter; style: AdhanStyle } | null {
   if (v === "silent" || v === "fajr_first" || v === "fajr_second" || v === "fajr_tathweeb") return null;
+  const asset = getAdhanAsset(v);
+  if (asset) return asset.style ? { reciter: "makkah", style: asset.style } : null;
   const [reciter, style] = v.split("_") as [Reciter, AdhanStyle];
   return { reciter, style };
 }
 
 export function adhanVariantLabel(v: AdhanVariant): string {
   if (v === "silent") return "إشعار صامت";
+  const asset = getAdhanAsset(v);
+  if (asset) return `${asset.name} · ${asset.role}`;
   if (v === "fajr_first") return "الأذان الأول للفجر";
   if (v === "fajr_second") return "الأذان الثاني للفجر";
   if (v === "fajr_tathweeb") return "الصلاة خير من النوم";
-  const p = parseAdhanVariant(v)!;
+  const p = parseAdhanVariant(v);
+  if (!p) return "أذان";
   return `${RECITER_INFO[p.reciter].name} · ${ADHAN_STYLE_LABELS[p.style].name}`;
 }
 
