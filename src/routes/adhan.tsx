@@ -79,11 +79,15 @@ function AdhanLibrary() {
           <Arabesque className="absolute -left-10 -top-10 h-56 w-56 text-white/15" />
           <div className="relative">
             <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">المكتبة الصوتية</div>
-            <div className="mt-2 font-display text-2xl">٨ مؤذنين فاخرة</div>
-            <div className="mt-1 text-xs text-white/70">جودة عالية · ملفات حقيقية · MP3 / WAV / OGG</div>
+            <div className="mt-2 font-display text-2xl">تسجيلات أذان حقيقية</div>
+            <div className="mt-1 text-xs text-white/70">مكة · المدينة · الأقصى · خليجي · عام · MP3 / M4A</div>
+            <div className="mt-3 rounded-2xl bg-white/10 px-3 py-2 text-[10px] leading-relaxed text-white/80">
+              {ADHAN_ASSET_RIGHTS_NOTICE}
+            </div>
           </div>
         </div>
       </div>
+
 
       {/* Target switch */}
       <SectionLabel>تخصيص الصوت لـ</SectionLabel>
