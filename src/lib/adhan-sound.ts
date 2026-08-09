@@ -123,16 +123,21 @@ export function makeAdhanVariant(reciter: Reciter, style: AdhanStyle): AdhanVari
 
 export function parseAdhanVariant(v: AdhanVariant): { reciter: Reciter; style: AdhanStyle } | null {
   if (v === "silent" || v === "fajr_first" || v === "fajr_second" || v === "fajr_tathweeb") return null;
+  const asset = getAdhanAsset(v);
+  if (asset) return asset.style ? { reciter: "makkah", style: asset.style } : null;
   const [reciter, style] = v.split("_") as [Reciter, AdhanStyle];
   return { reciter, style };
 }
 
 export function adhanVariantLabel(v: AdhanVariant): string {
   if (v === "silent") return "إشعار صامت";
+  const asset = getAdhanAsset(v);
+  if (asset) return `${asset.name} · ${asset.role}`;
   if (v === "fajr_first") return "الأذان الأول للفجر";
   if (v === "fajr_second") return "الأذان الثاني للفجر";
   if (v === "fajr_tathweeb") return "الصلاة خير من النوم";
-  const p = parseAdhanVariant(v)!;
+  const p = parseAdhanVariant(v);
+  if (!p) return "أذان";
   return `${RECITER_INFO[p.reciter].name} · ${ADHAN_STYLE_LABELS[p.style].name}`;
 }
 
