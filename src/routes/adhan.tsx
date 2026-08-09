@@ -2,8 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Arabesque, Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
 import {
+  ADHAN_ASSET_RIGHTS_NOTICE,
   ADHAN_LIBRARY,
   ADJUSTABLE_PRAYERS,
+  TATHWEEB_LIBRARY,
   useAdhanSettings,
 } from "@/lib/adhan-settings";
 import {
