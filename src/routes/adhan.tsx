@@ -45,8 +45,10 @@ function AdhanLibrary() {
                              settings.selectedAdhan;
 
   const visibleEntries = useMemo(() => {
-    if (target === "tathweeb") return [] as typeof ADHAN_LIBRARY; // tathweeb uses dedicated asset
-    return ADHAN_LIBRARY.filter((e) => e.style === style);
+    if (target === "tathweeb") return [] as typeof ADHAN_LIBRARY; // tathweeb uses dedicated assets
+    const inStyle = ADHAN_LIBRARY.filter((e) => e.style === style);
+    const supplied = inStyle.filter((e) => e.available);
+    return supplied.length > 0 ? supplied : inStyle;
   }, [style, target]);
 
   const preview = (v: AdhanVariant) => {
