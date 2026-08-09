@@ -190,12 +190,23 @@ function read(): AdhanSettings {
     const raw = window.localStorage.getItem(LS_KEY);
     if (!raw) return DEFAULTS;
     const parsed = JSON.parse(raw);
+    const mig = (v: unknown, fb: AdhanVariant): AdhanVariant =>
+      typeof v === "string" ? migrateAdhanVariant(v as AdhanVariant) : fb;
+    const perPrayerAudio: Partial<Record<PrayerKey, AdhanVariant>> = {};
+    for (const [k, v] of Object.entries(parsed.perPrayerAudio ?? {})) {
+      if (typeof v === "string") perPrayerAudio[k as PrayerKey] = migrateAdhanVariant(v as AdhanVariant);
+    }
     return {
       ...DEFAULTS,
       ...parsed,
+      selectedAdhan:        mig(parsed.selectedAdhan, DEFAULTS.selectedAdhan),
+      fajrAdhan:            mig(parsed.fajrAdhan, DEFAULTS.fajrAdhan),
+      fajrFirstAdhanAudio:  mig(parsed.fajrFirstAdhanAudio, DEFAULTS.fajrFirstAdhanAudio),
+      fajrSecondAdhanAudio: mig(parsed.fajrSecondAdhanAudio, DEFAULTS.fajrSecondAdhanAudio),
+      fajrTathweebAudio:    mig(parsed.fajrTathweebAudio, DEFAULTS.fajrTathweebAudio),
       iqamaOffsets:   { ...DEFAULT_IQAMA, ...(parsed.iqamaOffsets ?? {}) },
       perPrayer:      { ...DEFAULTS.perPrayer, ...(parsed.perPrayer ?? {}) },
-      perPrayerAudio: { ...(parsed.perPrayerAudio ?? {}) },
+      perPrayerAudio,
       perPrayerIqama: { ...(parsed.perPrayerIqama ?? {}) },
       reminderMinutes: Array.isArray(parsed.reminderMinutes) ? parsed.reminderMinutes : DEFAULTS.reminderMinutes,
     };
