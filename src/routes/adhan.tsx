@@ -341,9 +341,8 @@ function PerPrayerAudio({ prayer, value, onChange }: {
   value: AdhanVariant;
   onChange: (v: AdhanVariant) => void;
 }) {
-  const parsed = parseAdhanVariant(value);
-  const reciter: Reciter = parsed?.reciter ?? "makkah";
-  const style: AdhanStyle = parsed?.style ?? "full";
+  const options = ADHAN_LIBRARY.filter((e) => e.available);
+  const has = options.some((e) => e.id === value);
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
@@ -359,28 +358,20 @@ function PerPrayerAudio({ prayer, value, onChange }: {
         </div>
         <div className="text-[10px] text-muted-foreground">{adhanVariantLabel(value)}</div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <select
-          value={reciter}
-          onChange={(e) => onChange(makeAdhanVariant(e.target.value as Reciter, style))}
-          className="rounded-xl border border-border bg-card px-3 py-2 text-xs"
-          dir="rtl"
-        >
-          {RECITERS.map((r) => (
-            <option key={r} value={r}>{RECITER_INFO[r].name}</option>
-          ))}
-        </select>
-        <select
-          value={style}
-          onChange={(e) => onChange(makeAdhanVariant(reciter, e.target.value as AdhanStyle))}
-          className="rounded-xl border border-border bg-card px-3 py-2 text-xs"
-          dir="rtl"
-        >
-          {ADHAN_STYLES.map((s) => (
-            <option key={s} value={s}>{ADHAN_STYLE_LABELS[s].name}</option>
-          ))}
-        </select>
-      </div>
+      <select
+        value={has ? value : ""}
+        onChange={(e) => onChange(e.target.value as AdhanVariant)}
+        className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs"
+        dir="rtl"
+      >
+        {!has && <option value="">{adhanVariantLabel(value)}</option>}
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.name} · {o.styleName} · {o.duration}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
+
