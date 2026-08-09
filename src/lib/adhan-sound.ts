@@ -29,7 +29,8 @@ export type AdhanVariant =
   | "fajr_first"
   | "fajr_second"
   | "fajr_tathweeb"
-  | "silent";
+  | "silent"
+  | AdhanAssetId;
 
 export type IqamaVariant =
   | "iqama_full"
