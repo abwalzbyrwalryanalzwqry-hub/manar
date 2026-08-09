@@ -84,6 +84,7 @@ function AzkarSearch() {
                 key={c.id}
                 to="/azkar/$chapter"
                 params={{ chapter: String(c.id) }}
+                search={{ zikr: undefined }}
                 className="rounded-full border border-border/60 bg-card/70 px-3 py-1.5 text-[11px]"
               >
                 {c.title}
