@@ -7,6 +7,12 @@
  */
 
 import { play as enginePlay, stop as engineStop, vibrate as engineVibrate, type PlayOptions } from "./audio-engine";
+import {
+  LEGACY_VARIANT_MIGRATION,
+  getAdhanAsset,
+  isAdhanAssetId,
+  type AdhanAssetId,
+} from "./adhan-library-assets";
 
 /* ----------------------------- Reciters ------------------------------ */
 
