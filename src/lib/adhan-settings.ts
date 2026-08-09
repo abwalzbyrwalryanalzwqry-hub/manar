@@ -20,7 +20,7 @@ import {
 
 export type AdhanLibraryEntry = {
   id: AdhanVariant;
-  reciter: Reciter;
+  reciter: Reciter | null;
   style: AdhanStyle;
   name: string;
   styleName: string;
@@ -28,9 +28,30 @@ export type AdhanLibraryEntry = {
   reciterName: string;
   tone: string;
   duration: string;
+  /** true = a real supplied recording exists for this entry. */
+  available: boolean;
+  rightsStatus?: "UNVERIFIED";
 };
 
-export const ADHAN_LIBRARY: AdhanLibraryEntry[] = RECITERS.flatMap((r) =>
+/** Supplied recordings (MANAR_AUDIO_PACKAGE) mapped into the existing entry shape. */
+const SUPPLIED_ENTRIES: AdhanLibraryEntry[] = ADHAN_ASSETS.filter(
+  (a) => a.style !== null && (a.slot === "adhan" || a.slot === "fajr_second"),
+).map<AdhanLibraryEntry>((a) => ({
+  id: a.id,
+  reciter: null,
+  style: a.style as AdhanStyle,
+  name: a.name,
+  styleName: a.role,
+  origin: a.region,
+  reciterName: a.role,
+  tone: a.format.toUpperCase(),
+  duration: assetDurationLabel(a),
+  available: true,
+  rightsStatus: "UNVERIFIED",
+}));
+
+/** Pre-existing catalog entries — preserved with their original ids. */
+const LEGACY_ENTRIES: AdhanLibraryEntry[] = RECITERS.flatMap((r) =>
   ADHAN_STYLES.map<AdhanLibraryEntry>((s) => ({
     id: makeAdhanVariant(r, s),
     reciter: r,
@@ -41,8 +62,15 @@ export const ADHAN_LIBRARY: AdhanLibraryEntry[] = RECITERS.flatMap((r) =>
     reciterName: RECITER_INFO[r].reciter,
     tone: RECITER_INFO[r].tone,
     duration: ADHAN_STYLE_LABELS[s].duration,
+    available: false,
   })),
-);
+).filter((e) => !LEGACY_VARIANT_MIGRATION[e.id as string]);
+
+export const ADHAN_LIBRARY: AdhanLibraryEntry[] = [...SUPPLIED_ENTRIES, ...LEGACY_ENTRIES];
+
+/** Tathweeb (الصلاة خير من النوم) recordings supplied by the package. */
+export const TATHWEEB_LIBRARY = ADHAN_ASSETS.filter((a) => a.slot === "tathweeb");
+
 
 export type IqamaCategory = {
   id: IqamaVariant;
