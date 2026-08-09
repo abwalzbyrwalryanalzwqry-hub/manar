@@ -11,16 +11,12 @@ import {
 import {
   ADHAN_STYLES,
   ADHAN_STYLE_LABELS,
-  RECITERS,
-  RECITER_INFO,
   adhanVariantLabel,
-  makeAdhanVariant,
   parseAdhanVariant,
   playAdhan,
   stopAdhan,
   type AdhanStyle,
   type AdhanVariant,
-  type Reciter,
 } from "@/lib/adhan-sound";
 import { PRAYER_LABELS, type PrayerKey } from "@/lib/prayer";
 
