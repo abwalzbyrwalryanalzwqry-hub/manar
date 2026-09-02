@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WirdRouteImport } from './routes/wird'
 import { Route as StatisticsRouteImport } from './routes/statistics'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -42,6 +43,11 @@ import { Route as TabsHomeRouteImport } from './routes/_tabs.home'
 import { Route as TabsAzkarRouteImport } from './routes/_tabs.azkar'
 import { Route as AzkarGroupGroupRouteImport } from './routes/azkar.group.$group'
 
+const WirdRoute = WirdRouteImport.update({
+  id: '/wird',
+  path: '/wird',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StatisticsRoute = StatisticsRouteImport.update({
   id: '/statistics',
   path: '/statistics',
@@ -218,6 +224,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
+  '/wird': typeof WirdRoute
   '/azkar': typeof TabsAzkarRoute
   '/home': typeof TabsHomeRoute
   '/more': typeof TabsMoreRoute
@@ -251,6 +258,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
+  '/wird': typeof WirdRoute
   '/azkar': typeof TabsAzkarRoute
   '/home': typeof TabsHomeRoute
   '/more': typeof TabsMoreRoute
@@ -286,6 +294,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
+  '/wird': typeof WirdRoute
   '/_tabs/azkar': typeof TabsAzkarRoute
   '/_tabs/home': typeof TabsHomeRoute
   '/_tabs/more': typeof TabsMoreRoute
@@ -321,6 +330,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/settings'
     | '/statistics'
+    | '/wird'
     | '/azkar'
     | '/home'
     | '/more'
@@ -354,6 +364,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/settings'
     | '/statistics'
+    | '/wird'
     | '/azkar'
     | '/home'
     | '/more'
@@ -388,6 +399,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/settings'
     | '/statistics'
+    | '/wird'
     | '/_tabs/azkar'
     | '/_tabs/home'
     | '/_tabs/more'
@@ -423,6 +435,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
   StatisticsRoute: typeof StatisticsRoute
+  WirdRoute: typeof WirdRoute
   AzkarChapterRoute: typeof AzkarChapterRoute
   AzkarSearchRoute: typeof AzkarSearchRoute
   QuranBookmarksRoute: typeof QuranBookmarksRoute
@@ -438,6 +451,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/wird': {
+      id: '/wird'
+      path: '/wird'
+      fullPath: '/wird'
+      preLoaderRoute: typeof WirdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/statistics': {
       id: '/statistics'
       path: '/statistics'
@@ -700,6 +720,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,
   StatisticsRoute: StatisticsRoute,
+  WirdRoute: WirdRoute,
   AzkarChapterRoute: AzkarChapterRoute,
   AzkarSearchRoute: AzkarSearchRoute,
   QuranBookmarksRoute: QuranBookmarksRoute,
