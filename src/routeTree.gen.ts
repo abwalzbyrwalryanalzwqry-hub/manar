@@ -26,6 +26,7 @@ import { Route as AdhanRouteImport } from './routes/adhan'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as TabsRouteImport } from './routes/_tabs'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WirdSessionRouteImport } from './routes/wird.$session'
 import { Route as QuranTafsirRouteImport } from './routes/quran.tafsir'
 import { Route as QuranShareRouteImport } from './routes/quran.share'
 import { Route as QuranSearchRouteImport } from './routes/quran.search'
@@ -127,6 +128,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WirdSessionRoute = WirdSessionRouteImport.update({
+  id: '/$session',
+  path: '/$session',
+  getParentRoute: () => WirdRoute,
+} as any)
 const QuranTafsirRoute = QuranTafsirRouteImport.update({
   id: '/quran/tafsir',
   path: '/quran/tafsir',
@@ -224,7 +230,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
-  '/wird': typeof WirdRoute
+  '/wird': typeof WirdRouteWithChildren
   '/azkar': typeof TabsAzkarRoute
   '/home': typeof TabsHomeRoute
   '/more': typeof TabsMoreRoute
@@ -240,6 +246,7 @@ export interface FileRoutesByFullPath {
   '/quran/search': typeof QuranSearchRoute
   '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
+  '/wird/$session': typeof WirdSessionRoute
   '/azkar/group/$group': typeof AzkarGroupGroupRoute
 }
 export interface FileRoutesByTo {
@@ -258,7 +265,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
-  '/wird': typeof WirdRoute
+  '/wird': typeof WirdRouteWithChildren
   '/azkar': typeof TabsAzkarRoute
   '/home': typeof TabsHomeRoute
   '/more': typeof TabsMoreRoute
@@ -274,6 +281,7 @@ export interface FileRoutesByTo {
   '/quran/search': typeof QuranSearchRoute
   '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
+  '/wird/$session': typeof WirdSessionRoute
   '/azkar/group/$group': typeof AzkarGroupGroupRoute
 }
 export interface FileRoutesById {
@@ -294,7 +302,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
-  '/wird': typeof WirdRoute
+  '/wird': typeof WirdRouteWithChildren
   '/_tabs/azkar': typeof TabsAzkarRoute
   '/_tabs/home': typeof TabsHomeRoute
   '/_tabs/more': typeof TabsMoreRoute
@@ -310,6 +318,7 @@ export interface FileRoutesById {
   '/quran/search': typeof QuranSearchRoute
   '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
+  '/wird/$session': typeof WirdSessionRoute
   '/azkar/group/$group': typeof AzkarGroupGroupRoute
 }
 export interface FileRouteTypes {
@@ -346,6 +355,7 @@ export interface FileRouteTypes {
     | '/quran/search'
     | '/quran/share'
     | '/quran/tafsir'
+    | '/wird/$session'
     | '/azkar/group/$group'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -380,6 +390,7 @@ export interface FileRouteTypes {
     | '/quran/search'
     | '/quran/share'
     | '/quran/tafsir'
+    | '/wird/$session'
     | '/azkar/group/$group'
   id:
     | '__root__'
@@ -415,6 +426,7 @@ export interface FileRouteTypes {
     | '/quran/search'
     | '/quran/share'
     | '/quran/tafsir'
+    | '/wird/$session'
     | '/azkar/group/$group'
   fileRoutesById: FileRoutesById
 }
@@ -435,7 +447,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
   StatisticsRoute: typeof StatisticsRoute
-  WirdRoute: typeof WirdRoute
+  WirdRoute: typeof WirdRouteWithChildren
   AzkarChapterRoute: typeof AzkarChapterRoute
   AzkarSearchRoute: typeof AzkarSearchRoute
   QuranBookmarksRoute: typeof QuranBookmarksRoute
@@ -570,6 +582,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/wird/$session': {
+      id: '/wird/$session'
+      path: '/$session'
+      fullPath: '/wird/$session'
+      preLoaderRoute: typeof WirdSessionRouteImport
+      parentRoute: typeof WirdRoute
+    }
     '/quran/tafsir': {
       id: '/quran/tafsir'
       path: '/quran/tafsir'
@@ -703,6 +722,16 @@ const TabsRouteChildren: TabsRouteChildren = {
 
 const TabsRouteWithChildren = TabsRoute._addFileChildren(TabsRouteChildren)
 
+interface WirdRouteChildren {
+  WirdSessionRoute: typeof WirdSessionRoute
+}
+
+const WirdRouteChildren: WirdRouteChildren = {
+  WirdSessionRoute: WirdSessionRoute,
+}
+
+const WirdRouteWithChildren = WirdRoute._addFileChildren(WirdRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   TabsRoute: TabsRouteWithChildren,
@@ -720,7 +749,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,
   StatisticsRoute: StatisticsRoute,
-  WirdRoute: WirdRoute,
+  WirdRoute: WirdRouteWithChildren,
   AzkarChapterRoute: AzkarChapterRoute,
   AzkarSearchRoute: AzkarSearchRoute,
   QuranBookmarksRoute: QuranBookmarksRoute,
