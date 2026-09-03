@@ -78,7 +78,27 @@ function AzkarHub() {
         </div>
       </div>
 
+      {/* قسم الوِرد — مستقل عن الأذكار */}
+      <div className="mt-5 px-5">
+        <Link
+          to="/wird"
+          className="glass flex items-center gap-3 rounded-2xl border border-border/60 p-4 text-right transition hover:-translate-y-0.5 hover:shadow-elegant"
+        >
+          <span className="gradient-primary flex h-11 w-11 items-center justify-center rounded-2xl text-primary-foreground shadow-glow">
+            <Icon d={icons.sparkle} size={20} />
+          </span>
+          <div className="flex-1">
+            <div className="text-sm font-medium">الوِرد</div>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+              ورد الصباح والمساء — قسم مستقل بعدّاد وتقدّم خاص.
+            </p>
+          </div>
+          <Icon d={icons.back} size={16} />
+        </Link>
+      </div>
+
       {/* Smart search entry */}
+
       <div className="mt-5 px-5">
         <Link
           to="/azkar/search"
