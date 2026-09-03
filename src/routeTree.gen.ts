@@ -42,6 +42,7 @@ import { Route as TabsPrayerRouteImport } from './routes/_tabs.prayer'
 import { Route as TabsMoreRouteImport } from './routes/_tabs.more'
 import { Route as TabsHomeRouteImport } from './routes/_tabs.home'
 import { Route as TabsAzkarRouteImport } from './routes/_tabs.azkar'
+import { Route as WirdListSessionRouteImport } from './routes/wird.list.$session'
 import { Route as AzkarGroupGroupRouteImport } from './routes/azkar.group.$group'
 
 const WirdRoute = WirdRouteImport.update({
@@ -208,6 +209,11 @@ const TabsAzkarRoute = TabsAzkarRouteImport.update({
   path: '/azkar',
   getParentRoute: () => TabsRoute,
 } as any)
+const WirdListSessionRoute = WirdListSessionRouteImport.update({
+  id: '/list/$session',
+  path: '/list/$session',
+  getParentRoute: () => WirdRoute,
+} as any)
 const AzkarGroupGroupRoute = AzkarGroupGroupRouteImport.update({
   id: '/azkar/group/$group',
   path: '/azkar/group/$group',
@@ -248,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/quran/tafsir': typeof QuranTafsirRoute
   '/wird/$session': typeof WirdSessionRoute
   '/azkar/group/$group': typeof AzkarGroupGroupRoute
+  '/wird/list/$session': typeof WirdListSessionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -283,6 +290,7 @@ export interface FileRoutesByTo {
   '/quran/tafsir': typeof QuranTafsirRoute
   '/wird/$session': typeof WirdSessionRoute
   '/azkar/group/$group': typeof AzkarGroupGroupRoute
+  '/wird/list/$session': typeof WirdListSessionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -320,6 +328,7 @@ export interface FileRoutesById {
   '/quran/tafsir': typeof QuranTafsirRoute
   '/wird/$session': typeof WirdSessionRoute
   '/azkar/group/$group': typeof AzkarGroupGroupRoute
+  '/wird/list/$session': typeof WirdListSessionRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -357,6 +366,7 @@ export interface FileRouteTypes {
     | '/quran/tafsir'
     | '/wird/$session'
     | '/azkar/group/$group'
+    | '/wird/list/$session'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -392,6 +402,7 @@ export interface FileRouteTypes {
     | '/quran/tafsir'
     | '/wird/$session'
     | '/azkar/group/$group'
+    | '/wird/list/$session'
   id:
     | '__root__'
     | '/'
@@ -428,6 +439,7 @@ export interface FileRouteTypes {
     | '/quran/tafsir'
     | '/wird/$session'
     | '/azkar/group/$group'
+    | '/wird/list/$session'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -694,6 +706,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TabsAzkarRouteImport
       parentRoute: typeof TabsRoute
     }
+    '/wird/list/$session': {
+      id: '/wird/list/$session'
+      path: '/list/$session'
+      fullPath: '/wird/list/$session'
+      preLoaderRoute: typeof WirdListSessionRouteImport
+      parentRoute: typeof WirdRoute
+    }
     '/azkar/group/$group': {
       id: '/azkar/group/$group'
       path: '/azkar/group/$group'
@@ -724,10 +743,12 @@ const TabsRouteWithChildren = TabsRoute._addFileChildren(TabsRouteChildren)
 
 interface WirdRouteChildren {
   WirdSessionRoute: typeof WirdSessionRoute
+  WirdListSessionRoute: typeof WirdListSessionRoute
 }
 
 const WirdRouteChildren: WirdRouteChildren = {
   WirdSessionRoute: WirdSessionRoute,
+  WirdListSessionRoute: WirdListSessionRoute,
 }
 
 const WirdRouteWithChildren = WirdRoute._addFileChildren(WirdRouteChildren)
