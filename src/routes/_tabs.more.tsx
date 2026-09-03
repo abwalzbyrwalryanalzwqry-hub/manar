@@ -9,7 +9,9 @@ export const Route = createFileRoute("/_tabs/more")({
 });
 
 const ITEMS = [
+  { to: "/wird", l: "الوِرد", d: "ورد الصباح والمساء", i: icons.sparkle },
   { to: "/adhan", l: "مكتبة الأذان", d: "اختر صوت الأذان لكل صلاة", i: icons.bell },
+
   { to: "/iqama", l: "الإقامة", d: "الفاصل بين الأذان والإقامة", i: icons.prayer },
   { to: "/notifications", l: "مركز التنبيهات", d: "الأذان، الإقامة، التذكيرات", i: icons.bell },
   { to: "/qibla", l: "القِبلة", d: "البوصلة واتجاه الكعبة", i: icons.qibla },
