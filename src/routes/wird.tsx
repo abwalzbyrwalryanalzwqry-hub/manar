@@ -92,9 +92,13 @@ function WirdHub() {
                 >
                   {started ? "متابعة الورد" : "ابدأ الورد"}
                 </Link>
-                <span className="rounded-2xl border border-border px-3 py-3 text-[11px] tabular-nums text-muted-foreground">
-                  {toArabicDigits(completedItems)}/{toArabicDigits(s.items.length)}
-                </span>
+                <Link
+                  to="/wird/list/$session"
+                  params={{ session: key }}
+                  className="rounded-2xl border border-border bg-card px-3 py-3 text-[11px] tabular-nums text-muted-foreground"
+                >
+                  التفصيل {toArabicDigits(completedItems)}/{toArabicDigits(s.items.length)}
+                </Link>
               </div>
             </div>
           );
