@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Arabesque, Icon, icons, Screen, Skeleton } from "@/components/manar/shell";
+import { WirdProgressBar } from "@/components/manar/wird-progress";
+
 import { toArabicDigits } from "@/lib/format";
 import { getWirdSession } from "@/lib/wird/data";
 import { useWirdSessionProgress, wirdCompletion } from "@/lib/wird/progress";
