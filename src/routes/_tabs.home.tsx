@@ -68,10 +68,15 @@ function Home() {
           <div className="relative mt-5 flex items-center justify-between">
             <div>
               <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">التوقيت الآن</div>
-              <div className="font-display text-6xl font-black tabular-nums leading-none tracking-tight">
+              <div
+                className="font-display text-6xl font-black tabular-nums leading-none tracking-tight"
+                suppressHydrationWarning
+              >
                 {formatHHMM(now)}
               </div>
-              <div className="mt-1 text-xs font-light text-white/70">{ampmAr(now)}</div>
+              <div className="mt-1 text-xs font-light text-white/70" suppressHydrationWarning>
+                {ampmAr(now)}
+              </div>
             </div>
 
             <RingProgress value={progress} size={132} stroke={5}>

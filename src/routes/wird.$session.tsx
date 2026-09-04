@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Arabesque, Icon, icons, Screen, Skeleton } from "@/components/manar/shell";
+import { WirdProgressBar } from "@/components/manar/wird-progress";
+
 import { toArabicDigits } from "@/lib/format";
 import { getWirdSession } from "@/lib/wird/data";
 import { useWirdSessionProgress, wirdCompletion } from "@/lib/wird/progress";
@@ -126,18 +128,26 @@ function WirdSessionPage() {
           </button>
         </div>
 
-        {/* شريط التقدّم العام */}
+        {/* شريط التقدّم المتحرك */}
         <div className="mt-4 px-5">
-          <div className="h-1 overflow-hidden rounded-full bg-secondary">
-            <div className="gradient-gold h-full transition-all duration-300" style={{ width: `${overall.ratio * 100}%` }} />
-          </div>
-          <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
-            <span>
-              مكتمل: {toArabicDigits(overall.completedItems)}/{toArabicDigits(items.length)}
-            </span>
-            <span>{progress.updatedAt ? "تم حفظ التقدّم" : "سيُحفظ تقدّمك تلقائيًا"}</span>
-          </div>
+          <WirdProgressBar
+            ratio={overall.ratio}
+            currentName={item?.name}
+            currentOrder={item?.order ?? 1}
+            total={items.length}
+            remaining={remaining}
+            completedItems={overall.completedItems}
+            saved={Boolean(progress.updatedAt)}
+          />
+          <Link
+            to="/wird/list/$session"
+            params={{ session: key }}
+            className="mt-3 block rounded-2xl border border-border bg-card py-2.5 text-center text-[11px] text-muted-foreground"
+          >
+            عرض كل الأذكار بالتفصيل
+          </Link>
         </div>
+
 
         {/* الذكر */}
         <div className="flex-1 px-5 pt-5" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
