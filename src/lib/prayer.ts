@@ -208,20 +208,31 @@ export function useLocation() {
     setError(null);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        let city = "موقعي الحالي";
-        let country = location.country;
-        // Best-effort reverse geocoding (graceful offline fallback).
-        try {
-          const r = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&accept-language=ar&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=10`,
-          );
-          if (r.ok) {
-            const j = await r.json();
-            const a = j.address ?? {};
-            city = a.city || a.town || a.village || a.county || a.state || city;
-            country = a.country || country;
-          }
-        } catch { /* keep generic label */ }
+        // Offline-first: name the place from the bundled city list, then
+        // refine online only when a network is actually available.
+        const { nearestCity } = await import("@/lib/cities");
+        const near = nearestCity(pos.coords.latitude, pos.coords.longitude);
+        let city = near?.city ?? "موقعي الحالي";
+        let country = near?.country ?? location.country;
+        const online = typeof navigator === "undefined" || navigator.onLine !== false;
+        if (online) {
+          try {
+            const ctrl = new AbortController();
+            const t = setTimeout(() => ctrl.abort(), 6000);
+            const r = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&accept-language=ar&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=10`,
+              { signal: ctrl.signal },
+            );
+            clearTimeout(t);
+            if (r.ok) {
+              const j = await r.json();
+              const a = j.address ?? {};
+              city = a.city || a.town || a.village || a.county || a.state || city;
+              country = a.country || country;
+            }
+          } catch { /* keep the offline city name */ }
+        }
+
 
         const next: LocationState = {
           lat: pos.coords.latitude,
