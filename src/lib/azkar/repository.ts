@@ -28,13 +28,20 @@ export class AzkarRepository {
     if (cache) return cache;
     if (inflight) return inflight;
     inflight = (async () => {
-      const res = await fetch(URL, { cache: "force-cache" });
-      if (!res.ok) throw new Error(`تعذّر تحميل حصن المسلم (${res.status})`);
-      const data = (await res.json()) as AzkarBook;
-      cache = data;
-      buildIndex(data);
-      inflight = null;
-      return data;
+      try {
+        const res = await fetch(URL, { cache: "force-cache" });
+        if (!res.ok) throw new Error(`تعذّر تحميل حصن المسلم (${res.status})`);
+        const data = (await res.json()) as AzkarBook;
+        // Guard against a truncated / corrupted local file.
+        if (!data || !Array.isArray(data.chapters) || data.chapters.length === 0) {
+          throw new Error("ملف الأذكار المحلي غير مكتمل — أعد المحاولة");
+        }
+        cache = data;
+        buildIndex(data);
+        return data;
+      } finally {
+        inflight = null;
+      }
     })();
     return inflight;
   }
