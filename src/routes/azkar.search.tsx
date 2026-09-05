@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { DataError } from "@/components/manar/data-error";
 import { useMemo, useState } from "react";
 import { useAzkarBook } from "@/hooks/use-azkar";
 import { azkarRepository } from "@/lib/azkar/repository";
@@ -22,7 +23,7 @@ export const Route = createFileRoute("/azkar/search")({
 const SUGGESTIONS = ["الاستيقاظ", "الصباح", "النوم", "السفر", "الهم", "الاستغفار", "المطر", "الطعام"];
 
 function AzkarSearch() {
-  const { book, loading, error } = useAzkarBook();
+  const { book, loading, error, retry } = useAzkarBook();
   const [q, setQ] = useState("");
 
   const results = useMemo(() => (book && q.trim().length > 1 ? azkarRepository.search(q) : []), [book, q]);
@@ -73,7 +74,7 @@ function AzkarSearch() {
           ))}
         </div>
       )}
-      {error && <p className="mt-4 px-5 text-sm text-muted-foreground">{error}</p>}
+      {error && <DataError message={error} onRetry={retry} title="تعذّر تحميل الأذكار" />}
 
       {q.trim().length > 1 && chapterHits.length > 0 && (
         <div className="mt-6 px-5">
