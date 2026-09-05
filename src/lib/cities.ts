@@ -105,3 +105,20 @@ export const CITIES: LocationState[] = [
   { city: "مونتريال", country: "كندا", lat: 45.5017, lng: -73.5673, source: "manual" },
   { city: "سيدني", country: "أستراليا", lat: -33.8688, lng: 151.2093, source: "manual" },
 ];
+
+/** Offline reverse-geocoding: closest bundled city (haversine, km). */
+export function nearestCity(lat: number, lng: number): LocationState | null {
+  let best: LocationState | null = null;
+  let bestKm = Infinity;
+  for (const c of CITIES) {
+    const dLat = ((c.lat - lat) * Math.PI) / 180;
+    const dLng = ((c.lng - lng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat * Math.PI) / 180) * Math.cos((c.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+    const km = 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(a)));
+    if (km < bestKm) { bestKm = km; best = c; }
+  }
+  // Beyond ~150 km the city label would be misleading.
+  return best && bestKm <= 150 ? { ...best, source: "gps" } : null;
+}
