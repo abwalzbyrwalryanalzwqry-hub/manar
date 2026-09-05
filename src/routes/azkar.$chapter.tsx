@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { DataError } from "@/components/manar/data-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Arabesque, Icon, icons, Screen, ScreenHeader, Skeleton } from "@/components/manar/shell";
 import { useAzkarBook } from "@/hooks/use-azkar";
@@ -28,7 +29,7 @@ function AzkarSession() {
   const { zikr: zikrParam } = Route.useSearch();
   const id = Number(chapterParam);
   const navigate = useNavigate();
-  const { book, loading, error } = useAzkarBook();
+  const { book, loading, error, retry } = useAzkarBook();
   const { progress, tap, resetMany, toggleBookmark, setLast } = useAzkarProgress();
 
   const chapter = useMemo(() => book?.chapters.find((c) => c.id === id), [book, id]);
@@ -213,7 +214,7 @@ function AzkarSession() {
           <Skeleton className="h-[26rem] rounded-[32px]" />
         </div>
       )}
-      {error && <p className="px-5 text-sm text-muted-foreground">{error}</p>}
+      {error && <DataError message={error} onRetry={retry} title="تعذّر تحميل الأذكار" />}
 
       {/* session status bar: last started zikr + last save time */}
       {chapter && (

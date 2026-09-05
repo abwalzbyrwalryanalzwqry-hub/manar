@@ -24,12 +24,18 @@ export class QuranTextService {
     if (pending) return pending;
 
     const p = (async () => {
-      const res = await fetch(`${BASE}/${id}.json`, { cache: "force-cache" });
-      if (!res.ok) throw new Error(`Failed to load surah ${id}: ${res.status}`);
-      const data = (await res.json()) as SurahText;
-      cache.set(id, data);
-      inflight.delete(id);
-      return data;
+      try {
+        const res = await fetch(`${BASE}/${id}.json`, { cache: "force-cache" });
+        if (!res.ok) throw new Error(`تعذّر تحميل السورة من الملفات المحلية (${res.status})`);
+        const data = (await res.json()) as SurahText;
+        if (!data || !Array.isArray(data.ayahs) || data.ayahs.length === 0) {
+          throw new Error("ملف السورة المحلي غير مكتمل — أعد المحاولة");
+        }
+        cache.set(id, data);
+        return data;
+      } finally {
+        inflight.delete(id);
+      }
     })();
 
     inflight.set(id, p);

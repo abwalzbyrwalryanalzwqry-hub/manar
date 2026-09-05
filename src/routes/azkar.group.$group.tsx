@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { DataError } from "@/components/manar/data-error";
 import { useMemo } from "react";
 import { useAzkarBook } from "@/hooks/use-azkar";
 import { useAzkarProgress } from "@/lib/azkar/progress";
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/azkar/group/$group")({
 
 function GroupChapters() {
   const { group } = Route.useParams();
-  const { book, loading, error } = useAzkarBook();
+  const { book, loading, error, retry } = useAzkarBook();
   const { progress } = useAzkarProgress();
 
   const info = useMemo(() => book?.groups.find((g) => g.id === group), [book, group]);
@@ -46,7 +47,7 @@ function GroupChapters() {
           ))}
         </div>
       )}
-      {error && <p className="px-5 text-sm text-muted-foreground">{error}</p>}
+      {error && <DataError message={error} onRetry={retry} title="تعذّر تحميل الأذكار" />}
 
       <div className="space-y-3 px-5 stagger">
         {chapters.map((c) => {
