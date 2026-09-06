@@ -13,6 +13,7 @@ import { computePrayerTimes, PRAYER_ORDER, PRAYER_LABELS } from "@/lib/prayer";
 import { useLocation, useSettings } from "@/lib/prayer";
 import { getAdhanSettings, resolveAdhanForPrayer, resolveIqamaForPrayer } from "@/lib/adhan-settings";
 import { playAdhan, playIqama, playReminder, vibrate, stopAdhan } from "@/lib/adhan-sound";
+import { isNativeShell, syncNativePrayerSchedule, attachNativeActionListener } from "@/lib/native-notifications";
 
 type FiredKey = string;
 
