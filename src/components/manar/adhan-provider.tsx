@@ -151,6 +151,21 @@ export function AdhanProvider() {
     };
   }, [location, calc]);
 
+  /* Native shell (Android/iOS): hand the schedule to the OS so alerts fire
+     even when the app is closed. No-op in the browser. */
+  useEffect(() => {
+    if (!isNativeShell()) return;
+    void attachNativeActionListener(() => stopAdhan());
+    void syncNativePrayerSchedule(location, calc);
+    const onResume = () => { void syncNativePrayerSchedule(location, calc); };
+    document.addEventListener("resume", onResume);
+    document.addEventListener("visibilitychange", onResume);
+    return () => {
+      document.removeEventListener("resume", onResume);
+      document.removeEventListener("visibilitychange", onResume);
+    };
+  }, [location, calc]);
+
   return null;
 }
 
