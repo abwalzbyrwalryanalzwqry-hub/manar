@@ -108,7 +108,7 @@ export function AdhanProvider() {
             firedRef.current.add(k);
             notify(`حان الآن وقت ${PRAYER_LABELS[p].ar}`, `${location.city} · أذان ${PRAYER_LABELS[p].ar}`);
             if (s.vibrationEnabled) vibrate([300, 120, 300, 120, 600]);
-            if (!s.silentMode && s.soundEnabled) {
+            if (!s.silentMode && s.soundEnabled && !isNativeShell()) {
               const variant = resolveAdhanForPrayer(s, p);
               playAdhan(variant, {
                 volume: s.volume,
@@ -131,7 +131,7 @@ export function AdhanProvider() {
               firedRef.current.add(k);
               notify(`إقامة ${PRAYER_LABELS[p].ar}`, `حان موعد إقامة الصلاة الآن`);
               if (s.vibrationEnabled) vibrate([200, 100, 200]);
-              if (s.iqamaSoundEnabled && !s.silentMode) {
+              if (s.iqamaSoundEnabled && !s.silentMode && !isNativeShell()) {
                 const iv = resolveIqamaForPrayer(s, p);
                 playIqama(iv, { volume: s.volume * 0.85 });
               }
