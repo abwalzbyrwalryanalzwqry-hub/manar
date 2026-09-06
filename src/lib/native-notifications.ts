@@ -132,7 +132,7 @@ export async function syncNativePrayerSchedule(location: LocationState, calc: Se
           body: `${location.city} · أذان ${label}`,
           schedule: { at: new Date(at), allowWhileIdle: true },
           actionTypeId: "STOP_ADHAN",
-          sound: s.silentMode || !s.soundEnabled ? undefined : soundName(adhanAudioUrl(variant)),
+          sound: s.silentMode || !s.soundEnabled ? undefined : soundName(adhanVariantUrl(variant) ?? undefined),
           smallIcon: "ic_stat_manar",
           channelId: s.silentMode ? "manar_silent" : "manar_adhan",
           extra: { kind: "adhan", prayer, variant },
@@ -169,7 +169,7 @@ export async function syncNativePrayerSchedule(location: LocationState, calc: Se
             sound:
               s.silentMode || !s.iqamaSoundEnabled
                 ? undefined
-                : soundName(iqamaAudioUrl(resolveIqamaForPrayer(s, prayer))),
+                : soundName(iqamaVariantUrl(resolveIqamaForPrayer(s, prayer)) ?? undefined),
             smallIcon: "ic_stat_manar",
             channelId: "manar_iqama",
             extra: { kind: "iqama", prayer },
