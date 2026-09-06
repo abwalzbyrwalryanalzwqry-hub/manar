@@ -13,6 +13,7 @@ import { computePrayerTimes, PRAYER_ORDER, PRAYER_LABELS } from "@/lib/prayer";
 import { useLocation, useSettings } from "@/lib/prayer";
 import { getAdhanSettings, resolveAdhanForPrayer, resolveIqamaForPrayer } from "@/lib/adhan-settings";
 import { playAdhan, playIqama, playReminder, vibrate, stopAdhan } from "@/lib/adhan-sound";
+import { isNativeShell, syncNativePrayerSchedule, attachNativeActionListener } from "@/lib/native-notifications";
 
 type FiredKey = string;
 
@@ -107,7 +108,7 @@ export function AdhanProvider() {
             firedRef.current.add(k);
             notify(`حان الآن وقت ${PRAYER_LABELS[p].ar}`, `${location.city} · أذان ${PRAYER_LABELS[p].ar}`);
             if (s.vibrationEnabled) vibrate([300, 120, 300, 120, 600]);
-            if (!s.silentMode && s.soundEnabled) {
+            if (!s.silentMode && s.soundEnabled && !isNativeShell()) {
               const variant = resolveAdhanForPrayer(s, p);
               playAdhan(variant, {
                 volume: s.volume,
@@ -130,7 +131,7 @@ export function AdhanProvider() {
               firedRef.current.add(k);
               notify(`إقامة ${PRAYER_LABELS[p].ar}`, `حان موعد إقامة الصلاة الآن`);
               if (s.vibrationEnabled) vibrate([200, 100, 200]);
-              if (s.iqamaSoundEnabled && !s.silentMode) {
+              if (s.iqamaSoundEnabled && !s.silentMode && !isNativeShell()) {
                 const iv = resolveIqamaForPrayer(s, p);
                 playIqama(iv, { volume: s.volume * 0.85 });
               }
@@ -147,6 +148,21 @@ export function AdhanProvider() {
       document.removeEventListener("visibilitychange", onVis);
       stopAdhan();
       try { wake?.release(); } catch { /* ignore */ }
+    };
+  }, [location, calc]);
+
+  /* Native shell (Android/iOS): hand the schedule to the OS so alerts fire
+     even when the app is closed. No-op in the browser. */
+  useEffect(() => {
+    if (!isNativeShell()) return;
+    void attachNativeActionListener(() => stopAdhan());
+    void syncNativePrayerSchedule(location, calc);
+    const onResume = () => { void syncNativePrayerSchedule(location, calc); };
+    document.addEventListener("resume", onResume);
+    document.addEventListener("visibilitychange", onResume);
+    return () => {
+      document.removeEventListener("resume", onResume);
+      document.removeEventListener("visibilitychange", onResume);
     };
   }, [location, calc]);
 

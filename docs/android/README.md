@@ -142,3 +142,25 @@ notification → 16. stop audio from the notification → 17. lock screen →
 - Duplicate `.m4a` originals are no longer shipped; MP3 is the single format.
 - Quran text is untouched and complete (114 surahs).
 - Fonts: only Arabic + Latin subsets are bundled (479 KB total).
+
+---
+
+## 10. Native notification scheduling (already wired in the web layer)
+
+`src/lib/native-notifications.ts` talks to `LocalNotifications` through the
+Capacitor runtime bridge (`window.Capacitor.Plugins`), so the web build carries
+no extra dependency and every call is a no-op in a browser.
+
+- `syncNativePrayerSchedule(location, calc)` recomputes prayer times locally
+  (no network) and schedules the next **7 days** of reminders, Adhan and Iqama.
+- Called from `AdhanProvider` on start, on location/settings change and on
+  `resume` — so a reboot is covered by the next launch in addition to the
+  `BOOT_COMPLETED` receiver.
+- Adhan notifications use `actionTypeId: "STOP_ADHAN"` → the action
+  (`إيقاف الأذان`) calls `stopAdhan()`.
+- When running inside the native shell the in-app JS player is skipped for
+  Adhan/Iqama so the OS sound is not doubled.
+- Notification channels expected on the native side: `manar_adhan`,
+  `manar_iqama`, `manar_reminders`, `manar_silent`.
+- Sounds are referenced by bare file name; copy the needed
+  `public/audio/library/*.mp3` into `android/app/src/main/res/raw/`.
