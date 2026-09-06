@@ -15,8 +15,8 @@
  */
 
 import { computePrayerTimes, PRAYER_ORDER, PRAYER_LABELS, type LocationState, type Settings } from "@/lib/prayer";
-import { getAdhanSettings } from "@/lib/adhan-settings";
-import { resolveAdhanForPrayer, resolveIqamaForPrayer, adhanAudioUrl, iqamaAudioUrl } from "@/lib/adhan-sound";
+import { getAdhanSettings, resolveAdhanForPrayer, resolveIqamaForPrayer } from "@/lib/adhan-settings";
+import { adhanVariantUrl, iqamaVariantUrl } from "@/lib/adhan-sound";
 
 type LocalNotificationsPlugin = {
   requestPermissions: () => Promise<{ display: string }>;
