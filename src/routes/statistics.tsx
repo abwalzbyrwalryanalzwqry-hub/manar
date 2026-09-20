@@ -1,5 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Arabesque, Icon, icons, RingProgress, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
+import {
+  Arabesque,
+  Icon,
+  icons,
+  RingProgress,
+  Screen,
+  ScreenHeader,
+  SectionLabel,
+} from "@/components/manar/shell";
 
 export const Route = createFileRoute("/statistics")({
   head: () => ({ meta: [{ title: "الإحصائيات — منار" }] }),
@@ -31,7 +39,9 @@ function Statistics() {
               <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-white/60">
                 <Icon d={icons.flame} size={12} /> سلسلة
               </div>
-              <div className="mt-2 font-display text-6xl font-black tabular-nums leading-none">٤٢</div>
+              <div className="mt-2 font-display text-6xl font-black tabular-nums leading-none">
+                ٤٢
+              </div>
               <div className="mt-1 text-xs font-light text-white/80">يوماً متتالياً</div>
               <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-gold/90 px-2.5 py-0.5 text-[10px] font-medium text-navy">
                 <Icon d={icons.trend} size={10} /> أعلى رقم لك
@@ -66,12 +76,18 @@ function Statistics() {
           </div>
           <div className="mt-4 flex justify-between border-t border-border pt-4 text-[11px]">
             <div>
-              <div className="text-muted-foreground text-[10px] uppercase tracking-widest">المعدل</div>
+              <div className="text-muted-foreground text-[10px] uppercase tracking-widest">
+                المعدل
+              </div>
               <div className="font-display text-base font-medium tabular-nums">٨٤٪</div>
             </div>
             <div className="text-right">
-              <div className="text-muted-foreground text-[10px] uppercase tracking-widest">+ من الأسبوع الماضي</div>
-              <div className="font-display text-base font-medium tabular-nums text-emerald-500">+ ١٢٪</div>
+              <div className="text-muted-foreground text-[10px] uppercase tracking-widest">
+                + من الأسبوع الماضي
+              </div>
+              <div className="font-display text-base font-medium tabular-nums text-emerald-500">
+                + ١٢٪
+              </div>
             </div>
           </div>
         </div>
@@ -97,7 +113,9 @@ function Statistics() {
           <div key={a.t} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${a.done ? "gradient-gold text-navy shadow-gold" : "bg-secondary text-primary"}`}>
+                <span
+                  className={`flex h-11 w-11 items-center justify-center rounded-xl ${a.done ? "gradient-gold text-navy shadow-gold" : "bg-secondary text-primary"}`}
+                >
                   <Icon d={icons.star} size={18} />
                 </span>
                 <div>
@@ -108,7 +126,10 @@ function Statistics() {
               <div className="text-xs font-medium text-primary tabular-nums">{a.p}٪</div>
             </div>
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-              <div className={`h-full ${a.done ? "gradient-gold" : "gradient-primary"}`} style={{ width: `${a.p}%` }} />
+              <div
+                className={`h-full ${a.done ? "gradient-gold" : "gradient-primary"}`}
+                style={{ width: `${a.p}%` }}
+              />
             </div>
           </div>
         ))}
@@ -117,11 +138,25 @@ function Statistics() {
   );
 }
 
-function Stat({ icon, l, v, sub, tone }: { icon: string; l: string; v: string; sub: string; tone?: string }) {
+function Stat({
+  icon,
+  l,
+  v,
+  sub,
+  tone,
+}: {
+  icon: string;
+  l: string;
+  v: string;
+  sub: string;
+  tone?: string;
+}) {
   const accent = tone ?? "";
   return (
     <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-soft">
-      <div className={`pointer-events-none absolute -right-8 -top-8 h-20 w-20 rounded-full opacity-20 blur-2xl ${accent || "bg-primary"}`} />
+      <div
+        className={`pointer-events-none absolute -right-8 -top-8 h-20 w-20 rounded-full opacity-20 blur-2xl ${accent || "bg-primary"}`}
+      />
       <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-primary">
         <Icon d={icon} size={16} />
       </span>

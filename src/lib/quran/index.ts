@@ -5,14 +5,7 @@
 // All Quran-related screens should import from "@/lib/quran".
 // ============================================================
 
-export type {
-  RevelationType,
-  NumericRange,
-  SurahMeta,
-  JuzMeta,
-  HizbMeta,
-  AyahRef,
-} from "./types";
+export type { RevelationType, NumericRange, SurahMeta, JuzMeta, HizbMeta, AyahRef } from "./types";
 export { REVELATION_LABEL_AR } from "./types";
 
 export { SURAH_META } from "./metadata";
@@ -25,3 +18,110 @@ export { QuranTextService, quranTextService } from "./text-service";
 export type { AyahText, SurahText, QuranIndex } from "./text-types";
 
 export { toArabicDigits, surahDisplayName, formatRangeAr } from "./format";
+
+/* --- Search, bookmarks, history, tafsir, recitation, sharing --- */
+
+export {
+  normalizeArabic,
+  tokenizeArabic,
+  splitWords,
+  matchedWordIndices,
+  containsAllTokens,
+} from "./normalize";
+
+export {
+  quranSearchService,
+  searchSurahNames,
+  readRecentSearches,
+  pushRecentSearch,
+  clearRecentSearches,
+  type AyahHit,
+  type SearchScope,
+} from "./search-service";
+
+export {
+  BOOKMARK_TAGS,
+  listBookmarks,
+  isBookmarked,
+  addBookmark,
+  removeBookmark,
+  toggleBookmark,
+  updateBookmark,
+  clearBookmarks,
+  exportBookmarks,
+  importBookmarks,
+  useBookmarks,
+  tagLabel,
+  tagChipClass,
+  bookmarkId,
+  type Bookmark,
+  type NewBookmark,
+  type BookmarkTag,
+} from "./bookmarks";
+
+export {
+  recordRead,
+  readHistory,
+  clearHistory,
+  removeHistoryEntry,
+  globalAyahIndex,
+  computeStreak,
+  lastSevenDays,
+  useReadingHistory,
+  TOTAL_AYAHS,
+  type ReadEntry,
+  type HistorySummary,
+} from "./reading-history";
+
+export {
+  TAFSIR_EDITIONS,
+  getEdition,
+  tafsirService,
+  readTafsirEdition,
+  useTafsirEdition,
+  useSurahTafsir,
+  parseTafsir,
+  type TafsirEdition,
+  type TafsirBlock,
+} from "./tafsir-service";
+
+export {
+  RECITERS,
+  RECITATION_SOURCE_URL,
+  getReciter,
+  ayahFileName,
+  ayahAudioUrl,
+  useRecitationPrefs,
+  DEFAULT_RECITATION_PREFS,
+  type Reciter,
+  type RecitationPrefs,
+} from "./recitations";
+
+export {
+  downloadSurah,
+  deleteDownload,
+  deleteAllDownloads,
+  localAyahSrc,
+  isDownloaded,
+  getDownload,
+  listDownloads,
+  useDownloads,
+  formatBytesAr,
+  offlineSupported,
+  type DownloadedSurah,
+  type DownloadHandle,
+} from "./recitation-offline";
+
+export {
+  SHARE_THEMES,
+  SHARE_SIZES,
+  renderAyahCard,
+  ensureShareFonts,
+  buildShareText,
+  shareCardImage,
+  shareCardText,
+  type ShareTheme,
+  type ShareSize,
+  type ShareCardInput,
+  type ShareOutcome,
+} from "./share-card";

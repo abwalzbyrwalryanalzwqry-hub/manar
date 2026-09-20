@@ -38,7 +38,10 @@ function Splash() {
             />
           ))}
         </div>
-        <Link to="/onboarding" className="absolute bottom-8 text-[11px] tracking-[0.3em] text-white/50">
+        <Link
+          to="/onboarding"
+          className="absolute bottom-8 text-[11px] tracking-[0.3em] text-white/50"
+        >
           تخطي
         </Link>
       </div>

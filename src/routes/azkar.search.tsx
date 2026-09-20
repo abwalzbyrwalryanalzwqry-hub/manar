@@ -10,7 +10,10 @@ export const Route = createFileRoute("/azkar/search")({
   head: () => ({
     meta: [
       { title: "البحث الذكي في الأذكار — منار" },
-      { name: "description", content: "بحث ذكي في أذكار حصن المسلم يتجاوز التشكيل والهمزات وصيغ الحروف." },
+      {
+        name: "description",
+        content: "بحث ذكي في أذكار حصن المسلم يتجاوز التشكيل والهمزات وصيغ الحروف.",
+      },
       { property: "og:title", content: "البحث الذكي في الأذكار — منار" },
       { property: "og:description", content: "ابحث في ٢٦٧ ذكرًا و١٣٢ بابًا بدون تشكيل أو همزات." },
       { property: "og:type", content: "website" },
@@ -20,13 +23,25 @@ export const Route = createFileRoute("/azkar/search")({
   component: AzkarSearch,
 });
 
-const SUGGESTIONS = ["الاستيقاظ", "الصباح", "النوم", "السفر", "الهم", "الاستغفار", "المطر", "الطعام"];
+const SUGGESTIONS = [
+  "الاستيقاظ",
+  "الصباح",
+  "النوم",
+  "السفر",
+  "الهم",
+  "الاستغفار",
+  "المطر",
+  "الطعام",
+];
 
 function AzkarSearch() {
   const { book, loading, error, retry } = useAzkarBook();
   const [q, setQ] = useState("");
 
-  const results = useMemo(() => (book && q.trim().length > 1 ? azkarRepository.search(q) : []), [book, q]);
+  const results = useMemo(
+    () => (book && q.trim().length > 1 ? azkarRepository.search(q) : []),
+    [book, q],
+  );
   const chapterHits = useMemo(
     () => (book && q.trim().length > 1 ? azkarRepository.searchChapters(q, 8) : []),
     [book, q],
@@ -78,7 +93,9 @@ function AzkarSearch() {
 
       {q.trim().length > 1 && chapterHits.length > 0 && (
         <div className="mt-6 px-5">
-          <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">أبواب مطابقة</div>
+          <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+            أبواب مطابقة
+          </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {chapterHits.map((c) => (
               <Link
@@ -116,7 +133,11 @@ function AzkarSearch() {
             </Link>
           ))}
           {!results.length && !loading && (
-            <EmptyState icon={icons.search} title="لا نتائج" hint="جرّب كلمة أخرى أو اختر من الاقتراحات." />
+            <EmptyState
+              icon={icons.search}
+              title="لا نتائج"
+              hint="جرّب كلمة أخرى أو اختر من الاقتراحات."
+            />
           )}
         </div>
       )}

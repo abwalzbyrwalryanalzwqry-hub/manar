@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Manar keeps settings, counters, reading position and wird progress in the
+     WebView's localStorage plus Capacitor Preferences. Both are backed up so a
+     device change does not lose the user's progress. -->
+<full-backup-content>
+    <include domain="sharedpref" path="." />
+    <include domain="database" path="." />
+    <include domain="file" path="app_webview/Local Storage" />
+    <exclude domain="sharedpref" path="manar_adhan_schedule.xml" />
+</full-backup-content>

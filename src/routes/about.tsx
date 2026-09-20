@@ -31,8 +31,8 @@ function About() {
       <div className="px-5">
         <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
           <p className="text-sm font-light leading-loose text-foreground">
-            منار تطبيق إسلامي فاخر يجمع لك مواقيت الصلاة، والقرآن الكريم، والأذكار اليومية، واتجاه القِبلة في مكان واحد.
-            صُمم بعناية ليكون رفيقك في رحلتك الإيمانية اليومية.
+            منار تطبيق إسلامي فاخر يجمع لك مواقيت الصلاة، والقرآن الكريم، والأذكار اليومية، واتجاه
+            القِبلة في مكان واحد. صُمم بعناية ليكون رفيقك في رحلتك الإيمانية اليومية.
           </p>
         </div>
       </div>
@@ -71,7 +71,9 @@ function LinkRow({ icon, l, v }: { icon: string; l: string; v: string }) {
       <span className="flex-1 text-right text-sm font-medium">{l}</span>
       <span className="flex items-center gap-2 text-xs text-muted-foreground">
         {v}
-        <span className="rotate-180"><Icon d={icons.chevron} size={14} /></span>
+        <span className="rotate-180">
+          <Icon d={icons.chevron} size={14} />
+        </span>
       </span>
     </button>
   );

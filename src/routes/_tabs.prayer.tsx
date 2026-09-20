@@ -1,6 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Arabesque, Icon, icons, prayerIcon, RingProgress, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
+import {
+  Arabesque,
+  Icon,
+  icons,
+  prayerIcon,
+  RingProgress,
+  Screen,
+  ScreenHeader,
+  SectionLabel,
+} from "@/components/manar/shell";
 import { LocationSheet } from "@/components/manar/location-sheet";
 import { PRAYER_LABELS, PRAYER_ORDER, usePrayerSchedule, type PrayerKey } from "@/lib/prayer";
 import { useAdhanSettings } from "@/lib/adhan-settings";
@@ -31,8 +40,18 @@ function Prayer() {
   const { settings, updateDeep } = useAdhanSettings();
 
   const {
-    now, today, current, next, remainingMs, progress,
-    location, setLocation, requestGps, locStatus, locError, settings: calc,
+    now,
+    today,
+    current,
+    next,
+    remainingMs,
+    progress,
+    location,
+    setLocation,
+    requestGps,
+    locStatus,
+    locError,
+    settings: calc,
   } = usePrayerSchedule();
 
   const cd = formatCountdown(remainingMs);
@@ -85,7 +104,9 @@ function Prayer() {
             <div className="mt-6 flex w-full justify-between border-t border-white/15 pt-4 text-[11px]">
               <div>
                 <div className="text-white/50">آذان {PRAYER_LABELS[next.key].ar}</div>
-                <div className="font-display text-base tabular-nums">{toArabicDigits(formatHHMM(next.at))}</div>
+                <div className="font-display text-base tabular-nums">
+                  {toArabicDigits(formatHHMM(next.at))}
+                </div>
               </div>
               <div className="text-right">
                 <div className="text-white/50">الحالية</div>
@@ -117,29 +138,41 @@ function Prayer() {
                 className="relative flex items-center justify-between px-4 py-4"
               >
                 <div className="flex items-center gap-3">
-                  <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${active ? "bg-white/20" : "bg-secondary text-primary"}`}>
+                  <span
+                    className={`flex h-11 w-11 items-center justify-center rounded-xl ${active ? "bg-white/20" : "bg-secondary text-primary"}`}
+                  >
                     <Icon d={prayerIcon(k)} size={20} />
                   </span>
                   <div>
                     <div className={`text-sm font-medium ${passed && !active ? "opacity-60" : ""}`}>
                       {PRAYER_LABELS[k].ar}
                     </div>
-                    <div className={`text-[10px] uppercase tracking-widest ${active ? "text-white/70" : "text-muted-foreground"}`}>
+                    <div
+                      className={`text-[10px] uppercase tracking-widest ${active ? "text-white/70" : "text-muted-foreground"}`}
+                    >
                       {PRAYER_LABELS[k].en}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <div className={`font-display text-xl font-medium tabular-nums ${passed && !active ? "opacity-60" : ""}`}>
+                    <div
+                      className={`font-display text-xl font-medium tabular-nums ${passed && !active ? "opacity-60" : ""}`}
+                    >
                       {toArabicDigits(formatHHMM(at))}
                     </div>
-                    <div className={`text-[10px] ${active ? "text-white/70" : "text-muted-foreground"}`}>
+                    <div
+                      className={`text-[10px] ${active ? "text-white/70" : "text-muted-foreground"}`}
+                    >
                       {active ? "القادمة" : passed ? "منتهية" : "قادمة"}
                     </div>
                   </div>
                   <button
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleBell(k); }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleBell(k);
+                    }}
                     className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
                       active
                         ? "border-white/30 bg-white/15 text-white"
@@ -173,7 +206,9 @@ function Prayer() {
             <span className="text-sm">{r.l}</span>
             <span className="flex items-center gap-2 text-xs text-muted-foreground">
               {r.v}
-              <span className="rotate-180"><Icon d={icons.chevron} size={14} /></span>
+              <span className="rotate-180">
+                <Icon d={icons.chevron} size={14} />
+              </span>
             </span>
           </button>
         ))}

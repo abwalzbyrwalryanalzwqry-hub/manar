@@ -1,9 +1,26 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Arabesque, Icon, icons, Mark, prayerIcon, RingProgress, Screen, SectionLabel, StatusBar } from "@/components/manar/shell";
+import {
+  Arabesque,
+  Icon,
+  icons,
+  Mark,
+  prayerIcon,
+  RingProgress,
+  Screen,
+  SectionLabel,
+  StatusBar,
+} from "@/components/manar/shell";
 import { LocationSheet } from "@/components/manar/location-sheet";
 import { PRAYER_LABELS, usePrayerSchedule } from "@/lib/prayer";
-import { ampmAr, formatCountdown, formatGregorianAr, formatHHMM, formatHijriAr, formatWeekdayAr } from "@/lib/format";
+import {
+  ampmAr,
+  formatCountdown,
+  formatGregorianAr,
+  formatHHMM,
+  formatHijriAr,
+  formatWeekdayAr,
+} from "@/lib/format";
 
 export const Route = createFileRoute("/_tabs/home")({
   head: () => ({ meta: [{ title: "الرئيسية — منار" }] }),
@@ -14,8 +31,15 @@ function Home() {
   const [sheet, setSheet] = useState(false);
   const [askedOnce, setAskedOnce] = useState(false);
   const {
-    now, location, setLocation, requestGps, locStatus, locError,
-    next, remainingMs, progress,
+    now,
+    location,
+    setLocation,
+    requestGps,
+    locStatus,
+    locError,
+    next,
+    remainingMs,
+    progress,
   } = usePrayerSchedule();
 
   // Auto-prompt for location once on first launch
@@ -60,14 +84,18 @@ function Home() {
 
           {/* Greeting */}
           <div className="relative mt-5">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-white/50">{formatWeekdayAr(now)}</div>
+            <div className="text-[10px] uppercase tracking-[0.3em] text-white/50">
+              {formatWeekdayAr(now)}
+            </div>
             <div className="font-display text-xl font-medium text-white/90">السلام عليكم</div>
           </div>
 
           {/* Time + ring */}
           <div className="relative mt-5 flex items-center justify-between">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">التوقيت الآن</div>
+              <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">
+                التوقيت الآن
+              </div>
               <div
                 className="font-display text-6xl font-black tabular-nums leading-none tracking-tight"
                 suppressHydrationWarning
@@ -81,7 +109,9 @@ function Home() {
 
             <RingProgress value={progress} size={132} stroke={5}>
               <div className="text-center">
-                <div className="text-[9px] uppercase tracking-[0.25em] text-white/60">{nextLabel}</div>
+                <div className="text-[9px] uppercase tracking-[0.25em] text-white/60">
+                  {nextLabel}
+                </div>
                 <div className="font-display text-xl font-bold tabular-nums leading-tight">
                   {countdown.h}:{countdown.m}
                 </div>
@@ -111,13 +141,17 @@ function Home() {
             <Icon d={prayerIcon(next.key)} size={20} />
           </div>
           <div className="flex-1">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">الصلاة القادمة</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              الصلاة القادمة
+            </div>
             <div className="text-sm font-medium">
               {nextLabel} · {formatHHMM(next.at)}
             </div>
           </div>
           <div className="text-right">
-            <div className="font-display text-lg font-black tabular-nums">{countdown.h}:{countdown.m}:{countdown.s}</div>
+            <div className="font-display text-lg font-black tabular-nums">
+              {countdown.h}:{countdown.m}:{countdown.s}
+            </div>
             <div className="text-[10px] text-muted-foreground">س : د : ث</div>
           </div>
         </Link>
@@ -154,7 +188,9 @@ function Home() {
         <div className="relative overflow-hidden rounded-3xl border border-border bg-card p-5 shadow-soft">
           <div className="pointer-events-none absolute -left-12 -top-12 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
           <div className="relative flex items-center justify-between">
-            <span className="gradient-gold inline-flex h-7 items-center rounded-full px-3 text-[10px] font-medium text-navy">سورة الكهف · ١٠</span>
+            <span className="gradient-gold inline-flex h-7 items-center rounded-full px-3 text-[10px] font-medium text-navy">
+              سورة الكهف · ١٠
+            </span>
             <span className="text-[10px] text-muted-foreground">٤٥ ثانية</span>
           </div>
           <p className="relative mt-5 text-right font-display text-xl leading-loose">
@@ -167,8 +203,12 @@ function Home() {
             <button className="gradient-primary flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-xs font-medium text-primary-foreground shadow-glow">
               <Icon d={icons.play} size={12} /> استمع
             </button>
-            <button className="flex h-10 w-10 items-center justify-center rounded-full border border-border"><Icon d={icons.bookmark} size={14} /></button>
-            <button className="flex h-10 w-10 items-center justify-center rounded-full border border-border"><Icon d={icons.share} size={14} /></button>
+            <button className="flex h-10 w-10 items-center justify-center rounded-full border border-border">
+              <Icon d={icons.bookmark} size={14} />
+            </button>
+            <button className="flex h-10 w-10 items-center justify-center rounded-full border border-border">
+              <Icon d={icons.share} size={14} />
+            </button>
           </div>
         </div>
       </div>
@@ -190,7 +230,10 @@ function Home() {
               <Mark size={16} tone="light" /> منار · يومياً
             </div>
             <button className="flex items-center gap-1 text-[11px] text-gold">
-              اقرأ المزيد <span className="rotate-180"><Icon d={icons.chevron} size={12} /></span>
+              اقرأ المزيد{" "}
+              <span className="rotate-180">
+                <Icon d={icons.chevron} size={12} />
+              </span>
             </button>
           </div>
         </div>

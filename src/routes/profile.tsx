@@ -1,7 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Arabesque, Icon, icons, Mark, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
+import {
+  Arabesque,
+  Icon,
+  icons,
+  Mark,
+  Screen,
+  ScreenHeader,
+  SectionLabel,
+} from "@/components/manar/shell";
 import { useAuth } from "@/lib/auth-context";
 import { pushAll, pullAll } from "@/lib/cloud-sync";
 
@@ -34,11 +42,17 @@ function Profile() {
   const save = async () => {
     setBusy(true);
     const { error } = await updateProfile({
-      full_name: fullName, country, city, preferred_language: language,
+      full_name: fullName,
+      country,
+      city,
+      preferred_language: language,
     });
     setBusy(false);
     if (error) toast.error(error);
-    else { toast.success("تم حفظ التغييرات"); setEditing(false); }
+    else {
+      toast.success("تم حفظ التغييرات");
+      setEditing(false);
+    }
   };
 
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "—";
@@ -55,17 +69,28 @@ function Profile() {
   const handleBackup = async () => {
     if (!user) return;
     setBusy(true);
-    try { await pushAll(user.id); toast.success("تم رفع نسخة احتياطية"); }
-    catch { toast.error("فشل الرفع"); }
-    finally { setBusy(false); }
+    try {
+      await pushAll(user.id);
+      toast.success("تم رفع نسخة احتياطية");
+    } catch {
+      toast.error("فشل الرفع");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleRestore = async () => {
     if (!user) return;
     setBusy(true);
-    try { await pullAll(user.id); toast.success("تم استرجاع الإعدادات"); await refreshProfile(); }
-    catch { toast.error("فشل الاسترجاع"); }
-    finally { setBusy(false); }
+    try {
+      await pullAll(user.id);
+      toast.success("تم استرجاع الإعدادات");
+      await refreshProfile();
+    } catch {
+      toast.error("فشل الاسترجاع");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -102,7 +127,8 @@ function Profile() {
             <h2 className="mt-5 font-display text-2xl font-medium">{displayName}</h2>
             <p className="text-[11px] text-white/70">{user?.email ?? "—"}</p>
             <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-gold px-3 py-1 text-[11px] font-medium text-navy shadow-gold">
-              <Icon d={icons.star} size={11} /> {profile?.plan === "premium" ? "عضو منار +" : "عضو منار"}
+              <Icon d={icons.star} size={11} />{" "}
+              {profile?.plan === "premium" ? "عضو منار +" : "عضو منار"}
             </div>
           </div>
         </div>
@@ -116,11 +142,21 @@ function Profile() {
             <EditField label="الدولة" value={country} onChange={setCountry} />
             <EditField label="المدينة" value={city} onChange={setCity} />
             <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-              <div className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">اللغة المفضلة</div>
+              <div className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+                اللغة المفضلة
+              </div>
               <div className="flex gap-2">
-                {[["ar", "العربية"], ["en", "English"]].map(([v, l]) => (
-                  <button key={v} onClick={() => setLanguage(v)}
-                    className={`flex-1 rounded-xl border py-2 text-sm ${language === v ? "border-primary bg-primary/10 text-primary" : "border-border"}`}>{l}</button>
+                {[
+                  ["ar", "العربية"],
+                  ["en", "English"],
+                ].map(([v, l]) => (
+                  <button
+                    key={v}
+                    onClick={() => setLanguage(v)}
+                    className={`flex-1 rounded-xl border py-2 text-sm ${language === v ? "border-primary bg-primary/10 text-primary" : "border-border"}`}
+                  >
+                    {l}
+                  </button>
                 ))}
               </div>
             </div>
@@ -129,7 +165,11 @@ function Profile() {
           <>
             <Row icon={icons.profile} l="الاسم" v={displayName} />
             <Row icon={icons.mail} l="البريد الإلكتروني" v={user?.email ?? "—"} />
-            <Row icon={icons.location} l="المدينة" v={[city, country].filter(Boolean).join("، ") || "—"} />
+            <Row
+              icon={icons.location}
+              l="المدينة"
+              v={[city, country].filter(Boolean).join("، ") || "—"}
+            />
             <Row icon={icons.calendar} l="تاريخ الانضمام" v={memberSince} />
           </>
         )}
@@ -137,15 +177,27 @@ function Profile() {
 
       <SectionLabel>المزامنة السحابية</SectionLabel>
       <div className="space-y-2 px-4">
-        <button onClick={handleBackup} disabled={busy || !user} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft disabled:opacity-60">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-primary"><Icon d={icons.bell} size={16} /></span>
+        <button
+          onClick={handleBackup}
+          disabled={busy || !user}
+          className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft disabled:opacity-60"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-primary">
+            <Icon d={icons.bell} size={16} />
+          </span>
           <div className="flex-1 text-right">
             <div className="text-sm font-medium">رفع نسخة احتياطية الآن</div>
             <div className="text-[11px] text-muted-foreground">حفظ كل إعداداتك في السحابة</div>
           </div>
         </button>
-        <button onClick={handleRestore} disabled={busy || !user} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft disabled:opacity-60">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-primary"><Icon d={icons.azkar} size={16} /></span>
+        <button
+          onClick={handleRestore}
+          disabled={busy || !user}
+          className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft disabled:opacity-60"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-primary">
+            <Icon d={icons.azkar} size={16} />
+          </span>
           <div className="flex-1 text-right">
             <div className="text-sm font-medium">استرجاع من السحابة</div>
             <div className="text-[11px] text-muted-foreground">إعادة تطبيق آخر نسخة محفوظة</div>
@@ -155,7 +207,10 @@ function Profile() {
 
       <SectionLabel>الحساب</SectionLabel>
       <div className="px-4 pb-4">
-        <button onClick={handleSignOut} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 py-3.5 text-sm font-medium text-destructive">
+        <button
+          onClick={handleSignOut}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 py-3.5 text-sm font-medium text-destructive"
+        >
           تسجيل الخروج
         </button>
       </div>
@@ -169,10 +224,17 @@ function GuestProfile({ onSignIn }: { onSignIn: () => void }) {
       <ScreenHeader title="الملف الشخصي" backTo="/more" />
       <div className="px-5">
         <div className="rounded-[28px] border border-border bg-card p-6 text-center shadow-soft">
-          <div className="gradient-gold mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl text-navy"><Icon d={icons.profile} size={28} /></div>
+          <div className="gradient-gold mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl text-navy">
+            <Icon d={icons.profile} size={28} />
+          </div>
           <div className="font-display text-xl font-medium">أنت تستخدم وضع الزائر</div>
-          <p className="mt-2 text-xs text-muted-foreground leading-relaxed">سجّل دخولك لمزامنة إعداداتك وحفظ تقدمك عبر أجهزتك.</p>
-          <button onClick={onSignIn} className="gradient-primary mt-5 block w-full rounded-2xl py-3.5 text-sm font-medium text-primary-foreground shadow-glow">
+          <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+            سجّل دخولك لمزامنة إعداداتك وحفظ تقدمك عبر أجهزتك.
+          </p>
+          <button
+            onClick={onSignIn}
+            className="gradient-primary mt-5 block w-full rounded-2xl py-3.5 text-sm font-medium text-primary-foreground shadow-glow"
+          >
             إنشاء حساب أو تسجيل الدخول
           </button>
         </div>
@@ -195,11 +257,25 @@ function Row({ icon, l, v }: { icon: string; l: string; v: string }) {
   );
 }
 
-function EditField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function EditField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
     <label className="block rounded-2xl border border-border bg-card px-4 py-3 shadow-soft">
-      <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
-      <input value={value} onChange={(e) => onChange(e.target.value)} className="w-full bg-transparent text-sm font-medium outline-none" />
+      <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+        {label}
+      </div>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-transparent text-sm font-medium outline-none"
+      />
     </label>
   );
 }

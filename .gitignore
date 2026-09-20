@@ -30,3 +30,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment / secrets — never commit these
+.env
+.env.*
+!.env.example
+
+# Android build output and signing material
+android/.gradle/
+android/build/
+android/app/build/
+android/app/src/main/assets/public/
+android/app/src/main/res/raw/
+android/keystore.properties
+android/*.keystore
+android/*.jks

@@ -58,7 +58,9 @@ function Row({ icon, l, v }: { icon: string; l: string; v: string }) {
       <span className="flex-1 text-right text-sm font-medium">{l}</span>
       <span className="flex items-center gap-2 text-xs text-muted-foreground">
         {v}
-        <span className="rotate-180"><Icon d={icons.chevron} size={14} /></span>
+        <span className="rotate-180">
+          <Icon d={icons.chevron} size={14} />
+        </span>
       </span>
     </button>
   );

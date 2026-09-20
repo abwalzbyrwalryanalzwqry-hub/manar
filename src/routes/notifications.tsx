@@ -1,6 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Arabesque, Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
+import {
+  Arabesque,
+  Icon,
+  icons,
+  Screen,
+  ScreenHeader,
+  SectionLabel,
+} from "@/components/manar/shell";
 import { REMINDER_OPTIONS, useAdhanSettings } from "@/lib/adhan-settings";
 import { PRAYER_LABELS, PRAYER_ORDER, type PrayerKey } from "@/lib/prayer";
 import { toArabicDigits } from "@/lib/format";
@@ -19,7 +26,10 @@ function Notifications() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!("Notification" in window)) { setPerm("unsupported"); return; }
+    if (!("Notification" in window)) {
+      setPerm("unsupported");
+      return;
+    }
     setPerm(Notification.permission);
   }, []);
 
@@ -57,7 +67,9 @@ function Notifications() {
               <button
                 onClick={() => setShowPermSheet(true)}
                 className="rounded-full bg-white/20 px-3 py-1.5 text-[11px] backdrop-blur"
-              >تفعيل</button>
+              >
+                تفعيل
+              </button>
             )}
             {perm === "granted" && (
               <span className="rounded-full bg-white/20 px-3 py-1 text-[10px]">✓ مفعّل</span>
@@ -70,16 +82,25 @@ function Notifications() {
       <SectionLabel>التحكم العام</SectionLabel>
       <div className="space-y-2 px-4">
         <Toggle
-          icon={icons.bell} label="الأذان" hint={`الصوت المختار: ${selectedAdhan}`}
-          on={settings.adhanEnabled} onToggle={() => update({ adhanEnabled: !settings.adhanEnabled })}
+          icon={icons.bell}
+          label="الأذان"
+          hint={`الصوت المختار: ${selectedAdhan}`}
+          on={settings.adhanEnabled}
+          onToggle={() => update({ adhanEnabled: !settings.adhanEnabled })}
         />
         <Toggle
-          icon={icons.prayer} label="الإقامة" hint="تنبيه عند موعد الإقامة"
-          on={settings.iqamaEnabled} onToggle={() => update({ iqamaEnabled: !settings.iqamaEnabled })}
+          icon={icons.prayer}
+          label="الإقامة"
+          hint="تنبيه عند موعد الإقامة"
+          on={settings.iqamaEnabled}
+          onToggle={() => update({ iqamaEnabled: !settings.iqamaEnabled })}
         />
         <Toggle
-          icon={icons.bell} label="التذكيرات قبل الصلاة" hint="تنبيهات قبل دخول وقت الصلاة"
-          on={settings.remindersEnabled} onToggle={() => update({ remindersEnabled: !settings.remindersEnabled })}
+          icon={icons.bell}
+          label="التذكيرات قبل الصلاة"
+          hint="تنبيهات قبل دخول وقت الصلاة"
+          on={settings.remindersEnabled}
+          onToggle={() => update({ remindersEnabled: !settings.remindersEnabled })}
         />
       </div>
 
@@ -87,17 +108,25 @@ function Notifications() {
       <SectionLabel>الصوت والاهتزاز</SectionLabel>
       <div className="space-y-2 px-4">
         <Toggle
-          icon={icons.bell} label="الصوت" hint="تشغيل الأذان والنغمات"
+          icon={icons.bell}
+          label="الصوت"
+          hint="تشغيل الأذان والنغمات"
           on={settings.soundEnabled && !settings.silentMode}
           onToggle={() => update({ soundEnabled: !settings.soundEnabled })}
         />
         <Toggle
-          icon={icons.sparkle} label="الاهتزاز" hint="هزّ الجهاز عند التنبيه"
-          on={settings.vibrationEnabled} onToggle={() => update({ vibrationEnabled: !settings.vibrationEnabled })}
+          icon={icons.sparkle}
+          label="الاهتزاز"
+          hint="هزّ الجهاز عند التنبيه"
+          on={settings.vibrationEnabled}
+          onToggle={() => update({ vibrationEnabled: !settings.vibrationEnabled })}
         />
         <Toggle
-          icon={icons.bellOff} label="الوضع الصامت" hint="كتم جميع الأصوات مع إبقاء الإشعارات"
-          on={settings.silentMode} onToggle={() => update({ silentMode: !settings.silentMode })}
+          icon={icons.bellOff}
+          label="الوضع الصامت"
+          hint="كتم جميع الأصوات مع إبقاء الإشعارات"
+          on={settings.silentMode}
+          onToggle={() => update({ silentMode: !settings.silentMode })}
         />
 
         <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
@@ -108,9 +137,13 @@ function Notifications() {
             </div>
           </div>
           <input
-            type="range" min={0} max={100} value={Math.round(settings.volume * 100)}
+            type="range"
+            min={0}
+            max={100}
+            value={Math.round(settings.volume * 100)}
             onChange={(e) => update({ volume: Number(e.target.value) / 100 })}
-            className="w-full accent-[hsl(var(--primary))]" dir="ltr"
+            className="w-full accent-[hsl(var(--primary))]"
+            dir="ltr"
           />
           <button
             onClick={() => playReminder({ volume: settings.volume })}
@@ -139,7 +172,9 @@ function Notifications() {
                   }))
                 }
                 className={`rounded-2xl border py-3 text-center shadow-soft transition ${
-                  active ? "border-transparent gradient-primary text-primary-foreground shadow-glow" : "border-border bg-card"
+                  active
+                    ? "border-transparent gradient-primary text-primary-foreground shadow-glow"
+                    : "border-border bg-card"
                 }`}
               >
                 <div className="font-display text-xl tabular-nums">{toArabicDigits(m)}</div>
@@ -184,13 +219,18 @@ function Notifications() {
               {settings.fajrUseSeparate ? fajrAdhan : "نفس أذان باقي الصلوات"}
             </div>
           </div>
-          <span className="rotate-180 text-muted-foreground"><Icon d={icons.chevron} size={16} /></span>
+          <span className="rotate-180 text-muted-foreground">
+            <Icon d={icons.chevron} size={16} />
+          </span>
         </Link>
       </div>
 
       {/* Permission sheet */}
       {showPermSheet && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowPermSheet(false)}>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setShowPermSheet(false)}
+        >
           <div
             className="mx-auto w-full max-w-md rounded-t-[32px] border-t border-border bg-card p-6 shadow-elegant animate-fade-up"
             dir="rtl"
@@ -203,18 +243,50 @@ function Notifications() {
               </span>
               <div>
                 <div className="font-display text-lg">السماح بالتنبيهات</div>
-                <div className="text-[11px] text-muted-foreground">حتى تصلك أوقات الصلاة في وقتها</div>
+                <div className="text-[11px] text-muted-foreground">
+                  حتى تصلك أوقات الصلاة في وقتها
+                </div>
               </div>
             </div>
             <ul className="my-4 space-y-2 text-xs text-muted-foreground">
-              <li className="flex items-start gap-2"><span className="mt-1 text-primary"><Icon d={icons.check} size={14}/></span> تنبيه عند كل صلاة بصوت الأذان المختار</li>
-              <li className="flex items-start gap-2"><span className="mt-1 text-primary"><Icon d={icons.check} size={14}/></span> تذكير قبل الصلاة بالوقت الذي تختاره</li>
-              <li className="flex items-start gap-2"><span className="mt-1 text-primary"><Icon d={icons.check} size={14}/></span> إشعار الإقامة بعد الأذان بالدقائق المحددة</li>
-              <li className="flex items-start gap-2"><span className="mt-1 text-primary"><Icon d={icons.check} size={14}/></span> يعمل بدون اتصال بالإنترنت</li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 text-primary">
+                  <Icon d={icons.check} size={14} />
+                </span>{" "}
+                تنبيه عند كل صلاة بصوت الأذان المختار
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 text-primary">
+                  <Icon d={icons.check} size={14} />
+                </span>{" "}
+                تذكير قبل الصلاة بالوقت الذي تختاره
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 text-primary">
+                  <Icon d={icons.check} size={14} />
+                </span>{" "}
+                إشعار الإقامة بعد الأذان بالدقائق المحددة
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 text-primary">
+                  <Icon d={icons.check} size={14} />
+                </span>{" "}
+                يعمل بدون اتصال بالإنترنت
+              </li>
             </ul>
             <div className="flex gap-2">
-              <button onClick={() => setShowPermSheet(false)} className="flex-1 rounded-2xl border border-border bg-card py-3 text-sm">لاحقاً</button>
-              <button onClick={ask} className="flex-1 rounded-2xl gradient-primary py-3 text-sm font-medium text-primary-foreground shadow-glow">السماح</button>
+              <button
+                onClick={() => setShowPermSheet(false)}
+                className="flex-1 rounded-2xl border border-border bg-card py-3 text-sm"
+              >
+                لاحقاً
+              </button>
+              <button
+                onClick={ask}
+                className="flex-1 rounded-2xl gradient-primary py-3 text-sm font-medium text-primary-foreground shadow-glow"
+              >
+                السماح
+              </button>
             </div>
           </div>
         </div>
@@ -223,9 +295,24 @@ function Notifications() {
   );
 }
 
-function Toggle({ icon, label, hint, on, onToggle }: { icon: string; label: string; hint?: string; on: boolean; onToggle: () => void }) {
+function Toggle({
+  icon,
+  label,
+  hint,
+  on,
+  onToggle,
+}: {
+  icon: string;
+  label: string;
+  hint?: string;
+  on: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <button onClick={onToggle} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 text-right shadow-soft">
+    <button
+      onClick={onToggle}
+      className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 text-right shadow-soft"
+    >
       <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-primary">
         <Icon d={icon} size={16} />
       </span>
@@ -233,15 +320,21 @@ function Toggle({ icon, label, hint, on, onToggle }: { icon: string; label: stri
         <div className="text-sm font-medium">{label}</div>
         {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
       </div>
-      <span className={`relative h-6 w-11 rounded-full transition ${on ? "gradient-primary" : "bg-muted"}`}>
-        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-soft transition-all ${on ? "right-0.5" : "right-[22px]"}`} />
+      <span
+        className={`relative h-6 w-11 rounded-full transition ${on ? "gradient-primary" : "bg-muted"}`}
+      >
+        <span
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-soft transition-all ${on ? "right-0.5" : "right-[22px]"}`}
+        />
       </span>
     </button>
   );
 }
 
 function PerPrayer({
-  p, value, onChange,
+  p,
+  value,
+  onChange,
 }: {
   p: PrayerKey;
   value: { adhan: boolean; reminder: boolean; iqama: boolean };
@@ -251,7 +344,9 @@ function PerPrayer({
     <button
       onClick={() => onChange({ [k]: !value[k] })}
       className={`rounded-full px-3 py-1 text-[11px] transition ${
-        value[k] ? "gradient-primary text-primary-foreground shadow-glow" : "border border-border bg-card text-muted-foreground"
+        value[k]
+          ? "gradient-primary text-primary-foreground shadow-glow"
+          : "border border-border bg-card text-muted-foreground"
       }`}
     >
       {l}
@@ -265,7 +360,9 @@ function PerPrayer({
         </span>
         <div>
           <div className="text-sm font-medium">{PRAYER_LABELS[p].ar}</div>
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{PRAYER_LABELS[p].en}</div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            {PRAYER_LABELS[p].en}
+          </div>
         </div>
       </div>
       <div className="flex flex-wrap justify-end gap-1.5">

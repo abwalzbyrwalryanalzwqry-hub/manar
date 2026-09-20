@@ -19,10 +19,15 @@ function Onboarding() {
   return (
     <div dir="rtl" className="flex min-h-screen flex-col bg-background">
       <div className="flex items-center justify-between px-5 pt-6">
-        <Link to="/login" className="text-xs text-muted-foreground">تخطي</Link>
+        <Link to="/login" className="text-xs text-muted-foreground">
+          تخطي
+        </Link>
         <div className="flex gap-1.5">
           {SLIDES.map((_, idx) => (
-            <span key={idx} className={`h-1.5 rounded-full transition-all ${idx === i ? "w-8 bg-primary" : "w-1.5 bg-muted"}`} />
+            <span
+              key={idx}
+              className={`h-1.5 rounded-full transition-all ${idx === i ? "w-8 bg-primary" : "w-1.5 bg-muted"}`}
+            />
           ))}
         </div>
       </div>
@@ -33,16 +38,24 @@ function Onboarding() {
           <Icon d={SLIDES[i].i} size={72} />
         </div>
         <h2 className="font-display text-4xl font-medium">{SLIDES[i].t}</h2>
-        <p className="mt-4 max-w-xs text-sm font-light leading-relaxed text-muted-foreground">{SLIDES[i].d}</p>
+        <p className="mt-4 max-w-xs text-sm font-light leading-relaxed text-muted-foreground">
+          {SLIDES[i].d}
+        </p>
       </div>
 
       <div className="px-6 pb-10">
         {last ? (
-          <Link to="/login" className="gradient-primary block rounded-full py-4 text-center text-sm font-medium text-primary-foreground shadow-glow">
+          <Link
+            to="/login"
+            className="gradient-primary block rounded-full py-4 text-center text-sm font-medium text-primary-foreground shadow-glow"
+          >
             ابدأ الآن
           </Link>
         ) : (
-          <button onClick={() => setI(i + 1)} className="gradient-primary w-full rounded-full py-4 text-sm font-medium text-primary-foreground shadow-glow">
+          <button
+            onClick={() => setI(i + 1)}
+            className="gradient-primary w-full rounded-full py-4 text-sm font-medium text-primary-foreground shadow-glow"
+          >
             التالي
           </button>
         )}

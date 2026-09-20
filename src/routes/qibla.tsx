@@ -1,6 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Arabesque, Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
+import {
+  Arabesque,
+  Icon,
+  icons,
+  Screen,
+  ScreenHeader,
+  SectionLabel,
+} from "@/components/manar/shell";
 import { LocationSheet } from "@/components/manar/location-sheet";
 import { distanceKm, qiblaBearing, useLocation } from "@/lib/prayer";
 import { toArabicDigits } from "@/lib/format";
@@ -76,8 +83,14 @@ function Qibla() {
                   const x2 = 100 + r2 * Math.sin(a);
                   const y2 = 100 - r2 * Math.cos(a);
                   return (
-                    <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
-                      stroke="white" strokeOpacity={major ? 0.5 : 0.2}
+                    <line
+                      key={i}
+                      x1={x1}
+                      y1={y1}
+                      x2={x2}
+                      y2={y2}
+                      stroke="white"
+                      strokeOpacity={major ? 0.5 : 0.2}
                       strokeWidth={major ? 1 : 0.5}
                     />
                   );
@@ -92,7 +105,13 @@ function Qibla() {
                 <span
                   key={i}
                   className={`absolute text-[11px] tracking-widest ${p.gold ? "text-gold" : "text-white/60"}`}
-                  style={{ top: p.pos.top, bottom: p.pos.bottom, right: p.pos.right, left: p.pos.left, transform: `translate(${p.pos.x}, ${p.pos.y})` }}
+                  style={{
+                    top: p.pos.top,
+                    bottom: p.pos.bottom,
+                    right: p.pos.right,
+                    left: p.pos.left,
+                    transform: `translate(${p.pos.x}, ${p.pos.y})`,
+                  }}
                 >
                   {p.l}
                 </span>
@@ -115,14 +134,18 @@ function Qibla() {
             </div>
 
             <div className="relative mt-8 text-center">
-              <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">اتجاه القِبلة</div>
+              <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">
+                اتجاه القِبلة
+              </div>
               <div className="mt-1 font-display text-5xl font-black tabular-nums leading-none">
                 {toArabicDigits(Math.round(bearing))}°
               </div>
               <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-400/20 px-3 py-1 text-[10px] text-emerald-300 ring-1 ring-emerald-400/30">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-breath" />
                 {heading == null
-                  ? location.source === "gps" ? "محسوب من موقعك" : "محسوب من المدينة المختارة"
+                  ? location.source === "gps"
+                    ? "محسوب من موقعك"
+                    : "محسوب من المدينة المختارة"
                   : "حسّاس الاتجاه نشط"}
               </div>
             </div>
@@ -132,15 +155,32 @@ function Qibla() {
 
       <SectionLabel>الموقع</SectionLabel>
       <div className="grid grid-cols-2 gap-3 px-4">
-        <InfoCard icon={icons.location} l="المدينة" v={`${location.city}${location.country ? "، " + location.country : ""}`} />
-        <InfoCard icon={icons.trend} l="المسافة" v={`${toArabicDigits(dist.toLocaleString("en-US"))} كم`} />
-        <InfoCard icon={icons.globe} l="خط الطول" v={`${toArabicDigits(location.lng.toFixed(2))}° E`} />
-        <InfoCard icon={icons.globe} l="خط العرض" v={`${toArabicDigits(location.lat.toFixed(2))}° N`} />
+        <InfoCard
+          icon={icons.location}
+          l="المدينة"
+          v={`${location.city}${location.country ? "، " + location.country : ""}`}
+        />
+        <InfoCard
+          icon={icons.trend}
+          l="المسافة"
+          v={`${toArabicDigits(dist.toLocaleString("en-US"))} كم`}
+        />
+        <InfoCard
+          icon={icons.globe}
+          l="خط الطول"
+          v={`${toArabicDigits(location.lng.toFixed(2))}° E`}
+        />
+        <InfoCard
+          icon={icons.globe}
+          l="خط العرض"
+          v={`${toArabicDigits(location.lat.toFixed(2))}° N`}
+        />
       </div>
 
       <div className="px-4 pt-4">
         <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4 text-[11px] leading-relaxed text-foreground">
-          <span className="font-medium">نصيحة:</span> ضع الجهاز على سطح مستوٍ بعيداً عن المعادن للحصول على أعلى دقة، وفعّل أذونات الاتجاه في متصفحك.
+          <span className="font-medium">نصيحة:</span> ضع الجهاز على سطح مستوٍ بعيداً عن المعادن
+          للحصول على أعلى دقة، وفعّل أذونات الاتجاه في متصفحك.
         </div>
       </div>
 

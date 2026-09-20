@@ -46,8 +46,12 @@ export function WirdProgressBar({
 
       <div className="relative flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground">الذكر الحالي</div>
-          <div className="mt-0.5 truncate font-display text-sm font-medium">{currentName ?? "—"}</div>
+          <div className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            الذكر الحالي
+          </div>
+          <div className="mt-0.5 truncate font-display text-sm font-medium">
+            {currentName ?? "—"}
+          </div>
         </div>
         <div className="shrink-0 text-left">
           <div className="font-display text-2xl font-medium tabular-nums leading-none">
@@ -63,7 +67,10 @@ export function WirdProgressBar({
       <div className="relative mt-3 h-3 overflow-hidden rounded-full border border-border/70 bg-secondary shadow-inner">
         <div
           className="gradient-gold relative h-full rounded-full shadow-glow"
-          style={{ width: `${Math.max(width * 100, width > 0 ? 4 : 0)}%`, transition: "width 700ms cubic-bezier(.22,.9,.24,1)" }}
+          style={{
+            width: `${Math.max(width * 100, width > 0 ? 4 : 0)}%`,
+            transition: "width 700ms cubic-bezier(.22,.9,.24,1)",
+          }}
         >
           <span className="absolute inset-x-0 top-0 h-1/2 rounded-full bg-white/35" />
           <span className="absolute inset-0 animate-pulse rounded-full bg-white/10" />
@@ -72,9 +79,12 @@ export function WirdProgressBar({
 
       <div className="relative mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
         <span className="tabular-nums">
-          متبقي في هذا الذكر {toArabicDigits(remaining)} · مكتمل {toArabicDigits(completedItems)}/{toArabicDigits(total)}
+          متبقي في هذا الذكر {toArabicDigits(remaining)} · مكتمل {toArabicDigits(completedItems)}/
+          {toArabicDigits(total)}
         </span>
-        <span className={saved ? "text-primary" : undefined}>{saved ? "تم حفظ التقدّم" : "سيُحفظ تقدّمك تلقائيًا"}</span>
+        <span className={saved ? "text-primary" : undefined}>
+          {saved ? "تم حفظ التقدّم" : "سيُحفظ تقدّمك تلقائيًا"}
+        </span>
       </div>
     </div>
   );
