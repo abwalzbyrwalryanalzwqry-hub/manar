@@ -126,7 +126,7 @@ function RootShell({ children }: { children: ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body data-manar-root="">
         {children}
         <Scripts />
       </body>

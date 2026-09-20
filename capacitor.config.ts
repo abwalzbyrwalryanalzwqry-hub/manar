@@ -29,10 +29,16 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchAutoHide: false,
+      // يجب أن تبقى true: لو فشل الويب في الإقلاع لأي سبب، يخفي النظام شاشة
+      // البداية تلقائيًا بدل أن يبقى التطبيق عالقًا على شاشة خضراء لا تستجيب.
+      launchAutoHide: true,
+      launchShowDuration: 2500,
+      launchFadeOutDuration: 250,
       backgroundColor: "#0B1F1A",
       androidScaleType: "CENTER_CROP",
       showSpinner: false,
+      splashFullScreen: false,
+      splashImmersive: false,
     },
     LocalNotifications: {
       smallIcon: "ic_stat_manar",

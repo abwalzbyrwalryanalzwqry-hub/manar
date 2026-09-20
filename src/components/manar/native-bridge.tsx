@@ -44,25 +44,50 @@ export function NativeBridge() {
   const [dismissed, setDismissed] = useState(true);
 
   // Back button + splash + status bar.
+  //
+  // Order and isolation matter: hiding the splash comes FIRST and every other
+  // step is wrapped on its own. Previously a single throwing plugin call (e.g.
+  // the back-button listener) aborted the whole effect before the splash was
+  // hidden, which left the app frozen on the green splash with no way back.
   useEffect(() => {
     if (!isNativeApp()) return;
 
-    const detach = setupBackButton((message) => {
-      toast(message, { duration: 1800 });
-    });
+    void hideSplash();
+    const t = setTimeout(() => void hideSplash(), 400);
 
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const syncBar = () => void applyStatusBar(media.matches);
-    syncBar();
-    media.addEventListener("change", syncBar);
+    let detach: () => void = () => {};
+    try {
+      detach = setupBackButton((message) => {
+        toast(message, { duration: 1800 });
+      });
+    } catch {
+      /* the back button falls back to Capacitor's default behaviour */
+    }
 
-    // Give the first screen one frame to paint before removing the splash.
-    const t = setTimeout(() => void hideSplash(), 350);
+    let media: MediaQueryList | null = null;
+    const syncBar = () => {
+      try {
+        void applyStatusBar(!!media?.matches);
+      } catch {
+        /* cosmetic */
+      }
+    };
+    try {
+      media = window.matchMedia("(prefers-color-scheme: dark)");
+      syncBar();
+      media.addEventListener("change", syncBar);
+    } catch {
+      /* cosmetic */
+    }
 
     return () => {
-      detach();
-      media.removeEventListener("change", syncBar);
       clearTimeout(t);
+      try {
+        detach();
+      } catch {
+        /* ignore */
+      }
+      media?.removeEventListener("change", syncBar);
     };
   }, []);
 
@@ -71,7 +96,7 @@ export function NativeBridge() {
     if (!isNativeApp()) return;
     let cancelled = false;
     void (async () => {
-      const s = await nativeAdhanStatus();
+      const s = await nativeAdhanStatus().catch(() => null);
       if (cancelled) return;
       setStatus(s);
       const alreadyDismissed = window.localStorage.getItem(DISMISS_KEY) === "1";

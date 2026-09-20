@@ -64,9 +64,9 @@ function IqamaSettings() {
             </span>
             <div>
               <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">الإقامة</div>
-              <div className="font-display text-xl">٤ أنواع إقامة فاخرة</div>
+              <div className="font-display text-xl">٤ مقاطع تنبيه للإقامة</div>
               <div className="mt-0.5 text-[11px] text-white/70">
-                ملفات صوتية حقيقية · MP3 / WAV / OGG
+                مقاطع حقيقية من مكتبة منار · MP3
               </div>
             </div>
           </div>
@@ -90,6 +90,12 @@ function IqamaSettings() {
       </div>
 
       <SectionLabel hint="انقر للاستماع">مكتبة الإقامة</SectionLabel>
+      <div className="px-4 pb-1">
+        <p className="rounded-2xl border border-gold/30 bg-gold/10 px-4 py-2.5 text-[11px] leading-relaxed text-gold">
+          لا تتضمّن الحزمة تسجيل إقامة كاملًا؛ الخيارات أدناه مقاطع حقيقية (تكبير / حي على الصلاة)
+          تُستخدم كتنبيه للإقامة، والمدة المعروضة هي مدة الملف الفعلية.
+        </p>
+      </div>
       <div className="space-y-2 px-4 stagger">
         {IQAMA_CATEGORIES.map((c) => {
           const isSel = settings.iqamaVariant === c.id;

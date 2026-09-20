@@ -13,9 +13,12 @@ import {
   type PlayOptions,
 } from "./audio-engine";
 import {
+  ADHAN_ASSETS,
   LEGACY_VARIANT_MIGRATION,
+  assetDurationLabel,
   getAdhanAsset,
   isAdhanAssetId,
+  type AdhanAsset,
   type AdhanAssetId,
 } from "./adhan-library-assets";
 
@@ -58,72 +61,82 @@ export type ReciterInfo = {
   tone: string;
 };
 
-export const RECITER_INFO: Record<Reciter, ReciterInfo> = {
-  makkah: {
-    id: "makkah",
-    name: "أذان مكة المكرمة",
-    origin: "المسجد الحرام",
-    reciter: "الشيخ علي ملا",
-    tone: "مَقام حجاز",
+/**
+ * كل مدخل هنا يوصف التسجيل المربوط فعليًا في `LEGACY_VARIANT_MIGRATION`.
+ * البيانات مشتقّة من مكتبة الأصوات نفسها — لا أسماء مؤذنين مكتوبة يدويًا —
+ * حتى لا تختلف الواجهة عن الملف الذي يُسمعه المستخدم.
+ */
+/** كلمات تدلّ على وصف للتسجيل لا على اسم مؤذّن. */
+const ROLE_WORDS = [
+  "أذان",
+  "كامل",
+  "قصير",
+  "مختصر",
+  "تكبير",
+  "تكبيرتان",
+  "خشوع",
+  "الأول",
+  "الثاني",
+  "تثويب",
+  "حي على الصلاة",
+];
+
+/** اسم المؤذّن كما يظهر في اسم الملف، أو وصف التسجيل إن لم يُسمَّ مؤذّن. */
+function reciterNameOf(a: AdhanAsset): string {
+  const dash = a.name.indexOf("—");
+  if (dash === -1) return a.name.trim();
+  const before = a.name.slice(0, dash).trim();
+  const after = a.name.slice(dash + 1).trim();
+  const isRole = (t: string) => ROLE_WORDS.some((w) => t.includes(w));
+  if (!isRole(after)) return after;
+  if (!isRole(before)) return before;
+  return before;
+}
+
+function infoFor(id: Reciter): ReciterInfo {
+  const mapped = LEGACY_VARIANT_MIGRATION[`${id}_full`];
+  const asset = mapped ? getAdhanAsset(mapped) : null;
+  if (!asset) {
+    return { id, name: "أذان", origin: "—", reciter: "—", tone: "—" };
+  }
+  return {
+    id,
+    name: asset.name,
+    origin: asset.region,
+    reciter: reciterNameOf(asset),
+    tone: `${assetDurationLabel(asset)} · ${asset.format.toUpperCase()}`,
+  };
+}
+
+export const RECITER_INFO: Record<Reciter, ReciterInfo> = RECITERS.reduce(
+  (acc, r) => {
+    acc[r] = infoFor(r);
+    return acc;
   },
-  madinah: {
-    id: "madinah",
-    name: "أذان المدينة المنوّرة",
-    origin: "المسجد النبوي",
-    reciter: "الشيخ عبدالمجيد السريحي",
-    tone: "مَقام بياتي",
-  },
-  aqsa: {
-    id: "aqsa",
-    name: "أذان المسجد الأقصى",
-    origin: "القدس الشريف",
-    reciter: "الشيخ فراس قزموز",
-    tone: "مَقام حجاز",
-  },
-  gulf: {
-    id: "gulf",
-    name: "أذان خليجي",
-    origin: "الكويت",
-    reciter: "الشيخ مشاري العفاسي",
-    tone: "مَقام نهاوند",
-  },
-  egyptian: {
-    id: "egyptian",
-    name: "أذان مصري",
-    origin: "القاهرة",
-    reciter: "الشيخ محمد رفعت",
-    tone: "مَقام صبا",
-  },
-  turkish: {
-    id: "turkish",
-    name: "أذان تركي",
-    origin: "إسطنبول",
-    reciter: "أئمة ديانت",
-    tone: "مَقام صبا",
-  },
-  hijazi: {
-    id: "hijazi",
-    name: "أذان حجازي",
-    origin: "الحجاز",
-    reciter: "تراث الحجاز",
-    tone: "مَقام حجاز",
-  },
-  yemeni: {
-    id: "yemeni",
-    name: "أذان يمني",
-    origin: "صنعاء",
-    reciter: "تراث اليمن",
-    tone: "مَقام بياتي",
-  },
-};
+  {} as Record<Reciter, ReciterInfo>,
+);
+
+/** نطاق المدد الحقيقي للتسجيلات المتوفرة لكل نمط (أقصر–أطول). */
+function styleDurationLabel(style: AdhanStyle): string {
+  const pool = ADHAN_ASSETS.filter((a) => a.slot === "adhan" && a.style === style);
+  if (!pool.length) return "—";
+  const sorted = [...pool].sort((a, b) => a.durationSec - b.durationSec);
+  const lo = assetDurationLabel(sorted[0]);
+  const hi = assetDurationLabel(sorted[sorted.length - 1]);
+  return lo === hi ? lo : `${lo} – ${hi}`;
+}
 
 export const ADHAN_STYLE_LABELS: Record<
   AdhanStyle,
   { name: string; hint: string; duration: string }
 > = {
-  full: { name: "أذان كامل", hint: "الأذان كاملاً", duration: "٣:٠٠" },
-  short: { name: "أذان مختصر", hint: "نسخة مختصرة من الأذان", duration: "١:١٠" },
-  takbir: { name: "تكبير فقط", hint: "التكبيرات الأربع فقط", duration: "٠:٢٠" },
+  full: { name: "أذان كامل", hint: "الأذان كاملاً", duration: styleDurationLabel("full") },
+  short: {
+    name: "أذان مختصر",
+    hint: "نسخة مختصرة من الأذان",
+    duration: styleDurationLabel("short"),
+  },
+  takbir: { name: "تكبير فقط", hint: "التكبيرات فقط", duration: styleDurationLabel("takbir") },
 };
 
 /* --------------------------- URL mapping ----------------------------- */
@@ -183,6 +196,9 @@ export function adhanVariantLabel(v: AdhanVariant): string {
   if (v === "fajr_first") return "الأذان الأول للفجر";
   if (v === "fajr_second") return "الأذان الثاني للفجر";
   if (v === "fajr_tathweeb") return "الصلاة خير من النوم";
+  const migrated = migrateAdhanVariant(v);
+  const migratedAsset = migrated === v ? null : getAdhanAsset(migrated);
+  if (migratedAsset) return `${migratedAsset.name} · ${migratedAsset.role}`;
   const p = parseAdhanVariant(v);
   if (!p) return "أذان";
   return `${RECITER_INFO[p.reciter].name} · ${ADHAN_STYLE_LABELS[p.style].name}`;
@@ -219,7 +235,8 @@ export function playIqama(variant: IqamaVariant, opts: AudioOptions = {}): () =>
     opts.onEnd?.();
     return () => {};
   }
-  return enginePlay(url, { ...opts, label: "الإقامة" });
+  const asset = getAdhanAsset(LEGACY_VARIANT_MIGRATION[variant] ?? "");
+  return enginePlay(url, { ...opts, label: asset ? `الإقامة · ${asset.name}` : "الإقامة" });
 }
 
 export function playReminder(opts: AudioOptions & { variant?: ReminderVariant } = {}): () => void {

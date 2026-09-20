@@ -100,7 +100,7 @@ function AdhanLibrary() {
             </div>
             <div className="mt-2 font-display text-2xl">تسجيلات أذان حقيقية</div>
             <div className="mt-1 text-xs text-white/70">
-              مكة · المدينة · الأقصى · خليجي · عام · MP3 / M4A
+              مكة · المدينة · الأقصى · خليجي · عام · MP3 أحادي
             </div>
             <div className="mt-3 rounded-2xl bg-white/10 px-3 py-2 text-[10px] leading-relaxed text-white/80">
               {ADHAN_ASSET_RIGHTS_NOTICE}

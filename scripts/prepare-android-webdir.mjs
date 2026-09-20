@@ -24,6 +24,22 @@ if (!existsSync(shell)) {
 
 copyFileSync(shell, index);
 
+// حارس الإقلاع: يُحقن كأول سكربت داخل <head> حتى يعمل قبل حزمة التطبيق (وحتى لو
+// فشلت). بدونه كان أي خطأ في الترطيب يُبقي شاشة البداية الخضراء ظاهرة للأبد،
+// لأن إخفاءها كان يحدث داخل شجرة React فقط.
+const guardSrc = readFileSync(resolve(root, "scripts/android-boot-guard.js"), "utf8");
+{
+  const html = readFileSync(index, "utf8");
+  if (!html.includes("__MANAR_BOOT__")) {
+    const tag = `<script>${guardSrc}</script>`;
+    const patched = html.includes("<head>")
+      ? html.replace("<head>", `<head>${tag}`)
+      : `${tag}${html}`;
+    writeFileSync(index, patched);
+    console.log("[manar] injected android-boot-guard.js into index.html");
+  }
+}
+
 // The native shell never talks to a server: drop the SSR bundle so it cannot be
 // shipped inside the APK by accident.
 rmSync(resolve(root, "dist/server"), { recursive: true, force: true });
