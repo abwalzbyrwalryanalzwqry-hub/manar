@@ -1,0 +1,138 @@
+apply plugin: 'com.android.application'
+
+/**
+ * Manar — release-ready Android application module.
+ *
+ * Signing credentials never live in this file or in the repository. They are
+ * read from `android/keystore.properties` (git-ignored) or, in CI, from the
+ * MANAR_KEYSTORE / MANAR_STORE_PASSWORD / MANAR_KEY_ALIAS / MANAR_KEY_PASSWORD
+ * environment variables. When neither is present the release build falls back to
+ * the debug signing config so `assembleRelease` still succeeds locally.
+ */
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+def resolvedStoreFile = keystoreProperties['storeFile'] ?: System.getenv("MANAR_KEYSTORE")
+def resolvedStorePassword = keystoreProperties['storePassword'] ?: System.getenv("MANAR_STORE_PASSWORD")
+def resolvedKeyAlias = keystoreProperties['keyAlias'] ?: System.getenv("MANAR_KEY_ALIAS")
+def resolvedKeyPassword = keystoreProperties['keyPassword'] ?: System.getenv("MANAR_KEY_PASSWORD")
+def hasReleaseSigning = resolvedStoreFile != null && rootProject.file(resolvedStoreFile).exists()
+
+android {
+    namespace "app.manar.islamic"
+    compileSdk rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        applicationId "app.manar.islamic"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // Arabic is the primary language; English is the secondary one.
+        resourceConfigurations += ["ar", "en"]
+
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile rootProject.file(resolvedStoreFile)
+                storePassword resolvedStorePassword
+                keyAlias resolvedKeyAlias
+                keyPassword resolvedKeyPassword
+                enableV1Signing true
+                enableV2Signing true
+                enableV3Signing true
+                enableV4Signing true
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
+        }
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging false
+        }
+        resources {
+            excludes += ['META-INF/LICENSE*', 'META-INF/NOTICE*', 'META-INF/*.kotlin_module']
+        }
+    }
+
+    // The bundled Adhan recordings are already compressed MP3 — let the build
+    // know so it does not try to re-compress them into the APK.
+    androidResources {
+        noCompress += ['mp3', 'woff2', 'json']
+    }
+
+    bundle {
+        language {
+            // Keep both languages in every delivered split: the user can switch
+            // the app language without a Play re-download.
+            enableSplit = false
+        }
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    // MediaSessionCompat + MediaStyle notification for the Adhan lock-screen controls.
+    implementation "androidx.media:media:$androidxMediaVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

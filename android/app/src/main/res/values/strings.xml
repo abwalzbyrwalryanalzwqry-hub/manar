@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">منار</string>
+    <string name="title_activity_main">منار</string>
+    <string name="package_name">app.manar.islamic</string>
+    <string name="custom_url_scheme">app.manar.islamic</string>
+</resources>

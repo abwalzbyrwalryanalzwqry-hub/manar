@@ -15,6 +15,7 @@ import { AdhanProvider } from "@/components/manar/adhan-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth-context";
 import { CloudSyncBridge } from "@/components/manar/cloud-sync-bridge";
+import { NativeBridge } from "@/components/manar/native-bridge";
 
 function NotFoundComponent() {
   return (
@@ -80,15 +81,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      {
+        name: "viewport",
+        content:
+          "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no",
+      },
+      { title: "منار — نور يهديك في كل وقت" },
+      {
+        name: "description",
+        content:
+          "منار: مواقيت الصلاة والأذان والقرآن الكريم والأذكار والوِرد — يعمل بالكامل دون اتصال بالإنترنت.",
+      },
+      { name: "author", content: "منار" },
+      { name: "theme-color", content: "#0B1F1A" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { property: "og:title", content: "منار — نور يهديك في كل وقت" },
+      {
+        property: "og:description",
+        content: "مواقيت الصلاة، الأذان، القرآن الكريم، الأذكار والوِرد في تطبيق واحد.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
@@ -127,6 +140,7 @@ function RootComponent() {
       <AuthProvider>
         <CloudSyncBridge />
         <AdhanProvider />
+        <NativeBridge />
         <Toaster position="top-center" dir="rtl" richColors closeButton />
         <Outlet />
       </AuthProvider>

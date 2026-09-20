@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Manar mark, drawn inside the 66dp adaptive-icon safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M54,30 L75,42 L75,66 L54,78 L33,66 L33,42 Z"
+        android:strokeColor="#C9A227"
+        android:strokeWidth="2.1"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M54,42 L66,48 L66,60 L54,66 L42,60 L42,48 Z"
+        android:strokeColor="#C9A227"
+        android:strokeWidth="1.8"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M54,50.7 a3.3,3.3 0 1,0 0.01,0 Z"
+        android:fillColor="#C9A227" />
+</vector>
