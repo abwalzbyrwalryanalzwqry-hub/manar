@@ -60,8 +60,19 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled true
-            shrinkResources true
+            // مُعطَّل بقصد في 1.0.0.
+            //
+            // R8 كلّفنا عيبين ظهرا في الإصدار فقط ولا يظهران أبدًا في التطوير:
+            //   1) shrinkResources حذف كل ملفات res/raw لأن الأذان يُحلّ وقت
+            //      التشغيل عبر getIdentifier() فبدا الأذان صامتًا.
+            //   2) minifyEnabled يعبث بجسر Capacitor ومُحمّل الأصول المحلي،
+            //      وهو أرجح سبب لشاشة «تعذّر تحميل الصفحة» بعد التثبيت.
+            //
+            // الفرق في الحجم بضعة ميغابايت فقط، ولا يستحق فشلًا لا يُشخَّص إلا
+            // على جهاز حقيقي. لا تُعِد تشغيلهما قبل اختبار الإصدار على جهاز
+            // والتأكد من: إقلاع الواجهة، صوت الأذان، وعمل كل الإضافات الأصلية.
+            minifyEnabled false
+            shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
         }

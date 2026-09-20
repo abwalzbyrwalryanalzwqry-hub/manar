@@ -16,5 +16,11 @@ public class MainActivity extends BridgeActivity {
         // Channels must exist before any notification is posted, including ones
         // posted by a broadcast receiver while the app is closed.
         ManarChannels.ensure(this);
+
+        // يحوّل صفحة خطأ WebView الإنجليزية الفارغة إلى لوحة عربية تحمل رمز
+        // الخطأ والعنوان، ويُسجّل السبب في logcat بوسم ManarBoot.
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().setWebViewClient(new ManarWebViewDiagnostics(getBridge(), this));
+        }
     }
 }
