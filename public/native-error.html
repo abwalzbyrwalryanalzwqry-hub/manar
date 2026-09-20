@@ -25,7 +25,8 @@
       h1 { color: #c9a227; font-size: 20px; margin: 0 0 14px; }
       p { font-size: 14px; line-height: 1.9; opacity: 0.85; margin: 0 0 18px; }
       pre {
-        text-align: start;
+        direction: ltr;
+        text-align: left;
         font-size: 11px;
         line-height: 1.8;
         background: rgba(255, 255, 255, 0.06);
@@ -51,7 +52,7 @@
     <div class="box">
       <h1>تعذّر تحميل منار</h1>
       <p>لم تُحمّل واجهة التطبيق. جرّب إعادة المحاولة، وإن تكرّر الأمر أرسل التفاصيل التالية للمطوّر.</p>
-      <pre id="info"></pre>
+      <pre id="info" dir="ltr"></pre>
       <button onclick="location.replace('/')">إعادة المحاولة</button>
     </div>
     <script>
