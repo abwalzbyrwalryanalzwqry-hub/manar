@@ -11,19 +11,28 @@
 import { toast } from "sonner";
 
 export type PlayOptions = {
-  volume?: number;          // 0..1
+  volume?: number; // 0..1
   onEnd?: () => void;
   onError?: (msg: string) => void;
   silentOnMissing?: boolean; // suppress toast (used for optional chains)
-  label?: string;            // human label included in error toast
+  label?: string; // human label included in error toast
 };
 
 let current: HTMLAudioElement | null = null;
 
 function teardown() {
   if (!current) return;
-  try { current.pause(); } catch { /* ignore */ }
-  try { current.src = ""; current.load(); } catch { /* ignore */ }
+  try {
+    current.pause();
+  } catch {
+    /* ignore */
+  }
+  try {
+    current.src = "";
+    current.load();
+  } catch {
+    /* ignore */
+  }
   current = null;
 }
 
@@ -61,7 +70,9 @@ export function play(url: string, opts: PlayOptions = {}): () => void {
     if (current === a) current = null;
     if (err) {
       opts.onError?.(err);
-      if (!opts.silentOnMissing) {
+      // Autoplay policy blocks (no user gesture yet) are not a missing file —
+      // never scare the user with an asset error for them.
+      if (!opts.silentOnMissing && err !== "play_blocked") {
         toast.error("ملف الصوت غير متوفر", {
           description: opts.label
             ? `يرجى إضافة الملف الصوتي لـ ${opts.label}`
@@ -91,6 +102,10 @@ function clamp(n: number, lo: number, hi: number) {
 /** Best-effort device vibration. */
 export function vibrate(pattern: number | number[]) {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-    try { navigator.vibrate(pattern); } catch { /* ignore */ }
+    try {
+      navigator.vibrate(pattern);
+    } catch {
+      /* ignore */
+    }
   }
 }

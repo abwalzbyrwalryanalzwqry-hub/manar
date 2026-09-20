@@ -43,9 +43,7 @@ export function clampPage(page: number): number {
 
 /** Surahs whose page range covers the given Mushaf page. */
 export function surahIdsOnPage(page: number): number[] {
-  return SURAH_META.filter(
-    (s) => page >= s.pages.start && page <= s.pages.end,
-  ).map((s) => s.id);
+  return SURAH_META.filter((s) => page >= s.pages.start && page <= s.pages.end).map((s) => s.id);
 }
 
 /** Hizb (1..60) that is in effect at the given page, when derivable. */
@@ -71,9 +69,7 @@ export class QuranPageService {
 
     const p = (async () => {
       const ids = surahIdsOnPage(page);
-      const texts = await Promise.all(
-        ids.map((id) => quranTextService.loadSurah(id)),
-      );
+      const texts = await Promise.all(ids.map((id) => quranTextService.loadSurah(id)));
 
       const segments: MushafSegment[] = [];
       for (const text of texts) {
@@ -87,10 +83,7 @@ export class QuranPageService {
           const first = ayahs[0];
           if (first.t.startsWith(BASMALA)) {
             showBasmala = true;
-            ayahs = [
-              { ...first, t: first.t.slice(BASMALA.length).trim() },
-              ...ayahs.slice(1),
-            ];
+            ayahs = [{ ...first, t: first.t.slice(BASMALA.length).trim() }, ...ayahs.slice(1)];
           }
         }
 

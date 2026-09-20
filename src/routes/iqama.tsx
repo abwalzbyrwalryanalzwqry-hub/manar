@@ -1,7 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Arabesque, Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
-import { ADJUSTABLE_PRAYERS, DEFAULT_IQAMA, IQAMA_CATEGORIES, useAdhanSettings } from "@/lib/adhan-settings";
+import {
+  Arabesque,
+  Icon,
+  icons,
+  Screen,
+  ScreenHeader,
+  SectionLabel,
+} from "@/components/manar/shell";
+import {
+  ADJUSTABLE_PRAYERS,
+  DEFAULT_IQAMA,
+  IQAMA_CATEGORIES,
+  useAdhanSettings,
+} from "@/lib/adhan-settings";
 import { PRAYER_LABELS, type PrayerKey } from "@/lib/prayer";
 import { toArabicDigits } from "@/lib/format";
 import { playIqama, stopAdhan, type IqamaVariant } from "@/lib/adhan-sound";
@@ -16,7 +28,11 @@ function IqamaSettings() {
   const [playing, setPlaying] = useState<IqamaVariant | null>(null);
 
   const previewIqama = (v: IqamaVariant) => {
-    if (playing === v) { stopAdhan(); setPlaying(null); return; }
+    if (playing === v) {
+      stopAdhan();
+      setPlaying(null);
+      return;
+    }
     setPlaying(v);
     playIqama(v, {
       volume: settings.volume,
@@ -26,11 +42,18 @@ function IqamaSettings() {
   };
 
   const setOffset = (p: PrayerKey, v: number) =>
-    updateDeep((s) => ({ ...s, iqamaOffsets: { ...s.iqamaOffsets, [p]: Math.max(0, Math.min(60, v)) } }));
+    updateDeep((s) => ({
+      ...s,
+      iqamaOffsets: { ...s.iqamaOffsets, [p]: Math.max(0, Math.min(60, v)) },
+    }));
 
   return (
     <Screen>
-      <ScreenHeader title="إعدادات الإقامة" subtitle="مكتبة الإقامة والفاصل بين الأذان والإقامة" backTo="/more" />
+      <ScreenHeader
+        title="إعدادات الإقامة"
+        subtitle="مكتبة الإقامة والفاصل بين الأذان والإقامة"
+        backTo="/more"
+      />
 
       <div className="px-4 animate-fade-up">
         <div className="gradient-hero relative overflow-hidden rounded-[28px] p-6 text-white shadow-elegant">
@@ -42,7 +65,9 @@ function IqamaSettings() {
             <div>
               <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">الإقامة</div>
               <div className="font-display text-xl">٤ أنواع إقامة فاخرة</div>
-              <div className="mt-0.5 text-[11px] text-white/70">ملفات صوتية حقيقية · MP3 / WAV / OGG</div>
+              <div className="mt-0.5 text-[11px] text-white/70">
+                ملفات صوتية حقيقية · MP3 / WAV / OGG
+              </div>
             </div>
           </div>
         </div>
@@ -73,7 +98,9 @@ function IqamaSettings() {
             <div
               key={c.id}
               className={`relative overflow-hidden rounded-2xl border transition ${
-                isSel ? "border-transparent gradient-primary text-primary-foreground shadow-glow" : "border-border bg-card shadow-soft"
+                isSel
+                  ? "border-transparent gradient-primary text-primary-foreground shadow-glow"
+                  : "border-border bg-card shadow-soft"
               }`}
             >
               {isSel && <Arabesque className="absolute -right-6 -top-6 h-32 w-32 text-white/15" />}
@@ -81,7 +108,9 @@ function IqamaSettings() {
                 <button
                   onClick={() => previewIqama(c.id)}
                   className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition ${
-                    isSel ? "border-white/30 bg-white/15 text-white" : "border-border bg-secondary text-primary"
+                    isSel
+                      ? "border-white/30 bg-white/15 text-white"
+                      : "border-border bg-secondary text-primary"
                   }`}
                   aria-label="استماع"
                   disabled={c.id === "silent"}
@@ -90,15 +119,23 @@ function IqamaSettings() {
                 </button>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{c.name}</div>
-                  <div className={`text-[11px] truncate ${isSel ? "text-white/70" : "text-muted-foreground"}`}>{c.hint}</div>
+                  <div
+                    className={`text-[11px] truncate ${isSel ? "text-white/70" : "text-muted-foreground"}`}
+                  >
+                    {c.hint}
+                  </div>
                 </div>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${isSel ? "bg-white/15 text-white/80" : "bg-secondary text-muted-foreground"}`}>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${isSel ? "bg-white/15 text-white/80" : "bg-secondary text-muted-foreground"}`}
+                >
                   {c.duration}
                 </span>
                 <button
                   onClick={() => update({ iqamaVariant: c.id })}
                   className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
-                    isSel ? "bg-white/20 text-white" : "border border-primary/30 bg-primary/10 text-primary"
+                    isSel
+                      ? "bg-white/20 text-white"
+                      : "border border-primary/30 bg-primary/10 text-primary"
                   }`}
                 >
                   {isSel ? "محدد" : "اختر"}
@@ -123,7 +160,9 @@ function IqamaSettings() {
                   </span>
                   <div>
                     <div className="text-sm font-medium">{PRAYER_LABELS[p].ar}</div>
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{PRAYER_LABELS[p].en}</div>
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      {PRAYER_LABELS[p].en}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -131,7 +170,9 @@ function IqamaSettings() {
                     onClick={() => setOffset(p, v - 1)}
                     className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-foreground"
                     aria-label="إنقاص"
-                  >−</button>
+                  >
+                    −
+                  </button>
                   <div className="min-w-[64px] text-center">
                     <div className="font-display text-xl tabular-nums">{toArabicDigits(v)}</div>
                     <div className="text-[10px] text-muted-foreground">دقيقة</div>
@@ -140,7 +181,9 @@ function IqamaSettings() {
                     onClick={() => setOffset(p, v + 1)}
                     className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-foreground"
                     aria-label="زيادة"
-                  >+</button>
+                  >
+                    +
+                  </button>
                 </div>
               </div>
               <input
@@ -171,7 +214,9 @@ function IqamaSettings() {
                   dir="rtl"
                 >
                   {IQAMA_CATEGORIES.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -182,7 +227,9 @@ function IqamaSettings() {
 
       <div className="mt-6 px-4">
         <button
-          onClick={() => updateDeep((s) => ({ ...s, iqamaOffsets: { ...DEFAULT_IQAMA }, perPrayerIqama: {} }))}
+          onClick={() =>
+            updateDeep((s) => ({ ...s, iqamaOffsets: { ...DEFAULT_IQAMA }, perPrayerIqama: {} }))
+          }
           className="w-full rounded-2xl border border-border bg-card py-3 text-sm shadow-soft"
         >
           استعادة القيم الافتراضية
@@ -192,15 +239,32 @@ function IqamaSettings() {
   );
 }
 
-function Toggle({ label, hint, on, onToggle }: { label: string; hint?: string; on: boolean; onToggle: () => void }) {
+function Toggle({
+  label,
+  hint,
+  on,
+  onToggle,
+}: {
+  label: string;
+  hint?: string;
+  on: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <button onClick={onToggle} className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5 text-right shadow-soft">
+    <button
+      onClick={onToggle}
+      className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5 text-right shadow-soft"
+    >
       <div>
         <div className="text-sm font-medium">{label}</div>
         {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
       </div>
-      <span className={`relative h-6 w-11 rounded-full transition ${on ? "gradient-primary" : "bg-muted"}`}>
-        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-soft transition-all ${on ? "right-0.5" : "right-[22px]"}`} />
+      <span
+        className={`relative h-6 w-11 rounded-full transition ${on ? "gradient-primary" : "bg-muted"}`}
+      >
+        <span
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-soft transition-all ${on ? "right-0.5" : "right-[22px]"}`}
+        />
       </span>
     </button>
   );

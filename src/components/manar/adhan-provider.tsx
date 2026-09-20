@@ -11,9 +11,17 @@
 import { useEffect, useRef } from "react";
 import { computePrayerTimes, PRAYER_ORDER, PRAYER_LABELS } from "@/lib/prayer";
 import { useLocation, useSettings } from "@/lib/prayer";
-import { getAdhanSettings, resolveAdhanForPrayer, resolveIqamaForPrayer } from "@/lib/adhan-settings";
+import {
+  getAdhanSettings,
+  resolveAdhanForPrayer,
+  resolveIqamaForPrayer,
+} from "@/lib/adhan-settings";
 import { playAdhan, playIqama, playReminder, vibrate, stopAdhan } from "@/lib/adhan-sound";
-import { isNativeShell, syncNativePrayerSchedule, attachNativeActionListener } from "@/lib/native-notifications";
+import {
+  isNativeShell,
+  syncNativePrayerSchedule,
+  attachNativeActionListener,
+} from "@/lib/native-notifications";
 
 type FiredKey = string;
 
@@ -27,7 +35,9 @@ function notify(title: string, body: string) {
   if (Notification.permission !== "granted") return;
   try {
     new Notification(title, { body, dir: "rtl", lang: "ar", tag: "manar-adhan" });
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 export function AdhanProvider() {
@@ -43,12 +53,18 @@ export function AdhanProvider() {
     let wake: WakeLockSentinel | null = null;
     const askWake = async () => {
       try {
-        const nav = navigator as Navigator & { wakeLock?: { request: (t: string) => Promise<WakeLockSentinel> } };
+        const nav = navigator as Navigator & {
+          wakeLock?: { request: (t: string) => Promise<WakeLockSentinel> };
+        };
         if (nav.wakeLock?.request) wake = await nav.wakeLock.request("screen");
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     };
     void askWake();
-    const onVis = () => { if (document.visibilityState === "visible") void askWake(); };
+    const onVis = () => {
+      if (document.visibilityState === "visible") void askWake();
+    };
     document.addEventListener("visibilitychange", onVis);
 
     const tick = () => {
@@ -92,7 +108,10 @@ export function AdhanProvider() {
             const k = `${dk}:fajr:first`;
             if (!firedRef.current.has(k)) {
               firedRef.current.add(k);
-              notify("الأذان الأول للفجر", `${location.city} · يتبقى ${offset} دقيقة على أذان الفجر`);
+              notify(
+                "الأذان الأول للفجر",
+                `${location.city} · يتبقى ${offset} دقيقة على أذان الفجر`,
+              );
               if (s.vibrationEnabled) vibrate([200, 100, 200]);
               if (!s.silentMode && s.soundEnabled) {
                 playAdhan(s.fajrFirstAdhanAudio, { volume: s.volume * 0.85 });
@@ -106,7 +125,10 @@ export function AdhanProvider() {
           const k = `${dk}:${p}:adhan`;
           if (!firedRef.current.has(k)) {
             firedRef.current.add(k);
-            notify(`حان الآن وقت ${PRAYER_LABELS[p].ar}`, `${location.city} · أذان ${PRAYER_LABELS[p].ar}`);
+            notify(
+              `حان الآن وقت ${PRAYER_LABELS[p].ar}`,
+              `${location.city} · أذان ${PRAYER_LABELS[p].ar}`,
+            );
             if (s.vibrationEnabled) vibrate([300, 120, 300, 120, 600]);
             if (!s.silentMode && s.soundEnabled && !isNativeShell()) {
               const variant = resolveAdhanForPrayer(s, p);
@@ -147,7 +169,11 @@ export function AdhanProvider() {
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", onVis);
       stopAdhan();
-      try { wake?.release(); } catch { /* ignore */ }
+      try {
+        wake?.release();
+      } catch {
+        /* ignore */
+      }
     };
   }, [location, calc]);
 
@@ -157,7 +183,9 @@ export function AdhanProvider() {
     if (!isNativeShell()) return;
     void attachNativeActionListener(() => stopAdhan());
     void syncNativePrayerSchedule(location, calc);
-    const onResume = () => { void syncNativePrayerSchedule(location, calc); };
+    const onResume = () => {
+      void syncNativePrayerSchedule(location, calc);
+    };
     document.addEventListener("resume", onResume);
     document.addEventListener("visibilitychange", onResume);
     return () => {
@@ -171,6 +199,11 @@ export function AdhanProvider() {
 
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
   if (typeof window === "undefined" || !("Notification" in window)) return "denied";
-  if (Notification.permission === "granted" || Notification.permission === "denied") return Notification.permission;
-  try { return await Notification.requestPermission(); } catch { return "denied"; }
+  if (Notification.permission === "granted" || Notification.permission === "denied")
+    return Notification.permission;
+  try {
+    return await Notification.requestPermission();
+  } catch {
+    return "denied";
+  }
 }

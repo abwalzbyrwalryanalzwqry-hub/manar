@@ -27,7 +27,9 @@ function More() {
   const { user, profile, isGuest, signOut } = useAuth();
   const name = profile?.full_name || user?.email?.split("@")[0] || "زائر";
   const sub = user
-    ? (profile?.created_at ? `عضو منذ ${new Date(profile.created_at).toLocaleDateString("ar", { year: "numeric", month: "long" })}` : "مرحباً بك")
+    ? profile?.created_at
+      ? `عضو منذ ${new Date(profile.created_at).toLocaleDateString("ar", { year: "numeric", month: "long" })}`
+      : "مرحباً بك"
     : "وضع الزائر — سجّل لمزامنة بياناتك";
 
   const doSignOut = async () => {
@@ -43,13 +45,20 @@ function More() {
       <div className="px-5">
         <div className="glass flex items-center gap-4 rounded-[24px] p-4 shadow-soft">
           <div className="gradient-primary flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl shadow-glow">
-            {profile?.avatar_url ? <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" /> : <Mark size={26} tone="light" />}
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <Mark size={26} tone="light" />
+            )}
           </div>
           <div className="flex-1">
             <div className="font-display text-lg font-medium">{name}</div>
             <div className="text-xs text-muted-foreground">{sub}</div>
           </div>
-          <Link to={user ? "/profile" : "/login"} className="rounded-full border border-border px-3 py-1.5 text-[11px]">
+          <Link
+            to={user ? "/profile" : "/login"}
+            className="rounded-full border border-border px-3 py-1.5 text-[11px]"
+          >
             {user ? "عرض" : "دخول"}
           </Link>
         </div>
@@ -70,7 +79,9 @@ function More() {
               <div className="text-sm font-medium">{it.l}</div>
               <div className="text-[11px] text-muted-foreground">{it.d}</div>
             </div>
-            <span className="rotate-180 text-muted-foreground"><Icon d={icons.chevron} size={16} /></span>
+            <span className="rotate-180 text-muted-foreground">
+              <Icon d={icons.chevron} size={16} />
+            </span>
           </Link>
         ))}
       </div>
@@ -78,11 +89,17 @@ function More() {
       <SectionLabel>الحساب</SectionLabel>
       <div className="px-5">
         {user ? (
-          <button onClick={doSignOut} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 py-3.5 text-sm font-medium text-destructive">
+          <button
+            onClick={doSignOut}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 py-3.5 text-sm font-medium text-destructive"
+          >
             تسجيل الخروج
           </button>
         ) : (
-          <Link to="/login" className="gradient-primary flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-medium text-primary-foreground shadow-glow">
+          <Link
+            to="/login"
+            className="gradient-primary flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-medium text-primary-foreground shadow-glow"
+          >
             {isGuest ? "تسجيل الدخول وحفظ تقدمي" : "تسجيل الدخول"}
           </Link>
         )}
@@ -90,4 +107,3 @@ function More() {
     </Screen>
   );
 }
-

@@ -13,10 +13,14 @@ export const Route = createFileRoute("/wird/list/$session")({
       { title: "أذكار الوِرد بالتفصيل — منار" },
       {
         name: "description",
-        content: "قائمة مفصّلة بأذكار الوِرد: ترتيب كل ذكر وعدد تكراره مع عدّاد نقر مباشر وتنبيه عند الإكمال.",
+        content:
+          "قائمة مفصّلة بأذكار الوِرد: ترتيب كل ذكر وعدد تكراره مع عدّاد نقر مباشر وتنبيه عند الإكمال.",
       },
       { property: "og:title", content: "أذكار الوِرد بالتفصيل — منار" },
-      { property: "og:description", content: "كل أذكار الوِرد بترتيبها وتكرارها مع عدّاد نقر وتنبيه عند اكتمال الذكر." },
+      {
+        property: "og:description",
+        content: "كل أذكار الوِرد بترتيبها وتكرارها مع عدّاد نقر وتنبيه عند اكتمال الذكر.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -40,7 +44,10 @@ function WirdListPage() {
       <Screen>
         <div className="px-5 pt-24 text-center text-sm text-muted-foreground">وِرد غير معروف.</div>
         <div className="mt-4 px-5">
-          <Link to="/wird" className="gradient-primary block rounded-2xl py-3 text-center text-sm text-primary-foreground">
+          <Link
+            to="/wird"
+            className="gradient-primary block rounded-2xl py-3 text-center text-sm text-primary-foreground"
+          >
             رجوع إلى الوِرد
           </Link>
         </div>
@@ -53,12 +60,17 @@ function WirdListPage() {
     if (now >= repeat) return;
     increment(order, repeat);
     setCurrent(order);
-    if (now + 1 >= repeat) toast.success(`تم إكمال: ${name}`, { description: `${toArabicDigits(repeat)} مرة` });
+    if (now + 1 >= repeat)
+      toast.success(`تم إكمال: ${name}`, { description: `${toArabicDigits(repeat)} مرة` });
   };
 
   return (
     <Screen>
-      <ScreenHeader title={`${wird.title} — بالتفصيل`} subtitle="كل ذكر بترتيبه وعدد تكراره" backTo="/wird" />
+      <ScreenHeader
+        title={`${wird.title} — بالتفصيل`}
+        subtitle="كل ذكر بترتيبه وعدد تكراره"
+        backTo="/wird"
+      />
 
       <div className="px-5">
         <WirdProgressBar
@@ -104,10 +116,15 @@ function WirdListPage() {
                 </span>
               </div>
 
-              <p className="mt-3 text-right font-quran text-[1.15rem] leading-[2.2] text-foreground">{it.text}</p>
+              <p className="mt-3 text-right font-quran text-[1.15rem] leading-[2.2] text-foreground">
+                {it.text}
+              </p>
 
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-secondary">
-                <div className="gradient-gold h-full transition-all duration-300" style={{ width: `${ratio * 100}%` }} />
+                <div
+                  className="gradient-gold h-full transition-all duration-300"
+                  style={{ width: `${ratio * 100}%` }}
+                />
               </div>
 
               <div className="mt-3 flex items-center gap-2">

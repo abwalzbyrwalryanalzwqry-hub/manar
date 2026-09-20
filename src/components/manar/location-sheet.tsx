@@ -58,7 +58,9 @@ export function LocationSheet({
             {status === "requesting" ? "جاري تحديد الموقع…" : "استخدم موقعي الحالي"}
           </button>
           {error && status === "denied" && (
-            <p className="mt-2 text-center text-[11px] text-destructive">{error} — يمكنك اختيار مدينتك يدوياً.</p>
+            <p className="mt-2 text-center text-[11px] text-destructive">
+              {error} — يمكنك اختيار مدينتك يدوياً.
+            </p>
           )}
         </div>
 
@@ -100,7 +102,9 @@ export function LocationSheet({
             </button>
           ))}
           {!filtered.length && (
-            <p className="px-4 py-6 text-center text-xs text-muted-foreground">لا توجد نتائج مطابقة.</p>
+            <p className="px-4 py-6 text-center text-xs text-muted-foreground">
+              لا توجد نتائج مطابقة.
+            </p>
           )}
         </div>
       </div>

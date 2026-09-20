@@ -1,5 +1,11 @@
 # Manar — Android (Capacitor) build guide
 
+> **Status note (superseded in part).** A real signed build has since been produced
+> from the `android-release-prep` branch with JDK 21 + Android SDK 35. For the
+> current, verified instructions, outputs, signing fingerprints and remaining
+> risks, read **[`README.ar.md`](./README.ar.md)** (Arabic). Sections 2, 3, 7 and 9
+> below describe the original pre-build plan and are kept for history.
+
 Manar is a web app wrapped by **Capacitor** — the single native architecture for
 this project. Do not introduce Cordova, Bubblewrap/TWA or a hand-written WebView
 shell alongside it.
@@ -122,8 +128,8 @@ cd android && ./gradlew assembleRelease      # APK
 
 Output: `android/app/build/outputs/apk/release/app-release.apk`.
 
-No APK is included in this repository, because no Android build has actually run
-here. Nothing above is a substitute for that build.
+A signed APK and AAB have now been built (see `README.ar.md`). Build artifacts are
+still not committed to the repository — only the reproducible build steps are.
 
 ## 8. Airplane-mode checklist (run on the device after installing)
 
@@ -162,5 +168,9 @@ no extra dependency and every call is a no-op in a browser.
   Adhan/Iqama so the OS sound is not doubled.
 - Notification channels expected on the native side: `manar_adhan`,
   `manar_iqama`, `manar_reminders`, `manar_silent`.
-- Sounds are referenced by bare file name; copy the needed
-  `public/audio/library/*.mp3` into `android/app/src/main/res/raw/`.
+- Sounds are referenced by bare file name; `scripts/sync-android-raw-audio.mjs`
+  copies `public/audio/library/*.mp3` into `android/app/src/main/res/raw/` during
+  `npm run build:android`.
+- `res/raw/keep.xml` (`tools:keep="@raw/*"`) is **required**: the raw sounds are
+  resolved at runtime via `getIdentifier()`, so `shrinkResources` strips all of
+  them from the release APK without it.

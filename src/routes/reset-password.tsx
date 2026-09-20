@@ -31,7 +31,10 @@ function ResetPassword() {
     const { error } = await updatePassword(password);
     setBusy(false);
     if (error) toast.error(error);
-    else { toast.success("تم تحديث كلمة المرور"); nav({ to: "/home" }); }
+    else {
+      toast.success("تم تحديث كلمة المرور");
+      nav({ to: "/home" });
+    }
   };
 
   return (
@@ -41,16 +44,24 @@ function ResetPassword() {
           <Icon d={icons.lock} size={36} />
         </div>
         <h1 className="text-center font-display text-3xl font-medium">كلمة مرور جديدة</h1>
-        <p className="mt-3 text-center text-sm text-muted-foreground">اختر كلمة مرور آمنة لحسابك.</p>
+        <p className="mt-3 text-center text-sm text-muted-foreground">
+          اختر كلمة مرور آمنة لحسابك.
+        </p>
 
         {ready && !user && (
-          <p className="mt-6 text-center text-xs text-destructive">انتهت صلاحية الرابط. اطلب رابطاً جديداً.</p>
+          <p className="mt-6 text-center text-xs text-destructive">
+            انتهت صلاحية الرابط. اطلب رابطاً جديداً.
+          </p>
         )}
 
         <form onSubmit={submit} className="mt-8 space-y-4">
           <Field label="كلمة المرور الجديدة" value={password} onChange={setPassword} />
           <Field label="تأكيد كلمة المرور" value={confirm} onChange={setConfirm} />
-          <button disabled={busy} type="submit" className="gradient-primary mt-2 block w-full rounded-2xl py-4 text-center text-sm font-medium text-primary-foreground shadow-glow disabled:opacity-60">
+          <button
+            disabled={busy}
+            type="submit"
+            className="gradient-primary mt-2 block w-full rounded-2xl py-4 text-center text-sm font-medium text-primary-foreground shadow-glow disabled:opacity-60"
+          >
             {busy ? "جاري الحفظ…" : "حفظ كلمة المرور"}
           </button>
         </form>
@@ -59,13 +70,29 @@ function ResetPassword() {
   );
 }
 
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function Field({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
     <label className="block">
       <span className="mb-2 block text-xs font-medium">{label}</span>
       <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft">
-        <span className="text-muted-foreground"><Icon d={icons.lock} size={18} /></span>
-        <input type="password" value={value} onChange={(e) => onChange(e.target.value)} placeholder="••••••••" className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60" />
+        <span className="text-muted-foreground">
+          <Icon d={icons.lock} size={18} />
+        </span>
+        <input
+          type="password"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="••••••••"
+          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+        />
       </div>
     </label>
   );

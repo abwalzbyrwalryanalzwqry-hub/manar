@@ -10,7 +10,10 @@ export const Route = createFileRoute("/azkar/group/$group")({
   head: () => ({
     meta: [
       { title: "أبواب الأذكار — منار" },
-      { name: "description", content: "أبواب حصن المسلم داخل القسم مع عدد الأذكار وتقدّمك في كل باب." },
+      {
+        name: "description",
+        content: "أبواب حصن المسلم داخل القسم مع عدد الأذكار وتقدّمك في كل باب.",
+      },
       { property: "og:title", content: "أبواب الأذكار — منار" },
       { property: "og:description", content: "استعرض أبواب القسم من حصن المسلم وتابع تقدّمك." },
       { property: "og:type", content: "website" },
@@ -26,7 +29,10 @@ function GroupChapters() {
   const { progress } = useAzkarProgress();
 
   const info = useMemo(() => book?.groups.find((g) => g.id === group), [book, group]);
-  const chapters = useMemo(() => book?.chapters.filter((c) => c.group === group) ?? [], [book, group]);
+  const chapters = useMemo(
+    () => book?.chapters.filter((c) => c.group === group) ?? [],
+    [book, group],
+  );
 
   return (
     <Screen>

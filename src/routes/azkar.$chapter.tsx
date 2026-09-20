@@ -9,14 +9,22 @@ import { formatArTime, toArabicDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/azkar/$chapter")({
   validateSearch: (search: Record<string, unknown>) => ({
-    zikr: search.zikr != null && !Number.isNaN(Number(search.zikr)) ? Number(search.zikr) : undefined,
+    zikr:
+      search.zikr != null && !Number.isNaN(Number(search.zikr)) ? Number(search.zikr) : undefined,
   }),
   head: () => ({
     meta: [
       { title: "جلسة الأذكار — منار" },
-      { name: "description", content: "جلسة أذكار متسلسلة من حصن المسلم: ذكر واحد في كل شاشة مع عدّاد تكرار وانتقال تلقائي." },
+      {
+        name: "description",
+        content:
+          "جلسة أذكار متسلسلة من حصن المسلم: ذكر واحد في كل شاشة مع عدّاد تكرار وانتقال تلقائي.",
+      },
       { property: "og:title", content: "جلسة الأذكار — منار" },
-      { property: "og:description", content: "اقرأ أذكار الباب ذكرًا بعد ذكر مع عدّاد تكرار وحفظ تلقائي للتقدّم." },
+      {
+        property: "og:description",
+        content: "اقرأ أذكار الباب ذكرًا بعد ذكر مع عدّاد تكرار وحفظ تلقائي للتقدّم.",
+      },
       { property: "og:type", content: "article" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -45,7 +53,6 @@ function AzkarSession() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const advancing = useRef(false);
   const savedTimer = useRef<number | null>(null);
-
 
   const backTo = chapter ? `/azkar/group/${chapter.group}` : "/azkar";
 
@@ -137,7 +144,6 @@ function AzkarSession() {
       }, 900);
     }
   }, [current, count, tap, flashSaved, index, azkar.length, goTo, finish]);
-
 
   // ---- intentional horizontal swipe with direction locking ----
   const touch = useRef<{ x: number; y: number; lock: "none" | "x" | "y" } | null>(null);
@@ -236,7 +242,11 @@ function AzkarSession() {
               }`}
             >
               <Icon d={icons.check} size={13} />
-              {saved ? "تم حفظ التقدّم" : updatedLabel ? `آخر تحديث ${updatedLabel}` : "الحفظ تلقائي"}
+              {saved
+                ? "تم حفظ التقدّم"
+                : updatedLabel
+                  ? `آخر تحديث ${updatedLabel}`
+                  : "الحفظ تلقائي"}
             </span>
           </div>
         </div>
@@ -281,7 +291,8 @@ function AzkarSession() {
             </span>
             <div className="relative mt-4 font-display text-lg">إعادة أذكار هذا الباب؟</div>
             <p className="relative mt-2 text-[12px] leading-relaxed text-muted-foreground">
-              سيتم تصفير عدّادات {toArabicDigits(azkar.length)} ذكرًا في «{chapter.title}» فقط، والبدء من الذكر الأول.
+              سيتم تصفير عدّادات {toArabicDigits(azkar.length)} ذكرًا في «{chapter.title}» فقط،
+              والبدء من الذكر الأول.
               <br />
               لن يتأثّر تقدّمك في أي باب آخر، ولا الأذكار المحفوظة.
             </p>
@@ -303,10 +314,13 @@ function AzkarSession() {
         </div>
       )}
 
-
-
       {chapter && current && !finished && (
-        <div className="px-4" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+        <div
+          className="px-4"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
           <div
             key={current.id}
             className={`glass relative overflow-hidden rounded-[32px] p-5 ${dir === 1 ? "animate-fade-up" : "animate-fade-up"}`}
@@ -345,12 +359,17 @@ function AzkarSession() {
             </div>
 
             {/* current zikr — the only scrollable area */}
-            <div ref={scrollRef} className="relative mt-4 max-h-[46vh] overflow-y-auto pl-1 overscroll-contain">
+            <div
+              ref={scrollRef}
+              className="relative mt-4 max-h-[46vh] overflow-y-auto pl-1 overscroll-contain"
+            >
               <p className="text-right font-display text-[22px] leading-[2.15]">{current.text}</p>
 
               {chapter.references.length > 0 && (
                 <div className="mt-5 rounded-2xl border border-border/60 bg-background/50 p-3">
-                  <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">التخريج</div>
+                  <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                    التخريج
+                  </div>
                   <ul className="mt-1.5 space-y-1 text-[11px] leading-relaxed text-muted-foreground">
                     {chapter.references.map((r, i) => (
                       <li key={i}>{r}</li>
@@ -362,7 +381,9 @@ function AzkarSession() {
 
             {/* counter */}
             <div className="relative mt-5 flex flex-col items-center">
-              <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">التكرار</span>
+              <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                التكرار
+              </span>
               <button
                 onClick={onTap}
                 className={`mt-2 flex h-24 w-24 flex-col items-center justify-center rounded-full gradient-primary text-primary-foreground shadow-glow transition active:scale-95 ${
@@ -370,9 +391,13 @@ function AzkarSession() {
                 }`}
               >
                 <span className="font-display text-2xl tabular-nums">{toArabicDigits(count)}</span>
-                <span className="text-[11px] tabular-nums opacity-80">من {toArabicDigits(current.repeat)}</span>
+                <span className="text-[11px] tabular-nums opacity-80">
+                  من {toArabicDigits(current.repeat)}
+                </span>
               </button>
-              <span className="mt-2 text-[10px] text-muted-foreground">اضغط للعدّ · ينتقل تلقائيًا عند الإتمام</span>
+              <span className="mt-2 text-[10px] text-muted-foreground">
+                اضغط للعدّ · ينتقل تلقائيًا عند الإتمام
+              </span>
             </div>
 
             {/* manual navigation */}
@@ -382,7 +407,9 @@ function AzkarSession() {
                 disabled={index === 0}
                 className="flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs text-foreground disabled:opacity-40"
               >
-                <span className="rotate-180"><Icon d={icons.back} size={14} /></span>
+                <span className="rotate-180">
+                  <Icon d={icons.back} size={14} />
+                </span>
                 السابق
               </button>
               <button
@@ -412,7 +439,6 @@ function AzkarSession() {
           </div>
         </div>
       )}
-
     </Screen>
   );
 }

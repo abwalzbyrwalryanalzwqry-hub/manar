@@ -1,16 +1,30 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAzkarBook } from "@/hooks/use-azkar";
 import { useAzkarProgress } from "@/lib/azkar/progress";
-import { Arabesque, Icon, icons, Screen, ScreenHeader, SectionLabel, Skeleton } from "@/components/manar/shell";
+import {
+  Arabesque,
+  Icon,
+  icons,
+  Screen,
+  ScreenHeader,
+  SectionLabel,
+  Skeleton,
+} from "@/components/manar/shell";
 import { toArabicDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/_tabs/azkar")({
   head: () => ({
     meta: [
       { title: "الأذكار — منار" },
-      { name: "description", content: "أذكار حصن المسلم كاملة بأقسامها مع عدّاد لكل ذكر وبحث ذكي." },
+      {
+        name: "description",
+        content: "أذكار حصن المسلم كاملة بأقسامها مع عدّاد لكل ذكر وبحث ذكي.",
+      },
       { property: "og:title", content: "الأذكار — منار" },
-      { property: "og:description", content: "حصن المسلم كاملًا: ١٣٢ بابًا و٢٦٧ ذكرًا مع عدّاد وبحث ذكي." },
+      {
+        property: "og:description",
+        content: "حصن المسلم كاملًا: ١٣٢ بابًا و٢٦٧ ذكرًا مع عدّاد وبحث ذكي.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -46,7 +60,11 @@ function AzkarHub() {
     <Screen>
       <ScreenHeader
         title="الأذكار"
-        subtitle={book ? `${toArabicDigits(book.chapters.length)} بابًا · ${toArabicDigits(267)} ذكرًا` : "حصن المسلم"}
+        subtitle={
+          book
+            ? `${toArabicDigits(book.chapters.length)} بابًا · ${toArabicDigits(267)} ذكرًا`
+            : "حصن المسلم"
+        }
       />
 
       {/* Hero */}
@@ -69,7 +87,10 @@ function AzkarHub() {
           </div>
           <div className="relative mt-6 flex items-center gap-3">
             <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
-              <div className="gradient-gold h-full" style={{ width: `${Math.min(100, (progress.completed.length / 267) * 100)}%` }} />
+              <div
+                className="gradient-gold h-full"
+                style={{ width: `${Math.min(100, (progress.completed.length / 267) * 100)}%` }}
+              />
             </div>
             <span className="text-[10px] tabular-nums text-white/70">
               {toArabicDigits(progress.completed.length)} ذكر اليوم
@@ -117,10 +138,15 @@ function AzkarHub() {
         </Link>
       </div>
 
-      <SectionLabel hint={book ? `${toArabicDigits(book.groups.length)} أقسام` : undefined}>أقسام الأذكار</SectionLabel>
+      <SectionLabel hint={book ? `${toArabicDigits(book.groups.length)} أقسام` : undefined}>
+        أقسام الأذكار
+      </SectionLabel>
 
       <div className="grid grid-cols-2 gap-3 px-5 stagger">
-        {loading && Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-3xl" />)}
+        {loading &&
+          Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-40 rounded-3xl" />
+          ))}
         {book?.groups.map((g, idx) => {
           const chapters = book.chapters.filter((c) => c.group === g.id);
           const count = chapters.reduce((n, c) => n + c.azkar.length, 0);
@@ -187,11 +213,17 @@ function AzkarCard({
       className="group relative flex h-40 flex-col justify-between overflow-hidden rounded-3xl border border-border/60 bg-card/70 p-4 text-right shadow-soft backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-elegant"
     >
       <Arabesque className="pointer-events-none absolute -bottom-8 -left-8 h-32 w-32 text-primary/10 opacity-70" />
-      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${accentClasses[accent]}`} />
+      <div
+        className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${accentClasses[accent]}`}
+      />
       <div className="relative flex items-start justify-between">
         <span
           className={`flex h-11 w-11 items-center justify-center rounded-2xl border border-border/60 bg-background/70 shadow-soft ${
-            accent === "gold" ? "text-gold" : accent === "primary" ? "text-primary" : "text-foreground"
+            accent === "gold"
+              ? "text-gold"
+              : accent === "primary"
+                ? "text-primary"
+                : "text-foreground"
           }`}
         >
           <Icon d={icons[iconKey]} size={20} />

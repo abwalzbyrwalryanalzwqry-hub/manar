@@ -1,8 +1,8 @@
 import { Icon, icons } from "@/components/manar/shell";
 import { toArabicDigits } from "@/lib/quran";
 import { useReadingPrefs } from "@/lib/quran/reading-prefs";
-import type { SurahText } from "@/lib/quran/text-types";
-import { useEffect, useState } from "react";
+import type { AyahText, SurahText } from "@/lib/quran/text-types";
+import { useEffect, useRef, useState } from "react";
 
 interface Props {
   surahId: number;
@@ -12,6 +12,12 @@ interface Props {
     | { status: "ready"; data: SurahText; error: undefined }
     | { status: "error"; data: undefined; error: Error };
   onRetry: () => void;
+  /** Ayah to highlight and scroll into view. */
+  activeAyah?: number | null;
+  /** Tapping an ayah opens the actions sheet in the reader. */
+  onAyahTap?: (ayah: AyahText) => void;
+  /** Ayah currently being recited — highlighted in emerald. */
+  playingAyah?: number | null;
 }
 
 /** Canonical Basmala, as authored in the Uthmani dataset. */
@@ -21,11 +27,28 @@ const BASMALA = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّ
  * Renders a Surah's Uthmani text inside the reading container.
  * Text comes from the QuranTextService — never hardcoded.
  */
-export function SurahRenderer({ surahId, surahNameAr, state, onRetry }: Props) {
+export function SurahRenderer({
+  surahId,
+  surahNameAr,
+  state,
+  onRetry,
+  activeAyah,
+  onAyahTap,
+  playingAyah,
+}: Props) {
   // Force fade animation on surah change
   const [tick, setTick] = useState(0);
   useEffect(() => setTick((t) => t + 1), [surahId]);
   const { style } = useReadingPrefs();
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Bring the requested (or currently recited) ayah into view.
+  const focusAyah = playingAyah ?? activeAyah ?? null;
+  useEffect(() => {
+    if (!focusAyah || state.status !== "ready") return;
+    const node = containerRef.current?.querySelector(`[data-ayah="${focusAyah}"]`);
+    node?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusAyah, state.status, surahId]);
 
   if (state.status === "loading") {
     return <ReaderLoading nameAr={surahNameAr} />;
@@ -55,7 +78,7 @@ export function SurahRenderer({ surahId, surahNameAr, state, onRetry }: Props) {
   }
 
   return (
-    <div key={tick} className="animate-fade-up">
+    <div key={tick} ref={containerRef} className="animate-fade-up">
       {/* Ornamental surah header */}
       <div className="mb-7 flex flex-col items-center gap-2 text-center">
         <div className="flex items-center gap-3">
@@ -65,9 +88,7 @@ export function SurahRenderer({ surahId, surahNameAr, state, onRetry }: Props) {
           </span>
           <span className="h-px w-10 bg-gold/40" />
         </div>
-        <div className="font-display text-3xl font-medium leading-none">
-          {surahNameAr}
-        </div>
+        <div className="font-display text-3xl font-medium leading-none">{surahNameAr}</div>
         {showBasmalaHeader && (
           <div
             className="mt-5 text-[1.35em] leading-[2.1] text-foreground/90"
@@ -96,18 +117,46 @@ export function SurahRenderer({ surahId, surahNameAr, state, onRetry }: Props) {
           }}
           lang="ar"
         >
-          {ayahs.map((a) => (
-            <span key={a.n} className="inline">
-              <span>{a.t}</span>
+          {ayahs.map((a) => {
+            const isActive = activeAyah === a.n;
+            const isPlaying = playingAyah === a.n;
+            const highlight = isPlaying
+              ? "rounded-lg bg-primary/15 shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
+              : isActive
+                ? "rounded-lg bg-gold/15 shadow-[0_0_0_1px_rgba(201,162,39,0.45)]"
+                : "";
+            return (
               <span
-                className="mx-1.5 inline-flex h-8 min-w-8 select-none items-center justify-center rounded-full border border-gold/50 bg-gold/15 px-1 align-middle text-[13px] font-medium leading-none tabular-nums text-gold"
+                key={a.n}
+                data-ayah={a.n}
+                role={onAyahTap ? "button" : undefined}
+                tabIndex={onAyahTap ? 0 : undefined}
+                onClick={onAyahTap ? () => onAyahTap(a) : undefined}
+                onKeyDown={
+                  onAyahTap
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onAyahTap(a);
+                        }
+                      }
+                    : undefined
+                }
                 aria-label={`آية ${a.n}`}
-                title={`آية ${a.n}`}
+                className={`inline transition-colors duration-300 ${highlight} ${
+                  onAyahTap ? "cursor-pointer" : ""
+                }`}
               >
-                {toArabicDigits(a.n)}
-              </span>{" "}
-            </span>
-          ))}
+                <span>{a.t}</span>
+                <span
+                  className="mx-1.5 inline-flex h-8 min-w-8 select-none items-center justify-center rounded-full border border-gold/50 bg-gold/15 px-1 align-middle text-[13px] font-medium leading-none tabular-nums text-gold"
+                  title={`آية ${a.n}`}
+                >
+                  {toArabicDigits(a.n)}
+                </span>{" "}
+              </span>
+            );
+          })}
         </p>
       </div>
 
@@ -152,6 +201,12 @@ function ReaderError({
 }: {
   error: Error;
   onRetry: () => void;
+  /** Ayah to highlight and scroll into view. */
+  activeAyah?: number | null;
+  /** Tapping an ayah opens the actions sheet in the reader. */
+  onAyahTap?: (ayah: AyahText) => void;
+  /** Ayah currently being recited — highlighted in emerald. */
+  playingAyah?: number | null;
 }) {
   return (
     <div className="flex flex-col items-center gap-3 py-10 text-center">

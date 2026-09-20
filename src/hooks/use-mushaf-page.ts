@@ -1,9 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  clampPage,
-  quranPageService,
-  type MushafPage,
-} from "@/lib/quran/page-service";
+import { clampPage, quranPageService, type MushafPage } from "@/lib/quran/page-service";
 
 export type MushafPageState =
   | { status: "loading"; data: undefined; error: undefined }

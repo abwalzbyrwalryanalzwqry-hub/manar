@@ -25,13 +25,10 @@ export function MushafPageRenderer({ page, state, onRetry }: Props) {
   const { style } = useReadingPrefs();
 
   if (state.status === "loading") return <PageLoading page={page} />;
-  if (state.status === "error")
-    return <PageError error={state.error} onRetry={onRetry} />;
+  if (state.status === "error") return <PageError error={state.error} onRetry={onRetry} />;
 
   const { segments, juz } = state.data;
-  const headSurahs = segments
-    .map((s) => bareSurahNameAr(s.nameAr))
-    .join("  ");
+  const headSurahs = segments.map((s) => bareSurahNameAr(s.nameAr)).join("  ");
 
   return (
     <div className="flex h-full w-full flex-col" dir="rtl">
@@ -47,12 +44,7 @@ export function MushafPageRenderer({ page, state, onRetry }: Props) {
         deps={`${page}|${style.fontSizePx}|${style.lineHeight}|${style.fontFamily}`}
       >
         {segments.map((seg, i) => (
-          <Segment
-            key={`${seg.surahId}-${i}`}
-            seg={seg}
-            style={style}
-            first={i === 0}
-          />
+          <Segment key={`${seg.surahId}-${i}`} seg={seg} style={style} first={i === 0} />
         ))}
       </FitToPage>
 
@@ -71,13 +63,7 @@ export function MushafPageRenderer({ page, state, onRetry }: Props) {
  * (CSS var `--fit`) through a short synchronous convergence loop, so a page is
  * always shown complete — no clipping, no scrolling.
  */
-function FitToPage({
-  children,
-  deps,
-}: {
-  children: React.ReactNode;
-  deps: string;
-}) {
+function FitToPage({ children, deps }: { children: React.ReactNode; deps: string }) {
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
 
@@ -271,9 +257,7 @@ function PageLoading({ page }: { page: number }) {
       <span className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.3em] text-gold">
         جارٍ التحميل
       </span>
-      <div className="font-display text-lg text-foreground/80">
-        صفحة {toArabicDigits(page)}
-      </div>
+      <div className="font-display text-lg text-foreground/80">صفحة {toArabicDigits(page)}</div>
       <div className="mt-2 grid w-full gap-3">
         {[0, 1, 2, 3, 4, 5, 6].map((i) => (
           <div

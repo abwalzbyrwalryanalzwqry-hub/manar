@@ -8,35 +8,12 @@
    MANAR (منار) — Luxury Islamic Design System
    ============================================ */
 
-/* Thmanyah Serif Text — Official font family */
-@font-face {
-  font-family: "Thmanyah";
-  font-style: normal;
-  font-weight: 300;
-  font-display: swap;
-  src: url("/__l5e/assets-v1/5e760df1-629f-40ad-8d60-1cbddd2fa59d/thmanyah-Light.otf") format("opentype");
-}
-@font-face {
-  font-family: "Thmanyah";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/__l5e/assets-v1/e4e0f146-c07c-434b-a176-c522dba57592/thmanyah-Regular.otf") format("opentype");
-}
-@font-face {
-  font-family: "Thmanyah";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/__l5e/assets-v1/96feed22-7b5c-49a3-99cc-138bb6189e38/thmanyah-Medium.otf") format("opentype");
-}
-@font-face {
-  font-family: "Thmanyah";
-  font-style: normal;
-  font-weight: 900;
-  font-display: swap;
-  src: url("/__l5e/assets-v1/1295fa49-e4b2-4d15-8ca4-8c80501866ba/thmanyah-Black.otf") format("opentype");
-}
+/* ------------------------------------------------------------
+   Interface font — IBM Plex Sans Arabic (SIL OFL 1.1), self-hosted
+   at /fonts/ui-fonts.css so every screen renders identically while
+   completely offline (the previous Thmanyah files were served from
+   an external host and never shipped inside the APK).
+   ------------------------------------------------------------ */
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
@@ -47,9 +24,9 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 20px);
 
-  --font-sans: "Thmanyah", "IBM Plex Sans Arabic", "Inter", system-ui, sans-serif;
-  --font-display: "Thmanyah", "Amiri", serif;
-  --font-arabic: "Thmanyah", "Cairo", "Tajawal", sans-serif;
+  --font-sans: "IBM Plex Sans Arabic", "Noto Naskh Arabic", system-ui, sans-serif;
+  --font-display: "Scheherazade New", "Amiri Quran", "IBM Plex Sans Arabic", serif;
+  --font-arabic: "IBM Plex Sans Arabic", "Noto Naskh Arabic", sans-serif;
   --font-quran: "Amiri Quran", "Scheherazade New", "Traditional Arabic", "KFGQPC Uthmanic Hafs", serif;
 
   --color-background: var(--background);

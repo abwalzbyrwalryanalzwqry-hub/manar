@@ -1,5 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Arabesque, Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
+import {
+  Arabesque,
+  Icon,
+  icons,
+  Screen,
+  ScreenHeader,
+  SectionLabel,
+} from "@/components/manar/shell";
 
 export const Route = createFileRoute("/calendar")({
   head: () => ({ meta: [{ title: "التقويم — منار" }] }),
@@ -29,14 +36,18 @@ function CalendarScreen() {
           <div className="relative flex items-center justify-between">
             <div>
               <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">اليوم</div>
-              <div className="mt-1 font-display text-5xl font-black tabular-nums leading-none">١٥</div>
+              <div className="mt-1 font-display text-5xl font-black tabular-nums leading-none">
+                ١٥
+              </div>
               <div className="mt-1 font-display text-base font-light text-white/90">شعبان ١٤٤٧</div>
               <div className="text-[11px] text-white/60">الخميس · 11 يونيو 2026</div>
             </div>
             <div className="text-right text-[11px] text-white/70">
               <div>الفجر · ٠٤:٣٢</div>
               <div>المغرب · ١٨:٥٨</div>
-              <div className="mt-2 inline-flex rounded-full bg-gold/90 px-2.5 py-0.5 text-[10px] text-navy">صيام</div>
+              <div className="mt-2 inline-flex rounded-full bg-gold/90 px-2.5 py-0.5 text-[10px] text-navy">
+                صيام
+              </div>
             </div>
           </div>
         </div>
@@ -54,12 +65,18 @@ function CalendarScreen() {
               <div className="text-[10px] text-muted-foreground">يونيو 2026</div>
             </div>
             <button className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground">
-              <span className="rotate-180"><Icon d={icons.chevron} size={14} /></span>
+              <span className="rotate-180">
+                <Icon d={icons.chevron} size={14} />
+              </span>
             </button>
           </div>
 
           <div className="mt-5 grid grid-cols-7 gap-1 text-center text-[10px] text-muted-foreground">
-            {DAY_LABELS.map((d) => <div key={d} className="py-1">{d}</div>)}
+            {DAY_LABELS.map((d) => (
+              <div key={d} className="py-1">
+                {d}
+              </div>
+            ))}
           </div>
           <div className="mt-1 grid grid-cols-7 gap-1">
             {Array.from({ length: 30 }, (_, i) => i + 1).map((d) => {
@@ -76,7 +93,11 @@ function CalendarScreen() {
                 >
                   <div className="flex h-full flex-col items-center justify-center">
                     <span className="text-xs font-medium tabular-nums">{d}</span>
-                    {e && <span className={`mt-0.5 h-1 w-1 rounded-full ${isToday ? "bg-white" : e.color}`} />}
+                    {e && (
+                      <span
+                        className={`mt-0.5 h-1 w-1 rounded-full ${isToday ? "bg-white" : e.color}`}
+                      />
+                    )}
                   </div>
                 </button>
               );
@@ -94,12 +115,38 @@ function CalendarScreen() {
       <SectionLabel hint="٣ قادمة">المناسبات القادمة</SectionLabel>
       <div className="space-y-2 px-4 stagger">
         {[
-          { d: "١", m: "رمضان", g: "27 يونيو", t: "بداية شهر رمضان", days: "بعد ١٢ يوم", c: "gradient-primary" },
-          { d: "٢٧", m: "رمضان", g: "23 يوليو", t: "ليلة القدر (مرجح)", days: "بعد ٣٨ يوم", c: "gradient-gold" },
-          { d: "١", m: "شوال", g: "31 يوليو", t: "عيد الفطر", days: "بعد ٤٦ يوم", c: "gradient-night" },
+          {
+            d: "١",
+            m: "رمضان",
+            g: "27 يونيو",
+            t: "بداية شهر رمضان",
+            days: "بعد ١٢ يوم",
+            c: "gradient-primary",
+          },
+          {
+            d: "٢٧",
+            m: "رمضان",
+            g: "23 يوليو",
+            t: "ليلة القدر (مرجح)",
+            days: "بعد ٣٨ يوم",
+            c: "gradient-gold",
+          },
+          {
+            d: "١",
+            m: "شوال",
+            g: "31 يوليو",
+            t: "عيد الفطر",
+            days: "بعد ٤٦ يوم",
+            c: "gradient-night",
+          },
         ].map((e) => (
-          <div key={e.t} className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-soft">
-            <div className={`flex h-16 w-14 flex-col items-center justify-center rounded-2xl ${e.c} text-white shadow-soft`}>
+          <div
+            key={e.t}
+            className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-soft"
+          >
+            <div
+              className={`flex h-16 w-14 flex-col items-center justify-center rounded-2xl ${e.c} text-white shadow-soft`}
+            >
               <span className="font-display text-xl font-black leading-none">{e.d}</span>
               <span className="mt-1 text-[9px] opacity-80">{e.m}</span>
             </div>
@@ -109,7 +156,9 @@ function CalendarScreen() {
                 <Icon d={icons.calendar} size={11} /> {e.g} · {e.days}
               </div>
             </div>
-            <span className="rotate-180 text-muted-foreground"><Icon d={icons.chevron} size={14} /></span>
+            <span className="rotate-180 text-muted-foreground">
+              <Icon d={icons.chevron} size={14} />
+            </span>
           </div>
         ))}
       </div>

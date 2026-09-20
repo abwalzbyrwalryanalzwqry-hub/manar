@@ -4,29 +4,35 @@ import { SurahRenderer } from "@/components/manar/surah-renderer";
 import { MushafPageRenderer } from "@/components/manar/mushaf-page-renderer";
 import { useSurahText } from "@/hooks/use-surah-text";
 import { useMushafPage } from "@/hooks/use-mushaf-page";
-import {
-  clampPage,
-  MUSHAF_PAGE_COUNT,
-  quranPageService,
-} from "@/lib/quran/page-service";
+import { clampPage, MUSHAF_PAGE_COUNT, quranPageService } from "@/lib/quran/page-service";
 import { Arabesque, Icon, icons } from "@/components/manar/shell";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  quranRepository,
-  toArabicDigits,
-  REVELATION_LABEL_AR,
-  formatRangeAr,
-} from "@/lib/quran";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { quranRepository, toArabicDigits, REVELATION_LABEL_AR, formatRangeAr } from "@/lib/quran";
 import { formatRelativeArabic, useReaderState } from "@/lib/quran-reader-state";
+import { isBookmarked, toggleBookmark, useBookmarks } from "@/lib/quran/bookmarks";
+import { recordRead } from "@/lib/quran/reading-history";
+import { buildShareText, shareCardText } from "@/lib/quran/share-card";
+import type { AyahText } from "@/lib/quran/text-types";
 
-
+/** Deep links: /quran/mushaf?surah=2&ayah=255 or ?page=300&mode=mushaf */
 export const Route = createFileRoute("/quran/mushaf")({
   head: () => ({ meta: [{ title: "المصحف — منار" }] }),
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { surah?: number; ayah?: number; page?: number; mode?: "surah" | "mushaf" } => {
+    const num = (v: unknown) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined;
+    };
+    const mode =
+      search.mode === "mushaf" ? "mushaf" : search.mode === "surah" ? "surah" : undefined;
+    return {
+      surah: num(search.surah),
+      ayah: num(search.ayah),
+      page: num(search.page),
+      mode,
+    };
+  },
   component: MushafReader,
 });
 
@@ -35,7 +41,30 @@ const JUZ_LIST_META = quranRepository.listJuz();
 
 function MushafReader() {
   const navigate = useNavigate();
+  const params = Route.useSearch();
   const [state, update] = useReaderState();
+  const [targetAyah, setTargetAyah] = useState<number | null>(params.ayah ?? null);
+  const [sheetAyah, setSheetAyah] = useState<AyahText | null>(null);
+  const appliedRef = useRef(false);
+
+  // Apply incoming deep-link parameters once.
+  useEffect(() => {
+    if (appliedRef.current) return;
+    appliedRef.current = true;
+    const patch: Parameters<typeof update>[0] = {};
+    if (params.surah && params.surah >= 1 && params.surah <= 114) {
+      patch.surah = params.surah;
+      patch.mode = params.mode ?? "surah";
+    }
+    if (params.page) {
+      patch.page = clampPage(params.page);
+      patch.mode = params.mode ?? "mushaf";
+    }
+    if (params.mode) patch.mode = params.mode;
+    if (Object.keys(patch).length) update(patch);
+    if (params.ayah) setTargetAyah(params.ayah);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [showMore, setShowMore] = useState(false);
   const [surahOpen, setSurahOpen] = useState(false);
   const [juzOpen, setJuzOpen] = useState(false);
@@ -48,10 +77,8 @@ function MushafReader() {
     }
   }, [state.surah, update]);
 
-  const activeSurah =
-    quranRepository.getSurah(state.surah) ?? quranRepository.getSurah(1)!;
-  const activeJuz =
-    quranRepository.getJuz(state.juz) ?? quranRepository.getJuz(1)!;
+  const activeSurah = quranRepository.getSurah(state.surah) ?? quranRepository.getSurah(1)!;
+  const activeJuz = quranRepository.getJuz(state.juz) ?? quranRepository.getJuz(1)!;
   const detail = quranRepository.getSurahDetail(activeSurah.id);
 
   // In Mushaf mode the header follows the page being read, like a printed Mushaf.
@@ -62,7 +89,6 @@ function MushafReader() {
     const onPage = list.filter((s) => s.pages.start <= p && s.pages.end >= p);
     return onPage[onPage.length - 1] ?? activeSurah;
   }, [state.mode, state.page, activeSurah]);
-
 
   const filteredSurahs = useMemo(() => {
     const q = query.trim();
@@ -79,7 +105,6 @@ function MushafReader() {
   const progressPercent = Math.round((state.juz / 30) * 100);
   const isSurahMode = state.mode !== "mushaf";
   const pageNumber = clampPage(state.page || 1);
-
 
   return (
     <div dir="rtl" className="relative min-h-screen bg-background text-foreground">
@@ -142,9 +167,7 @@ function MushafReader() {
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
                       <Icon d={a.icon} size={16} />
                     </span>
-                    <span className="text-[10px] font-medium text-foreground/90">
-                      {a.label}
-                    </span>
+                    <span className="text-[10px] font-medium text-foreground/90">{a.label}</span>
                   </button>
                 ))}
               </div>
@@ -176,196 +199,191 @@ function MushafReader() {
         </div>
 
         {isSurahMode && (
-        <>
-        {/* Selectors row */}
-        <div className="mt-4 grid grid-cols-2 gap-3 px-4 stagger">
-
-          <SelectorPill
-            label="السورة"
-            value={activeSurah.nameAr}
-            iconKey="quran"
-            onClick={() => setSurahOpen(true)}
-          />
-          <SelectorPill
-            label="الجزء"
-            value={toArabicDigits(activeJuz.id)}
-            iconKey="bookmark"
-            onClick={() => setJuzOpen(true)}
-          />
-        </div>
-
-        {/* Dynamic reading progress card — driven by repository */}
-        <div key={`progress-${activeSurah.id}-${activeJuz.id}`} className="mt-4 px-4 animate-fade-up">
-          <div className="glass rounded-3xl border border-border/60 p-4">
-            <div className="flex items-center gap-4">
-              <div className="flex flex-col items-center rounded-2xl border border-gold/40 bg-gold/10 px-3 py-2">
-                <span className="text-[9px] uppercase tracking-[0.25em] text-gold">
-                  الجزء
-                </span>
-                <span className="font-display text-xl font-medium tabular-nums text-foreground">
-                  {toArabicDigits(activeJuz.id)}
-                </span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-foreground/80">
-                    آخر قراءة
-                  </span>
-                  <span className="text-[10px] tabular-nums text-muted-foreground">
-                    <RelativeTime at={state.updatedAt} />
-                  </span>
-                </div>
-                <div className="mt-1 truncate font-display text-sm">
-                  سورة {activeSurah.nameAr}
-                  <span className="mx-1.5 text-muted-foreground">·</span>
-                  <span className="text-muted-foreground">
-                    {revelationLabel} · {toArabicDigits(activeSurah.ayatCount)} آية
-                  </span>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="gradient-gold h-full transition-all duration-700"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-                <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
-                  <span>
-                    يبدأ عند: سورة {SURAH_LIST[activeJuz.start.surah - 1].nameAr} · آية {toArabicDigits(activeJuz.start.ayah)}
-                  </span>
-                  <span className="tabular-nums">
-                    {toArabicDigits(progressPercent)}٪
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Surah metadata — driven by repository */}
-        <section
-          key={`meta-${activeSurah.id}`}
-          className="mt-5 px-4 animate-fade-up"
-          aria-label="بطاقة السورة"
-        >
-          <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-card/70 p-5 shadow-elegant backdrop-blur-2xl">
-            <Arabesque className="pointer-events-none absolute -top-16 -left-16 h-48 w-48 text-primary/10" />
-            <Arabesque className="pointer-events-none absolute -bottom-16 -right-16 h-48 w-48 text-gold/15" />
-
-            <div className="relative flex items-start gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-soft">
-                <Icon d={icons.quran} size={22} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                  {activeSurah.nameEn} · {activeSurah.meaningEn}
-                </div>
-                <h2 className="mt-0.5 font-display text-2xl font-medium leading-snug">
-                  سورة {activeSurah.nameAr}
-                </h2>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <Chip
-                    tone={activeSurah.revelation === "makki" ? "gold" : "primary"}
-                    label={revelationLabel}
-                  />
-                  <Chip label={`ترتيبها ${toArabicDigits(activeSurah.id)}`} />
-                  <Chip label={`نزولها ${toArabicDigits(activeSurah.revelationOrder)}`} />
-                </div>
-              </div>
-            </div>
-
-            <div className="relative mt-5 grid grid-cols-2 gap-2.5">
-              <MetaStat label="عدد الآيات" value={toArabicDigits(activeSurah.ayatCount)} />
-              <MetaStat
-                label="الجزء"
-                value={formatRangeAr(activeSurah.juz.start, activeSurah.juz.end)}
-              />
-              <MetaStat
-                label="الحزب"
-                value={formatRangeAr(activeSurah.hizb.start, activeSurah.hizb.end)}
-              />
-              <MetaStat
-                label="الصفحات"
-                value={formatRangeAr(activeSurah.pages.start, activeSurah.pages.end)}
-              />
-              <MetaStat
-                label="تبدأ في صفحة"
-                value={toArabicDigits(activeSurah.pages.start)}
-              />
-              <MetaStat
-                label="تنتهي في صفحة"
-                value={toArabicDigits(activeSurah.pages.end)}
-              />
-            </div>
-
-            {detail?.summaryAr && (
-              <div className="relative mt-4 rounded-2xl border border-border/40 bg-background/50 p-3.5">
-                <div className="text-[10px] font-medium uppercase tracking-[0.25em] text-gold">
-                  نبذة
-                </div>
-                <p className="mt-1 text-[13px] leading-relaxed text-foreground/85">
-                  {detail.summaryAr}
-                </p>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Scrollable reading container — authentic Uthmani text */}
-        <MushafReadingArea surahId={activeSurah.id} surahNameAr={activeSurah.nameAr} />
-        </>
-        )}
-
-        {!isSurahMode && (
-          <MushafPagesMode
-            page={pageNumber}
-            onChange={(p) => update({ page: clampPage(p) })}
-          />
-        )}
-        {isSurahMode && (
           <>
-        {/* Primary action bar */}
-        <div className="mt-5 px-4">
-          <div className="glass grid grid-cols-5 gap-1 rounded-full border border-border/60 p-1.5 shadow-soft">
-            <ReaderAction icon={icons.bookmark} label="آخر قراءة" to="/quran/last-read" />
-            <ReaderAction icon={icons.info} label="التفسير" to="/quran/tafsir" />
-            <ReaderAction icon={icons.play} label="الصوت" to="/quran/recitations" />
-            <ReaderAction icon={icons.search} label="بحث" to="/quran/search" />
-            <ReaderAction
-              icon={icons.bookmark}
-              label={state.bookmarked ? "محفوظ" : "حفظ"}
-              active={state.bookmarked}
-              onClick={() => update({ bookmarked: !state.bookmarked })}
+            {/* Selectors row */}
+            <div className="mt-4 grid grid-cols-2 gap-3 px-4 stagger">
+              <SelectorPill
+                label="السورة"
+                value={activeSurah.nameAr}
+                iconKey="quran"
+                onClick={() => setSurahOpen(true)}
+              />
+              <SelectorPill
+                label="الجزء"
+                value={toArabicDigits(activeJuz.id)}
+                iconKey="bookmark"
+                onClick={() => setJuzOpen(true)}
+              />
+            </div>
+
+            {/* Dynamic reading progress card — driven by repository */}
+            <div
+              key={`progress-${activeSurah.id}-${activeJuz.id}`}
+              className="mt-4 px-4 animate-fade-up"
+            >
+              <div className="glass rounded-3xl border border-border/60 p-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col items-center rounded-2xl border border-gold/40 bg-gold/10 px-3 py-2">
+                    <span className="text-[9px] uppercase tracking-[0.25em] text-gold">الجزء</span>
+                    <span className="font-display text-xl font-medium tabular-nums text-foreground">
+                      {toArabicDigits(activeJuz.id)}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-medium text-foreground/80">آخر قراءة</span>
+                      <span className="text-[10px] tabular-nums text-muted-foreground">
+                        <RelativeTime at={state.updatedAt} />
+                      </span>
+                    </div>
+                    <div className="mt-1 truncate font-display text-sm">
+                      سورة {activeSurah.nameAr}
+                      <span className="mx-1.5 text-muted-foreground">·</span>
+                      <span className="text-muted-foreground">
+                        {revelationLabel} · {toArabicDigits(activeSurah.ayatCount)} آية
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="gradient-gold h-full transition-all duration-700"
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                    <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span>
+                        يبدأ عند: سورة {SURAH_LIST[activeJuz.start.surah - 1].nameAr} · آية{" "}
+                        {toArabicDigits(activeJuz.start.ayah)}
+                      </span>
+                      <span className="tabular-nums">{toArabicDigits(progressPercent)}٪</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Surah metadata — driven by repository */}
+            <section
+              key={`meta-${activeSurah.id}`}
+              className="mt-5 px-4 animate-fade-up"
+              aria-label="بطاقة السورة"
+            >
+              <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-card/70 p-5 shadow-elegant backdrop-blur-2xl">
+                <Arabesque className="pointer-events-none absolute -top-16 -left-16 h-48 w-48 text-primary/10" />
+                <Arabesque className="pointer-events-none absolute -bottom-16 -right-16 h-48 w-48 text-gold/15" />
+
+                <div className="relative flex items-start gap-4">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-soft">
+                    <Icon d={icons.quran} size={22} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                      {activeSurah.nameEn} · {activeSurah.meaningEn}
+                    </div>
+                    <h2 className="mt-0.5 font-display text-2xl font-medium leading-snug">
+                      سورة {activeSurah.nameAr}
+                    </h2>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <Chip
+                        tone={activeSurah.revelation === "makki" ? "gold" : "primary"}
+                        label={revelationLabel}
+                      />
+                      <Chip label={`ترتيبها ${toArabicDigits(activeSurah.id)}`} />
+                      <Chip label={`نزولها ${toArabicDigits(activeSurah.revelationOrder)}`} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative mt-5 grid grid-cols-2 gap-2.5">
+                  <MetaStat label="عدد الآيات" value={toArabicDigits(activeSurah.ayatCount)} />
+                  <MetaStat
+                    label="الجزء"
+                    value={formatRangeAr(activeSurah.juz.start, activeSurah.juz.end)}
+                  />
+                  <MetaStat
+                    label="الحزب"
+                    value={formatRangeAr(activeSurah.hizb.start, activeSurah.hizb.end)}
+                  />
+                  <MetaStat
+                    label="الصفحات"
+                    value={formatRangeAr(activeSurah.pages.start, activeSurah.pages.end)}
+                  />
+                  <MetaStat label="تبدأ في صفحة" value={toArabicDigits(activeSurah.pages.start)} />
+                  <MetaStat label="تنتهي في صفحة" value={toArabicDigits(activeSurah.pages.end)} />
+                </div>
+
+                {detail?.summaryAr && (
+                  <div className="relative mt-4 rounded-2xl border border-border/40 bg-background/50 p-3.5">
+                    <div className="text-[10px] font-medium uppercase tracking-[0.25em] text-gold">
+                      نبذة
+                    </div>
+                    <p className="mt-1 text-[13px] leading-relaxed text-foreground/85">
+                      {detail.summaryAr}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Scrollable reading container — authentic Uthmani text */}
+            <MushafReadingArea
+              surahId={activeSurah.id}
+              surahNameAr={activeSurah.nameAr}
+              activeAyah={targetAyah}
+              onAyahTap={setSheetAyah}
             />
-          </div>
-        </div>
-
-        {/* Secondary tools */}
-        <div className="mt-4 grid grid-cols-2 gap-3 px-4 stagger">
-          <ToolCard
-            iconKey="settings"
-            title="إعدادات القراءة"
-            hint="الخط، الحجم، السطوع"
-            to="/quran/reader-settings"
-          />
-          <ToolCard
-            iconKey="bookmark"
-            title="العلامات"
-            hint="آياتك المحفوظة"
-            to="/quran/bookmarks"
-          />
-        </div>
-
-        <p className="mt-6 px-6 text-center text-[11px] leading-relaxed text-muted-foreground">
-          اختر السورة والجزء لتخصيص تجربة قراءتك.
-        </p>
           </>
         )}
 
+        {!isSurahMode && (
+          <MushafPagesMode page={pageNumber} onChange={(p) => update({ page: clampPage(p) })} />
+        )}
+        {isSurahMode && (
+          <>
+            {/* Primary action bar */}
+            <div className="mt-5 px-4">
+              <div className="glass grid grid-cols-5 gap-1 rounded-full border border-border/60 p-1.5 shadow-soft">
+                <ReaderAction icon={icons.bookmark} label="آخر قراءة" to="/quran/last-read" />
+                <ReaderAction icon={icons.info} label="التفسير" to="/quran/tafsir" />
+                <ReaderAction icon={icons.play} label="الصوت" to="/quran/recitations" />
+                <ReaderAction icon={icons.search} label="بحث" to="/quran/search" />
+                <ReaderAction
+                  icon={icons.bookmark}
+                  label={state.bookmarked ? "محفوظ" : "حفظ"}
+                  active={state.bookmarked}
+                  onClick={() => update({ bookmarked: !state.bookmarked })}
+                />
+              </div>
+            </div>
+
+            {/* Secondary tools */}
+            <div className="mt-4 grid grid-cols-2 gap-3 px-4 stagger">
+              <ToolCard
+                iconKey="settings"
+                title="إعدادات القراءة"
+                hint="الخط والحجم"
+                to="/quran/reader-settings"
+              />
+              <ToolCard
+                iconKey="bookmark"
+                title="العلامات"
+                hint="آياتك المحفوظة"
+                to="/quran/bookmarks"
+              />
+            </div>
+
+            <p className="mt-6 px-6 text-center text-[11px] leading-relaxed text-muted-foreground">
+              اختر السورة والجزء لتخصيص تجربة قراءتك.
+            </p>
+          </>
+        )}
       </div>
 
       {/* -------- Surah picker modal -------- */}
       <Dialog open={surahOpen} onOpenChange={setSurahOpen}>
-        <DialogContent className="max-w-md rounded-3xl border-border/60 bg-card/95 p-0 backdrop-blur-2xl sm:rounded-3xl" dir="rtl">
+        <DialogContent
+          className="max-w-md rounded-3xl border-border/60 bg-card/95 p-0 backdrop-blur-2xl sm:rounded-3xl"
+          dir="rtl"
+        >
           <DialogHeader className="px-5 pt-5 text-right">
             <DialogTitle className="font-display text-xl">اختر السورة</DialogTitle>
             <p className="text-[11px] text-muted-foreground">١١٤ سورة · القرآن الكريم</p>
@@ -440,7 +458,10 @@ function MushafReader() {
 
       {/* -------- Juz picker modal -------- */}
       <Dialog open={juzOpen} onOpenChange={setJuzOpen}>
-        <DialogContent className="max-w-md rounded-3xl border-border/60 bg-card/95 p-0 backdrop-blur-2xl sm:rounded-3xl" dir="rtl">
+        <DialogContent
+          className="max-w-md rounded-3xl border-border/60 bg-card/95 p-0 backdrop-blur-2xl sm:rounded-3xl"
+          dir="rtl"
+        >
           <DialogHeader className="px-5 pt-5 text-right">
             <DialogTitle className="font-display text-xl">اختر الجزء</DialogTitle>
             <p className="text-[11px] text-muted-foreground">٣٠ جزءًا · القرآن الكريم</p>
@@ -484,7 +505,146 @@ function MushafReader() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* -------- Per-ayah actions -------- */}
+      <AyahActionSheet
+        surah={activeSurah.id}
+        surahNameAr={activeSurah.nameAr}
+        ayah={sheetAyah}
+        onClose={() => setSheetAyah(null)}
+        onPlay={(ayah) => {
+          setSheetAyah(null);
+          navigate({ to: "/quran/recitations", search: { surah: activeSurah.id, ayah } });
+        }}
+        onTafsir={(ayah) => {
+          setSheetAyah(null);
+          navigate({ to: "/quran/tafsir", search: { surah: activeSurah.id, ayah } });
+        }}
+        onShare={(ayah) => {
+          setSheetAyah(null);
+          navigate({ to: "/quran/share", search: { surah: activeSurah.id, ayah } });
+        }}
+      />
     </div>
+  );
+}
+
+/* ---------- Per-ayah action sheet ---------- */
+
+function AyahActionSheet({
+  surah,
+  surahNameAr,
+  ayah,
+  onClose,
+  onPlay,
+  onTafsir,
+  onShare,
+}: {
+  surah: number;
+  surahNameAr: string;
+  ayah: AyahText | null;
+  onClose: () => void;
+  onPlay: (ayah: number) => void;
+  onTafsir: (ayah: number) => void;
+  onShare: (ayah: number) => void;
+}) {
+  useBookmarks(); // re-render when the bookmark set changes
+  const [copied, setCopied] = useState(false);
+  const saved = ayah ? isBookmarked(surah, ayah.n) : false;
+
+  useEffect(() => {
+    setCopied(false);
+  }, [ayah?.n]);
+
+  return (
+    <Dialog open={!!ayah} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className="max-w-md rounded-3xl border-border/60 bg-card/95 backdrop-blur-2xl sm:rounded-3xl"
+        dir="rtl"
+      >
+        <DialogHeader className="text-right">
+          <DialogTitle className="font-display text-lg">
+            سورة {surahNameAr} · الآية {toArabicDigits(ayah?.n ?? 1)}
+          </DialogTitle>
+        </DialogHeader>
+
+        {ayah && (
+          <>
+            <p className="max-h-40 overflow-y-auto rounded-2xl border border-gold/20 bg-background/60 p-3 text-center font-quran text-[17px] leading-[2.1]">
+              {ayah.t}
+            </p>
+
+            <div className="grid grid-cols-4 gap-2">
+              <SheetAction
+                icon={icons.bookmark}
+                label={saved ? "محفوظة" : "حفظ"}
+                active={saved}
+                onClick={() =>
+                  toggleBookmark({
+                    surah,
+                    ayah: ayah.n,
+                    page: ayah.p,
+                    juz: ayah.j,
+                    text: ayah.t,
+                    tag: "tadabbur",
+                  })
+                }
+              />
+              <SheetAction icon={icons.info} label="التفسير" onClick={() => onTafsir(ayah.n)} />
+              <SheetAction icon={icons.share} label="مشاركة" onClick={() => onShare(ayah.n)} />
+              <SheetAction icon={icons.play} label="تلاوة" onClick={() => onPlay(ayah.n)} />
+            </div>
+
+            <button
+              onClick={async () => {
+                await shareCardText(
+                  buildShareText({
+                    text: ayah.t,
+                    surahNameAr,
+                    ayahFrom: ayah.n,
+                    ayahTo: ayah.n,
+                  }),
+                );
+                setCopied(true);
+              }}
+              className="rounded-2xl border border-border/60 bg-background/70 py-2.5 text-[12px] font-medium transition active:scale-[0.98]"
+            >
+              {copied ? "تم نسخ الآية" : "نسخ نص الآية"}
+            </button>
+
+            <div className="text-center text-[10px] text-muted-foreground tabular-nums">
+              صفحة {toArabicDigits(ayah.p)} · الجزء {toArabicDigits(ayah.j)}
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SheetAction({
+  icon,
+  label,
+  onClick,
+  active,
+}: {
+  icon: string;
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex flex-col items-center gap-1.5 rounded-2xl border p-3 transition active:scale-95 ${
+        active
+          ? "border-gold/50 bg-gold/15 text-gold"
+          : "border-border/50 bg-background/60 text-foreground/85 hover:shadow-soft"
+      }`}
+    >
+      <Icon d={icon} size={18} />
+      <span className="text-[10px] font-medium">{label}</span>
+    </button>
   );
 }
 
@@ -493,29 +653,37 @@ function MushafReader() {
 function MushafReadingArea({
   surahId,
   surahNameAr,
+  activeAyah,
+  onAyahTap,
 }: {
   surahId: number;
   surahNameAr: string;
+  activeAyah?: number | null;
+  onAyahTap?: (ayah: AyahText) => void;
 }) {
   const state = useSurahText(surahId);
   const [reloadKey, setReloadKey] = useState(0);
+
+  const ayahs = state.status === "ready" ? state.data.ayahs : null;
+
+  // Record the reading session once the text is on screen.
+  useEffect(() => {
+    if (!ayahs) return;
+    const target = ayahs.find((a) => a.n === (activeAyah ?? 1)) ?? ayahs[0];
+    if (!target) return;
+    recordRead({ surah: surahId, ayah: target.n, page: target.p, juz: target.j });
+  }, [activeAyah, ayahs, surahId]);
   return (
-    <section
-      className="mt-5 px-4 animate-fade-up"
-      aria-label="منطقة قراءة الآيات"
-      key={reloadKey}
-    >
+    <section className="mt-5 px-4 animate-fade-up" aria-label="منطقة قراءة الآيات" key={reloadKey}>
       <div className="relative overflow-hidden rounded-[32px] border border-border/60 bg-card/60 shadow-elegant backdrop-blur-2xl">
         <div className="pointer-events-none absolute inset-3 rounded-[26px] border border-gold/25" />
         <div className="pointer-events-none absolute inset-5 rounded-[22px] border border-gold/10" />
-        {["top-4 right-4", "top-4 left-4", "bottom-4 right-4", "bottom-4 left-4"].map(
-          (pos) => (
-            <span
-              key={pos}
-              className={`pointer-events-none absolute ${pos} h-4 w-4 rotate-45 border border-gold/40`}
-            />
-          ),
-        )}
+        {["top-4 right-4", "top-4 left-4", "bottom-4 right-4", "bottom-4 left-4"].map((pos) => (
+          <span
+            key={pos}
+            className={`pointer-events-none absolute ${pos} h-4 w-4 rotate-45 border border-gold/40`}
+          />
+        ))}
 
         <div
           className="relative max-h-[68vh] min-h-[380px] overflow-y-auto overscroll-contain px-6 py-8 scroll-smooth"
@@ -527,6 +695,8 @@ function MushafReadingArea({
             surahNameAr={surahNameAr}
             state={state}
             onRetry={() => setReloadKey((k) => k + 1)}
+            activeAyah={activeAyah}
+            onAyahTap={onAyahTap}
           />
         </div>
       </div>
@@ -536,13 +706,7 @@ function MushafReadingArea({
 
 /* ---------- Mushaf pages mode (1..604) ---------- */
 
-function MushafPagesMode({
-  page,
-  onChange,
-}: {
-  page: number;
-  onChange: (page: number) => void;
-}) {
+function MushafPagesMode({ page, onChange }: { page: number; onChange: (page: number) => void }) {
   const state = useMushafPage(page);
   const [reloadKey, setReloadKey] = useState(0);
   const [jumpOpen, setJumpOpen] = useState(false);
@@ -644,7 +808,6 @@ function MushafPagesMode({
         </button>
       </div>
 
-
       <Dialog open={jumpOpen} onOpenChange={setJumpOpen}>
         <DialogContent
           className="max-w-sm rounded-3xl border-border/60 bg-card/95 backdrop-blur-2xl sm:rounded-3xl"
@@ -652,9 +815,7 @@ function MushafPagesMode({
         >
           <DialogHeader className="text-right">
             <DialogTitle className="font-display text-xl">الانتقال إلى صفحة</DialogTitle>
-            <p className="text-[11px] text-muted-foreground">
-              أدخل رقمًا بين ١ و ٦٠٤
-            </p>
+            <p className="text-[11px] text-muted-foreground">أدخل رقمًا بين ١ و ٦٠٤</p>
           </DialogHeader>
           <form
             onSubmit={(e) => {
@@ -689,8 +850,6 @@ function MushafPagesMode({
 
 /* ---------- Sub-components ---------- */
 
-
-
 const MORE_ACTIONS: { label: string; icon: string; to: string }[] = [
   { label: "مشاركة", icon: icons.share, to: "/quran/share" },
   { label: "الليلي", icon: icons.moon, to: "/quran/reader-settings" },
@@ -717,9 +876,7 @@ function SelectorPill({
         <Icon d={icons[iconKey]} size={18} />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-          {label}
-        </div>
+        <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">{label}</div>
         <div className="mt-0.5 truncate font-display text-sm font-medium">{value}</div>
       </div>
       <span className="rotate-90 text-muted-foreground transition group-hover:translate-y-0.5">
@@ -787,8 +944,8 @@ function ToolCard({
         <Icon d={icons[iconKey]} size={18} />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{title}</div>
-        <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{hint}</div>
+        <div className="text-[13px] font-medium leading-tight">{title}</div>
+        <div className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{hint}</div>
       </div>
       <span className="rotate-180 text-muted-foreground">
         <Icon d={icons.chevron} size={14} />
@@ -816,9 +973,7 @@ function Chip({ label, tone = "muted" }: { label: string; tone?: "muted" | "gold
 function MetaStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="glass rounded-2xl border border-border/50 p-3 text-right transition hover:-translate-y-0.5 hover:shadow-soft">
-      <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-        {label}
-      </div>
+      <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">{label}</div>
       <div className="mt-1 font-display text-lg font-medium tabular-nums text-foreground">
         {value}
       </div>

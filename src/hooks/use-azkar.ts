@@ -15,7 +15,9 @@ export function useAzkarBook() {
     azkarRepository
       .load()
       .then((b) => alive && setBook(b))
-      .catch((e: unknown) => alive && setError(e instanceof Error ? e.message : "تعذّر تحميل الأذكار"));
+      .catch(
+        (e: unknown) => alive && setError(e instanceof Error ? e.message : "تعذّر تحميل الأذكار"),
+      );
     return () => {
       alive = false;
     };

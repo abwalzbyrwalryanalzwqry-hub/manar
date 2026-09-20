@@ -11,9 +11,15 @@ export const Route = createFileRoute("/wird/$session")({
   head: () => ({
     meta: [
       { title: "جلسة الوِرد — منار" },
-      { name: "description", content: "جلسة وِرد متسلسلة: ذكر واحد في كل مرة مع عدّاد تفاعلي وحفظ تلقائي للتقدّم." },
+      {
+        name: "description",
+        content: "جلسة وِرد متسلسلة: ذكر واحد في كل مرة مع عدّاد تفاعلي وحفظ تلقائي للتقدّم.",
+      },
       { property: "og:title", content: "جلسة الوِرد — منار" },
-      { property: "og:description", content: "اقرأ وِردك ذكرًا بذكر مع عدّاد سريع وتقدّم محفوظ محليًا." },
+      {
+        property: "og:description",
+        content: "اقرأ وِردك ذكرًا بذكر مع عدّاد سريع وتقدّم محفوظ محليًا.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -26,7 +32,8 @@ function WirdSessionPage() {
   const nav = useNavigate();
   const wird = getWirdSession(session);
   const key = wird?.key ?? "morning";
-  const { progress, hydrated, increment, setCurrent, markDone, resetSession } = useWirdSessionProgress(key);
+  const { progress, hydrated, increment, setCurrent, markDone, resetSession } =
+    useWirdSessionProgress(key);
   const [index, setIndex] = useState(0);
   const [confirmReset, setConfirmReset] = useState(false);
   const [pulse, setPulse] = useState(0);
@@ -91,7 +98,10 @@ function WirdSessionPage() {
       <Screen>
         <div className="px-5 pt-24 text-center text-sm text-muted-foreground">وِرد غير معروف.</div>
         <div className="mt-4 px-5">
-          <Link to="/wird" className="gradient-primary block rounded-2xl py-3 text-center text-sm text-primary-foreground">
+          <Link
+            to="/wird"
+            className="gradient-primary block rounded-2xl py-3 text-center text-sm text-primary-foreground"
+          >
             رجوع إلى الوِرد
           </Link>
         </div>
@@ -111,7 +121,9 @@ function WirdSessionPage() {
             className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card shadow-soft"
             aria-label="إيقاف الجلسة والعودة"
           >
-            <span className="rotate-180"><Icon d={icons.back} size={18} /></span>
+            <span className="rotate-180">
+              <Icon d={icons.back} size={18} />
+            </span>
           </button>
           <div className="text-center">
             <div className="font-display text-lg font-medium leading-tight">{wird.title}</div>
@@ -148,7 +160,6 @@ function WirdSessionPage() {
           </Link>
         </div>
 
-
         {/* الذكر */}
         <div className="flex-1 px-5 pt-5" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           {!hydrated || !item ? (
@@ -157,11 +168,16 @@ function WirdSessionPage() {
               <Skeleton className="h-48 w-full rounded-[28px]" />
             </div>
           ) : (
-            <div key={item.order} className="glass relative overflow-hidden rounded-[28px] p-5 shadow-soft animate-fade-up">
+            <div
+              key={item.order}
+              className="glass relative overflow-hidden rounded-[28px] p-5 shadow-soft animate-fade-up"
+            >
               <Arabesque className="pointer-events-none absolute -left-10 -bottom-10 h-40 w-40 text-primary/10" />
               <div className="relative flex items-center gap-2">
                 <span className="h-px w-4 bg-gold" />
-                <span className="text-[11px] font-medium tracking-wide text-foreground/80">{item.name}</span>
+                <span className="text-[11px] font-medium tracking-wide text-foreground/80">
+                  {item.name}
+                </span>
               </div>
               <div
                 className="relative mt-4 max-h-[38vh] overflow-y-auto text-right font-quran text-[1.35rem] leading-[2.4] text-foreground"
@@ -186,7 +202,14 @@ function WirdSessionPage() {
                 aria-label="زيادة العدّاد"
               >
                 <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="45" fill="none" stroke="var(--border)" strokeWidth="4" />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="45"
+                    fill="none"
+                    stroke="var(--border)"
+                    strokeWidth="4"
+                  />
                   <circle
                     cx="50"
                     cy="50"
@@ -207,11 +230,17 @@ function WirdSessionPage() {
                   </defs>
                 </svg>
                 <span key={pulse} className="relative flex flex-col items-center animate-fade-up">
-                  <span className="font-display text-4xl font-medium tabular-nums">{toArabicDigits(count)}</span>
-                  <span className="text-[11px] text-muted-foreground">من {toArabicDigits(item.repeat)}</span>
+                  <span className="font-display text-4xl font-medium tabular-nums">
+                    {toArabicDigits(count)}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    من {toArabicDigits(item.repeat)}
+                  </span>
                 </span>
               </button>
-              <div className="mt-3 text-xs text-muted-foreground">متبقي {toArabicDigits(remaining)}</div>
+              <div className="mt-3 text-xs text-muted-foreground">
+                متبقي {toArabicDigits(remaining)}
+              </div>
 
               <div className="mt-5 flex w-full items-center gap-2">
                 <button
@@ -264,7 +293,10 @@ function WirdSessionPage() {
               >
                 إعادة
               </button>
-              <button onClick={() => setConfirmReset(false)} className="flex-1 rounded-2xl border border-border py-3 text-sm">
+              <button
+                onClick={() => setConfirmReset(false)}
+                className="flex-1 rounded-2xl border border-border py-3 text-sm"
+              >
                 إلغاء
               </button>
             </div>

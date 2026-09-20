@@ -110,6 +110,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       // Self-hosted Quran fonts — bundled locally so the Mushaf renders offline.
       { rel: "stylesheet", href: "/fonts/quran-fonts.css" },
+      // Self-hosted interface font — bundled locally for the same reason.
+      { rel: "stylesheet", href: "/fonts/ui-fonts.css" },
     ],
   }),
   shellComponent: RootShell,

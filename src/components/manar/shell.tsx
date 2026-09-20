@@ -2,11 +2,26 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import type { PrayerKey } from "@/lib/prayer";
 
-
-
 /* ---------- Iconography ---------- */
-export const Icon = ({ d, size = 22, strokeWidth = 1.6 }: { d: string; size?: number; strokeWidth?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+export const Icon = ({
+  d,
+  size = 22,
+  strokeWidth = 1.6,
+}: {
+  d: string;
+  size?: number;
+  strokeWidth?: number;
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d={d} />
   </svg>
 );
@@ -16,15 +31,18 @@ export const icons = {
   prayer: "M12 3v18M5 10c0-3 3-5 7-5s7 2 7 5M5 14c0 3 3 5 7 5s7-2 7-5",
   quran: "M4 4h12a4 4 0 014 4v12H8a4 4 0 01-4-4V4z M4 4v12a4 4 0 004 4",
   // Tasbih beads on a string
-  azkar: "M5 12a7 7 0 0114 0 M5 12a7 7 0 0014 0 M8 6.5h.01 M6 10h.01 M6 14h.01 M8 17.5h.01 M16 6.5h.01 M18 10h.01 M18 14h.01 M16 17.5h.01 M12 3.5h.01 M12 20.5h.01",
+  azkar:
+    "M5 12a7 7 0 0114 0 M5 12a7 7 0 0014 0 M8 6.5h.01 M6 10h.01 M6 14h.01 M8 17.5h.01 M16 6.5h.01 M18 10h.01 M18 14h.01 M16 17.5h.01 M12 3.5h.01 M12 20.5h.01",
   more: "M5 12h.01M12 12h.01M19 12h.01",
   // Compass with N marker — Qibla
   qibla: "M12 21a9 9 0 100-18 9 9 0 000 18z M12 7l3 8-3-2-3 2 3-8z M12 3v1.5",
   // Calendar with crescent inside — Islamic Calendar
-  calendar: "M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z M3 9h18 M8 3v4 M16 3v4 M15 15a3 3 0 11-3-3 2.4 2.4 0 003 3z",
+  calendar:
+    "M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z M3 9h18 M8 3v4 M16 3v4 M15 15a3 3 0 11-3-3 2.4 2.4 0 003 3z",
   stats: "M4 20V10M10 20V4M16 20v-8M22 20H2 M3 20h18",
   profile: "M16 8a4 4 0 11-8 0 4 4 0 018 0z M4 21a8 8 0 0116 0",
-  settings: "M12 8a4 4 0 100 8 4 4 0 000-8z M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1A2 2 0 114.4 17l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8L4.2 7A2 2 0 117 4.2l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1A2 2 0 1119.8 7l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z",
+  settings:
+    "M12 8a4 4 0 100 8 4 4 0 000-8z M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1A2 2 0 114.4 17l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8L4.2 7A2 2 0 117 4.2l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1A2 2 0 1119.8 7l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z",
   info: "M12 21a9 9 0 100-18 9 9 0 000 18z M12 8h.01 M11 12h1v4h1",
   back: "M15 18l-6-6 6-6",
   search: "M21 21l-4.3-4.3 M11 19a8 8 0 100-16 8 8 0 000 16z",
@@ -41,14 +59,38 @@ export const icons = {
   mail: "M3 7l9 6 9-6 M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z",
   chevron: "M9 6l6 6-6 6",
   check: "M5 12l5 5L20 7",
-  heart: "M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 10-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z",
+  heart:
+    "M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 10-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z",
   star: "M12 2l3 7 7 .7-5.3 4.8 1.7 7L12 17.8 5.6 21.5l1.7-7L2 9.7 9 9z",
-  plane: "M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1L15 22v-1.5L13 19v-5.5L21 16z",
+  plane:
+    "M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1L15 22v-1.5L13 19v-5.5L21 16z",
   bed: "M3 18v-7a3 3 0 013-3h12a3 3 0 013 3v7 M3 18h18 M3 14h18 M7 11h4",
   sparkle: "M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3z",
   location: "M12 22s-7-6.5-7-12a7 7 0 0114 0c0 5.5-7 12-7 12z M12 10a2 2 0 100 4 2 2 0 000-4z",
   flame: "M12 2s4 4 4 9a4 4 0 11-8 0c0-2 1-3 1-3s-1 4 1 4 0-3 2-6 0-4 0-4z",
   trend: "M3 17l6-6 4 4 8-8 M14 7h7v7",
+
+  /* ----- Quran module additions ----- */
+  trash:
+    "M4 7h16 M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2 M6 7l1 13a2 2 0 002 2h6a2 2 0 002-2l1-13 M10 11v7 M14 11v7",
+  download: "M12 3v12 M8 11l4 4 4-4 M5 21h14",
+  close: "M6 6l12 12 M18 6L6 18",
+  plus: "M12 5v14 M5 12h14",
+  minus: "M5 12h14",
+  copy: "M9 9h9a2 2 0 012 2v9a2 2 0 01-2 2H9a2 2 0 01-2-2v-9a2 2 0 012-2z M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1",
+  refresh: "M21 12a9 9 0 11-3.2-6.9 M21 4v5h-5",
+  image:
+    "M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1z M4 16l4.5-5 3.5 4 2.5-3L20 16 M9 9.5h.01",
+  filter: "M4 6h16 M7 12h10 M10 18h4",
+  tag: "M12.6 3H20v7.4L10.7 19.7a2 2 0 01-2.8 0l-5.6-5.6a2 2 0 010-2.8L12.6 3z M16.5 7.5h.01",
+  skipNext: "M6 5l9 7-9 7V5z M18 5v14",
+  skipPrev: "M18 5l-9 7 9 7V5z M6 5v14",
+  stop: "M6 6h12v12H6z",
+  speed: "M12 20a8 8 0 100-16 8 8 0 000 16z M12 12l4-3",
+  repeat: "M17 2l4 4-4 4 M3 12v-2a4 4 0 014-4h14 M7 22l-4-4 4-4 M21 12v2a4 4 0 01-4 4H3",
+  book: "M4 4h7v16H6a2 2 0 01-2-2V4z M20 4h-7v16h5a2 2 0 002-2V4z",
+  layers: "M12 3l9 5-9 5-9-5 9-5z M3 13l9 5 9-5",
+  target: "M12 21a9 9 0 100-18 9 9 0 000 18z M12 16a4 4 0 100-8 4 4 0 000 8z M12 12h.01",
 
   /* ----- Per-prayer iconography (sun/moon arc) ----- */
   // Fajr — pre-dawn star + horizon
@@ -56,7 +98,8 @@ export const icons = {
   // Sunrise — half sun rising over horizon
   sunrise: "M3 18h18 M12 4v3 M5.5 9.5L7 11 M17 11l1.5-1.5 M7 18a5 5 0 0110 0",
   // Dhuhr — sun overhead with rays
-  dhuhr: "M12 4V2 M12 22v-2 M4 12H2 M22 12h-2 M5.6 5.6L4.2 4.2 M19.8 19.8l-1.4-1.4 M5.6 18.4L4.2 19.8 M19.8 4.2l-1.4 1.4 M12 7a5 5 0 100 10 5 5 0 000-10z",
+  dhuhr:
+    "M12 4V2 M12 22v-2 M4 12H2 M22 12h-2 M5.6 5.6L4.2 4.2 M19.8 19.8l-1.4-1.4 M5.6 18.4L4.2 19.8 M19.8 4.2l-1.4 1.4 M12 7a5 5 0 100 10 5 5 0 000-10z",
   // Asr — afternoon sun at angle with longer shadows
   asr: "M16 6l3-3 M14 10l4-2 M13 14l5 0 M16 18l2 2 M3 21h12 M9 21a6 6 0 015-9",
   // Maghrib — sun setting below horizon
@@ -111,7 +154,10 @@ export function RingProgress({
   const offset = c * (1 - Math.max(0, Math.min(1, value)));
   const gid = "ring-grad";
   return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
+    <div
+      className="relative inline-flex items-center justify-center"
+      style={{ width: size, height: size }}
+    >
       <svg width={size} height={size} className="absolute inset-0 -rotate-90">
         {gradient && (
           <defs>
@@ -121,7 +167,14 @@ export function RingProgress({
             </linearGradient>
           </defs>
         )}
-        <circle cx={size / 2} cy={size / 2} r={r} stroke={trackColor} strokeWidth={stroke} fill="none" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke={trackColor}
+          strokeWidth={stroke}
+          fill="none"
+        />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -141,7 +194,13 @@ export function RingProgress({
 }
 
 /* ---------- Skeletons & empty states ---------- */
-export function Skeleton({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
+export function Skeleton({
+  className = "",
+  style,
+}: {
+  className?: string;
+  style?: React.CSSProperties;
+}) {
   return <div className={`skeleton ${className}`} style={style} />;
 }
 
@@ -166,7 +225,15 @@ const TABS: TabDef[] = [
   { to: "/azkar", label: "الأذكار", iconKey: "azkar" },
   { to: "/more", label: "المزيد", iconKey: "more" },
 ];
-const MORE_PATHS = ["/more", "/qibla", "/calendar", "/statistics", "/profile", "/settings", "/about"];
+const MORE_PATHS = [
+  "/more",
+  "/qibla",
+  "/calendar",
+  "/statistics",
+  "/profile",
+  "/settings",
+  "/about",
+];
 
 export function TabBar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -176,10 +243,16 @@ export function TabBar() {
         {TABS.map((t) => {
           const active = pathname === t.to || (t.to === "/more" && MORE_PATHS.includes(pathname));
           return (
-            <Link key={t.to} to={t.to} className="group relative flex flex-1 flex-col items-center gap-0.5 py-1">
+            <Link
+              key={t.to}
+              to={t.to}
+              className="group relative flex flex-1 flex-col items-center gap-0.5 py-1"
+            >
               <span
                 className={`relative flex h-11 w-11 items-center justify-center rounded-full transition-all duration-300 ${
-                  active ? "gradient-primary text-primary-foreground shadow-glow scale-105" : "text-muted-foreground"
+                  active
+                    ? "gradient-primary text-primary-foreground shadow-glow scale-105"
+                    : "text-muted-foreground"
                 }`}
               >
                 <Icon d={icons[t.iconKey]} size={20} />
@@ -187,7 +260,9 @@ export function TabBar() {
                   <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-gold" />
                 )}
               </span>
-              <span className={`text-[10px] transition ${active ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+              <span
+                className={`text-[10px] transition ${active ? "font-medium text-foreground" : "text-muted-foreground"}`}
+              >
                 {t.label}
               </span>
             </Link>
@@ -209,7 +284,13 @@ export function StatusBar({ title }: { title?: string }) {
   );
 }
 
-export function Screen({ children, padBottom = true }: { children: ReactNode; padBottom?: boolean }) {
+export function Screen({
+  children,
+  padBottom = true,
+}: {
+  children: ReactNode;
+  padBottom?: boolean;
+}) {
   return (
     <div dir="rtl" className="min-h-screen bg-background text-foreground">
       <div className={`mx-auto max-w-md ${padBottom ? "pb-32" : ""}`}>{children}</div>
@@ -236,7 +317,9 @@ export function ScreenHeader({
             to={backTo}
             className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-soft transition hover:shadow-elegant"
           >
-            <span className="rotate-180"><Icon d={icons.back} size={18} /></span>
+            <span className="rotate-180">
+              <Icon d={icons.back} size={18} />
+            </span>
           </Link>
         )}
         <div>
@@ -254,7 +337,9 @@ export function SectionLabel({ children, hint }: { children: ReactNode; hint?: R
     <div className="mt-7 mb-3 flex items-end justify-between px-5">
       <div className="flex items-center gap-2">
         <span className="h-px w-5 bg-gold" />
-        <h2 className="text-[11px] font-medium uppercase tracking-[0.25em] text-foreground/80">{children}</h2>
+        <h2 className="text-[11px] font-medium uppercase tracking-[0.25em] text-foreground/80">
+          {children}
+        </h2>
       </div>
       {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
     </div>

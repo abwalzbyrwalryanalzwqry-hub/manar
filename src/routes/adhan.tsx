@@ -1,6 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Arabesque, Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
+import {
+  Arabesque,
+  Icon,
+  icons,
+  Screen,
+  ScreenHeader,
+  SectionLabel,
+} from "@/components/manar/shell";
 import {
   ADHAN_ASSET_RIGHTS_NOTICE,
   ADHAN_LIBRARY,
@@ -30,15 +37,21 @@ type Target = "general" | "fajr" | "first" | "second" | "tathweeb";
 function AdhanLibrary() {
   const { settings, update, updateDeep } = useAdhanSettings();
   const [target, setTarget] = useState<Target>("general");
-  const [style, setStyle] = useState<AdhanStyle>(() => parseAdhanVariant(settings.selectedAdhan)?.style ?? "full");
+  const [style, setStyle] = useState<AdhanStyle>(
+    () => parseAdhanVariant(settings.selectedAdhan)?.style ?? "full",
+  );
   const [playing, setPlaying] = useState<AdhanVariant | null>(null);
 
   const selectedForTarget: AdhanVariant =
-    target === "fajr"     ? settings.fajrAdhan :
-    target === "first"    ? settings.fajrFirstAdhanAudio :
-    target === "second"   ? settings.fajrSecondAdhanAudio :
-    target === "tathweeb" ? settings.fajrTathweebAudio :
-                             settings.selectedAdhan;
+    target === "fajr"
+      ? settings.fajrAdhan
+      : target === "first"
+        ? settings.fajrFirstAdhanAudio
+        : target === "second"
+          ? settings.fajrSecondAdhanAudio
+          : target === "tathweeb"
+            ? settings.fajrTathweebAudio
+            : settings.selectedAdhan;
 
   const visibleEntries = useMemo(() => {
     if (target === "tathweeb") return [] as typeof ADHAN_LIBRARY; // tathweeb uses dedicated assets
@@ -48,7 +61,11 @@ function AdhanLibrary() {
   }, [style, target]);
 
   const preview = (v: AdhanVariant) => {
-    if (playing === v) { stopAdhan(); setPlaying(null); return; }
+    if (playing === v) {
+      stopAdhan();
+      setPlaying(null);
+      return;
+    }
     setPlaying(v);
     playAdhan(v, {
       volume: settings.volume,
@@ -58,25 +75,33 @@ function AdhanLibrary() {
   };
 
   const choose = (v: AdhanVariant) => {
-    if (target === "fajr")     update({ fajrAdhan: v, fajrUseSeparate: true });
-    else if (target === "first")    update({ fajrFirstAdhanAudio: v });
-    else if (target === "second")   update({ fajrSecondAdhanAudio: v });
+    if (target === "fajr") update({ fajrAdhan: v, fajrUseSeparate: true });
+    else if (target === "first") update({ fajrFirstAdhanAudio: v });
+    else if (target === "second") update({ fajrSecondAdhanAudio: v });
     else if (target === "tathweeb") update({ fajrTathweebAudio: v });
     else update({ selectedAdhan: v });
   };
 
   return (
     <Screen>
-      <ScreenHeader title="مكتبة الأذان" subtitle="اختر صوت الأذان الحقيقي لكل صلاة" backTo="/more" />
+      <ScreenHeader
+        title="مكتبة الأذان"
+        subtitle="اختر صوت الأذان الحقيقي لكل صلاة"
+        backTo="/more"
+      />
 
       {/* Hero */}
       <div className="px-4 animate-fade-up">
         <div className="gradient-hero relative overflow-hidden rounded-[28px] p-6 text-white shadow-elegant">
           <Arabesque className="absolute -left-10 -top-10 h-56 w-56 text-white/15" />
           <div className="relative">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">المكتبة الصوتية</div>
+            <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">
+              المكتبة الصوتية
+            </div>
             <div className="mt-2 font-display text-2xl">تسجيلات أذان حقيقية</div>
-            <div className="mt-1 text-xs text-white/70">مكة · المدينة · الأقصى · خليجي · عام · MP3 / M4A</div>
+            <div className="mt-1 text-xs text-white/70">
+              مكة · المدينة · الأقصى · خليجي · عام · MP3 / M4A
+            </div>
             <div className="mt-3 rounded-2xl bg-white/10 px-3 py-2 text-[10px] leading-relaxed text-white/80">
               {ADHAN_ASSET_RIGHTS_NOTICE}
             </div>
@@ -84,25 +109,28 @@ function AdhanLibrary() {
         </div>
       </div>
 
-
       {/* Target switch */}
       <SectionLabel>تخصيص الصوت لـ</SectionLabel>
       <div className="px-4">
         <div className="flex flex-wrap gap-1 rounded-2xl border border-border bg-card p-1 shadow-soft">
-          {([
-            { id: "general",   l: "كل الصلوات" },
-            { id: "fajr",      l: "أذان الفجر" },
-            { id: "first",     l: "الأذان الأول" },
-            { id: "second",    l: "الأذان الثاني" },
-            { id: "tathweeb",  l: "التثويب" },
-          ] as { id: Target; l: string }[]).map((t) => {
+          {(
+            [
+              { id: "general", l: "كل الصلوات" },
+              { id: "fajr", l: "أذان الفجر" },
+              { id: "first", l: "الأذان الأول" },
+              { id: "second", l: "الأذان الثاني" },
+              { id: "tathweeb", l: "التثويب" },
+            ] as { id: Target; l: string }[]
+          ).map((t) => {
             const active = target === t.id;
             return (
               <button
                 key={t.id}
                 onClick={() => setTarget(t.id)}
                 className={`flex-1 min-w-[80px] rounded-xl py-2 text-[11px] transition ${
-                  active ? "gradient-primary text-primary-foreground shadow-glow" : "text-muted-foreground"
+                  active
+                    ? "gradient-primary text-primary-foreground shadow-glow"
+                    : "text-muted-foreground"
                 }`}
               >
                 {t.l}
@@ -129,11 +157,17 @@ function AdhanLibrary() {
                     key={st}
                     onClick={() => setStyle(st)}
                     className={`rounded-2xl border p-3 text-center transition ${
-                      active ? "border-transparent gradient-primary text-primary-foreground shadow-glow" : "border-border bg-card shadow-soft"
+                      active
+                        ? "border-transparent gradient-primary text-primary-foreground shadow-glow"
+                        : "border-border bg-card shadow-soft"
                     }`}
                   >
                     <div className="text-xs font-medium">{meta.name}</div>
-                    <div className={`text-[10px] ${active ? "text-white/80" : "text-muted-foreground"}`}>{meta.duration}</div>
+                    <div
+                      className={`text-[10px] ${active ? "text-white/80" : "text-muted-foreground"}`}
+                    >
+                      {meta.duration}
+                    </div>
                   </button>
                 );
               })}
@@ -176,12 +210,16 @@ function AdhanLibrary() {
                       : "border-border bg-card shadow-soft"
                   }`}
                 >
-                  {isSelected && <Arabesque className="absolute -right-6 -top-6 h-32 w-32 text-white/15" />}
+                  {isSelected && (
+                    <Arabesque className="absolute -right-6 -top-6 h-32 w-32 text-white/15" />
+                  )}
                   <div className="relative flex items-center gap-3 p-4">
                     <button
                       onClick={() => preview(c.id)}
                       className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border transition ${
-                        isSelected ? "border-white/30 bg-white/15 text-white" : "border-border bg-secondary text-primary"
+                        isSelected
+                          ? "border-white/30 bg-white/15 text-white"
+                          : "border-border bg-secondary text-primary"
                       }`}
                       aria-label="استماع"
                     >
@@ -189,19 +227,37 @@ function AdhanLibrary() {
                     </button>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{c.name}</div>
-                      <div className={`text-[11px] truncate ${isSelected ? "text-white/70" : "text-muted-foreground"}`}>
+                      <div
+                        className={`text-[11px] truncate ${isSelected ? "text-white/70" : "text-muted-foreground"}`}
+                      >
                         {c.reciterName} · {c.origin}
                       </div>
-                      <div className={`mt-1 flex flex-wrap gap-1.5 text-[10px] ${isSelected ? "text-white/70" : "text-muted-foreground"}`}>
-                        <span className={`rounded-full px-2 py-0.5 ${isSelected ? "bg-white/10" : "bg-secondary"}`}>{c.styleName}</span>
-                        <span className={`rounded-full px-2 py-0.5 ${isSelected ? "bg-white/10" : "bg-secondary"}`}>{c.tone}</span>
-                        <span className={`rounded-full px-2 py-0.5 ${isSelected ? "bg-white/10" : "bg-secondary"}`}>{c.duration}</span>
+                      <div
+                        className={`mt-1 flex flex-wrap gap-1.5 text-[10px] ${isSelected ? "text-white/70" : "text-muted-foreground"}`}
+                      >
+                        <span
+                          className={`rounded-full px-2 py-0.5 ${isSelected ? "bg-white/10" : "bg-secondary"}`}
+                        >
+                          {c.styleName}
+                        </span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 ${isSelected ? "bg-white/10" : "bg-secondary"}`}
+                        >
+                          {c.tone}
+                        </span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 ${isSelected ? "bg-white/10" : "bg-secondary"}`}
+                        >
+                          {c.duration}
+                        </span>
                       </div>
                     </div>
                     <button
                       onClick={() => choose(c.id)}
                       className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
-                        isSelected ? "bg-white/20 text-white" : "border border-primary/30 bg-primary/10 text-primary"
+                        isSelected
+                          ? "bg-white/20 text-white"
+                          : "border border-primary/30 bg-primary/10 text-primary"
                       }`}
                     >
                       {isSelected ? "محدد" : "اختر"}
@@ -219,7 +275,9 @@ function AdhanLibrary() {
       <div className="space-y-2 px-4">
         <Toggle
           label="استخدام نفس الصوت لجميع الصلوات"
-          hint={settings.samePerPrayer ? "الجميع يستخدم الصوت الرئيسي" : "يمكنك اختيار صوت لكل صلاة"}
+          hint={
+            settings.samePerPrayer ? "الجميع يستخدم الصوت الرئيسي" : "يمكنك اختيار صوت لكل صلاة"
+          }
           on={settings.samePerPrayer}
           onToggle={() => update({ samePerPrayer: !settings.samePerPrayer })}
         />
@@ -279,7 +337,17 @@ function AdhanLibrary() {
   );
 }
 
-function Toggle({ label, hint, on, onToggle }: { label: string; hint?: string; on: boolean; onToggle: () => void }) {
+function Toggle({
+  label,
+  hint,
+  on,
+  onToggle,
+}: {
+  label: string;
+  hint?: string;
+  on: boolean;
+  onToggle: () => void;
+}) {
   return (
     <button
       onClick={onToggle}
@@ -289,40 +357,63 @@ function Toggle({ label, hint, on, onToggle }: { label: string; hint?: string; o
         <div className="text-sm font-medium">{label}</div>
         {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
       </div>
-      <span className={`relative h-6 w-11 rounded-full transition ${on ? "gradient-primary" : "bg-muted"}`}>
-        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-soft transition-all ${on ? "right-0.5" : "right-[22px]"}`} />
+      <span
+        className={`relative h-6 w-11 rounded-full transition ${on ? "gradient-primary" : "bg-muted"}`}
+      >
+        <span
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-soft transition-all ${on ? "right-0.5" : "right-[22px]"}`}
+        />
       </span>
     </button>
   );
 }
 
-function SingleAssetCard({ label, hint, selected, playing, onPreview, onChoose }: {
-  label: string; hint: string; selected: boolean; playing: boolean;
-  onPreview: () => void; onChoose: () => void;
+function SingleAssetCard({
+  label,
+  hint,
+  selected,
+  playing,
+  onPreview,
+  onChoose,
+}: {
+  label: string;
+  hint: string;
+  selected: boolean;
+  playing: boolean;
+  onPreview: () => void;
+  onChoose: () => void;
 }) {
   return (
     <div
       className={`relative overflow-hidden rounded-2xl border p-4 ${
-        selected ? "border-transparent gradient-primary text-primary-foreground shadow-glow" : "border-border bg-card shadow-soft"
+        selected
+          ? "border-transparent gradient-primary text-primary-foreground shadow-glow"
+          : "border-border bg-card shadow-soft"
       }`}
     >
       <div className="flex items-center gap-3">
         <button
           onClick={onPreview}
           className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${
-            selected ? "border-white/30 bg-white/15 text-white" : "border-border bg-secondary text-primary"
+            selected
+              ? "border-white/30 bg-white/15 text-white"
+              : "border-border bg-secondary text-primary"
           }`}
         >
           <Icon d={playing ? icons.pause : icons.play} size={18} />
         </button>
         <div className="flex-1">
           <div className="text-sm font-medium">{label}</div>
-          <div className={`text-[11px] ${selected ? "text-white/70" : "text-muted-foreground"}`}>{hint}</div>
+          <div className={`text-[11px] ${selected ? "text-white/70" : "text-muted-foreground"}`}>
+            {hint}
+          </div>
         </div>
         <button
           onClick={onChoose}
           className={`rounded-full px-3 py-1.5 text-[11px] font-medium ${
-            selected ? "bg-white/20 text-white" : "border border-primary/30 bg-primary/10 text-primary"
+            selected
+              ? "bg-white/20 text-white"
+              : "border border-primary/30 bg-primary/10 text-primary"
           }`}
         >
           {selected ? "محدد" : "اختر"}
@@ -332,7 +423,11 @@ function SingleAssetCard({ label, hint, selected, playing, onPreview, onChoose }
   );
 }
 
-function PerPrayerAudio({ prayer, value, onChange }: {
+function PerPrayerAudio({
+  prayer,
+  value,
+  onChange,
+}: {
   prayer: PrayerKey;
   value: AdhanVariant;
   onChange: (v: AdhanVariant) => void;
@@ -349,7 +444,9 @@ function PerPrayerAudio({ prayer, value, onChange }: {
           </span>
           <div>
             <div className="text-sm font-medium">{PRAYER_LABELS[prayer].ar}</div>
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{PRAYER_LABELS[prayer].en}</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              {PRAYER_LABELS[prayer].en}
+            </div>
           </div>
         </div>
         <div className="text-[10px] text-muted-foreground">{adhanVariantLabel(value)}</div>
@@ -370,4 +467,3 @@ function PerPrayerAudio({ prayer, value, onChange }: {
     </div>
   );
 }
-

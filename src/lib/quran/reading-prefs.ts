@@ -78,8 +78,7 @@ export interface ResolvedReadingStyle {
 
 export function resolveReadingStyle(p: ReadingPrefs): ResolvedReadingStyle {
   const size = FONT_SIZE_OPTIONS.find((o) => o.key === p.fontSize) ?? FONT_SIZE_OPTIONS[1];
-  const lh =
-    LINE_HEIGHT_OPTIONS.find((o) => o.key === p.lineHeight) ?? LINE_HEIGHT_OPTIONS[1];
+  const lh = LINE_HEIGHT_OPTIONS.find((o) => o.key === p.lineHeight) ?? LINE_HEIGHT_OPTIONS[1];
   const w = WIDTH_OPTIONS.find((o) => o.key === p.width) ?? WIDTH_OPTIONS[1];
   const f = QURAN_FONT_OPTIONS.find((o) => o.key === p.font) ?? QURAN_FONT_OPTIONS[0];
   return {
