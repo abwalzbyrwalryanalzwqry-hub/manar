@@ -21,11 +21,22 @@ const config: CapacitorConfig = {
   appName: "منار",
   webDir: "dist/client",
   bundledWebRuntime: false,
+  server: {
+    // صريح بدل الاعتماد على الافتراضي: التطبيق يُقدَّم من https://localhost
+    // داخل WebView، ولا يوجد أي سيرفر خارجي.
+    androidScheme: "https",
+    hostname: "localhost",
+    // لو فشل تحميل المستند الرئيسي، ينتقل Capacitor إلى هذه الصفحة العربية بدل
+    // صفحة WebView الإنجليزية البيضاء "This page didn't load".
+    errorPath: "native-error.html",
+  },
   android: {
     allowMixedContent: false,
     captureInput: true,
     // Offline-first: everything the core experience needs is bundled.
-    webContentsDebuggingEnabled: false,
+    // مفعّل في 1.0.0 لتشخيص الإقلاع على جهاز حقيقي عبر chrome://inspect.
+    // أوقفه قبل رفع النسخة النهائية إلى Play.
+    webContentsDebuggingEnabled: true,
   },
   plugins: {
     SplashScreen: {

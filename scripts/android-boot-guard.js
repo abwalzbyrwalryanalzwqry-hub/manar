@@ -18,7 +18,17 @@
   var HIDE_ATTEMPTS = [0, 300, 900, 1800, 3000, 4500];
   var WATCHDOG_MS = 8000;
   var errors = [];
-  window.__MANAR_BOOT__ = { errors: errors, hidden: false, painted: false };
+  window.__MANAR_BOOT__ = {
+    errors: errors,
+    hidden: false,
+    painted: false,
+    // يستدعيها عازل أخطاء المكوّنات الخدمية (SafeBoundary) ليصل الخطأ إلى
+    // لوحة التشخيص نفسها بدل أن يضيع في السجل.
+    note: function (message) {
+      var text = String(message);
+      if (errors.indexOf(text) === -1) errors.push(text);
+    },
+  };
 
   function splash() {
     try {

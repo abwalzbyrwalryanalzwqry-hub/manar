@@ -8,6 +8,7 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
@@ -32,6 +33,7 @@ final class ManarWebViewDiagnostics extends BridgeWebViewClient {
     private static final String TAG = "ManarBoot";
     private final Activity activity;
     private final Bridge bridge;
+    private boolean recoveredFromRendererLoss = false;
 
     ManarWebViewDiagnostics(Bridge bridge, Activity activity) {
         super(bridge);
@@ -67,6 +69,31 @@ final class ManarWebViewDiagnostics extends BridgeWebViewClient {
         String url = request.getUrl() != null ? request.getUrl().toString() : "?";
         Log.e(TAG, "main frame http error: status=" + status + " url=" + url);
         show("استجابة HTTP: " + status + "\n" + url);
+    }
+
+    /**
+     * انهيار مُحرِّك عرض WebView (نقص ذاكرة أو تعطّل داخلي). بدون هذه المعالجة
+     * يبقى التطبيق على صفحة بيضاء ميتة، أو يُسقط النظام العملية بالكامل.
+     * نُعيد التحميل مرة واحدة، وإن تكرّر نعرض لوحة التشخيص.
+     */
+    @Override
+    public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+        boolean crashed = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && detail != null && detail.didCrash();
+        Log.e(TAG, "render process gone: didCrash=" + crashed + " recoveredOnce=" + recoveredFromRendererLoss);
+
+        if (view != null) {
+            ViewGroup parent = (ViewGroup) view.getParent();
+            if (parent != null) parent.removeView(view);
+            view.destroy();
+        }
+
+        if (!recoveredFromRendererLoss && bridge != null) {
+            recoveredFromRendererLoss = true;
+            activity.runOnUiThread(activity::recreate);
+        } else {
+            show("انهيار مُحرِّك عرض الصفحة" + (crashed ? " (تعطّل)" : " (نقص ذاكرة)"));
+        }
+        return true;
     }
 
     /** لوحة عربية أصلية تحلّ محلّ صفحة الخطأ الإنجليزية الفارغة. */

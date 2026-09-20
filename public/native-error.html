@@ -1,0 +1,64 @@
+<!doctype html>
+<!--
+  منار — صفحة الخطأ الأصلية (server.errorPath في capacitor.config.ts).
+  ينتقل Capacitor إليها عندما يفشل تحميل المستند الرئيسي، فلا يرى المستخدم أبدًا
+  صفحة WebView الإنجليزية البيضاء. مستقلة تمامًا: لا CSS ولا JS خارجي.
+-->
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>تعذّر تحميل منار</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0b1f1a;
+        color: #f8f9fa;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding: 24px;
+      }
+      .box { max-width: 460px; text-align: center; }
+      h1 { color: #c9a227; font-size: 20px; margin: 0 0 14px; }
+      p { font-size: 14px; line-height: 1.9; opacity: 0.85; margin: 0 0 18px; }
+      pre {
+        text-align: start;
+        font-size: 11px;
+        line-height: 1.8;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(201, 162, 39, 0.35);
+        border-radius: 16px;
+        padding: 14px;
+        white-space: pre-wrap;
+        word-break: break-all;
+        margin: 0 0 18px;
+      }
+      button {
+        background: #0e7a5f;
+        color: #fff;
+        border: 0;
+        border-radius: 14px;
+        padding: 12px 26px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h1>تعذّر تحميل منار</h1>
+      <p>لم تُحمّل واجهة التطبيق. جرّب إعادة المحاولة، وإن تكرّر الأمر أرسل التفاصيل التالية للمطوّر.</p>
+      <pre id="info"></pre>
+      <button onclick="location.replace('/')">إعادة المحاولة</button>
+    </div>
+    <script>
+      document.getElementById("info").textContent =
+        "العنوان: " + location.href +
+        "\nWebView: " + navigator.userAgent +
+        "\nالوقت: " + new Date().toISOString();
+    </script>
+  </body>
+</html>
