@@ -16,6 +16,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth-context";
 import { CloudSyncBridge } from "@/components/manar/cloud-sync-bridge";
 import { NativeBridge } from "@/components/manar/native-bridge";
+import { StorageGate } from "@/components/manar/storage-gate";
 
 function NotFoundComponent() {
   return (
@@ -139,13 +140,16 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <CloudSyncBridge />
-        <AdhanProvider />
-        <NativeBridge />
-        <Toaster position="top-center" dir="rtl" richColors closeButton />
-        <Outlet />
-      </AuthProvider>
+      {/* تُستعاد حالة المستخدم من الطبقة الأصلية قبل تركيب أي مزوّد يقرأ التخزين. */}
+      <StorageGate>
+        <AuthProvider>
+          <CloudSyncBridge />
+          <AdhanProvider />
+          <NativeBridge />
+          <Toaster position="top-center" dir="rtl" richColors closeButton />
+          <Outlet />
+        </AuthProvider>
+      </StorageGate>
     </QueryClientProvider>
   );
 }
