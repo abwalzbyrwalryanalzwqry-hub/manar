@@ -24,9 +24,12 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 20px);
 
-  --font-sans: "IBM Plex Sans Arabic", "Noto Naskh Arabic", system-ui, sans-serif;
-  --font-display: "Scheherazade New", "Amiri Quran", "IBM Plex Sans Arabic", serif;
-  --font-arabic: "IBM Plex Sans Arabic", "Noto Naskh Arabic", sans-serif;
+  /* «خط ثمانية» هو خط منار الرسمي: sans للواجهة، و serif display للعناوين.
+     IBM Plex Sans Arabic يبقى تاليًا في السلسلة ليغطي الرموز التي لا يحملها
+     ثمانية (مثل ﷺ و ٱ) حرفًا بحرف. خط المصحف لا يتغيّر. */
+  --font-sans: "thmanyah sans", "IBM Plex Sans Arabic", "Noto Naskh Arabic", system-ui, sans-serif;
+  --font-display: "thmanyah serif display", "thmanyah sans", "IBM Plex Sans Arabic", serif;
+  --font-arabic: "thmanyah sans", "IBM Plex Sans Arabic", "Noto Naskh Arabic", sans-serif;
   --font-quran: "Amiri Quran", "Scheherazade New", "Traditional Arabic", "KFGQPC Uthmanic Hafs", serif;
 
   --color-background: var(--background);

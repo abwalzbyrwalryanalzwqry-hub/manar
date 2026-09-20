@@ -1,0 +1,103 @@
+/*
+  منار — «خط ثمانية»، الخط الرسمي للتطبيق.
+
+  عائلتان: thmanyah sans للواجهة، و thmanyah serif display للعناوين.
+  خمسة أوزان لكل عائلة (300 / 400 / 500 / 700 / 900).
+
+  الملفات مضمّنة كما هي من حزمة ثمانية للويب بصيغة WOFF2، بأسمائها الأصلية
+  ودون أي تقليص (subsetting) أو تعديل أو إعادة تسمية، احترامًا لشروط ترخيص
+  ثمانية. مصدر الخط الرسمي: https://font.thmanyah.com/
+  حزمة الويب المستخدمة: https://engdawood.com/ar/projects/thmanyah-fonts-web
+
+  لا نضع unicode-range: تغطية الخط لا تشمل بعض الرموز (مثل ﷺ و ٱ)، فيتولّى
+  المتصفح استبدالها حرفًا بحرف من الخط التالي في السلسلة (IBM Plex Sans Arabic).
+*/
+
+/* ===== thmanyah sans — الواجهة ===== */
+@font-face {
+  font-family: "thmanyah sans";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(/fonts/thmanyah/thmanyah-sans-Light.woff2) format("woff2");
+}
+@font-face {
+  font-family: "thmanyah sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/thmanyah/thmanyah-sans-Regular.woff2) format("woff2");
+}
+@font-face {
+  font-family: "thmanyah sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(/fonts/thmanyah/thmanyah-sans-Medium.woff2) format("woff2");
+}
+@font-face {
+  font-family: "thmanyah sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  /* لا يوجد وزن ٦٠٠ في العائلة؛ نُسنده إلى Bold بدل أن يُصطنع تعريضًا آليًا. */
+  src: url(/fonts/thmanyah/thmanyah-sans-Bold.woff2) format("woff2");
+}
+@font-face {
+  font-family: "thmanyah sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(/fonts/thmanyah/thmanyah-sans-Bold.woff2) format("woff2");
+}
+@font-face {
+  font-family: "thmanyah sans";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url(/fonts/thmanyah/thmanyah-sans-Black.woff2) format("woff2");
+}
+
+/* ===== thmanyah serif display — العناوين ===== */
+@font-face {
+  font-family: "thmanyah serif display";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(/fonts/thmanyah/thmanyah-serif-display-Light.woff2) format("woff2");
+}
+@font-face {
+  font-family: "thmanyah serif display";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/thmanyah/thmanyah-serif-display-Regular.woff2) format("woff2");
+}
+@font-face {
+  font-family: "thmanyah serif display";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(/fonts/thmanyah/thmanyah-serif-display-Medium.woff2) format("woff2");
+}
+@font-face {
+  font-family: "thmanyah serif display";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(/fonts/thmanyah/thmanyah-serif-display-Bold.woff2) format("woff2");
+}
+@font-face {
+  font-family: "thmanyah serif display";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(/fonts/thmanyah/thmanyah-serif-display-Bold.woff2) format("woff2");
+}
+@font-face {
+  font-family: "thmanyah serif display";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url(/fonts/thmanyah/thmanyah-serif-display-Black.woff2) format("woff2");
+}

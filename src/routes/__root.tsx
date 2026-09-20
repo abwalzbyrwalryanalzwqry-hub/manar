@@ -54,6 +54,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: "/fonts/quran-fonts.css" },
       // Self-hosted interface font — bundled locally for the same reason.
       { rel: "stylesheet", href: "/fonts/ui-fonts.css" },
+      // «خط ثمانية» — الخط الرسمي للتطبيق (واجهة + عناوين).
+      { rel: "stylesheet", href: "/fonts/thmanyah-fonts.css" },
+      // تحميل مبكر للوزنين الأكثر ظهورًا حتى لا ترتجف النصوص عند الإقلاع.
+      {
+        rel: "preload",
+        as: "font",
+        type: "font/woff2",
+        href: "/fonts/thmanyah/thmanyah-sans-Regular.woff2",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "preload",
+        as: "font",
+        type: "font/woff2",
+        href: "/fonts/thmanyah/thmanyah-sans-Medium.woff2",
+        crossOrigin: "anonymous",
+      },
     ],
   }),
   shellComponent: RootShell,
