@@ -31,14 +31,27 @@ function Splash() {
    *
    * ننتظر انتهاء `loading` قبل القرار، وإلا حُسم الأمر قبل أن تُستعاد
    * الجلسة من التخزين فيُطرد صاحب الحساب إلى شاشة الدخول. */
+  /* الانتظار مسقوف.
+   *
+   * كان القرار يُعلَّق حتى ينتهي `loading`، وهو رهانٌ على أن استعادة الجلسة
+   * تنتهي دائماً. إن تعلّقت — خادمٌ لا يُستجاب، أو خطأ يمنع `setLoading(false)` —
+   * بقي المستخدم على شاشة البداية إلى الأبد بلا أي مخرج. الآن ننتظر ثانية
+   * واحدة على الأكثر ثم نُقرّر بما لدينا: الأسوأ أن يُطلب منه الدخول مرّةً
+   * وهو مسجَّل، لا أن يُحبس في شاشةٍ لا تتغيّر. */
+  const [waitedOut, setWaitedOut] = useState(false);
   useEffect(() => {
-    if (loading) return;
+    const t = setTimeout(() => setWaitedOut(true), 1000);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (loading && !waitedOut) return;
     const to = !returning ? "/onboarding" : user || isGuest ? "/home" : "/login";
     /* العائد لا ينتظر شاشة البداية كاملةً — ٢٢٠٠ مللي ثانية ترحيبٌ لطيف
        في المرّة الأولى وتأخيرٌ مزعج فيما بعدها. */
     const t = setTimeout(() => navigate({ to }), returning ? 600 : 2200);
     return () => clearTimeout(t);
-  }, [navigate, loading, returning, user, isGuest]);
+  }, [navigate, loading, waitedOut, returning, user, isGuest]);
 
   return (
     <div dir="rtl" className="relative min-h-screen overflow-hidden gradient-hero text-white">
