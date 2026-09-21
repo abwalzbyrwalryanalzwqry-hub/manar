@@ -1,7 +1,10 @@
 ext {
     minSdkVersion = 24
-    compileSdkVersion = 35
-    targetSdkVersion = 35
+    // Google Play يشترط استهداف واجهة ٣٦ (أندرويد ١٦) لكل تحديث جديد منذ
+    // ٣١ أغسطس ٢٠٢٦، ومهلة التمديد تنتهي ١ نوفمبر ٢٠٢٦. واجهة ٣٦ تتطلّب
+    // compileSdk 36 ومعه AGP 8.9+ (هنا 8.10.1 مع Gradle 8.11.1).
+    compileSdkVersion = 36
+    targetSdkVersion = 36
     androidxActivityVersion = '1.9.2'
     androidxAppCompatVersion = '1.7.0'
     androidxCoordinatorLayoutVersion = '1.2.0'
