@@ -313,10 +313,11 @@ export function useLocation() {
     setError(null);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        // Offline-first: name the place from the bundled city list, then
-        // refine online only when a network is actually available.
-        const { nearestCity } = await import("@/lib/cities");
-        const near = nearestCity(pos.coords.latitude, pos.coords.longitude);
+        /* أولاً بلا إنترنت: نسمّي الموقع من القاعدة المضمَّنة (٣٤٣ محافظة
+         * و٢٤٢٨ مدينة عربية)، فيعمل التحديد التلقائي كاملاً في وضع الطيران
+         * أو بشبكة ضعيفة. ثم نُحسّن الاسم عبر الشبكة إن كانت متاحة فعلاً. */
+        const { nearestPlace } = await import("@/lib/places");
+        const near = nearestPlace(pos.coords.latitude, pos.coords.longitude);
         let city = near?.city ?? "موقعي الحالي";
         let country = near?.country ?? location.country;
         const online = typeof navigator === "undefined" || navigator.onLine !== false;
