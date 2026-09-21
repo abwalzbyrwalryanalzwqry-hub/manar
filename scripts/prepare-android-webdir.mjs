@@ -52,20 +52,56 @@ rmSync(resolve(clientDir, "_headers"), { force: true });
  *    تُربك React.
  */
 const BOOT_GUARD = `<script>(function(){
+/* ترقيع: Object.hasOwn (ES2022) يستعمله موجّه TanStack، ولا يعرفه WebView
+   أقدم من Chrome 93. دالّة وقت تشغيل لا صيغة، فلا يُلوِّضها المُحوِّل. */
 if(!Object.hasOwn){Object.defineProperty(Object,"hasOwn",{value:function(o,k){
 return Object.prototype.hasOwnProperty.call(Object(o),k)},writable:true,configurable:true})}
-var T=8000;setTimeout(function(){try{
-if(document.querySelector("[data-tsd-source],#root>*,nav,main"))return;
-var d=document.createElement("div");
-d.setAttribute("dir","rtl");
-d.style.cssText="position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;"+
-"align-items:center;justify-content:center;gap:14px;padding:32px;text-align:center;"+
-"background:#0B1F1A;color:#F8F9FA;font:16px/1.9 system-ui,sans-serif";
-d.innerHTML="<div style='font-size:22px;color:#C9A227'>تعذّر تشغيل منار</div>"+
-"<div style='max-width:22em;opacity:.85'>لم يتمكّن التطبيق من الإقلاع على هذا الجهاز. "+
-"الأرجح أن متصفّح أندرويد المدمج (Android System WebView) قديم.</div>"+
-"<div style='max-width:22em;opacity:.85'>حدّثه من متجر Play ثم أعد فتح التطبيق.</div>";
-document.body.appendChild(d)}catch(e){}},T)})();</script>`;
+
+/* سجلّ أخطاء مبكّر.
+   الأخطاء التي تقع قبل تركيب React لا يلتقطها أي حدّ أخطاء في التطبيق،
+   فتضيع تماماً ويبقى المستخدم أمام شاشةٍ لا تشرح شيئاً. نلتقطها هنا،
+   ونحفظها ليقرأها المستخدم ويُصوّرها. */
+var L=[];
+window.__manarBootLog=L;
+function rec(kind,msg,extra){
+  L.push({t:Math.round(performance.now()),kind:kind,msg:String(msg||"").slice(0,600),
+          extra:String(extra||"").slice(0,600)});
+  try{localStorage.setItem("manar.bootlog.v1",JSON.stringify(L).slice(0,8000))}catch(e){}
+}
+window.addEventListener("error",function(e){
+  if(e.target&&e.target!==window&&e.target.src){rec("asset","تعذّر تحميل ملف",e.target.src);return}
+  rec("error",e.message,(e.filename||"")+":"+(e.lineno||""));
+},true);
+window.addEventListener("unhandledrejection",function(e){
+  var r=e.reason;rec("reject",r&&r.message?r.message:r,r&&r.stack?r.stack:"");
+});
+rec("boot","بدأ تحميل الصفحة","");
+
+/* درع الإقلاع: إن لم يُرسم شيء أصلاً بعد عشر ثوانٍ، نُظهر ما التقطناه.
+   نفحص محتوى body الفعلي لا عناصر بعينها — الفحص السابق كان يبحث عن
+   nav/main، وهما غير موجودين في شاشة البداية، فأطلق إنذاراً كاذباً على
+   تطبيقٍ يعمل. */
+setTimeout(function(){try{
+  if(document.getElementById("manar-boot-error"))return;
+  var b=document.body;
+  if(b&&b.querySelector("div,section,h1,svg")&&(b.innerText||"").trim().length>0)return;
+  var rows=L.filter(function(x){return x.kind!=="boot"});
+  var d=document.createElement("div");
+  d.id="manar-boot-error";d.setAttribute("dir","rtl");
+  d.style.cssText="position:fixed;inset:0;z-index:99999;overflow:auto;padding:28px 20px;"+
+  "background:#0B1F1A;color:#F8F9FA;font:15px/1.9 system-ui,sans-serif";
+  var h="<div style='font-size:21px;color:#C9A227;margin-bottom:10px'>تعذّر تشغيل منار</div>"+
+  "<div style='opacity:.85;margin-bottom:18px'>لم يبدأ التطبيق على هذا الجهاز. التفاصيل أدناه — صوّرها وأرسلها للمطوّر.</div>";
+  if(rows.length){h+="<div style='font:12px/1.7 monospace;direction:ltr;text-align:left;"+
+    "background:#00000055;border-radius:10px;padding:12px;white-space:pre-wrap;word-break:break-all'>"+
+    rows.map(function(x){return x.t+"ms ["+x.kind+"] "+x.msg+(x.extra?"\\n   "+x.extra:"")})
+    .join("\\n\\n").replace(/</g,"&lt;")+"</div>";}
+  else{h+="<div style='opacity:.7'>لم يُسجَّل أي خطأ — الأرجح أن متصفّح أندرويد المدمج"+
+    " (Android System WebView) قديم. حدّثه من متجر Play.</div>";}
+  h+="<div style='margin-top:20px;opacity:.6;font-size:13px'>"+navigator.userAgent.replace(/</g,"&lt;")+"</div>";
+  d.innerHTML=h;b.appendChild(d);
+}catch(e){}},10000);
+})();</script>`;
 
 const html = readFileSync(index, "utf8");
 if (/https?:\/\/(?!localhost)/.test(html.replace(/https?:\/\/www\.w3\.org/g, ""))) {
