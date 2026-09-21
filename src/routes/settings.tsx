@@ -155,7 +155,10 @@ function Settings() {
           label="الحساب"
           value={user?.email ?? "زائر"}
           hint={user ? undefined : "لم تسجّل الدخول"}
-          to={user ? "/profile" : "/auth"}
+          /* `/login` لا `/auth`: الثاني مسار لا وجود له في `src/routes`، فكان
+             الرابط يقود إلى صفحة «غير موجود» — وأفشل التوليد المسبق لبناء
+             أندرويد أيضاً لأنه يتبع كل رابط داخلي. */
+          to={user ? "/profile" : "/login"}
         />
         <Row icon={icons.info} label="عن التطبيق" value="" to="/about" />
       </div>

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Icon, icons, Mark } from "@/components/manar/shell";
 import { useAuth } from "@/lib/auth-context";
+import { markOnboarded } from "@/lib/onboarding-state";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "تسجيل الدخول — منار" }] }),
@@ -23,6 +24,7 @@ function Login() {
     setBusy(false);
     if (error) toast.error(error);
     else {
+      markOnboarded();
       toast.success("أهلاً بعودتك");
       nav({ to: "/home" });
     }
@@ -34,12 +36,16 @@ function Login() {
     setBusy(false);
     if (error) toast.error(error);
     else {
+      markOnboarded();
       toast.success("تم تسجيل الدخول عبر Google");
       nav({ to: "/home" });
     }
   };
 
   const guest = () => {
+    /* وضع الزائر اختيارٌ كامل لا تخطٍّ مؤقّت: نُسجّل إتمام التعريف حتى لا
+       يُعاد المستخدم إلى الشرائح ولا إلى شاشة الدخول في الإقلاع التالي. */
+    markOnboarded();
     enableGuest();
     nav({ to: "/home" });
   };
