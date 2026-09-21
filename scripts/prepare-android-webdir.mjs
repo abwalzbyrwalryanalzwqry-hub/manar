@@ -7,7 +7,15 @@
  * takes over from the first paint. Without this step the app opens on a blank
  * white screen.
  */
-import { copyFileSync, existsSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  rmSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+} from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
@@ -35,5 +43,31 @@ if (/https?:\/\/(?!localhost)/.test(html.replace(/https?:\/\/www\.w3\.org/g, "")
   console.warn("[manar] warning: index.html references an external origin.");
 }
 writeFileSync(index, html);
+
+/* الصوت يُشحن مرّة واحدة لا مرّتين.
+ *
+ * التسجيلات تُنسخ إلى `android/.../res/raw` (scripts/sync-android-raw-audio.mjs)
+ * لأن الخدمة الأمامية وحدها تستطيع تشغيل أذان كامل والتطبيق مغلق. ولو بقيت
+ * نسخةٌ ثانية منها في أصول الويب لتضاعف حجم الحزمة ١٦ ميجابايت بلا فائدة:
+ * الطبقة الأصلية لا تقرأ من أصول الويب أصلاً، والمعاينة داخل التطبيق تمرّ
+ * بالمُشغّل الأصلي (`src/lib/audio-engine.ts`) لا بعنصر <audio>.
+ *
+ * تبقى النسخة في `public/audio` كما هي لبناء الويب. */
+const audioDir = resolve(clientDir, "audio");
+if (existsSync(audioDir)) {
+  let freed = 0;
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const full = resolve(dir, e.name);
+      if (e.isDirectory()) walk(full);
+      else freed += statSync(full).size;
+    }
+  };
+  walk(audioDir);
+  rmSync(audioDir, { recursive: true, force: true });
+  console.log(
+    `[manar] dropped duplicated web audio (${(freed / 1048576).toFixed(1)} MB) — res/raw is the single source`,
+  );
+}
 
 console.log("[manar] dist/client/index.html ready for `cap sync android`.");

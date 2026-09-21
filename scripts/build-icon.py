@@ -168,7 +168,9 @@ def android_vector(viewport: float, reach: float, mono: bool) -> str:
         path = (
             f'      <path android:pathData="{" ".join(d.split())}" '
             f'android:fillColor="{fill}" android:fillAlpha="{o:g}" '
-            f'android:fillType="{rule}"/>'
+            # أندرويد يكتبها `nonZero` بحرف كبير، وSVG يكتبها `nonzero`. القيمة
+            # المخالفة ليست تجاهلاً صامتاً بل خطأ بناء يُفشل AAPT كلّه.
+            f'android:fillType="{"evenOdd" if rule == "evenOdd" else "nonZero"}"/>'
         )
         if rot:
             out.append(

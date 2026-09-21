@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Icon, icons, Mark } from "@/components/manar/shell";
 import { useAuth } from "@/lib/auth-context";
+import { markOnboarded } from "@/lib/onboarding-state";
 
 export const Route = createFileRoute("/register")({
   head: () => ({ meta: [{ title: "إنشاء حساب — منار" }] }),
@@ -30,6 +31,7 @@ function Register() {
     if (error) toast.error(error);
     else {
       toast.success("تم إنشاء الحساب! تحقق من بريدك للتأكيد");
+      markOnboarded();
       nav({ to: "/home" });
     }
   };
