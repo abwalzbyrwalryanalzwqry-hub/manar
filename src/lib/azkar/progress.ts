@@ -4,6 +4,7 @@
 // ============================================================
 
 import { useCallback, useEffect, useState } from "react";
+import { recordAzkarCount } from "@/lib/activity-log";
 
 const KEY = "manar.azkar.progress.v1";
 const EVENT = "manar:azkar-progress";
@@ -32,7 +33,6 @@ const EMPTY: AzkarProgress = {
   updatedAt: null,
 };
 
-
 function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -54,6 +54,8 @@ function read(): AzkarProgress {
 function write(p: AzkarProgress) {
   try {
     window.localStorage.setItem(KEY, JSON.stringify(p));
+    /* السجل اليومي الموحّد يحتاج التاريخ، وهذه الوحدة تحفظ اليوم فقط. */
+    if (p.day === today()) recordAzkarCount(p.completed.length);
     window.dispatchEvent(new Event(EVENT));
   } catch {
     /* ignore */
@@ -82,12 +84,12 @@ export function useAzkarProgress() {
     });
   }, []);
 
-
   const tap = useCallback(
     (zikrId: number, repeat: number) =>
       patch((p) => {
         const n = Math.min(repeat, (p.counters[zikrId] ?? 0) + 1);
-        const completed = n >= repeat && !p.completed.includes(zikrId) ? [...p.completed, zikrId] : p.completed;
+        const completed =
+          n >= repeat && !p.completed.includes(zikrId) ? [...p.completed, zikrId] : p.completed;
         return { ...p, counters: { ...p.counters, [zikrId]: n }, completed, day: today() };
       }),
     [patch],
@@ -140,7 +142,6 @@ export function useAzkarProgress() {
       }),
     [],
   );
-
 
   return { progress: state, tap, resetZikr, resetMany, toggleBookmark, setLast };
 }
