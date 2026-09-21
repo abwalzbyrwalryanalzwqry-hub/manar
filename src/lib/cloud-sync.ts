@@ -4,12 +4,21 @@ import { supabase } from "@/integrations/supabase/client";
  * Maps a Supabase table name to one or more localStorage keys whose values
  * (parsed JSON) make up the table's "data" JSONB column.
  */
+/* المفاتيح هنا يجب أن تطابق ما تكتبه الوحدات فعلاً. الخريطة السابقة كانت
+ * تشير إلى مفاتيح قديمة (manar-theme، manar-location…) لا وجود لها في التطبيق،
+ * فكانت المزامنة السحابية ترفع كائنات فارغة ولا تستعيد شيئاً. */
 const SYNC_MAP: Record<string, string[]> = {
-  user_settings: ["manar-theme", "manar-language", "manar-preferences"],
-  prayer_preferences: ["manar-prayer-method", "manar-prayer-offsets", "manar-location"],
-  notification_preferences: ["manar-adhan-settings", "manar-notification-prefs"],
-  reading_progress: ["manar-quran-progress", "manar-azkar-progress"],
-  achievement_progress: ["manar-achievements", "manar-streak"],
+  user_settings: ["manar.appearance.v1", "manar.hijri.adjust.v1"],
+  prayer_preferences: ["manar.settings.v1", "manar.location.v1"],
+  notification_preferences: ["manar.adhan-settings.v2"],
+  reading_progress: [
+    "manar.quran.history.v1",
+    "manar.quran.bookmarks.v1",
+    "manar.quran.reading-prefs.v1",
+    "manar.azkar.progress.v1",
+    "manar.wird.progress.v1",
+  ],
+  achievement_progress: ["manar.activity.v1"],
 };
 
 function collect(keys: string[]): Record<string, unknown> {
@@ -17,7 +26,11 @@ function collect(keys: string[]): Record<string, unknown> {
   for (const k of keys) {
     const v = localStorage.getItem(k);
     if (v == null) continue;
-    try { out[k] = JSON.parse(v); } catch { out[k] = v; }
+    try {
+      out[k] = JSON.parse(v);
+    } catch {
+      out[k] = v;
+    }
   }
   return out;
 }

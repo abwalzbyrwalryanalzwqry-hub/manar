@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useLayoutEffect } from "react";
 import {
   CalculationMethod,
   Coordinates,
@@ -47,10 +47,58 @@ export type CalcMethodKey =
   | "Tehran"
   | "NorthAmerica";
 
+/** إزاحة يدوية بالدقائق لكل صلاة. */
+export type PrayerOffsets = Record<PrayerKey, number>;
+
+export const EMPTY_OFFSETS: PrayerOffsets = {
+  fajr: 0,
+  sunrise: 0,
+  dhuhr: 0,
+  asr: 0,
+  maghrib: 0,
+  isha: 0,
+};
+
+/** حدّ الإزاحة اليدوية بالدقائق — يمنع إدخال قيم تُفسد الجدول. */
+export const OFFSET_LIMIT = 60;
+
 export type Settings = {
   method: CalcMethodKey;
   madhab: "shafi" | "hanafi";
+  /**
+   * تعديل المستخدم لكل صلاة بالدقائق (−٦٠ … +٦٠). الحساب الفلكي دقيق، لكن
+   * المساجد تختلف عنه بدقائق حسب المنطقة والتقويم المحلي المعتمد.
+   */
+  offsets: PrayerOffsets;
+  /**
+   * إزاحة التوقيت الصيفي بالساعات (−١ / ٠ / +١). بعض الأجهزة أو المناطق
+   * تُبلّغ منطقة زمنية لا تتبع التوقيت الصيفي فيظهر الجدول متقدّماً أو
+   * متأخراً ساعة كاملة.
+   */
+  dstOffset: number;
 };
+
+function normalizeOffsets(raw: unknown): PrayerOffsets {
+  const src = (raw ?? {}) as Partial<Record<PrayerKey, unknown>>;
+  const out = { ...EMPTY_OFFSETS };
+  for (const k of PRAYER_ORDER) {
+    const v = Number(src[k]);
+    if (Number.isFinite(v)) out[k] = Math.max(-OFFSET_LIMIT, Math.min(OFFSET_LIMIT, Math.trunc(v)));
+  }
+  return out;
+}
+
+/** يُكمل أي إعدادات محفوظة قديمة بالحقول الجديدة، ويحرس القيم من التلف. */
+export function normalizeSettings(raw: unknown): Settings {
+  const src = (raw ?? {}) as Partial<Settings>;
+  const dst = Number(src.dstOffset);
+  return {
+    method: src.method ?? DEFAULT_SETTINGS.method,
+    madhab: src.madhab === "hanafi" ? "hanafi" : "shafi",
+    offsets: normalizeOffsets(src.offsets),
+    dstOffset: Number.isFinite(dst) ? Math.max(-1, Math.min(1, Math.trunc(dst))) : 0,
+  };
+}
 
 /* ------------------------------------------------------------------ */
 /*  Defaults & storage                                                 */
@@ -64,7 +112,12 @@ const DEFAULT_LOCATION: LocationState = {
   source: "default",
 };
 
-const DEFAULT_SETTINGS: Settings = { method: "UmmAlQura", madhab: "shafi" };
+const DEFAULT_SETTINGS: Settings = {
+  method: "UmmAlQura",
+  madhab: "shafi",
+  offsets: EMPTY_OFFSETS,
+  dstOffset: 0,
+};
 
 const LS_LOCATION = "manar.location.v1";
 const LS_SETTINGS = "manar.settings.v1";
@@ -93,15 +146,33 @@ function safeSet(key: string, value: unknown) {
 /*  Calculation helpers                                                */
 /* ------------------------------------------------------------------ */
 
-function buildParams(method: CalcMethodKey, madhab: Settings["madhab"]): CalculationParameters {
-  const params = (CalculationMethod[method] ?? CalculationMethod.UmmAlQura)();
-  params.madhab = madhab === "hanafi" ? Madhab.Hanafi : Madhab.Shafi;
+function buildParams(settings: Settings): CalculationParameters {
+  const params = (CalculationMethod[settings.method] ?? CalculationMethod.UmmAlQura)();
+  params.madhab = settings.madhab === "hanafi" ? Madhab.Hanafi : Madhab.Shafi;
+
+  /* نمرّر الإزاحة عبر `adjustments` الخاصة بمكتبة الحساب بدل تعديل التواريخ
+   * الناتجة، فتبقى كل الاشتقاقات (الصلاة القادمة، العدّ التنازلي، أوقات السنن،
+   * جدولة التنبيهات الأصلية) متّسقة مع الجدول المعروض تلقائياً. */
+  const dstMinutes = (settings.dstOffset ?? 0) * 60;
+  const offsets = settings.offsets ?? EMPTY_OFFSETS;
+  params.adjustments = {
+    fajr: (offsets.fajr ?? 0) + dstMinutes,
+    sunrise: (offsets.sunrise ?? 0) + dstMinutes,
+    dhuhr: (offsets.dhuhr ?? 0) + dstMinutes,
+    asr: (offsets.asr ?? 0) + dstMinutes,
+    maghrib: (offsets.maghrib ?? 0) + dstMinutes,
+    isha: (offsets.isha ?? 0) + dstMinutes,
+  };
   return params;
 }
 
-export function computePrayerTimes(loc: LocationState, settings: Settings, date = new Date()): PrayerTimes {
+export function computePrayerTimes(
+  loc: LocationState,
+  settings: Settings,
+  date = new Date(),
+): PrayerTimes {
   const coords = new Coordinates(loc.lat, loc.lng);
-  return new PrayerTimes(coords, date, buildParams(settings.method, settings.madhab));
+  return new PrayerTimes(coords, date, buildParams(settings));
 }
 
 export function computeSunnahTimes(times: PrayerTimes): SunnahTimes {
@@ -109,7 +180,10 @@ export function computeSunnahTimes(times: PrayerTimes): SunnahTimes {
 }
 
 export function pickNextPrayer(times: PrayerTimes, now = new Date()) {
-  const entries: { key: PrayerKey; at: Date }[] = PRAYER_ORDER.map((k) => ({ key: k, at: times[k] }));
+  const entries: { key: PrayerKey; at: Date }[] = PRAYER_ORDER.map((k) => ({
+    key: k,
+    at: times[k],
+  }));
   // current
   let current: { key: PrayerKey; at: Date } = entries[0];
   for (const e of entries) if (e.at <= now) current = e;
@@ -122,12 +196,29 @@ export function pickNextPrayer(times: PrayerTimes, now = new Date()) {
 /*  Hooks                                                              */
 /* ------------------------------------------------------------------ */
 
+/**
+ * بذرة ثابتة لأول رسم. `new Date()` تعطي قيمة مختلفة على الخادم وعند الترطيب،
+ * فيفشل الترطيب ويُعيد React رسم الشجرة كاملةً. بذرة ثابتة تُطابِق HTML
+ * المُولَّد مسبقاً، ثم يُستبدل الوقت الحقيقي في `useLayoutEffect` — أي قبل أن
+ * يرسم المتصفّح الإطار الأول، فلا يرى المستخدم البذرة أبداً.
+ */
+const NOW_SEED = new Date(0);
+
+/** `useLayoutEffect` على العميل و`useEffect` على الخادم (حيث لا وجود للأول). */
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 export function useNow(intervalMs = 1000) {
-  const [now, setNow] = useState<Date>(() => new Date());
+  const [now, setNow] = useState<Date>(NOW_SEED);
+
+  useIsomorphicLayoutEffect(() => {
+    setNow(new Date());
+  }, []);
+
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), intervalMs);
     return () => window.clearInterval(id);
   }, [intervalMs]);
+
   return now;
 }
 
@@ -166,21 +257,35 @@ export function qiblaBearing(loc: { lat: number; lng: number }): number {
 }
 
 /** Great-circle distance in km. */
-export function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+export function distanceKm(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
   const R = 6371;
   const toRad = (d: number) => (d * Math.PI) / 180;
   const dLat = toRad(b.lat - a.lat);
   const dLng = toRad(b.lng - a.lng);
-  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
 export function useLocation() {
-  const [location, setLocationState] = useState<LocationState>(() => readLocation());
-  const [status, setStatus] = useState<"idle" | "requesting" | "granted" | "denied" | "unsupported">(
-    location.source === "gps" ? "granted" : "idle",
-  );
+  /* نبدأ من الافتراضي لا من التخزين: الخادم لا يرى localStorage، فلو قرأناه في
+   * أول رسم على العميل لاختلف الناتج عمّا أرسله الخادم وفشل الترطيب. نقرأ
+   * المحفوظ في `useLayoutEffect` — قبل أول رسم للمتصفّح فلا يظهر وميض. */
+  const [location, setLocationState] = useState<LocationState>(DEFAULT_LOCATION);
+  const [status, setStatus] = useState<
+    "idle" | "requesting" | "granted" | "denied" | "unsupported"
+  >("idle");
   const [error, setError] = useState<string | null>(null);
+
+  useIsomorphicLayoutEffect(() => {
+    const stored = readLocation();
+    setLocationState(stored);
+    if (stored.source === "gps") setStatus("granted");
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -230,9 +335,10 @@ export function useLocation() {
               city = a.city || a.town || a.village || a.county || a.state || city;
               country = a.country || country;
             }
-          } catch { /* keep the offline city name */ }
+          } catch {
+            /* keep the offline city name */
+          }
         }
-
 
         const next: LocationState = {
           lat: pos.coords.latitude,
@@ -255,13 +361,61 @@ export function useLocation() {
   return { location, setLocation, requestGps, status, error };
 }
 
+const EVT_SETTINGS = "manar:settings";
+
+export function readSettings(): Settings {
+  return normalizeSettings(safeGet<unknown>(LS_SETTINGS, DEFAULT_SETTINGS));
+}
+
+export function writeSettings(next: Settings) {
+  safeSet(LS_SETTINGS, next);
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(EVT_SETTINGS));
+}
+
 export function useSettings() {
-  const [settings, setSettingsState] = useState<Settings>(() => safeGet(LS_SETTINGS, DEFAULT_SETTINGS));
+  /* افتراضي في أول رسم ثم المحفوظ — لنفس سبب `useLocation` أعلاه. */
+  const [settings, setSettingsState] = useState<Settings>(DEFAULT_SETTINGS);
+
+  /* تعديل الإعدادات من أي شاشة يجب أن ينعكس على الشاشات المفتوحة الأخرى،
+   * وإلا عرضت شاشة المواقيت جدولاً قديماً بعد تغيير الإزاحة من الإعدادات. */
+  useIsomorphicLayoutEffect(() => {
+    setSettingsState(readSettings());
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sync = () => setSettingsState(readSettings());
+    window.addEventListener(EVT_SETTINGS, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(EVT_SETTINGS, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
   const setSettings = (next: Settings) => {
-    setSettingsState(next);
-    safeSet(LS_SETTINGS, next);
+    const safe = normalizeSettings(next);
+    setSettingsState(safe);
+    writeSettings(safe);
   };
-  return { settings, setSettings };
+
+  /** تعديل حقل واحد دون إعادة بناء الكائن في كل شاشة. */
+  const patchSettings = (patch: Partial<Settings>) => setSettings({ ...readSettings(), ...patch });
+
+  const setOffset = (prayer: PrayerKey, minutes: number) => {
+    const current = readSettings();
+    setSettings({
+      ...current,
+      offsets: {
+        ...current.offsets,
+        [prayer]: Math.max(-OFFSET_LIMIT, Math.min(OFFSET_LIMIT, Math.trunc(minutes))),
+      },
+    });
+  };
+
+  const resetOffsets = () => patchSettings({ offsets: EMPTY_OFFSETS, dstOffset: 0 });
+
+  return { settings, setSettings, patchSettings, setOffset, resetOffsets };
 }
 
 /* ------------------------------------------------------------------ */
@@ -273,12 +427,19 @@ export function usePrayerSchedule() {
   const { settings, setSettings } = useSettings();
   const now = useNow(1000);
 
-  const today = useMemo(() => computePrayerTimes(location, settings, now), [location, settings, now.toDateString()]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* `now` يتغيّر كل ثانية، لكن جدول اليوم لا يتغيّر إلا بتغيّر التاريخ.
+   * نستخرج مفتاح اليوم كمتغيّر حتى يتحقّق منه المدقّق ولا نحتاج تعطيله. */
+  const dayStamp = now.toDateString();
+
+  const today = useMemo(
+    () => computePrayerTimes(location, settings, new Date(dayStamp)),
+    [location, settings, dayStamp],
+  );
   const tomorrow = useMemo(() => {
-    const d = new Date(now);
+    const d = new Date(dayStamp);
     d.setDate(d.getDate() + 1);
     return computePrayerTimes(location, settings, d);
-  }, [location, settings, now.toDateString()]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [location, settings, dayStamp]);
 
   // Cache last successful schedule for offline fallback
   useEffect(() => {
