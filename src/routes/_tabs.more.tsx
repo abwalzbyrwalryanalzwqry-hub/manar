@@ -14,6 +14,12 @@ const ITEMS = [
 
   { to: "/iqama", l: "الإقامة", d: "الفاصل بين الأذان والإقامة", i: icons.prayer },
   { to: "/notifications", l: "مركز التنبيهات", d: "الأذان، الإقامة، التذكيرات", i: icons.bell },
+  {
+    to: "/reminders",
+    l: "تذكيرات الأذكار والوِرد",
+    d: "أوقات وأصوات تختارها بنفسك",
+    i: icons.sparkle,
+  },
   { to: "/qibla", l: "القِبلة", d: "البوصلة واتجاه الكعبة", i: icons.qibla },
   { to: "/calendar", l: "التقويم", d: "هجري وميلادي ومناسبات", i: icons.calendar },
   { to: "/statistics", l: "الإحصائيات", d: "تقدمك ورحلتك", i: icons.stats },
