@@ -78,10 +78,14 @@ function Qibla() {
                   const a = (i * 5 * Math.PI) / 180;
                   const r1 = 92;
                   const r2 = major ? 82 : 87;
-                  const x1 = 100 + r1 * Math.sin(a);
-                  const y1 = 100 - r1 * Math.cos(a);
-                  const x2 = 100 + r2 * Math.sin(a);
-                  const y2 = 100 - r2 * Math.cos(a);
+                  /* نقرّب إلى ٣ منازل: `Math.sin`/`Math.cos` غير مضمونتين بتّاً بين
+                   * محرّك العرض على الخادم ومحرّك المتصفّح، فيختلف آخر رقم عشري
+                   * ويفشل ترطيب سمات الـ SVG. ٣ منازل أدقّ من البكسل بكثير. */
+                  const round = (v: number) => Math.round(v * 1000) / 1000;
+                  const x1 = round(100 + r1 * Math.sin(a));
+                  const y1 = round(100 - r1 * Math.cos(a));
+                  const x2 = round(100 + r2 * Math.sin(a));
+                  const y2 = round(100 - r2 * Math.cos(a));
                   return (
                     <line
                       key={i}

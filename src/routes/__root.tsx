@@ -121,11 +121,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+/* يُنفَّذ قبل أول رسم فلا يومض التطبيق بالمظهر الخاطئ عند الإقلاع.
+ * مضمّن كنص لأنه يجب أن يسبق تحميل حزمة React كاملةً. */
+const APPEARANCE_BOOTSTRAP = `(function(){try{
+var s=JSON.parse(localStorage.getItem("manar.appearance.v1")||"{}");
+var t=s.theme||"system";
+var dark=t==="dark"||(t==="system"&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches);
+var r=document.documentElement;
+if(dark){r.classList.add("dark");r.style.colorScheme="dark";}
+var m={small:0.9,medium:1,large:1.12,xlarge:1.25};
+r.style.setProperty("--manar-font-scale",String(m[s.fontScale]||1));
+}catch(e){}})();`;
+
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="ar" dir="rtl">
+    /* suppressHydrationWarning لأن نص الإقلاع أعلاه يضيف صنف `dark` ومتغيّر
+       حجم الخط إلى <html> قبل الترطيب، فتختلف سمات العنصر عمّا رسمه الخادم.
+       هذا هو النمط القياسي لتطبيق المظهر بلا وميض. */
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOTSTRAP }} />
       </head>
       <body>
         {children}
