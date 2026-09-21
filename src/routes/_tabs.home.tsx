@@ -13,6 +13,7 @@ import {
 } from "@/components/manar/shell";
 import { LocationSheet } from "@/components/manar/location-sheet";
 import { PRAYER_LABELS, usePrayerSchedule } from "@/lib/prayer";
+import { useHijriAdjust } from "@/lib/hijri";
 import {
   ampmAr,
   formatCountdown,
@@ -28,6 +29,7 @@ export const Route = createFileRoute("/_tabs/home")({
 });
 
 function Home() {
+  const { adjust: hijriAdjust } = useHijriAdjust();
   const [sheet, setSheet] = useState(false);
   const [askedOnce, setAskedOnce] = useState(false);
   const {
@@ -124,7 +126,7 @@ function Home() {
           <div className="relative mt-6 flex justify-between border-t border-white/15 pt-4">
             <div>
               <div className="text-[9px] uppercase tracking-[0.3em] text-white/50">هجري</div>
-              <div className="mt-0.5 text-sm font-medium">{formatHijriAr(now)}</div>
+              <div className="mt-0.5 text-sm font-medium">{formatHijriAr(now, hijriAdjust)}</div>
             </div>
             <div className="text-right">
               <div className="text-[9px] uppercase tracking-[0.3em] text-white/50">ميلادي</div>

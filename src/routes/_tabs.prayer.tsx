@@ -14,6 +14,7 @@ import { LocationSheet } from "@/components/manar/location-sheet";
 import { PRAYER_LABELS, PRAYER_ORDER, usePrayerSchedule, type PrayerKey } from "@/lib/prayer";
 import { useAdhanSettings } from "@/lib/adhan-settings";
 import { formatCountdown, formatHHMM, formatHijriAr, toArabicDigits } from "@/lib/format";
+import { useHijriAdjust } from "@/lib/hijri";
 
 export const Route = createFileRoute("/_tabs/prayer")({
   head: () => ({ meta: [{ title: "أوقات الصلاة — منار" }] }),
@@ -36,6 +37,7 @@ const METHOD_LABELS: Record<string, string> = {
 };
 
 function Prayer() {
+  const { adjust: hijriAdjust } = useHijriAdjust();
   const [sheet, setSheet] = useState(false);
   const { settings, updateDeep } = useAdhanSettings();
 
@@ -65,7 +67,7 @@ function Prayer() {
     <Screen>
       <ScreenHeader
         title="أوقات الصلاة"
-        subtitle={`${location.city} · ${formatHijriAr(now)}`}
+        subtitle={`${location.city} · ${formatHijriAr(now, hijriAdjust)}`}
         action={
           <button
             onClick={() => setSheet(true)}
