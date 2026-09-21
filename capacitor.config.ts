@@ -29,7 +29,22 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchAutoHide: false,
+      /* شاشة البداية يجب أن تختفي من تلقاء نفسها مهما حدث.
+       *
+       * كانت `launchAutoHide: false`، أي أنها تبقى حتى يستدعي التطبيق
+       * `hide()` من `NativeBridge`. وهذا رهانٌ على أن حزمة الويب أقلعت:
+       * فإن فشلت — خطأ تحليل على محرّك قديم، أصلٌ ناقص، أي استثناء قبل
+       * تركيب React — لا يُستدعى `hide()` أبداً، فيبقى المستخدم أمام شاشة
+       * خضراء ثابتة لا تتغيّر ولا تُخبره بشيء، ولا سبيل للخروج إلا إغلاق
+       * التطبيق.
+       *
+       * الآن تختفي تلقائياً بعد ثلاث ثوانٍ كحدٍّ أقصى. و`NativeBridge` ما
+       * زال يُخفيها فور رسم أول شاشة (٣٥٠ مللي)، فالإقلاع السليم لا
+       * يتأخّر — هذا سقفٌ للفشل لا تأخيرٌ للنجاح. وعند الفشل يظهر ما
+       * تحتها: رسالة الخطأ التي يحقنها `prepare-android-webdir.mjs`. */
+      launchAutoHide: true,
+      launchShowDuration: 3000,
+      launchFadeOutDuration: 250,
       backgroundColor: "#0B1F1A",
       androidScaleType: "CENTER_CROP",
       showSpinner: false,

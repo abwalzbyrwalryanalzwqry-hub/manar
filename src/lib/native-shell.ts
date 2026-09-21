@@ -31,9 +31,11 @@ type SplashScreenPlugin = {
 
 function plugins(): Record<string, unknown> | null {
   if (typeof window === "undefined") return null;
-  const cap = (window as unknown as {
-    Capacitor?: { isNativePlatform?: () => boolean; Plugins?: Record<string, unknown> };
-  }).Capacitor;
+  const cap = (
+    window as unknown as {
+      Capacitor?: { isNativePlatform?: () => boolean; Plugins?: Record<string, unknown> };
+    }
+  ).Capacitor;
   if (!cap?.isNativePlatform?.()) return null;
   return cap.Plugins ?? null;
 }
@@ -43,7 +45,16 @@ export function isNativeApp(): boolean {
 }
 
 /** Routes where pressing back should ask to exit instead of navigating away. */
-const ROOT_PATHS = new Set(["/", "/home", "/prayer", "/quran", "/azkar", "/more", "/onboarding", "/login"]);
+const ROOT_PATHS = new Set([
+  "/",
+  "/home",
+  "/prayer",
+  "/quran",
+  "/azkar",
+  "/more",
+  "/onboarding",
+  "/login",
+]);
 
 let backHandlerAttached = false;
 
@@ -112,8 +123,10 @@ export async function applyStatusBar(dark: boolean): Promise<void> {
 }
 
 /**
- * Hides the splash screen. `launchAutoHide` is false so the splash stays up
- * until the first real screen is painted, avoiding a white flash.
+ * يُخفي شاشة البداية فور رسم أول شاشة، فلا تُرى وميضةٌ بيضاء.
+ *
+ * `launchAutoHide` صار `true` بسقف ثلاث ثوانٍ — وهو شبكة أمان لا بديل عن
+ * هذا النداء: لولا النداء لانتظر كل مستخدم ثلاث ثوانٍ كاملة في كل إقلاع.
  */
 export async function hideSplash(): Promise<void> {
   const splash = plugins()?.["SplashScreen"] as SplashScreenPlugin | undefined;
