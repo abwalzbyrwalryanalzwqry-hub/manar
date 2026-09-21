@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- خلفية الأيقونة التكيّفية. لون صُلب لا تدرّج: أندرويد يُزيح هذه الطبقة
+     ويُقصّها مع حركة الأيقونة، فحافّة التدرّج تتحرّك معها فتبدو كعيب رسم.
+     القيمة هي #062E24 نفسها المستعملة وسط تدرّج النسخة المربّعة. -->
 <resources>
-    <color name="ic_launcher_background">#0B1F1A</color>
+    <color name="ic_launcher_background">#062E24</color>
 </resources>

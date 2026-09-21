@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WirdSessionKey } from "./data";
+import { recordWird } from "@/lib/activity-log";
 
 const KEY = "manar.wird.progress.v1";
 const EVENT = "manar:wird-progress";
@@ -21,7 +22,12 @@ export interface WirdSessionProgress {
 
 export type WirdStore = Record<WirdSessionKey, WirdSessionProgress>;
 
-const emptySession = (): WirdSessionProgress => ({ counts: {}, current: 1, done: false, updatedAt: null });
+const emptySession = (): WirdSessionProgress => ({
+  counts: {},
+  current: 1,
+  done: false,
+  updatedAt: null,
+});
 
 const EMPTY: WirdStore = { morning: emptySession(), evening: emptySession() };
 
@@ -124,9 +130,19 @@ export function useWirdSessionProgress(session: WirdSessionKey) {
     [commit],
   );
 
-  const markDone = useCallback((done: boolean) => commit((p) => ({ ...p, done })), [commit]);
+  const markDone = useCallback(
+    (done: boolean) => {
+      /* الإكمال يُسجّل في السجل اليومي الموحّد ليُحتسب في السلسلة والإحصائيات. */
+      if (done && (session === "morning" || session === "evening")) recordWird(session);
+      commit((p) => ({ ...p, done }));
+    },
+    [commit, session],
+  );
 
-  const resetSession = useCallback(() => commit(() => ({ ...emptySession(), current: 1 })), [commit]);
+  const resetSession = useCallback(
+    () => commit(() => ({ ...emptySession(), current: 1 })),
+    [commit],
+  );
 
   const resetItem = useCallback(
     (order: number) => commit((p) => ({ ...p, counts: { ...p.counts, [order]: 0 }, done: false })),

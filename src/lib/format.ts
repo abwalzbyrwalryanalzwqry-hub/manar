@@ -33,20 +33,31 @@ export function formatCountdown(ms: number): { h: string; m: string; s: string; 
     h: toArabicDigits(String(h).padStart(2, "0")),
     m: toArabicDigits(String(m).padStart(2, "0")),
     s: toArabicDigits(String(s).padStart(2, "0")),
-    compact: toArabicDigits(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`),
+    compact: toArabicDigits(
+      `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`,
+    ),
   };
 }
 
 export function formatGregorianAr(date: Date): string {
-  return new Intl.DateTimeFormat("ar-EG", { day: "numeric", month: "long", year: "numeric" }).format(date);
-}
-
-export function formatHijriAr(date: Date): string {
-  return new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura", {
+  return new Intl.DateTimeFormat("ar-EG", {
     day: "numeric",
     month: "long",
     year: "numeric",
   }).format(date);
+}
+
+/**
+ * التاريخ الهجري (أم القرى) مع إزاحة المستخدم اليدوية بالأيام.
+ * الإزاحة تُدار من شاشة التقويم عبر `useHijriAdjust` في `@/lib/hijri`.
+ */
+export function formatHijriAr(date: Date, adjust = 0): string {
+  const target = adjust === 0 ? date : new Date(date.getTime() + adjust * 86_400_000);
+  return new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(target);
 }
 
 export function formatWeekdayAr(date: Date): string {

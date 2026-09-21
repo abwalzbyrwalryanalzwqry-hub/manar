@@ -209,6 +209,9 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    /* حجم خط التطبيق. كل مقاسات Tailwind بوحدة rem فتتبع هذا الجذر تلقائياً،
+       ويضبطه المستخدم من الإعدادات عبر --manar-font-scale. */
+    font-size: calc(16px * var(--manar-font-scale, 1));
   }
   body {
     background-color: var(--color-background);

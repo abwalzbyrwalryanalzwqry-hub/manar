@@ -6,7 +6,8 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi"] },
+  // مولَّد آلياً من GeoNames — سطر واحد ضخم، لا معنى لتدقيق تنسيقه
+  { ignores: ["dist", ".output", ".vinxi", "src/lib/arab-places.ts"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

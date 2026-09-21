@@ -13,6 +13,7 @@ import { Route as WirdRouteImport } from './routes/wird'
 import { Route as StatisticsRouteImport } from './routes/statistics'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as QiblaRouteImport } from './routes/qibla'
 import { Route as ProfileRouteImport } from './routes/profile'
@@ -64,6 +65,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RemindersRoute = RemindersRouteImport.update({
+  id: '/reminders',
+  path: '/reminders',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterRoute = RegisterRouteImport.update({
@@ -239,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
+  '/reminders': typeof RemindersRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
@@ -276,6 +283,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
+  '/reminders': typeof RemindersRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
@@ -314,6 +322,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
+  '/reminders': typeof RemindersRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
@@ -353,6 +362,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/qibla'
     | '/register'
+    | '/reminders'
     | '/reset-password'
     | '/settings'
     | '/statistics'
@@ -390,6 +400,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/qibla'
     | '/register'
+    | '/reminders'
     | '/reset-password'
     | '/settings'
     | '/statistics'
@@ -427,6 +438,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/qibla'
     | '/register'
+    | '/reminders'
     | '/reset-password'
     | '/settings'
     | '/statistics'
@@ -466,6 +478,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   QiblaRoute: typeof QiblaRoute
   RegisterRoute: typeof RegisterRoute
+  RemindersRoute: typeof RemindersRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
   StatisticsRoute: typeof StatisticsRoute
@@ -511,6 +524,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reminders': {
+      id: '/reminders'
+      path: '/reminders'
+      fullPath: '/reminders'
+      preLoaderRoute: typeof RemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register': {
@@ -786,6 +806,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   QiblaRoute: QiblaRoute,
   RegisterRoute: RegisterRoute,
+  RemindersRoute: RemindersRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,
   StatisticsRoute: StatisticsRoute,

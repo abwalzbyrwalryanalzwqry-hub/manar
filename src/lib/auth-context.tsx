@@ -89,14 +89,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
       }
     });
-    cloud.auth.getSession().then(({ data, error }) => {
-      LOG("initial session", { hasSession: !!data.session, error: error?.message });
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
-      if (data.session?.user) loadProfile(data.session.user.id);
+    /* `loading` يجب أن ينتهي دائماً.
+     *
+     * كان `setLoading(false)` داخل `.then` وحده، بلا `.catch` وبلا مهلة. فإن
+     * رفض الوعد أو تعلّق — وهو ما يحدث حين يتعذّر الوصول إلى الخادم على
+     * هاتفٍ بلا إنترنت — بقيت الحالة «قيد التحميل» إلى الأبد، وكل شاشة
+     * تنتظرها تجمّدت معها.
+     *
+     * الآن: `.catch` للرفض، ومهلة ستّ ثوانٍ للتعلّق. وضعُ «لا جلسة» هو
+     * الافتراض الصحيح عند الفشل — التطبيق يعمل بكامله دون حساب. */
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
       setLoading(false);
-    });
-    return () => sub.subscription.unsubscribe();
+    };
+    const timeout = setTimeout(() => {
+      if (!settled) LOG("initial session timed out — متابعة بلا جلسة");
+      settle();
+    }, 6000);
+
+    cloud.auth
+      .getSession()
+      .then(({ data, error }) => {
+        LOG("initial session", { hasSession: !!data.session, error: error?.message });
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+        if (data.session?.user) loadProfile(data.session.user.id);
+      })
+      .catch((e: unknown) => {
+        LOG("getSession failed", e instanceof Error ? e.message : String(e));
+      })
+      .finally(settle);
+
+    return () => {
+      clearTimeout(timeout);
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const signInEmail: AuthCtx["signInEmail"] = async (email, password) => {

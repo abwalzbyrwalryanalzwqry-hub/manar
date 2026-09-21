@@ -21,19 +21,19 @@ import { StorageGate } from "@/components/manar/storage-gate";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div dir="rtl" className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
+        <h1 className="text-7xl font-bold text-foreground">٤٠٤</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">الصفحة غير موجودة</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          الصفحة التي تبحث عنها غير متاحة أو تم نقلها.
+          الصفحة التي تبحث عنها غير موجودة أو نُقلت إلى مكان آخر.
         </p>
         <div className="mt-6">
           <Link
             to="/"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            العودة إلى الرئيسية
+            الرئيسية
           </Link>
         </div>
       </div>
@@ -46,19 +46,40 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
-    // Never leave the native splash screen covering an error message.
+    // لا تُترك شاشة البداية الأصلية فوق رسالة الخطأ أبداً.
     void hideSplash();
   }, [error]);
 
+  /* الرسالة المبهمة عدوّة الإصلاح.
+   *
+   * كانت هذه الشاشة تقول «Something went wrong on our end» بالإنجليزية ولا
+   * شيء غير ذلك — فلا المستخدم يفهم، ولا المطوّر يعرف ما وقع. صارت عربية،
+   * وتُظهر نصّ الخطأ وأصله. فحين يُصوّر المستخدم الشاشة يكون في الصورة ما
+   * يكفي للتشخيص. */
+  const detail = [error?.name, error?.message].filter(Boolean).join(": ");
+  const stack = (error?.stack ?? "").split("\n").slice(0, 6).join("\n");
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div
+      dir="rtl"
+      className="flex min-h-screen items-center justify-center bg-background px-4 py-10"
+    >
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
           تعذّر عرض هذه الشاشة
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          حدث خطأ غير متوقع. يمكنك إعادة المحاولة أو الرجوع إلى الرئيسية.
+          حدث خطأ غير متوقّع. يمكنك إعادة المحاولة أو الرجوع إلى الرئيسية.
         </p>
+        {detail ? (
+          <pre
+            dir="ltr"
+            className="mt-4 max-h-56 overflow-auto rounded-lg bg-muted/60 p-3 text-start text-[11px] leading-relaxed text-muted-foreground whitespace-pre-wrap break-words"
+          >
+            {detail}
+            {stack ? `\n\n${stack}` : ""}
+          </pre>
+        ) : null}
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
@@ -118,6 +139,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: "/fonts/ui-fonts.css" },
       // خط ثمانية الرسمي — الخط الأساسي للواجهة، مُضمَّن داخل التطبيق.
       { rel: "stylesheet", href: "/fonts/thmanyah-fonts.css" },
+      /* أيقونات منار — مُولَّدة بـ scripts/build-icon.py.
+       * المتّجه أولاً ليستعمله المتصفح القادر عليه بأي دقّة، والنقطية تليه
+       * للمتصفحات التي لا تقرأ SVG في هذا الموضع. */
+      { rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
+      { rel: "icon", href: "/favicon.png", type: "image/png", sizes: "64x64" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
   shellComponent: RootShell,
@@ -126,11 +154,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+/* يُنفَّذ قبل أول رسم فلا يومض التطبيق بالمظهر الخاطئ عند الإقلاع.
+ * مضمّن كنص لأنه يجب أن يسبق تحميل حزمة React كاملةً. */
+const APPEARANCE_BOOTSTRAP = `(function(){try{
+var s=JSON.parse(localStorage.getItem("manar.appearance.v1")||"{}");
+var t=s.theme||"system";
+var dark=t==="dark"||(t==="system"&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches);
+var r=document.documentElement;
+if(dark){r.classList.add("dark");r.style.colorScheme="dark";}
+var m={small:0.9,medium:1,large:1.12,xlarge:1.25};
+r.style.setProperty("--manar-font-scale",String(m[s.fontScale]||1));
+}catch(e){}})();`;
+
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="ar" dir="rtl">
+    /* suppressHydrationWarning لأن نص الإقلاع أعلاه يضيف صنف `dark` ومتغيّر
+       حجم الخط إلى <html> قبل الترطيب، فتختلف سمات العنصر عمّا رسمه الخادم.
+       هذا هو النمط القياسي لتطبيق المظهر بلا وميض. */
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOTSTRAP }} />
       </head>
       <body>
         {children}

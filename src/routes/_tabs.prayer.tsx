@@ -14,6 +14,8 @@ import { LocationSheet } from "@/components/manar/location-sheet";
 import { PRAYER_LABELS, PRAYER_ORDER, usePrayerSchedule, type PrayerKey } from "@/lib/prayer";
 import { useAdhanSettings } from "@/lib/adhan-settings";
 import { formatCountdown, formatHHMM, formatHijriAr, toArabicDigits } from "@/lib/format";
+import { useHijriAdjust } from "@/lib/hijri";
+import { FARD_PRAYERS, useActivityLog } from "@/lib/activity-log";
 
 export const Route = createFileRoute("/_tabs/prayer")({
   head: () => ({ meta: [{ title: "أوقات الصلاة — منار" }] }),
@@ -36,6 +38,8 @@ const METHOD_LABELS: Record<string, string> = {
 };
 
 function Prayer() {
+  const { adjust: hijriAdjust } = useHijriAdjust();
+  const { today: todayLog, streak, togglePrayer } = useActivityLog();
   const [sheet, setSheet] = useState(false);
   const { settings, updateDeep } = useAdhanSettings();
 
@@ -65,7 +69,7 @@ function Prayer() {
     <Screen>
       <ScreenHeader
         title="أوقات الصلاة"
-        subtitle={`${location.city} · ${formatHijriAr(now)}`}
+        subtitle={`${location.city} · ${formatHijriAr(now, hijriAdjust)}`}
         action={
           <button
             onClick={() => setSheet(true)}
@@ -117,7 +121,35 @@ function Prayer() {
         </div>
       </div>
 
-      <SectionLabel hint="اليوم">جدول الصلوات</SectionLabel>
+      {/* تقدّم اليوم — يُغذّي شاشة الإحصائيات مباشرة */}
+      <div className="px-4 pt-5">
+        <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-soft">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
+            <Icon d={icons.flame} size={18} />
+          </span>
+          <div className="flex-1">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs font-medium">صلوات اليوم</span>
+              <span className="font-display text-sm tabular-nums">
+                {toArabicDigits(todayLog.prayers.length)} / {toArabicDigits(FARD_PRAYERS.length)}
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="gradient-primary h-full transition-all duration-500"
+                style={{ width: `${(todayLog.prayers.length / FARD_PRAYERS.length) * 100}%` }}
+              />
+            </div>
+            <div className="mt-1.5 text-[10px] text-muted-foreground">
+              {streak > 0
+                ? `سلسلة ${toArabicDigits(streak)} ${streak === 1 ? "يوم" : streak === 2 ? "يومين" : "يوماً"} متتالية`
+                : "سجّل صلاتك لتبدأ سلسلتك"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <SectionLabel hint="اضغط ✓ لتسجيل الأداء">جدول الصلوات</SectionLabel>
       <div className="space-y-2 px-4 stagger">
         {PRAYER_ORDER.map((k) => {
           const at: Date = today[k];
@@ -167,6 +199,31 @@ function Prayer() {
                       {active ? "القادمة" : passed ? "منتهية" : "قادمة"}
                     </div>
                   </div>
+                  {FARD_PRAYERS.includes(k) && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        togglePrayer(k);
+                      }}
+                      className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                        todayLog.prayers.includes(k)
+                          ? active
+                            ? "border-white/40 bg-white text-primary"
+                            : "border-transparent gradient-primary text-primary-foreground shadow-glow"
+                          : active
+                            ? "border-white/30 bg-white/15 text-white/70"
+                            : "border-border bg-card text-muted-foreground"
+                      }`}
+                      aria-label={
+                        todayLog.prayers.includes(k)
+                          ? `إلغاء تسجيل ${PRAYER_LABELS[k].ar}`
+                          : `تسجيل أداء ${PRAYER_LABELS[k].ar}`
+                      }
+                    >
+                      <Icon d={icons.check} size={14} />
+                    </button>
+                  )}
                   <button
                     onClick={(e) => {
                       e.preventDefault();
