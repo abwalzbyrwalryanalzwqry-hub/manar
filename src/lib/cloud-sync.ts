@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { getCloud } from "@/integrations/supabase/optional-client";
 
 /**
  * Maps a Supabase table name to one or more localStorage keys whose values
@@ -34,7 +34,9 @@ export async function pushAll(userId: string) {
   for (const [table, keys] of Object.entries(SYNC_MAP)) {
     const data = collect(keys);
     if (Object.keys(data).length === 0) continue;
-    await supabase.from(table as "user_settings").upsert({ user_id: userId, data: data as never });
+    const cloud = getCloud();
+    if (!cloud) return;
+    await cloud.from(table as "user_settings").upsert({ user_id: userId, data: data as never });
   }
 }
 
@@ -42,7 +44,9 @@ export async function pushAll(userId: string) {
 export async function pullAll(userId: string) {
   let touched = false;
   for (const [table] of Object.entries(SYNC_MAP)) {
-    const { data } = await supabase
+    const cloud = getCloud();
+    if (!cloud) return;
+    const { data } = await cloud
       .from(table as "user_settings")
       .select("data")
       .eq("user_id", userId)

@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
-    "build:android": "vite build --config vite.config.capacitor.ts && node scripts/prepare-android-webdir.mjs && node scripts/sync-android-raw-audio.mjs && cap sync android",
+    "build:android": "VITE_NATIVE_SHELL=1 vite build --config vite.config.capacitor.ts && node scripts/prepare-android-webdir.mjs && node scripts/sync-android-raw-audio.mjs && cap sync android",
     "android:icons": "python3 scripts/generate-android-icons.py",
     "android:apk": "npm run build:android && cd android && ./gradlew assembleRelease",
     "android:apk:debug": "npm run build:android && cd android && ./gradlew assembleDebug",

@@ -9,10 +9,10 @@
    ============================================ */
 
 /* ------------------------------------------------------------
-   Interface font — IBM Plex Sans Arabic (SIL OFL 1.1), self-hosted
-   at /fonts/ui-fonts.css so every screen renders identically while
-   completely offline (the previous Thmanyah files were served from
-   an external host and never shipped inside the APK).
+   خط الواجهة الرسمي — خط ثمانية (Thmanyah Sans / Serif Display).
+   الملفات مُضمَّنة محليًا في /fonts/thmanyah-fonts.css بصيغة WOFF2،
+   فلا يحتاج التطبيق أي اتصال لعرض خطه الرسمي داخل الـAPK.
+   ويبقى IBM Plex Sans Arabic وNoto Naskh Arabic احتياطًا فقط.
    ------------------------------------------------------------ */
 
 @theme inline {
@@ -24,10 +24,12 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 20px);
 
-  --font-sans: "IBM Plex Sans Arabic", "Noto Naskh Arabic", system-ui, sans-serif;
-  --font-display: "Scheherazade New", "Amiri Quran", "IBM Plex Sans Arabic", serif;
-  --font-arabic: "IBM Plex Sans Arabic", "Noto Naskh Arabic", sans-serif;
-  --font-quran: "Amiri Quran", "Scheherazade New", "Traditional Arabic", "KFGQPC Uthmanic Hafs", serif;
+  --font-sans: "Thmanyah Sans", "IBM Plex Sans Arabic", "Noto Naskh Arabic", system-ui, sans-serif;
+  --font-display:
+    "Thmanyah Serif Display", "Scheherazade New", "Amiri Quran", "Thmanyah Sans", serif;
+  --font-arabic: "Thmanyah Sans", "IBM Plex Sans Arabic", "Noto Naskh Arabic", sans-serif;
+  --font-quran:
+    "Amiri Quran", "Scheherazade New", "Traditional Arabic", "KFGQPC Uthmanic Hafs", serif;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -64,13 +66,13 @@
   --radius: 1rem;
 
   /* Brand */
-  --emerald: oklch(0.52 0.11 165);          /* #0E7A5F */
+  --emerald: oklch(0.52 0.11 165); /* #0E7A5F */
   --emerald-glow: oklch(0.66 0.14 165);
-  --gold-raw: oklch(0.76 0.13 85);          /* #C9A227 */
-  --navy-raw: oklch(0.26 0.04 260);         /* #152238 */
+  --gold-raw: oklch(0.76 0.13 85); /* #C9A227 */
+  --navy-raw: oklch(0.26 0.04 260); /* #152238 */
 
   /* Light mode */
-  --background: oklch(0.985 0.002 100);     /* #F8F9FA */
+  --background: oklch(0.985 0.002 100); /* #F8F9FA */
   --foreground: oklch(0.22 0.03 260);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.22 0.03 260);
@@ -107,12 +109,18 @@
   --gradient-primary: linear-gradient(135deg, oklch(0.52 0.11 165), oklch(0.66 0.14 165));
   --gradient-gold: linear-gradient(135deg, oklch(0.78 0.14 85), oklch(0.68 0.12 70));
   --gradient-night: linear-gradient(160deg, oklch(0.26 0.04 260), oklch(0.18 0.03 260));
-  --gradient-hero: linear-gradient(160deg, oklch(0.52 0.11 165) 0%, oklch(0.32 0.07 200) 60%, oklch(0.22 0.04 260) 100%);
+  --gradient-hero: linear-gradient(
+    160deg,
+    oklch(0.52 0.11 165) 0%,
+    oklch(0.32 0.07 200) 60%,
+    oklch(0.22 0.04 260) 100%
+  );
   --gradient-glass: linear-gradient(135deg, oklch(1 0 0 / 0.7), oklch(1 0 0 / 0.4));
 
   /* Shadows */
   --shadow-soft: 0 2px 12px -4px oklch(0.22 0.03 260 / 0.08), 0 1px 3px oklch(0.22 0.03 260 / 0.04);
-  --shadow-elegant: 0 18px 40px -16px oklch(0.22 0.03 260 / 0.18), 0 4px 12px -6px oklch(0.22 0.03 260 / 0.08);
+  --shadow-elegant:
+    0 18px 40px -16px oklch(0.22 0.03 260 / 0.18), 0 4px 12px -6px oklch(0.22 0.03 260 / 0.08);
   --shadow-glow: 0 10px 40px -10px oklch(0.52 0.11 165 / 0.45);
   --shadow-gold: 0 10px 35px -10px oklch(0.76 0.13 85 / 0.5);
 
@@ -134,7 +142,7 @@
 }
 
 .dark {
-  --background: oklch(0.16 0.02 255);       /* #0B1117 */
+  --background: oklch(0.16 0.02 255); /* #0B1117 */
   --foreground: oklch(0.96 0.005 100);
   --card: oklch(0.22 0.025 258);
   --card-foreground: oklch(0.96 0.005 100);
@@ -170,7 +178,12 @@
   --gradient-primary: linear-gradient(135deg, oklch(0.52 0.11 165), oklch(0.66 0.14 165));
   --gradient-gold: linear-gradient(135deg, oklch(0.82 0.14 85), oklch(0.7 0.12 70));
   --gradient-night: linear-gradient(160deg, oklch(0.2 0.025 258), oklch(0.13 0.02 255));
-  --gradient-hero: linear-gradient(160deg, oklch(0.32 0.08 200) 0%, oklch(0.22 0.05 240) 50%, oklch(0.14 0.02 258) 100%);
+  --gradient-hero: linear-gradient(
+    160deg,
+    oklch(0.32 0.08 200) 0%,
+    oklch(0.22 0.05 240) 50%,
+    oklch(0.14 0.02 258) 100%
+  );
   --gradient-glass: linear-gradient(135deg, oklch(1 0 0 / 0.08), oklch(1 0 0 / 0.02));
 
   --shadow-soft: 0 2px 12px -4px oklch(0 0 0 / 0.5), 0 1px 3px oklch(0 0 0 / 0.3);
@@ -256,8 +269,16 @@
 /* Decorative geometric pattern (Islamic-inspired) */
 @utility pattern-arabesque {
   background-image:
-    radial-gradient(circle at 0 0, color-mix(in oklab, var(--gold) 18%, transparent) 1px, transparent 1.5px),
-    radial-gradient(circle at 20px 20px, color-mix(in oklab, var(--primary) 12%, transparent) 1px, transparent 1.5px);
+    radial-gradient(
+      circle at 0 0,
+      color-mix(in oklab, var(--gold) 18%, transparent) 1px,
+      transparent 1.5px
+    ),
+    radial-gradient(
+      circle at 20px 20px,
+      color-mix(in oklab, var(--primary) 12%, transparent) 1px,
+      transparent 1.5px
+    );
   background-size: 40px 40px;
 }
 
@@ -271,52 +292,110 @@
 }
 
 @keyframes manar-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
 }
 @keyframes manar-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 @keyframes manar-fade-up {
-  0% { opacity: 0; transform: translateY(14px); }
-  100% { opacity: 1; transform: translateY(0); }
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 @keyframes manar-breath {
-  0%, 100% { transform: scale(1); opacity: 0.6; }
-  50% { transform: scale(1.08); opacity: 1; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
 }
-@keyframes manar-spin-slow { to { transform: rotate(360deg); } }
+@keyframes manar-spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
 @keyframes manar-skeleton {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
-.animate-float { animation: manar-float 4s ease-in-out infinite; }
-.animate-breath { animation: manar-breath 3.6s ease-in-out infinite; }
-.animate-spin-slow { animation: manar-spin-slow 60s linear infinite; }
-.animate-fade-up { animation: manar-fade-up 0.6s cubic-bezier(.22,.61,.36,1) both; }
+.animate-float {
+  animation: manar-float 4s ease-in-out infinite;
+}
+.animate-breath {
+  animation: manar-breath 3.6s ease-in-out infinite;
+}
+.animate-spin-slow {
+  animation: manar-spin-slow 60s linear infinite;
+}
+.animate-fade-up {
+  animation: manar-fade-up 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
 .animate-shimmer {
   background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.18), transparent);
   background-size: 200% 100%;
   animation: manar-shimmer 2.4s linear infinite;
 }
 .skeleton {
-  background: linear-gradient(90deg,
+  background: linear-gradient(
+    90deg,
     color-mix(in oklab, var(--muted) 80%, transparent),
     color-mix(in oklab, var(--muted) 35%, transparent),
-    color-mix(in oklab, var(--muted) 80%, transparent));
+    color-mix(in oklab, var(--muted) 80%, transparent)
+  );
   background-size: 200% 100%;
   animation: manar-skeleton 1.6s ease-in-out infinite;
   border-radius: 12px;
 }
 
-.stagger > * { animation: manar-fade-up 0.5s cubic-bezier(.22,.61,.36,1) both; }
-.stagger > *:nth-child(1){animation-delay:0ms}
-.stagger > *:nth-child(2){animation-delay:60ms}
-.stagger > *:nth-child(3){animation-delay:120ms}
-.stagger > *:nth-child(4){animation-delay:180ms}
-.stagger > *:nth-child(5){animation-delay:240ms}
-.stagger > *:nth-child(6){animation-delay:300ms}
-.stagger > *:nth-child(7){animation-delay:360ms}
-.stagger > *:nth-child(8){animation-delay:420ms}
+.stagger > * {
+  animation: manar-fade-up 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.stagger > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger > *:nth-child(2) {
+  animation-delay: 60ms;
+}
+.stagger > *:nth-child(3) {
+  animation-delay: 120ms;
+}
+.stagger > *:nth-child(4) {
+  animation-delay: 180ms;
+}
+.stagger > *:nth-child(5) {
+  animation-delay: 240ms;
+}
+.stagger > *:nth-child(6) {
+  animation-delay: 300ms;
+}
+.stagger > *:nth-child(7) {
+  animation-delay: 360ms;
+}
+.stagger > *:nth-child(8) {
+  animation-delay: 420ms;
+}

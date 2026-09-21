@@ -29,7 +29,10 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchAutoHide: false,
+      // يُخفي النظام شاشة البداية تلقائيًا بعد ٣ ثوانٍ كحدٍّ أقصى، حتى لو تعطّل
+      // الويب قبل أن يطلب إخفاءها — وهذا ما كان يُبقي الشاشة الخضراء ظاهرة.
+      launchAutoHide: true,
+      launchShowDuration: 3000,
       backgroundColor: "#0B1F1A",
       androidScaleType: "CENTER_CROP",
       showSpinner: false,

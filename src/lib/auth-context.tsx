@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { CLOUD_UNAVAILABLE_MESSAGE, getCloud, isCloudConfigured } from "@/integrations/supabase/optional-client";
 import { lovable } from "@/integrations/lovable";
 
 type Profile = {
@@ -64,12 +64,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const loadProfile = async (uid: string) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
+    const cloud = getCloud();
+    if (!cloud) return;
+    const { data } = await cloud.from("profiles").select("*").eq("id", uid).maybeSingle();
     if (data) setProfile(data as Profile);
   };
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+    const cloud = getCloud();
+    if (!cloud) {
+      // لا سحابة في هذا البناء: نُكمل الإقلاع في الوضع المحلي بدل إسقاط الواجهة.
+      setLoading(false);
+      return;
+    }
+    const { data: sub } = cloud.auth.onAuthStateChange((event, s) => {
       LOG("event", event, "user:", s?.user?.email ?? null);
       setSession(s);
       setUser(s?.user ?? null);
@@ -81,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
       }
     });
-    supabase.auth.getSession().then(({ data, error }) => {
+    cloud.auth.getSession().then(({ data, error }) => {
       LOG("initial session", { hasSession: !!data.session, error: error?.message });
       setSession(data.session);
       setUser(data.session?.user ?? null);
@@ -93,13 +101,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInEmail: AuthCtx["signInEmail"] = async (email, password) => {
     LOG("signInEmail →", email);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const cloud = getCloud();
+    if (!cloud) return { error: CLOUD_UNAVAILABLE_MESSAGE };
+    const { data, error } = await cloud.auth.signInWithPassword({ email, password });
     if (error) {
       LOG("signInEmail error", error.status, error.message);
       // If the account exists but is OAuth-only, give a precise hint.
       if (/invalid/i.test(error.message)) {
         try {
-          const probe = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
+          const probe = await cloud.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
           LOG("probe reset (silent)", probe.error?.message ?? "ok");
         } catch { /* ignore */ }
       }
@@ -111,7 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUpEmail: AuthCtx["signUpEmail"] = async (email, password, fullName) => {
     LOG("signUpEmail →", email);
-    const { data, error } = await supabase.auth.signUp({
+    const cloud = getCloud();
+    if (!cloud) return { error: CLOUD_UNAVAILABLE_MESSAGE };
+    const { data, error } = await cloud.auth.signUp({
       email,
       password,
       options: {
@@ -126,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInGoogle: AuthCtx["signInGoogle"] = async () => {
     LOG("signInGoogle → origin", window.location.origin);
+    if (!isCloudConfigured()) return { error: CLOUD_UNAVAILABLE_MESSAGE };
     try {
       const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
       LOG("signInGoogle result", { redirected: r.redirected, error: r.error?.message });
@@ -139,19 +152,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword: AuthCtx["resetPassword"] = async (email) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const cloud = getCloud();
+    if (!cloud) return { error: CLOUD_UNAVAILABLE_MESSAGE };
+    const { error } = await cloud.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     return error ? { error: arabicAuthError(error.message) } : {};
   };
 
   const updatePassword: AuthCtx["updatePassword"] = async (password) => {
-    const { error } = await supabase.auth.updateUser({ password });
+    const cloud = getCloud();
+    if (!cloud) return { error: CLOUD_UNAVAILABLE_MESSAGE };
+    const { error } = await cloud.auth.updateUser({ password });
     return error ? { error: arabicAuthError(error.message) } : {};
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await getCloud()?.auth.signOut();
     localStorage.removeItem(GUEST_KEY);
     setIsGuest(false);
   };
@@ -167,7 +184,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateProfile: AuthCtx["updateProfile"] = async (patch) => {
     if (!user) return { error: "يجب تسجيل الدخول" };
-    const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
+    const cloud = getCloud();
+    if (!cloud) return { error: CLOUD_UNAVAILABLE_MESSAGE };
+    const { error } = await cloud.from("profiles").update(patch).eq("id", user.id);
     if (error) return { error: arabicAuthError(error.message) };
     await loadProfile(user.id);
     return {};

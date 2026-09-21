@@ -49,8 +49,24 @@ function nativePreferences(): Promise<PreferencesApi | null> {
   if (!isNativePlatform()) return Promise.resolve(null);
   if (!prefsPromise) {
     prefsPromise = import("@capacitor/preferences")
-      .then((m) => m.Preferences as unknown as PreferencesApi)
-      .catch(() => null);
+      .then((m) => {
+        const p = m.Preferences;
+        /* لا يجوز إعادة كائن الإضافة نفسه من سلسلة Promise: وكيل Capacitor
+         * يعترض قراءة أي خاصية — بما فيها `then` — فيعتبره المحرّك "thenable"
+         * وينادي `Preferences.then()`، وهي غير موجودة أصلاً، فيفشل التحميل
+         * بصمت ويسقط التخزين إلى localStorage بدل SharedPreferences.
+         * الحل: تغليف الدوال في كائن عادي. */
+        return {
+          get: (o: { key: string }) => p.get(o),
+          set: (o: { key: string; value: string }) => p.set(o),
+          remove: (o: { key: string }) => p.remove(o),
+          keys: () => p.keys(),
+        } satisfies PreferencesApi;
+      })
+      .catch((error: unknown) => {
+        console.warn("[منار] تعذّر تحميل إضافة Preferences الأصلية", error);
+        return null;
+      });
   }
   return prefsPromise;
 }

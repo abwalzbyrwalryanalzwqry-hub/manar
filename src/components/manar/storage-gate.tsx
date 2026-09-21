@@ -6,11 +6,19 @@
  * الأسوأ، تُكتب الافتراضيات فوق إعدادات المستخدم الحقيقية.
  *
  * على الويب لا يوجد ما نستعيده، فتمرّ البوابة فوراً بلا أي وميض.
+ *
+ * الترطيب (hydration): بناء أندرويد يُمرّر `VITE_NATIVE_SHELL=1`، فيُنتج
+ * الـprerender شاشة الاستعادة نفسها التي يرسمها العميل في أول إطار. بدون ذلك
+ * كان HTML المُسبَق يحمل الصفحة كاملة بينما يرسم العميل شاشة الاستعادة، فيقع
+ * عدم تطابق ترطيب (React #418) ويُعيد React بناء الشجرة كلها عند كل إقلاع.
  */
 
 import { useEffect, useState, type ReactNode } from "react";
 import { hydratePersistentStorage } from "@/lib/persistent-storage";
 import { Mark } from "@/components/manar/shell";
+
+/** بناء مخصّص لقشرة Capacitor (يُضبط في سكربت `build:android`). */
+const NATIVE_SHELL_BUILD = import.meta.env.VITE_NATIVE_SHELL === "1";
 
 function isNativePlatform(): boolean {
   if (typeof window === "undefined") return false;
@@ -20,7 +28,7 @@ function isNativePlatform(): boolean {
 
 export function StorageGate({ children }: { children: ReactNode }) {
   // على الويب وفي الـ SSR نبدأ جاهزين: لا استعادة مطلوبة والترطيب يطابق الخادم.
-  const [ready, setReady] = useState(() => !isNativePlatform());
+  const [ready, setReady] = useState(() => !NATIVE_SHELL_BUILD && !isNativePlatform());
 
   useEffect(() => {
     if (ready) {

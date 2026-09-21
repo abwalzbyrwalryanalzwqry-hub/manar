@@ -1,0 +1,68 @@
+/* منار — خط ثمانية الرسمي (Thmanyah), self-hosted للعمل دون اتصال.
+ * الخط من تصميم وملكية شركة ثمانية، ومتاح مجانًا — الترخيص: https://font.thmanyah.com/licenses
+ * الملفات بصيغة WOFF2 مُضمَّنة داخل التطبيق حتى تظهر الواجهة بخطها الرسمي بلا إنترنت.
+ */
+
+@font-face {
+  font-family: 'Thmanyah Sans';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(/fonts/thmanyah-sans-Light.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Thmanyah Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/thmanyah-sans-Regular.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Thmanyah Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(/fonts/thmanyah-sans-Medium.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Thmanyah Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(/fonts/thmanyah-sans-Bold.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Thmanyah Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(/fonts/thmanyah-sans-Bold.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Thmanyah Sans';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url(/fonts/thmanyah-sans-Black.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Thmanyah Serif Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/thmanyah-serif-display-Regular.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Thmanyah Serif Display';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(/fonts/thmanyah-serif-display-Bold.woff2) format('woff2');
+}

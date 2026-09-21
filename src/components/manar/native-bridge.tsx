@@ -44,25 +44,46 @@ export function NativeBridge() {
   const [dismissed, setDismissed] = useState(true);
 
   // Back button + splash + status bar.
+  //
+  // Every step is individually guarded: `launchAutoHide` is false, so any
+  // exception thrown here would leave the splash screen (a solid dark-green
+  // surface) covering the app forever — the "green screen" symptom. The splash
+  // is therefore hidden from a `finally`-style watchdog that runs no matter what
+  // happens above it.
   useEffect(() => {
     if (!isNativeApp()) return;
 
-    const detach = setupBackButton((message) => {
-      toast(message, { duration: 1800 });
-    });
+    let detach: () => void = () => {};
+    let media: MediaQueryList | null = null;
+    let syncBar: (() => void) | null = null;
 
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const syncBar = () => void applyStatusBar(media.matches);
-    syncBar();
-    media.addEventListener("change", syncBar);
+    try {
+      detach = setupBackButton((message) => {
+        toast(message, { duration: 1800 });
+      });
 
-    // Give the first screen one frame to paint before removing the splash.
+      media = window.matchMedia("(prefers-color-scheme: dark)");
+      syncBar = () => void applyStatusBar(media!.matches);
+      syncBar();
+      media.addEventListener("change", syncBar);
+    } catch (err) {
+      console.error("native shell setup failed", err);
+    }
+
+    // Give the first screen one frame to paint before removing the splash,
+    // and keep a hard watchdog in case anything else stalls start-up.
     const t = setTimeout(() => void hideSplash(), 350);
+    const watchdog = setTimeout(() => void hideSplash(), 4000);
 
     return () => {
-      detach();
-      media.removeEventListener("change", syncBar);
+      try {
+        detach();
+        if (media && syncBar) media.removeEventListener("change", syncBar);
+      } catch {
+        /* ignore */
+      }
       clearTimeout(t);
+      clearTimeout(watchdog);
     };
   }, []);
 

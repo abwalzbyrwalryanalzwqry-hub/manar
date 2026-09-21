@@ -14,14 +14,22 @@
  *   • `LocalNotifications` — pre-prayer reminders, which are ordinary short
  *     notifications and need nothing special.
  *
- * Both are reached through the runtime bridge (`window.Capacitor.Plugins`) so
- * the web build carries zero extra dependencies and every call is a no-op in a
- * browser.
+ * Both are reached through the SUPPORTED JS plugin API — the `registerPlugin()`
+ * proxies (`@capacitor/local-notifications` for the wrapper, `registerPlugin()`
+ * for our own `ManarAdhan`). The raw runtime bridge `window.Capacitor.Plugins`
+ * must NOT be used: on Android its generated `addListener` returns a plain
+ * synchronous `{ remove }` object instead of `Promise<PluginListenerHandle>`,
+ * which is what produced the start-up crash
+ * `TypeError: r.addListener(...).then is not a function` (see `native-shell.ts`).
+ * Every call below is still gated on `Capacitor.isNativePlatform()`, so the web
+ * build behaves exactly as before: a no-op in a browser.
  *
  * Everything is computed offline: prayer times come from `computePrayerTimes`,
  * never from the network.
  */
 
+import { Capacitor, registerPlugin } from "@capacitor/core";
+import { LocalNotifications } from "@capacitor/local-notifications";
 import { computePrayerTimes, PRAYER_ORDER, PRAYER_LABELS, type LocationState, type Settings } from "@/lib/prayer";
 import { getAdhanSettings, resolveAdhanForPrayer, resolveIqamaForPrayer } from "@/lib/adhan-settings";
 import { adhanVariantUrl, iqamaVariantUrl } from "@/lib/adhan-sound";
@@ -68,29 +76,29 @@ type ManarAdhanPlugin = {
 const DAYS_AHEAD = 7;
 const ID_BASE = 41000;
 
-function capacitor() {
-  if (typeof window === "undefined") return null;
-  const cap = (window as unknown as {
-    Capacitor?: { isNativePlatform?: () => boolean; Plugins?: Record<string, unknown> };
-  }).Capacitor;
-  if (!cap?.isNativePlatform?.()) return null;
-  return cap;
+/** Our own native plugin, reached through the supported `registerPlugin` proxy. */
+const ManarAdhan = registerPlugin<ManarAdhanPlugin>("ManarAdhan");
+
+function isNative(): boolean {
+  try {
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
 }
 
 function plugin(): LocalNotificationsPlugin | null {
-  const cap = capacitor();
-  if (!cap) return null;
-  return (cap.Plugins?.["LocalNotifications"] as LocalNotificationsPlugin) ?? null;
+  if (!isNative()) return null;
+  return LocalNotifications as unknown as LocalNotificationsPlugin;
 }
 
 function adhanPlugin(): ManarAdhanPlugin | null {
-  const cap = capacitor();
-  if (!cap) return null;
-  return (cap.Plugins?.["ManarAdhan"] as ManarAdhanPlugin) ?? null;
+  if (!isNative()) return null;
+  return ManarAdhan;
 }
 
 export function isNativeShell(): boolean {
-  return capacitor() !== null;
+  return isNative();
 }
 
 /** Stable, collision-free id per (day, prayer, kind). */
