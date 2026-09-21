@@ -14,7 +14,13 @@ import { readdirSync, mkdirSync, copyFileSync, rmSync, existsSync, statSync } fr
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const source = resolve(root, "public/audio/library");
+/* كل مجلدات الصوت التي يجدولها منار أصلياً.
+ * `library` مقاطع الأذان، و`reminders`/`iqama` النغمات المُركَّبة محلياً
+ * (scripts/build-tones.py). لو نُسخ الأول وحده صمتت كل تذكيرات الأذكار
+ * والوِرد والإقامة حين يكون التطبيق مغلقاً — وهو بالضبط وقت الحاجة إليها. */
+const sources = ["public/audio/library", "public/audio/reminders", "public/audio/iqama"].map((d) =>
+  resolve(root, d),
+);
 const target = resolve(root, "android/app/src/main/res/raw");
 
 export function rawResourceName(fileName) {
@@ -26,8 +32,9 @@ export function rawResourceName(fileName) {
     .replace(/^(\d)/, "a$1");
 }
 
-if (!existsSync(source)) {
-  console.error(`[manar] missing ${source}`);
+const present = sources.filter((s) => existsSync(s));
+if (!present.length) {
+  console.error(`[manar] missing every audio source: ${sources.join(", ")}`);
   process.exit(1);
 }
 
@@ -36,13 +43,25 @@ mkdirSync(target, { recursive: true });
 
 let bytes = 0;
 const copied = [];
-for (const file of readdirSync(source)) {
-  if (!file.toLowerCase().endsWith(".mp3")) continue;
-  const name = `${rawResourceName(file)}.mp3`;
-  copyFileSync(resolve(source, file), resolve(target, name));
-  bytes += statSync(resolve(source, file)).size;
-  copied.push(`${file} -> raw/${name}`);
+const seen = new Map();
+for (const source of present) {
+  for (const file of readdirSync(source)) {
+    if (!file.toLowerCase().endsWith(".mp3")) continue;
+    const name = `${rawResourceName(file)}.mp3`;
+    /* res/raw مسطّح بلا مجلدات فرعية، فملفان بالاسم نفسه في مجلدين مختلفين
+     * يدهس أحدهما الآخر بصمت وتُشغّل نغمةٌ خاطئة. نُعلِن الاصطدام بدل ابتلاعه. */
+    if (seen.has(name)) {
+      console.error(`[manar] اسم مورد مكرّر: raw/${name} من ${seen.get(name)} و${file}`);
+      process.exit(1);
+    }
+    seen.set(name, file);
+    copyFileSync(resolve(source, file), resolve(target, name));
+    bytes += statSync(resolve(source, file)).size;
+    copied.push(`${file} -> raw/${name}`);
+  }
 }
 
-console.log(`[manar] copied ${copied.length} recordings into res/raw (${(bytes / 1048576).toFixed(1)} MB)`);
+console.log(
+  `[manar] copied ${copied.length} recordings into res/raw (${(bytes / 1048576).toFixed(1)} MB)`,
+);
 for (const line of copied) console.log(`         ${line}`);

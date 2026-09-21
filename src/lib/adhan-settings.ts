@@ -16,11 +16,7 @@ import {
   type Reciter,
 } from "./adhan-sound";
 import { migrateAdhanVariant } from "./adhan-sound";
-import {
-  ADHAN_ASSETS,
-  LEGACY_VARIANT_MIGRATION,
-  assetDurationLabel,
-} from "./adhan-library-assets";
+import { ADHAN_ASSETS, LEGACY_VARIANT_MIGRATION, assetDurationLabel } from "./adhan-library-assets";
 export { ADHAN_ASSET_RIGHTS_NOTICE } from "./adhan-library-assets";
 
 /* ----------------------------- Catalogs ----------------------------- */
@@ -78,7 +74,6 @@ export const ADHAN_LIBRARY: AdhanLibraryEntry[] = [...SUPPLIED_ENTRIES, ...LEGAC
 /** Tathweeb (الصلاة خير من النوم) recordings supplied by the package. */
 export const TATHWEEB_LIBRARY = ADHAN_ASSETS.filter((a) => a.slot === "tathweeb");
 
-
 export type IqamaCategory = {
   id: IqamaVariant;
   name: string;
@@ -87,11 +82,18 @@ export type IqamaCategory = {
 };
 
 export const IQAMA_CATEGORIES: IqamaCategory[] = [
-  { id: "iqama_full",   name: "إقامة كاملة",       hint: "إقامة تقليدية ممتدة",     duration: "٠:٤٥" },
-  { id: "iqama_qad",    name: "قد قامت الصلاة",    hint: "تنبيه قِصار للإقامة",      duration: "٠:٢٥" },
-  { id: "iqama_short",  name: "تنبيه قصير",        hint: "نغمة قصيرة تَنبيهية",     duration: "٠:١٠" },
-  { id: "iqama_masjid", name: "إقامة المسجد",      hint: "على طريقة الأئمة في المساجد", duration: "٠:٣٥" },
-  { id: "silent",       name: "إشعار صامت",        hint: "إشعار بدون صوت",        duration: "—" },
+  { id: "iqama_full", name: "إقامة كاملة", hint: "إقامة تقليدية ممتدة", duration: "٠:٤٥" },
+  { id: "iqama_qad", name: "قد قامت الصلاة", hint: "تنبيه قِصار للإقامة", duration: "٠:٢٥" },
+  { id: "iqama_short", name: "تنبيه قصير", hint: "نغمة قصيرة تَنبيهية", duration: "٠:١٠" },
+  {
+    id: "iqama_masjid",
+    name: "إقامة المسجد",
+    hint: "على طريقة الأئمة في المساجد",
+    duration: "٠:٣٥",
+  },
+  { id: "tone_iqama", name: "نغمة الإقامة", hint: "نغمة منار — بلا حقوق", duration: "٠:٠٣" },
+  { id: "tone_iqama_short", name: "نقرة الإقامة", hint: "نغمة منار قصيرة", duration: "٠:٠٢" },
+  { id: "silent", name: "إشعار صامت", hint: "إشعار بدون صوت", duration: "—" },
 ];
 
 export type ReminderMinutes = 5 | 10 | 15 | 30;
@@ -113,10 +115,10 @@ export type AdhanSettings = {
   fajrUseSeparate: boolean;
   fajrFirstAdhanEnabled: boolean;
   fajrFirstAdhanOffset: number;
-  fajrFirstAdhanAudio: AdhanVariant;        // dedicated audio for first call
-  fajrSecondAdhanAudio: AdhanVariant;       // dedicated audio for second call (defaults to fajrAdhan)
+  fajrFirstAdhanAudio: AdhanVariant; // dedicated audio for first call
+  fajrSecondAdhanAudio: AdhanVariant; // dedicated audio for second call (defaults to fajrAdhan)
   fajrTathweebEnabled: boolean;
-  fajrTathweebAudio: AdhanVariant;          // dedicated audio for tathweeb
+  fajrTathweebAudio: AdhanVariant; // dedicated audio for tathweeb
   fajrReminderEnabled: boolean;
 
   /* Reminders */
@@ -141,7 +143,12 @@ export type AdhanSettings = {
 };
 
 export const DEFAULT_IQAMA: AdhanSettings["iqamaOffsets"] = {
-  fajr: 20, sunrise: 0, dhuhr: 15, asr: 15, maghrib: 10, isha: 15,
+  fajr: 20,
+  sunrise: 0,
+  dhuhr: 15,
+  asr: 15,
+  maghrib: 10,
+  isha: 15,
 };
 
 const DEFAULTS: AdhanSettings = {
@@ -170,12 +177,12 @@ const DEFAULTS: AdhanSettings = {
   silentMode: false,
   volume: 0.7,
   perPrayer: {
-    fajr:    { adhan: true,  reminder: true,  iqama: true },
+    fajr: { adhan: true, reminder: true, iqama: true },
     sunrise: { adhan: false, reminder: false, iqama: false },
-    dhuhr:   { adhan: true,  reminder: true,  iqama: true },
-    asr:     { adhan: true,  reminder: true,  iqama: true },
-    maghrib: { adhan: true,  reminder: true,  iqama: true },
-    isha:    { adhan: true,  reminder: true,  iqama: true },
+    dhuhr: { adhan: true, reminder: true, iqama: true },
+    asr: { adhan: true, reminder: true, iqama: true },
+    maghrib: { adhan: true, reminder: true, iqama: true },
+    isha: { adhan: true, reminder: true, iqama: true },
   },
 };
 
@@ -194,21 +201,24 @@ function read(): AdhanSettings {
       typeof v === "string" ? migrateAdhanVariant(v as AdhanVariant) : fb;
     const perPrayerAudio: Partial<Record<PrayerKey, AdhanVariant>> = {};
     for (const [k, v] of Object.entries(parsed.perPrayerAudio ?? {})) {
-      if (typeof v === "string") perPrayerAudio[k as PrayerKey] = migrateAdhanVariant(v as AdhanVariant);
+      if (typeof v === "string")
+        perPrayerAudio[k as PrayerKey] = migrateAdhanVariant(v as AdhanVariant);
     }
     return {
       ...DEFAULTS,
       ...parsed,
-      selectedAdhan:        mig(parsed.selectedAdhan, DEFAULTS.selectedAdhan),
-      fajrAdhan:            mig(parsed.fajrAdhan, DEFAULTS.fajrAdhan),
-      fajrFirstAdhanAudio:  mig(parsed.fajrFirstAdhanAudio, DEFAULTS.fajrFirstAdhanAudio),
+      selectedAdhan: mig(parsed.selectedAdhan, DEFAULTS.selectedAdhan),
+      fajrAdhan: mig(parsed.fajrAdhan, DEFAULTS.fajrAdhan),
+      fajrFirstAdhanAudio: mig(parsed.fajrFirstAdhanAudio, DEFAULTS.fajrFirstAdhanAudio),
       fajrSecondAdhanAudio: mig(parsed.fajrSecondAdhanAudio, DEFAULTS.fajrSecondAdhanAudio),
-      fajrTathweebAudio:    mig(parsed.fajrTathweebAudio, DEFAULTS.fajrTathweebAudio),
-      iqamaOffsets:   { ...DEFAULT_IQAMA, ...(parsed.iqamaOffsets ?? {}) },
-      perPrayer:      { ...DEFAULTS.perPrayer, ...(parsed.perPrayer ?? {}) },
+      fajrTathweebAudio: mig(parsed.fajrTathweebAudio, DEFAULTS.fajrTathweebAudio),
+      iqamaOffsets: { ...DEFAULT_IQAMA, ...(parsed.iqamaOffsets ?? {}) },
+      perPrayer: { ...DEFAULTS.perPrayer, ...(parsed.perPrayer ?? {}) },
       perPrayerAudio,
       perPrayerIqama: { ...(parsed.perPrayerIqama ?? {}) },
-      reminderMinutes: Array.isArray(parsed.reminderMinutes) ? parsed.reminderMinutes : DEFAULTS.reminderMinutes,
+      reminderMinutes: Array.isArray(parsed.reminderMinutes)
+        ? parsed.reminderMinutes
+        : DEFAULTS.reminderMinutes,
     };
   } catch {
     return DEFAULTS;
@@ -220,7 +230,9 @@ function write(next: AdhanSettings) {
   try {
     window.localStorage.setItem(LS_KEY, JSON.stringify(next));
     window.dispatchEvent(new CustomEvent(EVT));
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 export function useAdhanSettings() {

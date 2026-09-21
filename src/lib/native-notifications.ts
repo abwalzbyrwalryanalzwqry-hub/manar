@@ -22,9 +22,20 @@
  * never from the network.
  */
 
-import { computePrayerTimes, PRAYER_ORDER, PRAYER_LABELS, type LocationState, type Settings } from "@/lib/prayer";
-import { getAdhanSettings, resolveAdhanForPrayer, resolveIqamaForPrayer } from "@/lib/adhan-settings";
+import {
+  computePrayerTimes,
+  PRAYER_ORDER,
+  PRAYER_LABELS,
+  type LocationState,
+  type Settings,
+} from "@/lib/prayer";
+import {
+  getAdhanSettings,
+  resolveAdhanForPrayer,
+  resolveIqamaForPrayer,
+} from "@/lib/adhan-settings";
 import { adhanVariantUrl, iqamaVariantUrl } from "@/lib/adhan-sound";
+import { readReminders, reminderTimeOn, toneUrl } from "@/lib/daily-reminders";
 
 type LocalNotificationsPlugin = {
   requestPermissions: () => Promise<{ display: string }>;
@@ -55,7 +66,9 @@ export type NativeAdhanStatus = {
 };
 
 type ManarAdhanPlugin = {
-  schedule: (o: { events: ManarAdhanEvent[] }) => Promise<{ scheduled: number; exactAlarms: boolean }>;
+  schedule: (o: {
+    events: ManarAdhanEvent[];
+  }) => Promise<{ scheduled: number; exactAlarms: boolean }>;
   cancelAll: () => Promise<void>;
   stop: () => Promise<void>;
   preview: (o: { sound: string; title?: string; body?: string }) => Promise<void>;
@@ -70,9 +83,11 @@ const ID_BASE = 41000;
 
 function capacitor() {
   if (typeof window === "undefined") return null;
-  const cap = (window as unknown as {
-    Capacitor?: { isNativePlatform?: () => boolean; Plugins?: Record<string, unknown> };
-  }).Capacitor;
+  const cap = (
+    window as unknown as {
+      Capacitor?: { isNativePlatform?: () => boolean; Plugins?: Record<string, unknown> };
+    }
+  ).Capacitor;
   if (!cap?.isNativePlatform?.()) return null;
   return cap;
 }
@@ -96,6 +111,14 @@ export function isNativeShell(): boolean {
 /** Stable, collision-free id per (day, prayer, kind). */
 function idFor(dayIndex: number, prayerIndex: number, kind: number, extra = 0) {
   return ID_BASE + dayIndex * 100 + prayerIndex * 10 + kind + extra * 1000;
+}
+
+/* مدى معرّفات تذكيرات الأذكار والوِرد — منفصل تماماً عن مدى تنبيهات الصلاة
+ * أعلاه، فلا يُلغي أحدهما جدولة الآخر عند إعادة المزامنة. */
+const DAILY_ID_BASE = ID_BASE + 100000;
+
+function dailyIdFor(dayIndex: number, reminderIndex: number) {
+  return DAILY_ID_BASE + dayIndex * 100 + reminderIndex;
 }
 
 /**
@@ -193,7 +216,10 @@ export async function stopNativeAdhan(): Promise<void> {
 }
 
 /** Plays a recording immediately through the native service (settings preview). */
-export async function previewNativeAdhan(url: string | undefined, title = "معاينة الأذان"): Promise<boolean> {
+export async function previewNativeAdhan(
+  url: string | undefined,
+  title = "معاينة الأذان",
+): Promise<boolean> {
   const p = adhanPlugin();
   const sound = rawResourceName(url);
   if (!p || !sound) return false;
@@ -230,7 +256,10 @@ async function registerActions(p: LocalNotificationsPlugin) {
  *
  * @returns the number of scheduled items (adhan + iqama + reminders).
  */
-export async function syncNativePrayerSchedule(location: LocationState, calc: Settings): Promise<number> {
+export async function syncNativePrayerSchedule(
+  location: LocationState,
+  calc: Settings,
+): Promise<number> {
   if (!isNativeShell()) return 0;
   if (!(await ensureNativePermission())) return 0;
 
@@ -309,6 +338,37 @@ export async function syncNativePrayerSchedule(location: LocationState, calc: Se
     });
   }
 
+  /* ---------- تذكيرات الأذكار والوِرد ---------- */
+
+  const daily = readReminders();
+  if (daily.enabled) {
+    const active = daily.items.filter((r) => r.enabled);
+    for (let d = 0; d < DAYS_AHEAD; d++) {
+      const date = new Date();
+      date.setHours(12, 0, 0, 0);
+      date.setDate(date.getDate() + d);
+      const times = computePrayerTimes(location, calc, date);
+
+      active.forEach((r, ri) => {
+        const at = reminderTimeOn(r, date, (p) => times[p]);
+        if (!at || at.getTime() <= now) return;
+        const url = s.silentMode || !s.soundEnabled ? "" : toneUrl(r.tone);
+        reminders.push({
+          id: dailyIdFor(d, ri),
+          title: r.name,
+          body: r.body,
+          schedule: { at, allowWhileIdle: true },
+          smallIcon: "ic_stat_manar",
+          channelId: url ? "manar_reminders" : "manar_silent",
+          /* الصوت يُمرَّر باسم المورد الأصلي؛ نغمات التذكير القصيرة (٢–٦ ثوانٍ)
+           * تصلح لإشعار عادي، بخلاف الأذان الذي يحتاج خدمةً أمامية. */
+          sound: url ? rawResourceName(url) : undefined,
+          extra: { kind: "daily-reminder", reminder: r.id, route: r.route },
+        });
+      });
+    }
+  }
+
   let scheduled = 0;
 
   if (adhan) {
@@ -324,7 +384,9 @@ export async function syncNativePrayerSchedule(location: LocationState, calc: Se
     // Clear our previous reminder notifications only (ids in our own range).
     try {
       const pending = await p.getPending();
-      const ours = pending.notifications.filter((n) => n.id >= ID_BASE && n.id < ID_BASE + 100000);
+      const ours = pending.notifications.filter(
+        (n) => n.id >= ID_BASE && n.id < DAILY_ID_BASE + 100000,
+      );
       if (ours.length) await p.cancel({ notifications: ours.map((n) => ({ id: n.id })) });
     } catch {
       /* ignore */
@@ -356,7 +418,9 @@ export async function cancelNativeSchedule(): Promise<void> {
   if (!p) return;
   try {
     const pending = await p.getPending();
-    const ours = pending.notifications.filter((n) => n.id >= ID_BASE && n.id < ID_BASE + 100000);
+    const ours = pending.notifications.filter(
+      (n) => n.id >= ID_BASE && n.id < DAILY_ID_BASE + 100000,
+    );
     if (ours.length) await p.cancel({ notifications: ours.map((n) => ({ id: n.id })) });
   } catch {
     /* ignore */

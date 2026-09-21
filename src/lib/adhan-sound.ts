@@ -44,9 +44,27 @@ export type AdhanVariant =
   | "silent"
   | AdhanAssetId;
 
-export type IqamaVariant = "iqama_full" | "iqama_qad" | "iqama_short" | "iqama_masjid" | "silent";
+export type IqamaVariant =
+  | "iqama_full"
+  | "iqama_qad"
+  | "iqama_short"
+  | "iqama_masjid"
+  | "tone_iqama"
+  | "tone_iqama_short"
+  | "silent";
 
-export type ReminderVariant = "reminder_default" | "reminder_chime";
+export type ReminderVariant = "reminder_default" | "reminder_chime" | "tone_reminder" | "tone_bell";
+
+/* نغمات مُركَّبة داخل منار (scripts/build-tones.py) — خالية من أي حقوق لطرف
+ * آخر، بخلاف مقاطع الأذان المستعارة أعلاه التي لم تُرفَق لها وثائق ترخيص.
+ * تُحلّ قبل مكتبة الأصول، فتعمل حتى لو غابت تلك المقاطع عن البناء. */
+const GENERATED_TONES: Record<string, string> = {
+  tone_iqama: "/audio/iqama/iqama-chime.mp3",
+  tone_iqama_short: "/audio/iqama/iqama-short.mp3",
+  tone_reminder: "/audio/reminders/reminder-default.mp3",
+  tone_bell: "/audio/reminders/reminder-bell.mp3",
+  tone_chime: "/audio/reminders/reminder-chime.mp3",
+};
 
 /* ------------------------ Reciter metadata --------------------------- */
 
@@ -130,6 +148,8 @@ export const ADHAN_STYLE_LABELS: Record<
 
 /** Resolve any legacy id (أذان/فجر/إقامة/تنبيه) to a bundled recording, or null. */
 function assetUrlFor(id: string): string | null {
+  const tone = GENERATED_TONES[id];
+  if (tone) return tone;
   const direct = getAdhanAsset(id);
   if (direct) return direct.url;
   const mapped = LEGACY_VARIANT_MIGRATION[id];
