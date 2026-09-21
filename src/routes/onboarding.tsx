@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Icon, icons } from "@/components/manar/shell";
+import { markOnboarded } from "@/lib/onboarding-state";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "ابدأ — منار" }] }),
@@ -19,7 +20,7 @@ function Onboarding() {
   return (
     <div dir="rtl" className="flex min-h-screen flex-col bg-background">
       <div className="flex items-center justify-between px-5 pt-6">
-        <Link to="/login" className="text-xs text-muted-foreground">
+        <Link to="/login" onClick={markOnboarded} className="text-xs text-muted-foreground">
           تخطي
         </Link>
         <div className="flex gap-1.5">
@@ -47,6 +48,7 @@ function Onboarding() {
         {last ? (
           <Link
             to="/login"
+            onClick={markOnboarded}
             className="gradient-primary block rounded-full py-4 text-center text-sm font-medium text-primary-foreground shadow-glow"
           >
             ابدأ الآن

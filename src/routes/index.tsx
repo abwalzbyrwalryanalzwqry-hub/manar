@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Mark } from "@/components/manar/shell";
+import { useAuth } from "@/lib/auth-context";
+import { hasOnboarded } from "@/lib/onboarding-state";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -15,10 +17,28 @@ export const Route = createFileRoute("/")({
 
 function Splash() {
   const navigate = useNavigate();
+  const { user, isGuest, loading } = useAuth();
+  const [returning] = useState(() => hasOnboarded());
+
+  /* من فتح التطبيق قبل اليوم لا يُعاد تعريفه به.
+   *
+   * كانت هذه الشاشة تُحوّل إلى `/onboarding` دائماً، فيرى المستخدم شرائح
+   * التعريف ثم شاشة الدخول في كل مرّة يفتح فيها التطبيق — حتى بعد أن دخل
+   * كزائر أو بحسابه. الوجهة الآن تتبع حالته المحفوظة:
+   *   • أتمّ التعريف ومعه حساب أو وضع زائر → الرئيسية مباشرةً.
+   *   • أتمّ التعريف بلا حساب → شاشة الدخول (لا الشرائح ثانيةً).
+   *   • أول مرّة → الشرائح.
+   *
+   * ننتظر انتهاء `loading` قبل القرار، وإلا حُسم الأمر قبل أن تُستعاد
+   * الجلسة من التخزين فيُطرد صاحب الحساب إلى شاشة الدخول. */
   useEffect(() => {
-    const t = setTimeout(() => navigate({ to: "/onboarding" }), 2200);
+    if (loading) return;
+    const to = !returning ? "/onboarding" : user || isGuest ? "/home" : "/login";
+    /* العائد لا ينتظر شاشة البداية كاملةً — ٢٢٠٠ مللي ثانية ترحيبٌ لطيف
+       في المرّة الأولى وتأخيرٌ مزعج فيما بعدها. */
+    const t = setTimeout(() => navigate({ to }), returning ? 600 : 2200);
     return () => clearTimeout(t);
-  }, [navigate]);
+  }, [navigate, loading, returning, user, isGuest]);
 
   return (
     <div dir="rtl" className="relative min-h-screen overflow-hidden gradient-hero text-white">
@@ -38,12 +58,14 @@ function Splash() {
             />
           ))}
         </div>
-        <Link
-          to="/onboarding"
-          className="absolute bottom-8 text-[11px] tracking-[0.3em] text-white/50"
-        >
-          تخطي
-        </Link>
+        {!returning && (
+          <Link
+            to="/onboarding"
+            className="absolute bottom-8 text-[11px] tracking-[0.3em] text-white/50"
+          >
+            تخطي
+          </Link>
+        )}
       </div>
     </div>
   );

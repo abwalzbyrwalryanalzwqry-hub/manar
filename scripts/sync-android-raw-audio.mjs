@@ -10,7 +10,15 @@
  * for previews inside the WebView, while the native service needs res/raw to be
  * able to play while the app is closed.
  */
-import { readdirSync, mkdirSync, copyFileSync, rmSync, existsSync, statSync } from "node:fs";
+import {
+  readdirSync,
+  mkdirSync,
+  copyFileSync,
+  rmSync,
+  existsSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
@@ -60,6 +68,19 @@ for (const source of present) {
     copied.push(`${file} -> raw/${name}`);
   }
 }
+
+/* مُقلّص الموارد (`shrinkResources true`) يحذف كل ما لا تشير إليه الشيفرة
+ * باسمه صراحةً. و`AdhanService` يحلّ أسماء الأصوات وقتَ التشغيل عبر
+ * `getResources().getIdentifier(...)`، فلا يرى المُقلّص أي إشارة إليها ويمسح
+ * `res/raw` بالكامل — فيُبنى تطبيق يبدو سليماً بينما كل أذان وتنبيه فيه صامت.
+ * هذا الملف يُبقيها. */
+writeFileSync(
+  resolve(target, "keep.xml"),
+  '<?xml version="1.0" encoding="utf-8"?>\n' +
+    "<!-- مُولَّد بـ scripts/sync-android-raw-audio.mjs — لا يُحرَّر يدوياً -->\n" +
+    '<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@raw/*"/>\n',
+  "utf8",
+);
 
 console.log(
   `[manar] copied ${copied.length} recordings into res/raw (${(bytes / 1048576).toFixed(1)} MB)`,
