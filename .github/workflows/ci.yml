@@ -1,0 +1,76 @@
+name: التحقق (CI)
+
+# بوابة الجودة لمنار.
+#
+# لماذا هذا الملف موجود: طلبات الدمج ٣ إلى ١١ بُنيت بعضها فوق بعض لا فوق
+# `main`، فبدت مدمجة وهي ليست كذلك، وبقيت خمس مراحل كاملة خارج الإنتاج. ولم
+# يكن هناك ما يبني المشروع قبل الدمج. الوظيفتان أدناه تمنعان تكرار الحالتين.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ١) قاعدة كل طلب دمج يجب أن تكون main. هذا ما فات في السلسلة ٣–١١.
+  base-branch:
+    name: قاعدة الدمج main
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: التحقق من قاعدة الفرع
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          if [ "$BASE" != "main" ]; then
+            echo "::error::قاعدة طلب الدمج هي '$BASE' وليست 'main'."
+            echo "الفروع المتسلسلة تُخفي العمل عن الإنتاج: طلب دمج يُدمج في فرع آخر"
+            echo "يظهر بحالة merged دون أن يصل شيء إلى main. أعِد توجيه القاعدة إلى main."
+            exit 1
+          fi
+          echo "القاعدة main — سليم."
+
+  # ٢) لا يُدمج ما لا يبني. الترتيب مقصود: الأسرع أولاً ليفشل مبكراً.
+  verify:
+    name: أنواع وتنسيق وبناء
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: تنصيب الحزم
+        run: npm ci --no-audit --no-fund
+
+      - name: فحص الأنواع
+        run: npm run typecheck
+
+      - name: فحص التنسيق
+        run: npx prettier --check .
+
+      - name: التحليل الساكن
+        run: npm run lint
+
+      - name: بناء الويب
+        run: npm run build
+
+      # إن فشل البناء لأي سبب، نريد السجل كاملاً لا السطور الأخيرة فقط.
+      - name: رفع مخرجات البناء
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: |
+            .output/public
+          retention-days: 7
+          if-no-files-found: ignore

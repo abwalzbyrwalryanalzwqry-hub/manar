@@ -11,29 +11,29 @@ export const CITIES: LocationState[] = [
   { city: "تبوك", country: "السعودية", lat: 28.3998, lng: 36.5715, source: "manual" },
   { city: "أبها", country: "السعودية", lat: 18.2164, lng: 42.5053, source: "manual" },
   { city: "حائل", country: "السعودية", lat: 27.5219, lng: 41.6913, source: "manual" },
-  { city: "بريدة", country: "السعودية", lat: 26.3260, lng: 43.9750, source: "manual" },
+  { city: "بريدة", country: "السعودية", lat: 26.326, lng: 43.975, source: "manual" },
 
   // Gulf
   { city: "دبي", country: "الإمارات", lat: 25.2048, lng: 55.2708, source: "manual" },
   { city: "أبوظبي", country: "الإمارات", lat: 24.4539, lng: 54.3773, source: "manual" },
   { city: "الشارقة", country: "الإمارات", lat: 25.3463, lng: 55.4209, source: "manual" },
-  { city: "الدوحة", country: "قطر", lat: 25.2854, lng: 51.5310, source: "manual" },
+  { city: "الدوحة", country: "قطر", lat: 25.2854, lng: 51.531, source: "manual" },
   { city: "الكويت", country: "الكويت", lat: 29.3759, lng: 47.9774, source: "manual" },
-  { city: "المنامة", country: "البحرين", lat: 26.2285, lng: 50.5860, source: "manual" },
-  { city: "مسقط", country: "عُمان", lat: 23.5880, lng: 58.3829, source: "manual" },
+  { city: "المنامة", country: "البحرين", lat: 26.2285, lng: 50.586, source: "manual" },
+  { city: "مسقط", country: "عُمان", lat: 23.588, lng: 58.3829, source: "manual" },
   { city: "صلالة", country: "عُمان", lat: 17.0151, lng: 54.0924, source: "manual" },
 
   // Yemen / Iraq / Levant
-  { city: "صنعاء", country: "اليمن", lat: 15.3694, lng: 44.1910, source: "manual" },
+  { city: "صنعاء", country: "اليمن", lat: 15.3694, lng: 44.191, source: "manual" },
   { city: "عدن", country: "اليمن", lat: 12.7855, lng: 45.0187, source: "manual" },
   { city: "تعز", country: "اليمن", lat: 13.5775, lng: 44.0178, source: "manual" },
   { city: "الحديدة", country: "اليمن", lat: 14.7978, lng: 42.9545, source: "manual" },
   { city: "بغداد", country: "العراق", lat: 33.3152, lng: 44.3661, source: "manual" },
   { city: "البصرة", country: "العراق", lat: 30.5085, lng: 47.7804, source: "manual" },
-  { city: "الموصل", country: "العراق", lat: 36.3450, lng: 43.1450, source: "manual" },
-  { city: "النجف", country: "العراق", lat: 32.0000, lng: 44.3300, source: "manual" },
+  { city: "الموصل", country: "العراق", lat: 36.345, lng: 43.145, source: "manual" },
+  { city: "النجف", country: "العراق", lat: 32.0, lng: 44.33, source: "manual" },
   { city: "عمّان", country: "الأردن", lat: 31.9454, lng: 35.9284, source: "manual" },
-  { city: "إربد", country: "الأردن", lat: 32.5556, lng: 35.8500, source: "manual" },
+  { city: "إربد", country: "الأردن", lat: 32.5556, lng: 35.85, source: "manual" },
   { city: "بيروت", country: "لبنان", lat: 33.8938, lng: 35.5018, source: "manual" },
   { city: "طرابلس", country: "لبنان", lat: 34.4367, lng: 35.8497, source: "manual" },
   { city: "دمشق", country: "سوريا", lat: 33.5138, lng: 36.2765, source: "manual" },
@@ -68,17 +68,17 @@ export const CITIES: LocationState[] = [
   { city: "إسطنبول", country: "تركيا", lat: 41.0082, lng: 28.9784, source: "manual" },
   { city: "أنقرة", country: "تركيا", lat: 39.9334, lng: 32.8597, source: "manual" },
   { city: "إزمير", country: "تركيا", lat: 38.4192, lng: 27.1287, source: "manual" },
-  { city: "بورصة", country: "تركيا", lat: 40.1956, lng: 29.0610, source: "manual" },
-  { city: "طهران", country: "إيران", lat: 35.6892, lng: 51.3890, source: "manual" },
+  { city: "بورصة", country: "تركيا", lat: 40.1956, lng: 29.061, source: "manual" },
+  { city: "طهران", country: "إيران", lat: 35.6892, lng: 51.389, source: "manual" },
   { city: "مشهد", country: "إيران", lat: 36.2605, lng: 59.6168, source: "manual" },
   { city: "كراتشي", country: "باكستان", lat: 24.8607, lng: 67.0011, source: "manual" },
   { city: "لاهور", country: "باكستان", lat: 31.5204, lng: 74.3587, source: "manual" },
   { city: "إسلام آباد", country: "باكستان", lat: 33.6844, lng: 73.0479, source: "manual" },
   { city: "دكا", country: "بنغلاديش", lat: 23.8103, lng: 90.4125, source: "manual" },
-  { city: "نيودلهي", country: "الهند", lat: 28.6139, lng: 77.2090, source: "manual" },
-  { city: "مومباي", country: "الهند", lat: 19.0760, lng: 72.8777, source: "manual" },
-  { city: "حيدر آباد", country: "الهند", lat: 17.3850, lng: 78.4867, source: "manual" },
-  { city: "كوالالمبور", country: "ماليزيا", lat: 3.1390, lng: 101.6869, source: "manual" },
+  { city: "نيودلهي", country: "الهند", lat: 28.6139, lng: 77.209, source: "manual" },
+  { city: "مومباي", country: "الهند", lat: 19.076, lng: 72.8777, source: "manual" },
+  { city: "حيدر آباد", country: "الهند", lat: 17.385, lng: 78.4867, source: "manual" },
+  { city: "كوالالمبور", country: "ماليزيا", lat: 3.139, lng: 101.6869, source: "manual" },
   { city: "جاكرتا", country: "إندونيسيا", lat: -6.2088, lng: 106.8456, source: "manual" },
   { city: "سنغافورة", country: "سنغافورة", lat: 1.3521, lng: 103.8198, source: "manual" },
   { city: "كابول", country: "أفغانستان", lat: 34.5553, lng: 69.2075, source: "manual" },
@@ -89,15 +89,15 @@ export const CITIES: LocationState[] = [
   { city: "برمنغهام", country: "بريطانيا", lat: 52.4862, lng: -1.8904, source: "manual" },
   { city: "باريس", country: "فرنسا", lat: 48.8566, lng: 2.3522, source: "manual" },
   { city: "مرسيليا", country: "فرنسا", lat: 43.2965, lng: 5.3698, source: "manual" },
-  { city: "برلين", country: "ألمانيا", lat: 52.5200, lng: 13.4050, source: "manual" },
-  { city: "ميونخ", country: "ألمانيا", lat: 48.1351, lng: 11.5820, source: "manual" },
+  { city: "برلين", country: "ألمانيا", lat: 52.52, lng: 13.405, source: "manual" },
+  { city: "ميونخ", country: "ألمانيا", lat: 48.1351, lng: 11.582, source: "manual" },
   { city: "بروكسل", country: "بلجيكا", lat: 50.8503, lng: 4.3517, source: "manual" },
   { city: "أمستردام", country: "هولندا", lat: 52.3676, lng: 4.9041, source: "manual" },
   { city: "مدريد", country: "إسبانيا", lat: 40.4168, lng: -3.7038, source: "manual" },
   { city: "روما", country: "إيطاليا", lat: 41.9028, lng: 12.4964, source: "manual" },
   { city: "ستوكهولم", country: "السويد", lat: 59.3293, lng: 18.0686, source: "manual" },
   { city: "موسكو", country: "روسيا", lat: 55.7558, lng: 37.6173, source: "manual" },
-  { city: "نيويورك", country: "أمريكا", lat: 40.7128, lng: -74.0060, source: "manual" },
+  { city: "نيويورك", country: "أمريكا", lat: 40.7128, lng: -74.006, source: "manual" },
   { city: "ديترويت", country: "أمريكا", lat: 42.3314, lng: -83.0458, source: "manual" },
   { city: "شيكاغو", country: "أمريكا", lat: 41.8781, lng: -87.6298, source: "manual" },
   { city: "لوس أنجلوس", country: "أمريكا", lat: 34.0522, lng: -118.2437, source: "manual" },
@@ -117,7 +117,10 @@ export function nearestCity(lat: number, lng: number): LocationState | null {
       Math.sin(dLat / 2) ** 2 +
       Math.cos((lat * Math.PI) / 180) * Math.cos((c.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
     const km = 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(a)));
-    if (km < bestKm) { bestKm = km; best = c; }
+    if (km < bestKm) {
+      bestKm = km;
+      best = c;
+    }
   }
   // Beyond ~150 km the city label would be misleading.
   return best && bestKm <= 150 ? { ...best, source: "gps" } : null;

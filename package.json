@@ -12,11 +12,12 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "build:android": "VITE_NATIVE_SHELL=1 vite build --config vite.config.capacitor.ts && node scripts/prepare-android-webdir.mjs && node scripts/sync-android-raw-audio.mjs && cap sync android",
-    "android:icons": "python3 scripts/generate-android-icons.py",
+    "android:icons": "python3 scripts/build-icon.py && python3 scripts/build-brand-icons.py",
     "android:apk": "npm run build:android && cd android && ./gradlew assembleRelease",
     "android:apk:debug": "npm run build:android && cd android && ./gradlew assembleDebug",
     "android:aab": "npm run build:android && cd android && ./gradlew bundleRelease",
-    "cap": "cap"
+    "cap": "cap",
+    "audio:tones": "python3 scripts/build-tones.py"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.9",

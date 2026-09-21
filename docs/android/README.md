@@ -18,17 +18,17 @@ Android SDK + JDK 17.
 
 ## 1. What is already offline-first in the web app
 
-| Content | Location | Network needed |
-| --- | --- | --- |
-| Quran Uthmani text, 114 surahs / 604 pages | `public/data/quran/uthmani/*.json` | no |
-| Hisn al-Muslim adhkar (132 chapters) | `public/data/azkar/hisn-al-muslim.json` | no |
-| Wird (morning/evening) | bundled in source | no |
-| Adhan / Iqama / Fajr recordings (20 files, 16 MB mono MP3) | `public/audio/library/*.mp3` | no |
-| Quran fonts (Amiri Quran, Scheherazade New, Noto Naskh) | `public/fonts/*.woff2` + `quran-fonts.css` | no |
-| Prayer times | computed locally with `adhan` | no |
-| City lookup / reverse geocoding | `src/lib/cities.ts` (`nearestCity`) | no (online only refines the label) |
-| Settings, counters, reading position, wird progress | `localStorage` | no |
-| Cloud sync + account | Lovable Cloud | yes — optional only |
+| Content                                                    | Location                                   | Network needed                     |
+| ---------------------------------------------------------- | ------------------------------------------ | ---------------------------------- |
+| Quran Uthmani text, 114 surahs / 604 pages                 | `public/data/quran/uthmani/*.json`         | no                                 |
+| Hisn al-Muslim adhkar (132 chapters)                       | `public/data/azkar/hisn-al-muslim.json`    | no                                 |
+| Wird (morning/evening)                                     | bundled in source                          | no                                 |
+| Adhan / Iqama / Fajr recordings (20 files, 16 MB mono MP3) | `public/audio/library/*.mp3`               | no                                 |
+| Quran fonts (Amiri Quran, Scheherazade New, Noto Naskh)    | `public/fonts/*.woff2` + `quran-fonts.css` | no                                 |
+| Prayer times                                               | computed locally with `adhan`              | no                                 |
+| City lookup / reverse geocoding                            | `src/lib/cities.ts` (`nearestCity`)        | no (online only refines the label) |
+| Settings, counters, reading position, wird progress        | `localStorage`                             | no                                 |
+| Cloud sync + account                                       | Lovable Cloud                              | yes — optional only                |
 
 ## 2. Static client build for the native shell
 
@@ -52,15 +52,15 @@ bun add @capacitor/core @capacitor/android @capacitor/cli \
         @capawesome/capacitor-background-task
 ```
 
-| Capability | Plugin / native piece |
-| --- | --- |
-| Scheduled Adhan / Iqama notifications | `@capacitor/local-notifications` (exact alarms) |
-| Reboot rescheduling | `BOOT_COMPLETED` receiver re-schedules the next 7 days |
-| Notification actions (إيقاف الأذان) | Local-notification action type `STOP_ADHAN` |
-| Background audio + audio focus | foreground service + `AudioManager` focus request |
-| Media session (lock-screen controls) | `@capacitor-community/media-session` |
-| Local persistence | `localStorage` (WebView) + `@capacitor/preferences` for native-side schedule state |
-| Location | `@capacitor/geolocation` |
+| Capability                            | Plugin / native piece                                                              |
+| ------------------------------------- | ---------------------------------------------------------------------------------- |
+| Scheduled Adhan / Iqama notifications | `@capacitor/local-notifications` (exact alarms)                                    |
+| Reboot rescheduling                   | `BOOT_COMPLETED` receiver re-schedules the next 7 days                             |
+| Notification actions (إيقاف الأذان)   | Local-notification action type `STOP_ADHAN`                                        |
+| Background audio + audio focus        | foreground service + `AudioManager` focus request                                  |
+| Media session (lock-screen controls)  | `@capacitor-community/media-session`                                               |
+| Local persistence                     | `localStorage` (WebView) + `@capacitor/preferences` for native-side schedule state |
+| Location                              | `@capacitor/geolocation`                                                           |
 
 Keep the boundary clean: the web UI writes settings, the native scheduler reads
 them and owns alarms/audio.
@@ -89,15 +89,15 @@ Not requested: storage, camera, microphone, contacts, background location,
 
 ## 5. App identity
 
-| Item | Value |
-| --- | --- |
-| applicationId | `app.manar.islamic` |
-| App name | `منار` (`android:label`) |
-| Launcher icon | adaptive icon, emerald background `#0B1F1A`, gold minaret `#C9A227` |
-| Splash | `#0B1F1A` with the Manar mark, `launchAutoHide: false` |
-| minSdk / targetSdk / compileSdk | 24 / 35 / 35 |
-| RTL | `android:supportsRtl="true"`, default locale `ar` |
-| Theme | `DayNight` so system light/dark matches the web UI |
+| Item                            | Value                                                               |
+| ------------------------------- | ------------------------------------------------------------------- |
+| applicationId                   | `app.manar.islamic`                                                 |
+| App name                        | `منار` (`android:label`)                                            |
+| Launcher icon                   | adaptive icon, emerald background `#0B1F1A`, gold minaret `#C9A227` |
+| Splash                          | `#0B1F1A` with the Manar mark, `launchAutoHide: false`              |
+| minSdk / targetSdk / compileSdk | 24 / 35 / 35                                                        |
+| RTL                             | `android:supportsRtl="true"`, default locale `ar`                   |
+| Theme                           | `DayNight` so system light/dark matches the web UI                  |
 
 ## 6. Release configuration (`android/app/build.gradle`)
 
@@ -134,12 +134,12 @@ still not committed to the repository — only the reproducible build steps are.
 ## 8. Airplane-mode checklist (run on the device after installing)
 
 1. Launch → 2. Prayer Times → 3. Quran → 4. Surah reader → 5. Mushaf →
-6. swipe several of the 604 pages → 7. change reading settings → 8. Adhkar →
-9. search a dhikr → 10. open a chapter → 11. counter → 12. move between adhkar →
-13. play a local Adhan → 14. play a local Iqama → 15. fire a scheduled
-notification → 16. stop audio from the notification → 17. lock screen →
-18. reopen → 19. settings preserved → 20. reading position preserved →
-21. reboot the device → 22. notifications rescheduled.
+2. swipe several of the 604 pages → 7. change reading settings → 8. Adhkar →
+3. search a dhikr → 10. open a chapter → 11. counter → 12. move between adhkar →
+4. play a local Adhan → 14. play a local Iqama → 15. fire a scheduled
+   notification → 16. stop audio from the notification → 17. lock screen →
+5. reopen → 19. settings preserved → 20. reading position preserved →
+6. reboot the device → 22. notifications rescheduled.
 
 ## 9. Size notes
 

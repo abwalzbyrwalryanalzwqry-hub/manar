@@ -22,7 +22,6 @@ const DEFAULT: ReaderState = {
   updatedAt: Date.now(),
 };
 
-
 function read(): ReaderState {
   if (typeof window === "undefined") return DEFAULT;
   try {

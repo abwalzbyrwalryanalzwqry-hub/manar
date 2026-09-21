@@ -6,12 +6,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { SURAH_META } from "./metadata";
 import type { ReaderMode } from "@/lib/quran-reader-state";
+import { recordAyahs } from "@/lib/activity-log";
 
 const KEY = "manar.quran.history.v1";
 const EVENT = "manar:quran-history";
 const MAX_ENTRIES = 40;
 /** Two visits to the same surah inside this window are one entry. */
 const MERGE_WINDOW_MS = 30 * 60 * 1000;
+/** تقدّم أكبر من هذا يُعدّ تنقّلاً في المصحف، لا قراءة متصلة. */
+const MAX_READ_JUMP = 200;
 
 export interface ReadEntry {
   surah: number;
@@ -111,8 +114,17 @@ export function recordRead(entry: Omit<ReadEntry, "at">): void {
   );
   if (!sameDayRecent) days[key] = (days[key] ?? 0) + 1;
 
-  const furthest = Math.max(state.furthest, globalAyahIndex(entry.surah, entry.ayah));
+  const nextGlobal = globalAyahIndex(entry.surah, entry.ayah);
+  const furthest = Math.max(state.furthest, nextGlobal);
   write({ entries, days, furthest });
+
+  /* السجل اليومي الموحّد: نحسب الآيات المقروءة فعلياً من التقدّم للأمام عن آخر
+   * موضع مسجّل. نتجاهل القفزات الكبيرة لأنها تنقّل في المصحف لا قراءة. */
+  const prev = state.entries[0];
+  if (prev) {
+    const delta = nextGlobal - globalAyahIndex(prev.surah, prev.ayah);
+    if (delta > 0 && delta <= MAX_READ_JUMP) recordAyahs(delta);
+  }
 }
 
 export function clearHistory(): void {

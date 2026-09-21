@@ -45,3 +45,4 @@ android/app/src/main/res/raw/
 android/keystore.properties
 android/*.keystore
 android/*.jks
+.icon-preview/
