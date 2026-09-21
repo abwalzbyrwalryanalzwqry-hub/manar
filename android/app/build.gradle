@@ -15,6 +15,55 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+/**
+ * رقم الإصدار الديناميكي.
+ *
+ * كان `versionCode 1` مكتوباً يدوياً في كل الفروع؛ وGoogle Play يرفض أي
+ * حزمة رقمها ليس أعلى ممّا سبق، فكان كل تحديث يلزمه تعديل يدوي منسيً.
+ * الأولوية هنا:
+ *   ١) MANAR_VERSION_CODE  — تجاوز صريح عند الحاجة.
+ *   ٢) GITHUB_RUN_NUMBER   — داخل GitHub Actions: يزيد مع كل بناء ولا يرجع.
+ *   ٣) عدد الالتزامات على الفرع — متزايد طبعاً مع تاريخ المستودع.
+ *   ٤) 1 — ملاذ أخير (شجرة بلا Git، كما في بعض أرشيفات المصدر).
+ *
+ * و`versionName` يُقرأ من package.json ليبقى مصدر واحد للرقم بين الويب والتطبيق.
+ */
+// ProcessBuilder وليس Project.exec: الأخير مهجور في Gradle الحديث ويكسر ذاكرة
+// التهيئة (configuration cache).
+def gitCommitCount = {
+    try {
+        def proc = new ProcessBuilder('git', 'rev-list', '--count', 'HEAD')
+            .directory(rootProject.projectDir.parentFile)
+            .redirectErrorStream(true)
+            .start()
+        def out = proc.inputStream.text.trim()
+        proc.waitFor()
+        return proc.exitValue() == 0 && out.isInteger() ? out.toInteger() : 0
+    } catch (Exception ignored) {
+        return 0
+    }
+}
+
+def resolvedVersionCode = {
+    def explicit = System.getenv("MANAR_VERSION_CODE")
+    if (explicit?.isInteger()) return explicit.toInteger()
+    def run = System.getenv("GITHUB_RUN_NUMBER")
+    if (run?.isInteger()) return run.toInteger()
+    def commits = gitCommitCount()
+    return commits > 0 ? commits : 1
+}()
+
+def resolvedVersionName = {
+    try {
+        def pkg = new groovy.json.JsonSlurper().parse(rootProject.file("../package.json"))
+        return (pkg.version ?: "1.0.0").toString()
+    } catch (Exception ignored) {
+        return "1.0.0"
+    }
+}()
+
+logger.lifecycle("Manar: versionCode=${resolvedVersionCode} versionName=${resolvedVersionName}")
+
 def resolvedStoreFile = keystoreProperties['storeFile'] ?: System.getenv("MANAR_KEYSTORE")
 def resolvedStorePassword = keystoreProperties['storePassword'] ?: System.getenv("MANAR_STORE_PASSWORD")
 def resolvedKeyAlias = keystoreProperties['keyAlias'] ?: System.getenv("MANAR_KEY_ALIAS")
@@ -29,8 +78,8 @@ android {
         applicationId "app.manar.islamic"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0.0"
+        versionCode resolvedVersionCode
+        versionName resolvedVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         // Arabic is the primary language; English is the secondary one.

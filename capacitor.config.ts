@@ -24,6 +24,11 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: false,
     captureInput: true,
+    // منذ أندرويد ١٦ (الاستهداف ٣٦) لا يمكن إلغاء وضع الحواف الكاملة
+    // (edge-to-edge)، وقيمة Capacitor الافتراضية "disable" تجعل الويب فيو يرسم
+    // تحت شريط الحالة وشريط التنقل، فيختفي أعلى الواجهة خلف الساعة.
+    // "auto" يطبّق هوامش أشرطة النطاق تلقائياً على أندرويد ١٥+.
+    adjustMarginsForEdgeToEdge: "auto",
     // Offline-first: everything the core experience needs is bundled.
     webContentsDebuggingEnabled: false,
   },
