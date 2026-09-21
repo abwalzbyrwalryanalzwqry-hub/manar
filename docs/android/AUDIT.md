@@ -38,7 +38,7 @@
    وإلا تتأخر التنبيهات أو تُلغى في وضع Doze.
 6. **الأذان الطويل والتطبيق مغلق غير مضمون.** حاليًا الصوت يعتمد على صوت الإشعار،
    وأندرويد يقصّه عمليًا. للتشغيل الكامل مع أزرار القفل يلزم Foreground Service
-   + Audio Focus + Media Session (موصوفة في README ولم تُنفَّذ بعد).
+   - Audio Focus + Media Session (موصوفة في README ولم تُنفَّذ بعد).
 7. **ملفات الصوت غير منسوخة إلى `res/raw/`** — `soundName()` يُرجع اسمًا مجرّدًا يتوقعه
    أندرويد في `res/raw`، وهذا النسخ لم يحدث (لا مجلد android بعد).
 8. **قنوات الإشعارات** `manar_adhan / manar_iqama / manar_reminders / manar_silent`
@@ -59,17 +59,17 @@
 
 ## D) الملفات التي يجب تعديلها قبل البناء
 
-| الملف | التعديل |
-| --- | --- |
-| `package.json` | إضافة حزم Capacitor + سكربتات `cap` وسكربت بناء ثابت |
-| `vite.config.ts` أو سكربت بناء | إنتاج إخراج ثابت يحتوي `index.html` |
-| `capacitor.config.ts` | مطابقة `webDir` لمجلد الإخراج الثابت الفعلي |
-| `src/routes/__root.tsx` (أو مزوّد جديد) | مستمع زر الرجوع الأصلي |
-| `src/lib/native-notifications.ts` | طلب Exact Alarm + إرشاد Battery Optimization |
-| `android/app/src/main/AndroidManifest.xml` | الأذونات (بعد `cap add android`) |
-| `android/app/build.gradle` | applicationId، SDK، versionCode/Name، signingConfigs، minify |
-| `android/app/src/main/res/raw/` | نسخ ملفات الأذان/الإقامة المطلوبة |
-| `android/.../MainActivity` أو Plugin | قنوات الإشعارات + Foreground Service للصوت |
+| الملف                                      | التعديل                                                      |
+| ------------------------------------------ | ------------------------------------------------------------ |
+| `package.json`                             | إضافة حزم Capacitor + سكربتات `cap` وسكربت بناء ثابت         |
+| `vite.config.ts` أو سكربت بناء             | إنتاج إخراج ثابت يحتوي `index.html`                          |
+| `capacitor.config.ts`                      | مطابقة `webDir` لمجلد الإخراج الثابت الفعلي                  |
+| `src/routes/__root.tsx` (أو مزوّد جديد)    | مستمع زر الرجوع الأصلي                                       |
+| `src/lib/native-notifications.ts`          | طلب Exact Alarm + إرشاد Battery Optimization                 |
+| `android/app/src/main/AndroidManifest.xml` | الأذونات (بعد `cap add android`)                             |
+| `android/app/build.gradle`                 | applicationId، SDK، versionCode/Name، signingConfigs، minify |
+| `android/app/src/main/res/raw/`            | نسخ ملفات الأذان/الإقامة المطلوبة                            |
+| `android/.../MainActivity` أو Plugin       | قنوات الإشعارات + Foreground Service للصوت                   |
 
 ## E) الأوامر النهائية للبناء (خارج Lovable)
 
@@ -111,11 +111,11 @@ cd android
 
 تم معالجة العوائق الموثّقة أعلاه، وأُضيف عائقان جديدان ظهرا أثناء البناء الفعلي:
 
-| # | العائق | الحالة |
-| --- | --- | --- |
-| B1–B9 | العوائق الأصلية (بيئة البناء، الأيقونات، التوقيع، الأصوات الأصلية، الجدولة، الخطوط الخارجية…) | **مُصلَحة** |
-| B10 | `shrinkResources` يحذف كل ملفات `res/raw` (٢٠ ملف أذان) من حزمة الإصدار | **مُصلَح** عبر `res/raw/keep.xml` |
-| B11 | متغيّرات الأذان/الإقامة/التنبيه تشير إلى ملفات غير موجودة → رسالة «ملف الصوت غير متوفر» | **مُصلَح** عبر ربطها بمكتبة الأصوات الحقيقية |
+| #     | العائق                                                                                        | الحالة                                       |
+| ----- | --------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| B1–B9 | العوائق الأصلية (بيئة البناء، الأيقونات، التوقيع، الأصوات الأصلية، الجدولة، الخطوط الخارجية…) | **مُصلَحة**                                  |
+| B10   | `shrinkResources` يحذف كل ملفات `res/raw` (٢٠ ملف أذان) من حزمة الإصدار                       | **مُصلَح** عبر `res/raw/keep.xml`            |
+| B11   | متغيّرات الأذان/الإقامة/التنبيه تشير إلى ملفات غير موجودة → رسالة «ملف الصوت غير متوفر»       | **مُصلَح** عبر ربطها بمكتبة الأصوات الحقيقية |
 
 مخرجات مُتحقَّق منها: APK ٤٠ ميغابايت موقَّع (v2+v3)، AAB ٣٥ ميغابايت،
 `versionCode=1`، `versionName=1.0.0`، minSdk 24، targetSdk 35.

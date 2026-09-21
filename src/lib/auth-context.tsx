@@ -1,6 +1,10 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
-import { CLOUD_UNAVAILABLE_MESSAGE, getCloud, isCloudConfigured } from "@/integrations/supabase/optional-client";
+import {
+  CLOUD_UNAVAILABLE_MESSAGE,
+  getCloud,
+  isCloudConfigured,
+} from "@/integrations/supabase/optional-client";
 import { lovable } from "@/integrations/lovable";
 
 type Profile = {
@@ -59,8 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isGuest, setIsGuest] = useState(() =>
-    typeof window !== "undefined" && localStorage.getItem(GUEST_KEY) === "1",
+  const [isGuest, setIsGuest] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem(GUEST_KEY) === "1",
   );
 
   const loadProfile = async (uid: string) => {
@@ -138,9 +142,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // If the account exists but is OAuth-only, give a precise hint.
       if (/invalid/i.test(error.message)) {
         try {
-          const probe = await cloud.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
+          const probe = await cloud.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/reset-password`,
+          });
           LOG("probe reset (silent)", probe.error?.message ?? "ok");
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
       return { error: arabicAuthError(error.message) };
     }
@@ -160,7 +168,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data: { full_name: fullName },
       },
     });
-    if (error) { LOG("signUpEmail error", error.message); return { error: arabicAuthError(error.message) }; }
+    if (error) {
+      LOG("signUpEmail error", error.message);
+      return { error: arabicAuthError(error.message) };
+    }
     LOG("signUpEmail ok", { userId: data.user?.id, needsConfirm: !data.session });
     return {};
   };
@@ -169,7 +180,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     LOG("signInGoogle → origin", window.location.origin);
     if (!isCloudConfigured()) return { error: CLOUD_UNAVAILABLE_MESSAGE };
     try {
-      const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+      const r = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
       LOG("signInGoogle result", { redirected: r.redirected, error: r.error?.message });
       if (r.error) return { error: arabicAuthError(r.error.message) };
       return {};
@@ -224,9 +237,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider
       value={{
-        user, session, profile, loading, isGuest,
-        signInEmail, signUpEmail, signInGoogle, resetPassword, updatePassword,
-        signOut, enableGuest, refreshProfile, updateProfile,
+        user,
+        session,
+        profile,
+        loading,
+        isGuest,
+        signInEmail,
+        signUpEmail,
+        signInGoogle,
+        resetPassword,
+        updatePassword,
+        signOut,
+        enableGuest,
+        refreshProfile,
+        updateProfile,
       }}
     >
       {children}

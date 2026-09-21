@@ -23,13 +23,13 @@ TypeError: r.addListener(...).then is not a function
 
 ## ٢. السبب الجذري (Root Cause)
 
-| البند | القيمة |
-| --- | --- |
-| الملف الأصلي | `src/lib/native-shell.ts` (وكذلك `src/lib/native-notifications.ts`) |
-| الدالة | `setupBackButton()` — وهي أول ما يُنفَّذ في `NativeBridge` |
-| الاستدعاء | `window.Capacitor.Plugins.App.addListener("backButton", cb).then(...)` |
-| الإضافة | `@capacitor/app` 7.1.2 عبر جسر `@capacitor/android` 7.6.9 |
-| المنصة | أندرويد فقط (على الويب `window.Capacitor` غير موجود فتتوقف الدوال مبكراً) |
+| البند        | القيمة                                                                    |
+| ------------ | ------------------------------------------------------------------------- |
+| الملف الأصلي | `src/lib/native-shell.ts` (وكذلك `src/lib/native-notifications.ts`)       |
+| الدالة       | `setupBackButton()` — وهي أول ما يُنفَّذ في `NativeBridge`                |
+| الاستدعاء    | `window.Capacitor.Plugins.App.addListener("backButton", cb).then(...)`    |
+| الإضافة      | `@capacitor/app` 7.1.2 عبر جسر `@capacitor/android` 7.6.9                 |
+| المنصة       | أندرويد فقط (على الويب `window.Capacitor` غير موجود فتتوقف الدوال مبكراً) |
 
 الخطأ ليس في الإضافة ولا في تعارض إصدارات، بل في **نقطة الدخول المستخدمة**:
 
@@ -60,22 +60,22 @@ TypeError: r.addListener(...).then is not a function
 
 ### جرد كل المستمعات في المشروع
 
-| المستمع | الإضافة | مكان الاستخدام | وقت التنفيذ | القيمة المرجعة قبل الإصلاح | `.then()`؟ | الحالة |
-| --- | --- | --- | --- | --- | --- | --- |
-| `backButton` | App 7.1.2 | `native-shell.ts → setupBackButton` | أول `useEffect` عند الإقلاع | كائن متزامن `{remove}` | نعم ← **سبب الانهيار** | أُصلح |
-| `appStateChange` | App 7.1.2 | `native-shell.ts → onResume` | عند الإقلاع | كائن متزامن `{remove}` | نعم ← كان سينهار أيضاً | أُصلح |
-| `localNotificationActionPerformed` | LocalNotifications 7.0.7 | `native-notifications.ts → attachNativeActionListener` | بعد تهيئة الإشعارات | كائن متزامن | لا (`await` فقط) | نُقل إلى الغلاف الرسمي |
-| `change` (prefers-color-scheme) | واجهة متصفح | `native-bridge.tsx` | عند الإقلاع | `undefined` (DOM) | لا | سليم |
+| المستمع                            | الإضافة                  | مكان الاستخدام                                         | وقت التنفيذ                 | القيمة المرجعة قبل الإصلاح | `.then()`؟             | الحالة                 |
+| ---------------------------------- | ------------------------ | ------------------------------------------------------ | --------------------------- | -------------------------- | ---------------------- | ---------------------- |
+| `backButton`                       | App 7.1.2                | `native-shell.ts → setupBackButton`                    | أول `useEffect` عند الإقلاع | كائن متزامن `{remove}`     | نعم ← **سبب الانهيار** | أُصلح                  |
+| `appStateChange`                   | App 7.1.2                | `native-shell.ts → onResume`                           | عند الإقلاع                 | كائن متزامن `{remove}`     | نعم ← كان سينهار أيضاً | أُصلح                  |
+| `localNotificationActionPerformed` | LocalNotifications 7.0.7 | `native-notifications.ts → attachNativeActionListener` | بعد تهيئة الإشعارات         | كائن متزامن                | لا (`await` فقط)       | نُقل إلى الغلاف الرسمي |
+| `change` (prefers-color-scheme)    | واجهة متصفح              | `native-bridge.tsx`                                    | عند الإقلاع                 | `undefined` (DOM)          | لا                     | سليم                   |
 
 لا يوجد أي استخدام آخر لـ `addListener` في `src/` (تم البحث عن `addListener(` و`.addListener(` و`addListener(...).then`).
 
 ### مشكلتان إضافيتان ظهرتا أثناء الاختبار الحقيقي
 
-| # | الخطورة | المشكلة | السبب | الإصلاح |
-| --- | --- | --- | --- | --- |
-| B | CRITICAL | `Error: Missing Supabase environment variable(s)` يُرمى من داخل Proxy في `src/integrations/supabase/client.ts` عند أول لمس لـ `supabase.auth` في `AuthProvider`، فتظهر شاشة «تعذّر عرض هذه الشاشة» — أي **نفس الشاشة لسبب مختلف تماماً** في أي بناء لا يملك ملف `.env` (الملف غير مرفوع إلى المستودع) | تطبيق محلي بالكامل يسقط لأن خدمة سحابية اختيارية غير مهيأة | طبقة `src/integrations/supabase/optional-client.ts`: عند غياب الإعداد يُسجَّل تحذير واضح، وتُعطَّل ميزات الحساب/المزامنة فقط، ويعمل كل المحلي (مواقيت، أذان، قرآن، أذكار) بشكل طبيعي |
-| C | HIGH | `Error: "Preferences.then()" is not implemented on android` — التخزين الأصلي (SharedPreferences) كان **لا يُحمَّل إطلاقاً**، فتسقط البيانات إلى `localStorage` الذي يُمحى مع تخزين الـWebView | `import("@capacitor/preferences").then((m) => m.Preferences)` — وكيل الإضافة يعترض قراءة أي خاصية بما فيها `then`، فيعتبره المحرّك thenable وينادي `Preferences.then()` | تغليف الدوال في كائن عادي داخل `persistent-storage.ts` + تسجيل أي فشل بدل كتمه |
-| D | MEDIUM | `Minified React error #418` عند كل إقلاع: عدم تطابق ترطيب، فيعيد React بناء الشجرة كلها | HTML المُسبَق (prerender) يحمل الصفحة كاملة بينما يرسم العميل على أندرويد شاشة «جارٍ استعادة بياناتك» من `StorageGate` | تمرير `VITE_NATIVE_SHELL=1` في `build:android` ليُنتج الـprerender الشاشة نفسها، فيتطابق الخادم والعميل |
+| #   | الخطورة  | المشكلة                                                                                                                                                                                                                                                                                               | السبب                                                                                                                                                                   | الإصلاح                                                                                                                                                                              |
+| --- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| B   | CRITICAL | `Error: Missing Supabase environment variable(s)` يُرمى من داخل Proxy في `src/integrations/supabase/client.ts` عند أول لمس لـ `supabase.auth` في `AuthProvider`، فتظهر شاشة «تعذّر عرض هذه الشاشة» — أي **نفس الشاشة لسبب مختلف تماماً** في أي بناء لا يملك ملف `.env` (الملف غير مرفوع إلى المستودع) | تطبيق محلي بالكامل يسقط لأن خدمة سحابية اختيارية غير مهيأة                                                                                                              | طبقة `src/integrations/supabase/optional-client.ts`: عند غياب الإعداد يُسجَّل تحذير واضح، وتُعطَّل ميزات الحساب/المزامنة فقط، ويعمل كل المحلي (مواقيت، أذان، قرآن، أذكار) بشكل طبيعي |
+| C   | HIGH     | `Error: "Preferences.then()" is not implemented on android` — التخزين الأصلي (SharedPreferences) كان **لا يُحمَّل إطلاقاً**، فتسقط البيانات إلى `localStorage` الذي يُمحى مع تخزين الـWebView                                                                                                         | `import("@capacitor/preferences").then((m) => m.Preferences)` — وكيل الإضافة يعترض قراءة أي خاصية بما فيها `then`، فيعتبره المحرّك thenable وينادي `Preferences.then()` | تغليف الدوال في كائن عادي داخل `persistent-storage.ts` + تسجيل أي فشل بدل كتمه                                                                                                       |
+| D   | MEDIUM   | `Minified React error #418` عند كل إقلاع: عدم تطابق ترطيب، فيعيد React بناء الشجرة كلها                                                                                                                                                                                                               | HTML المُسبَق (prerender) يحمل الصفحة كاملة بينما يرسم العميل على أندرويد شاشة «جارٍ استعادة بياناتك» من `StorageGate`                                                  | تمرير `VITE_NATIVE_SHELL=1` في `build:android` ليُنتج الـprerender الشاشة نفسها، فيتطابق الخادم والعميل                                                                              |
 
 ---
 
@@ -123,37 +123,37 @@ TypeError: r.addListener(...).then is not a function
 
 ## ٤. توافق الإصدارات
 
-| الحزمة | المثبت | المتوقع/المتوافق | الحالة |
-| --- | --- | --- | --- |
-| @capacitor/core | 7.6.9 | 7.x | ✅ |
-| @capacitor/android | 7.6.9 | يطابق core | ✅ |
-| @capacitor/cli | 7.6.9 | يطابق core | ✅ |
-| @capacitor/app | 7.1.2 | ^7 | ✅ |
-| @capacitor/local-notifications | 7.0.7 | ^7 | ✅ |
-| @capacitor/preferences | 7.0.4 | ^7 | ✅ |
-| @capacitor/splash-screen | 7.0.5 | ^7 | ✅ |
-| @capacitor/status-bar | 7.0.6 | ^7 | ✅ |
-| @capacitor/device | 7.0.5 | ^7 | ✅ |
-| @capacitor/filesystem | 7.1.8 | ^7 | ✅ |
-| @capacitor/geolocation | 7.1.8 | ^7 | ✅ |
-| @capacitor/share | 7.0.4 | ^7 | ✅ |
-| ManarAdhan (إضافة محلية) | داخل المشروع | — | ✅ |
+| الحزمة                         | المثبت       | المتوقع/المتوافق | الحالة |
+| ------------------------------ | ------------ | ---------------- | ------ |
+| @capacitor/core                | 7.6.9        | 7.x              | ✅     |
+| @capacitor/android             | 7.6.9        | يطابق core       | ✅     |
+| @capacitor/cli                 | 7.6.9        | يطابق core       | ✅     |
+| @capacitor/app                 | 7.1.2        | ^7               | ✅     |
+| @capacitor/local-notifications | 7.0.7        | ^7               | ✅     |
+| @capacitor/preferences         | 7.0.4        | ^7               | ✅     |
+| @capacitor/splash-screen       | 7.0.5        | ^7               | ✅     |
+| @capacitor/status-bar          | 7.0.6        | ^7               | ✅     |
+| @capacitor/device              | 7.0.5        | ^7               | ✅     |
+| @capacitor/filesystem          | 7.1.8        | ^7               | ✅     |
+| @capacitor/geolocation         | 7.1.8        | ^7               | ✅     |
+| @capacitor/share               | 7.0.4        | ^7               | ✅     |
+| ManarAdhan (إضافة محلية)       | داخل المشروع | —                | ✅     |
 
 لا يوجد أي عدم توافق: الإضافات التسع تُزامن بنجاح مع `cap sync android` والطبقة الأصلية مبنية من نفس الإصدارات.
 
 ### البيئة
 
-| العنصر | الإصدار |
-| --- | --- |
-| Node | v20.20.1 |
-| npm | 10.8.2 |
-| Java (JDK) | Temurin 21.0.12.1 LTS |
-| Gradle | 8.11.1 |
-| Android Gradle Plugin | 8.7.2 |
-| compileSdk / targetSdk | 35 |
-| minSdk | 24 |
-| React | 19 |
-| Vite | 7 |
+| العنصر                 | الإصدار               |
+| ---------------------- | --------------------- |
+| Node                   | v20.20.1              |
+| npm                    | 10.8.2                |
+| Java (JDK)             | Temurin 21.0.12.1 LTS |
+| Gradle                 | 8.11.1                |
+| Android Gradle Plugin  | 8.7.2                 |
+| compileSdk / targetSdk | 35                    |
+| minSdk                 | 24                    |
+| React                  | 19                    |
+| Vite                   | 7                     |
 
 ---
 
@@ -181,16 +181,16 @@ Router → Onboarding / Login / Home
 
 ## ٦. البناء
 
-| الخطوة | النتيجة |
-| --- | --- |
-| تنظيف (`dist`, `.output`, `assets/public`, `gradlew clean`) | PASS |
-| `npm run build:android` (Vite + prepare-android-webdir + sync-android-raw-audio) | PASS |
-| `cap sync android` (٩ إضافات) | PASS |
-| `tsc --noEmit` | PASS |
-| `assembleRelease` (APK) | PASS |
-| `bundleRelease` (AAB) | PASS |
-| توقيع الإصدار | PASS — مفتاح إنتاجي جديد `android/manar-release.keystore` (RSA 4096، صلاحية ٣٠ سنة)، `CN=Manar, O=Manar, L=Sanaa, C=YE` |
-| محتوى الحزمة | حزمة الويب محلية بالكامل داخل `assets/public` (لا `server.url`، لا موقع خارجي، لا iframe) + ٨ ملفات خطوط ثمانية |
+| الخطوة                                                                           | النتيجة                                                                                                                 |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| تنظيف (`dist`, `.output`, `assets/public`, `gradlew clean`)                      | PASS                                                                                                                    |
+| `npm run build:android` (Vite + prepare-android-webdir + sync-android-raw-audio) | PASS                                                                                                                    |
+| `cap sync android` (٩ إضافات)                                                    | PASS                                                                                                                    |
+| `tsc --noEmit`                                                                   | PASS                                                                                                                    |
+| `assembleRelease` (APK)                                                          | PASS                                                                                                                    |
+| `bundleRelease` (AAB)                                                            | PASS                                                                                                                    |
+| توقيع الإصدار                                                                    | PASS — مفتاح إنتاجي جديد `android/manar-release.keystore` (RSA 4096، صلاحية ٣٠ سنة)، `CN=Manar, O=Manar, L=Sanaa, C=YE` |
+| محتوى الحزمة                                                                     | حزمة الويب محلية بالكامل داخل `assets/public` (لا `server.url`، لا موقع خارجي، لا iframe) + ٨ ملفات خطوط ثمانية         |
 
 ---
 
@@ -198,29 +198,29 @@ Router → Onboarding / Login / Home
 
 البيئة لا تتيح محاكي أندرويد (لا `/dev/kvm`)، لذلك نُفِّذت الاختبارات على **حزمة الويب المستخرَجة من `app-release.apk` نفسه**، داخل محرك Chromium حقيقي، مع محاكاة كاملة لزمن تشغيل Capacitor على أندرويد كما يضخّه النظام: `androidBridge`، و`PluginHeaders`، و`nativePromise`/`nativeCallback`، وكائنات `Plugins` القديمة التي يولّدها `JSExport` بـ`addListener` متزامن (أي أن الخطأ الأصلي قابل لإعادة الإنتاج في هذه البيئة). الملفات: `webview-test/android-bridge-stub.js` و`run-tests.mjs`.
 
-| الاختبار | النتيجة |
-| --- | --- |
-| اكتشاف المنصة = android | PASS |
-| أول تشغيل — لا شاشة خطأ | PASS |
-| لا وجود لـ `addListener(...).then is not a function` | PASS |
-| عدم استخدام الجسر القديم إطلاقاً (عدّاد = ٠) | PASS |
-| تسجيل `backButton` و`appStateChange` عبر الغلاف الرسمي | PASS |
-| `SplashScreen.hide` يُنفَّذ | PASS |
-| رسم الشاشة الأولى (تعريف → تسجيل → الرئيسية) | PASS |
-| المسارات الرئيسية `/prayer` `/quran` `/azkar` `/more` | PASS |
-| التنقل الداخلي عبر شريط التبويب (٠ إعادة تحميل كامل) | PASS |
-| زر الرجوع في شاشة داخلية | PASS |
-| زر الرجوع في جذر التبويب (تنبيه «اضغط مرة أخرى للخروج») | PASS |
-| الخلفية/الاستئناف (إعادة جدولة الأذان) | PASS |
-| بدون إنترنت (إقلاع + تنقل + مواقيت) | PASS |
-| عودة الإنترنت | PASS |
-| إعادة التشغيل | PASS |
-| تغيير أبعاد الشاشة/التدوير | PASS |
-| وضع الزائر + الوصول إلى الرئيسية بالمواقيت الحقيقية | PASS |
-| التخزين الأصلي (SharedPreferences) يُستدعى فعلياً | PASS (`Preferences.keys/get/set`) |
-| نسخة الويب بنفس الشيفرة (بلا جسر) | PASS |
-| سجل الأخطاء (مكافئ logcat): لا `TypeError` ولا `Unhandled` ولا `Unimplemented` | PASS |
-| خطوط ثمانية مُحمَّلة (٣٠٠/٤٠٠/٥٠٠ + Serif Display) | PASS |
+| الاختبار                                                                       | النتيجة                           |
+| ------------------------------------------------------------------------------ | --------------------------------- |
+| اكتشاف المنصة = android                                                        | PASS                              |
+| أول تشغيل — لا شاشة خطأ                                                        | PASS                              |
+| لا وجود لـ `addListener(...).then is not a function`                           | PASS                              |
+| عدم استخدام الجسر القديم إطلاقاً (عدّاد = ٠)                                   | PASS                              |
+| تسجيل `backButton` و`appStateChange` عبر الغلاف الرسمي                         | PASS                              |
+| `SplashScreen.hide` يُنفَّذ                                                    | PASS                              |
+| رسم الشاشة الأولى (تعريف → تسجيل → الرئيسية)                                   | PASS                              |
+| المسارات الرئيسية `/prayer` `/quran` `/azkar` `/more`                          | PASS                              |
+| التنقل الداخلي عبر شريط التبويب (٠ إعادة تحميل كامل)                           | PASS                              |
+| زر الرجوع في شاشة داخلية                                                       | PASS                              |
+| زر الرجوع في جذر التبويب (تنبيه «اضغط مرة أخرى للخروج»)                        | PASS                              |
+| الخلفية/الاستئناف (إعادة جدولة الأذان)                                         | PASS                              |
+| بدون إنترنت (إقلاع + تنقل + مواقيت)                                            | PASS                              |
+| عودة الإنترنت                                                                  | PASS                              |
+| إعادة التشغيل                                                                  | PASS                              |
+| تغيير أبعاد الشاشة/التدوير                                                     | PASS                              |
+| وضع الزائر + الوصول إلى الرئيسية بالمواقيت الحقيقية                            | PASS                              |
+| التخزين الأصلي (SharedPreferences) يُستدعى فعلياً                              | PASS (`Preferences.keys/get/set`) |
+| نسخة الويب بنفس الشيفرة (بلا جسر)                                              | PASS                              |
+| سجل الأخطاء (مكافئ logcat): لا `TypeError` ولا `Unhandled` ولا `Unimplemented` | PASS                              |
+| خطوط ثمانية مُحمَّلة (٣٠٠/٤٠٠/٥٠٠ + Serif Display)                             | PASS                              |
 
 المجموع: ١٦/١٦ في المجموعة الآلية، إضافة إلى اختبارات التنقل والزائر اليدوية.
 

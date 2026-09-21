@@ -9,3 +9,7 @@ routeTree.gen.ts
 
 # مولَّد آلياً من GeoNames عبر scripts/build-arab-places.py — لا يُنسَّق يدوياً
 src/lib/arab-places.ts
+
+# بيانات القرآن والتفسير — مُصغَّرة عن قصد: كل بايت إضافي يُحمَّل على الجهاز
+# ويُنقل داخل الـAPK. لا تُنسَّق.
+public/data

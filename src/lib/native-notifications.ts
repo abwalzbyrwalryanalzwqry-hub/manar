@@ -30,8 +30,18 @@
 
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
-import { computePrayerTimes, PRAYER_ORDER, PRAYER_LABELS, type LocationState, type Settings } from "@/lib/prayer";
-import { getAdhanSettings, resolveAdhanForPrayer, resolveIqamaForPrayer } from "@/lib/adhan-settings";
+import {
+  computePrayerTimes,
+  PRAYER_ORDER,
+  PRAYER_LABELS,
+  type LocationState,
+  type Settings,
+} from "@/lib/prayer";
+import {
+  getAdhanSettings,
+  resolveAdhanForPrayer,
+  resolveIqamaForPrayer,
+} from "@/lib/adhan-settings";
 import { adhanVariantUrl, iqamaVariantUrl } from "@/lib/adhan-sound";
 import { readReminders, reminderTimeOn, toneUrl } from "@/lib/daily-reminders";
 
@@ -64,7 +74,9 @@ export type NativeAdhanStatus = {
 };
 
 type ManarAdhanPlugin = {
-  schedule: (o: { events: ManarAdhanEvent[] }) => Promise<{ scheduled: number; exactAlarms: boolean }>;
+  schedule: (o: {
+    events: ManarAdhanEvent[];
+  }) => Promise<{ scheduled: number; exactAlarms: boolean }>;
   cancelAll: () => Promise<void>;
   stop: () => Promise<void>;
   preview: (o: { sound: string; title?: string; body?: string }) => Promise<void>;
@@ -210,7 +222,10 @@ export async function stopNativeAdhan(): Promise<void> {
 }
 
 /** Plays a recording immediately through the native service (settings preview). */
-export async function previewNativeAdhan(url: string | undefined, title = "معاينة الأذان"): Promise<boolean> {
+export async function previewNativeAdhan(
+  url: string | undefined,
+  title = "معاينة الأذان",
+): Promise<boolean> {
   const p = adhanPlugin();
   const sound = rawResourceName(url);
   if (!p || !sound) return false;
@@ -247,7 +262,10 @@ async function registerActions(p: LocalNotificationsPlugin) {
  *
  * @returns the number of scheduled items (adhan + iqama + reminders).
  */
-export async function syncNativePrayerSchedule(location: LocationState, calc: Settings): Promise<number> {
+export async function syncNativePrayerSchedule(
+  location: LocationState,
+  calc: Settings,
+): Promise<number> {
   if (!isNativeShell()) return 0;
   if (!(await ensureNativePermission())) return 0;
 
