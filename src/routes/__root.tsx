@@ -113,6 +113,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: "/fonts/quran-fonts.css" },
       // Self-hosted interface font — bundled locally for the same reason.
       { rel: "stylesheet", href: "/fonts/ui-fonts.css" },
+      /* أيقونات منار — مُولَّدة بـ scripts/build-icon.py.
+       * المتّجه أولاً ليستعمله المتصفح القادر عليه بأي دقّة، والنقطية تليه
+       * للمتصفحات التي لا تقرأ SVG في هذا الموضع. */
+      { rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
+      { rel: "icon", href: "/favicon.png", type: "image/png", sizes: "64x64" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
   shellComponent: RootShell,
