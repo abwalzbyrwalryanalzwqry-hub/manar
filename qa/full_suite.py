@@ -231,7 +231,8 @@ def run(page, d):
     alarms = adb("shell dumpsys alarm")
     n_alarms = alarms.count("app.manar.islamic")
     rec("Lifecycle: بعد إعادة تشغيل الجهاز التنبيهات ما زالت مجدولة (والتطبيق مغلق)", n_alarms > 0, f"refs={n_alarms}")
-    rec("Lifecycle: التطبيق غير مفتوح بعد الإقلاع", not d.alive())
+    # BootReceiver الموجود يوقظ العملية لإعادة الجدولة — المهم ألّا تنهار
+    rec("Lifecycle: بعد الإقلاع لا انهيار (BootReceiver يعيد الجدولة)", not d.fatal_lines())
 
     adb("shell settings put global auto_time 0")
     adb("logcat -c")
@@ -239,10 +240,18 @@ def run(page, d):
     def jump_to(ms):
         adb(f"shell date -u {time.strftime('%m%d%H%M%Y.%S', time.gmtime(ms / 1000))}")
 
-    def posted():
+    def posted_records():
+        """الإشعارات المنشورة فعلاً فقط: (id, channel) — لا سجلّ القنوات."""
         dump = adb("shell dumpsys notification --noredact")
-        return re.findall(r"pkg=app\.manar\.islamic.*?\n.*?channel=(manar_[a-z0-9_]+)", dump) + \
-            re.findall(r"Notification\(channel=(manar_[a-z0-9_]+)", dump)
+        return [(int(i), ch) for i, tag, ch in re.findall(
+            r"NotificationRecord\(0x[0-9a-f]+: pkg=app\.manar\.islamic user=\S+ id=(\d+) tag=(\S+) .*?Notification\(channel=([a-z0-9_]*)",
+            dump) if tag != "ranker_group"]
+
+    def posted():
+        return [ch for _, ch in posted_records()]
+
+    def is_daily(i):  # معرّفات تذكيرات الأذكار والوِرد: DAILY_ID_BASE=141000
+        return 141000 <= i < 241000
 
     jump_to(t_pre - 25_000)
     time.sleep(50)
@@ -250,12 +259,22 @@ def run(page, d):
     want = f"manar_approach_approach_{prayer}"
     rec("Notification/B: وصل تنبيه ما قبل الصلاة على قناة مقطع صلاته (تطبيق مغلق + بعد الإقلاع)",
         want in got, f"want={want} got={sorted(set(got))}")
-    rec("فصل/B: تنبيه الصلاة لم يستخدم أي قناة أذكار", not any(PKG_A_CHANNEL.match(c) for c in got))
+    recs = posted_records()
+    rec("فصل/B: كل تنبيهات الصلاة المنشورة على قنوات غير قنوات الأذكار",
+        not any(PKG_A_CHANNEL.match(c) for i, c in recs if not is_daily(i)),
+        str(sorted({c for i, c in recs if not is_daily(i)})))
     shot("B-notification")
 
     jump_to(t_daily - 25_000)
     time.sleep(50)
     got2 = posted()
+    recs2 = posted_records()
+    rec("فصل/A: كل تذكيرات الأذكار والوِرد المنشورة على قنوات manar_azkar_* فقط",
+        all(PKG_A_CHANNEL.match(c) for i, c in recs2 if is_daily(i)) and any(is_daily(i) for i, _ in recs2),
+        str(sorted({c for i, c in recs2 if is_daily(i)})))
+    rec("فصل/B: لا تنبيه صلاة على قناة أذكار ولا تذكير أذكار على قناة اقتراب صلاة",
+        not any(PKG_A_CHANNEL.match(c) for i, c in recs2 if not is_daily(i)) and
+        not any(PKG_B_CHANNEL.match(c) for i, c in recs2 if is_daily(i)))
     rec("Notification/A: وصل تذكير أذكار الصباح على قناة الصوت المختار",
         "manar_azkar_azkar_morning_01" in got2, f"got={sorted(set(got2))}")
     adb("shell cmd statusbar expand-notifications")

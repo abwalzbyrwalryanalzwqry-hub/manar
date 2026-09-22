@@ -56,10 +56,17 @@ def alive():
 
 
 def fatal_lines():
-    out = adb("logcat -d -b crash -b main -b system")
-    lines = [l for l in out.splitlines() if re.search(
-        r"FATAL EXCEPTION|did not then call|ForegroundServiceDidNotStart|RemoteServiceException|ANR in", l)]
-    return lines
+    """أعطال عملية منار وحدها (لا ANR لواجهة النظام في المحاكي البطيء)."""
+    out = adb("logcat -d -b crash -b main -b system").splitlines()
+    hits = []
+    for i, l in enumerate(out):
+        if re.search(r"FATAL EXCEPTION", l) and any(f"Process: {PKG}" in x for x in out[i:i + 3]):
+            hits.append(l)
+        elif re.search(r"did not then call|ForegroundServiceDidNotStart|RemoteServiceException", l):
+            hits.append(l)
+        elif re.search(rf"ANR in {re.escape(PKG)}", l):
+            hits.append(l)
+    return hits
 
 
 class Page:
@@ -96,7 +103,7 @@ class Page:
                 time.sleep(2)
         raise RuntimeError(f"CDP connect failed: {last}")
 
-    def ev(self, expr, timeout=30):
+    def ev(self, expr, timeout=60):
         self.mid += 1
         mid = self.mid
         self.ws.settimeout(timeout)
@@ -149,9 +156,21 @@ def launch(page):
 
 def open_reminders(page, title="أذكار الصباح"):
     page.goto("/reminders")
-    page.ev(JS_HELPERS)
+    ok = False
+    for _ in range(30):  # المحاكي بطيء أحياناً: انتظر ظهور البطاقة بدل مهلة ثابتة
+        try:
+            page.ev(JS_HELPERS)
+            if page.ev(f"!!__q.btnByTitle('{title}')"):
+                break
+        except Exception:
+            pass
+        time.sleep(1)
     ok = page.ev(f"(() => {{ const b = __q.btnByTitle('{title}'); if (!b) return false; b.click(); return true; }})()")
-    time.sleep(1.5)
+    for _ in range(15):
+        if page.ev("__q.previews().length") > 0:
+            break
+        time.sleep(1)
+    time.sleep(1)
     return ok
 
 
@@ -206,6 +225,8 @@ def crash_repro(page):
 
 def main():
     adb("wait-for-device")
+    time.sleep(40)  # دع واجهة النظام تستقر بعد الإقلاع البارد
+    adb("shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS")
     adb(f"shell pm grant {PKG} android.permission.POST_NOTIFICATIONS")
     adb(f"shell appops set {PKG} SCHEDULE_EXACT_ALARM allow")
     page = Page()
