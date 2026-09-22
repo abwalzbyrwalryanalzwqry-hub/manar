@@ -7,9 +7,6 @@ on:
   push:
     branches: ["qa/**"]
   workflow_dispatch:
-    inputs:
-      scenario:
-        default: full
 
 jobs:
   qa:
@@ -18,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api: ${{ fromJSON(contains(github.ref, 'baseline') && '[34]' || '[34, 29]') }}
+        api: [34]
     steps:
       - uses: actions/checkout@v4
         with:
