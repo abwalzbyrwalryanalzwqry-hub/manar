@@ -73,6 +73,39 @@ export type NativeAdhanStatus = {
   sdk: number;
 };
 
+/** فترة هدوء واحدة كما تُسلّم إلى الطبقة الأصلية — أوقات مطلقة محسوبة من المواقيت. */
+export type SakinahNativeWindow = {
+  id: number;
+  start: number;
+  end: number;
+  prayer: string;
+  label: string;
+  filter: "priority" | "alarms" | "none";
+  muteAdhan: boolean;
+};
+
+export type SakinahNativeStatus = {
+  enabled: boolean;
+  dndAccess: boolean;
+  exactAlarms: boolean;
+  batteryUnrestricted: boolean;
+  notificationsAllowed: boolean;
+  pending: number;
+  currentFilter: number;
+  sdk: number;
+  active?: SakinahNativeWindow;
+  next?: SakinahNativeWindow;
+};
+
+/** حالات مدير الصوت في منار — واحدة لا غيرها في أي لحظة. */
+export type ManarAudioState = "IDLE" | "PLAYING_AZAN" | "PLAYING_IQAMA" | "MUTED" | "STOPPED";
+
+export type ManarAudioSnapshot = {
+  state: ManarAudioState;
+  kind: string;
+  title: string;
+};
+
 type ManarAdhanPlugin = {
   schedule: (o: {
     events: ManarAdhanEvent[];
@@ -84,6 +117,33 @@ type ManarAdhanPlugin = {
   requestExactAlarmPermission: () => Promise<{ granted: boolean; opened?: boolean }>;
   requestIgnoreBatteryOptimizations: () => Promise<{ granted: boolean; opened?: boolean }>;
   openNotificationSettings: () => Promise<void>;
+  /* صوت منار */
+  muteAudio: () => Promise<void>;
+  audioState: () => Promise<ManarAudioSnapshot>;
+  /* سكينة */
+  sakinahSchedule: (o: {
+    enabled: boolean;
+    windows: SakinahNativeWindow[];
+  }) => Promise<{ armed: number; dndAccess: boolean; exactAlarms?: boolean }>;
+  sakinahCancelAll: () => Promise<void>;
+  sakinahStopNow: () => Promise<void>;
+  sakinahSkip: (o: { id: number }) => Promise<void>;
+  sakinahStatus: () => Promise<SakinahNativeStatus>;
+  sakinahLog: () => Promise<{ events: SakinahLogEvent[] }>;
+  sakinahClearSkips: () => Promise<void>;
+  sakinahRequestPolicyAccess: () => Promise<{ granted: boolean; opened?: boolean }>;
+  addListener: (
+    event: string,
+    cb: (e: unknown) => void,
+  ) => Promise<{ remove: () => Promise<void> }>;
+};
+
+/** مدخلة سجل كما تخرج من الطبقة الأصلية (أنواع تقنية تُترجَم للمستخدم). */
+export type SakinahLogEvent = {
+  at: number;
+  type: string;
+  prayer: string;
+  detail: string;
 };
 
 const DAYS_AHEAD = 7;
@@ -112,6 +172,51 @@ function adhanPlugin(): ManarAdhanPlugin | null {
 
 export function isNativeShell(): boolean {
   return isNative();
+}
+
+/** منفذ واحد للإضافة الأصلية — لا تُستخدم `window.Capacitor.Plugins` أبداً. */
+export function manarAdhanPlugin(): ManarAdhanPlugin | null {
+  return adhanPlugin();
+}
+
+/** يكتم صوت منار الجاري فوراً مع إبقاء تنبيه الصلاة والأذان القادم. */
+export async function muteNativeAudio(): Promise<void> {
+  const p = adhanPlugin();
+  if (!p) return;
+  try {
+    await p.muteAudio();
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function nativeAudioState(): Promise<ManarAudioSnapshot | null> {
+  const p = adhanPlugin();
+  if (!p) return null;
+  try {
+    return await p.audioState();
+  } catch {
+    return null;
+  }
+}
+
+/** يستمع لتغيّر حالة الصوت بدل استطلاعها كل ثانية. */
+export async function attachAudioStateListener(
+  onState: (s: ManarAudioSnapshot) => void,
+): Promise<() => void> {
+  const p = adhanPlugin();
+  if (!p) return () => {};
+  try {
+    const handle = await p.addListener("manarAudioState", (e) => {
+      const snapshot = e as ManarAudioSnapshot;
+      if (snapshot && typeof snapshot.state === "string") onState(snapshot);
+    });
+    return () => {
+      void handle.remove();
+    };
+  } catch {
+    return () => {};
+  }
 }
 
 /* مدى معرّفات تذكيرات الأذكار والوِرد — منفصل تماماً عن مدى تنبيهات الصلاة

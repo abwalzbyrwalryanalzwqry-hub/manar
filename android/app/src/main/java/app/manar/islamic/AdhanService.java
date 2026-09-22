@@ -1,6 +1,7 @@
 package app.manar.islamic;
 
 import android.app.Notification;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -18,6 +19,7 @@ import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.ServiceCompat;
+import androidx.media.VolumeProviderCompat;
 
 import android.app.Service;
 
@@ -31,16 +33,27 @@ import android.app.Service;
  *     alive while the app is closed or the screen is off,
  *   - requests audio focus (and pauses other media politely),
  *   - exposes a {@link MediaSessionCompat} so the lock screen shows controls,
- *   - shows an ongoing notification with a single "إيقاف الأذان" action,
+ *   - shows an ongoing notification with «إيقاف الصوت» and «كتم» actions,
  *   - holds a partial wake lock only for the duration of the recording,
  *   - stops itself as soon as playback finishes, focus is lost permanently, or
  *     the user taps stop.
+ *
+ * <p>وهذه الخدمة هي «مدير صوت منار»: مصدرٌ واحد لحالة الصوت
+ * (IDLE / PLAYING_AZAN / PLAYING_IQAMA / MUTED / STOPPED)، فلا يُشغّل أذانٌ فوق
+ * أذان ولا إقامةٌ فوق أذان. وأيّ تشغيلٍ جديد يُوقف ما قبله أولاً بدل أن يُنشئ
+ * مشغّلاً ثانياً يُسرّب الصوت الأول.
+ *
+ * <p>والكتم مفصولٌ عن الإيقاف نيّةً وأثراً: الكتم يُسكت صوت منار فوراً ويُبقي
+ * تنبيه الصلاة قائماً، والإيقاف يُنهي كل شيء. ولا يُحفظ الكتم في أي حالٍ دائم،
+ * فلا يتسرّب إلى الصلاة التالية: كل تشغيلٍ يبدأ من جديد.
  */
 public class AdhanService extends Service
         implements MediaPlayer.OnCompletionListener, MediaPlayer.OnErrorListener {
 
     public static final String ACTION_PLAY = "app.manar.islamic.action.PLAY";
     public static final String ACTION_STOP = "app.manar.islamic.action.STOP";
+    /** كتم صوت منار الجاري مع إبقاء تنبيه الصلاة. */
+    public static final String ACTION_MUTE = "app.manar.islamic.action.MUTE";
 
     public static final String EXTRA_SOUND = "sound";
     public static final String EXTRA_TITLE = "title";
@@ -48,12 +61,66 @@ public class AdhanService extends Service
     public static final String EXTRA_KIND = "kind";
 
     private static final int NOTIFICATION_ID = 40990;
+    /** تنبيه الصلاة الباقي بعد الكتم — منفصلٌ عن إشعار التحكم. */
+    private static final int NOTICE_ID = 40995;
+
+    /* --------------------- حالة الصوت المركزية --------------------- */
+
+    public static final String STATE_IDLE = "IDLE";
+    public static final String STATE_PLAYING_AZAN = "PLAYING_AZAN";
+    public static final String STATE_PLAYING_IQAMA = "PLAYING_IQAMA";
+    public static final String STATE_MUTED = "MUTED";
+    public static final String STATE_STOPPED = "STOPPED";
+
+    /** من يُبلَّغ بتغيّر الحالة (الإضافة، حين تكون الواجهة حيّة). */
+    public interface StateListener {
+        void onAudioState(String state, String kind, String title);
+    }
+
+    private static volatile String state = STATE_IDLE;
+    private static volatile String stateKind = "";
+    private static volatile String stateTitle = "";
+    @Nullable private static volatile StateListener stateListener;
+
+    public static String currentState() {
+        return state;
+    }
+
+    public static String currentKind() {
+        return stateKind;
+    }
+
+    public static String currentTitle() {
+        return stateTitle;
+    }
+
+    public static void setStateListener(@Nullable StateListener listener) {
+        stateListener = listener;
+    }
+
+    private static void publish(String next, String kind, String title) {
+        state = next;
+        stateKind = kind == null ? "" : kind;
+        stateTitle = title == null ? "" : title;
+        StateListener l = stateListener;
+        if (l != null) {
+            try {
+                l.onAudioState(state, stateKind, stateTitle);
+            } catch (Exception ignored) {
+                // الواجهة قد تكون في طريقها إلى الإغلاق
+            }
+        }
+    }
 
     @Nullable private MediaPlayer player;
     @Nullable private MediaSessionCompat session;
     @Nullable private AudioFocusRequest focusRequest;
     @Nullable private PowerManager.WakeLock wakeLock;
     @Nullable private AudioManager audioManager;
+
+    private String currentNoticeTitle = "منار";
+    private String currentNoticeBody = "";
+    private String currentNoticeKind = "adhan";
 
     private final AudioManager.OnAudioFocusChangeListener focusListener = change -> {
         if (change == AudioManager.AUDIOFOCUS_LOSS) {
@@ -84,6 +151,11 @@ public class AdhanService extends Service
         context.startService(new Intent(context, AdhanService.class).setAction(ACTION_STOP));
     }
 
+    /** كتم صوت منار الجاري فوراً مع إبقاء التنبيه. */
+    public static void mute(Context context) {
+        context.startService(new Intent(context, AdhanService.class).setAction(ACTION_MUTE));
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -92,8 +164,27 @@ public class AdhanService extends Service
         session = new MediaSessionCompat(this, "manar-adhan");
         session.setCallback(new MediaSessionCompat.Callback() {
             @Override public void onStop() { stopEverything(); }
-            @Override public void onPause() { stopEverything(); }
+            @Override public void onPause() { muteOnly(); }
         });
+        // أزرار الصوت أثناء تشغيل الأذان: التصرّف المتوقّع أن تُسكت الأذان، لا
+        // أن تُنزل صوت الهاتف كلّه. ونمرّرها عبر الجلسة — وهي الآلة الرسمية —
+        // ولا نعترض أزراراً أخرى ولا زرّ التشغيل.
+        try {
+            session.setPlaybackToRemote(new VolumeProviderCompat(
+                    VolumeProviderCompat.VOLUME_CONTROL_RELATIVE, 100, 100) {
+                @Override
+                public void onAdjustVolume(int direction) {
+                    if (direction != 0) muteOnly();
+                }
+
+                @Override
+                public void onSetVolumeTo(int volume) {
+                    if (volume < 100) muteOnly();
+                }
+            });
+        } catch (Exception ignored) {
+            // لو رفضت المنصّة التحكّم البعيد، يبقى زرّ الإشعار وشاشة القفل
+        }
         session.setActive(true);
     }
 
@@ -106,6 +197,11 @@ public class AdhanService extends Service
             return START_NOT_STICKY;
         }
 
+        if (ACTION_MUTE.equals(action)) {
+            muteOnly();
+            return START_NOT_STICKY;
+        }
+
         String sound = intent != null ? intent.getStringExtra(EXTRA_SOUND) : null;
         String title = intent != null ? intent.getStringExtra(EXTRA_TITLE) : null;
         String body = intent != null ? intent.getStringExtra(EXTRA_BODY) : null;
@@ -113,25 +209,53 @@ public class AdhanService extends Service
 
         if (title == null) title = "منار";
         if (body == null) body = "";
+        if (kind == null) kind = "adhan";
+
+        currentNoticeTitle = title;
+        currentNoticeBody = body;
+        currentNoticeKind = kind;
 
         // The notification must be posted before anything else can fail, or
         // Android kills the service for starting foreground too late.
-        startForegroundCompat(buildNotification(title, body));
+        startForegroundCompat(buildNotification(title, body, kind));
+
+        // صوتٌ فوق صوت: أي تشغيلٍ جديد يُوقف السابق أولاً. وقبل هذا الإصلاح كان
+        // المشغّل القديم يُستبدل مرجعُه فيبقى يعمل بلا سبيلٍ لإيقافه.
+        releasePlayer();
+
+        // سكينة: إن كانت فترة الهدوء جارية والمستخدم اختار كتم الأذان أيضاً،
+        // فلا نُشغّل الصوت — ونُبقي التنبيه المكتوب وحده.
+        SakinahStore.Window quiet = SakinahStore.currentWindow(this);
+        if (quiet != null && quiet.muteAdhan && !"preview".equals(kind)) {
+            SakinahLog.add(this, SakinahLog.ADHAN_MUTED, quiet.prayer, kind);
+            postSilentNotice();
+            publish(STATE_MUTED, kind, title);
+            stopForegroundOnly();
+            stopSelf();
+            return START_NOT_STICKY;
+        }
 
         if (sound == null || sound.trim().isEmpty()) {
             // Silent mode: the notification alone is the reminder.
-            stopSelfSoon();
+            postSilentNotice();
+            publish(STATE_MUTED, kind, title);
+            stopForegroundOnly();
+            stopSelf();
             return START_NOT_STICKY;
         }
 
         if (!requestFocus()) {
-            stopSelfSoon();
+            postSilentNotice();
+            publish(STATE_MUTED, kind, title);
+            stopForegroundOnly();
+            stopSelf();
             return START_NOT_STICKY;
         }
 
         acquireWakeLock();
         startPlayback(sound);
         updatePlaybackState(true, title, body, kind);
+        publish("iqama".equals(kind) ? STATE_PLAYING_IQAMA : STATE_PLAYING_AZAN, kind, title);
         return START_NOT_STICKY;
     }
 
@@ -147,7 +271,14 @@ public class AdhanService extends Service
         }
     }
 
-    private Notification buildNotification(String title, String body) {
+    /** نصّ زرّ الإيقاف يتبع ما يُسمَع فعلاً، لا اسماً واحداً لكل شيء. */
+    private static String stopLabel(String kind) {
+        if ("iqama".equals(kind)) return "إيقاف الإقامة";
+        if ("preview".equals(kind)) return "إيقاف المعاينة";
+        return "إيقاف الأذان";
+    }
+
+    private Notification buildNotification(String title, String body, String kind) {
         Intent open = new Intent(this, MainActivity.class)
                 .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent openPi = PendingIntent.getActivity(
@@ -157,6 +288,12 @@ public class AdhanService extends Service
                 this,
                 1,
                 new Intent(this, AdhanService.class).setAction(ACTION_STOP),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        PendingIntent mutePi = PendingIntent.getService(
+                this,
+                2,
+                new Intent(this, AdhanService.class).setAction(ACTION_MUTE),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         NotificationCompat.Builder b = new NotificationCompat.Builder(this, ManarChannels.PLAYBACK)
@@ -170,16 +307,54 @@ public class AdhanService extends Service
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setOnlyAlertOnce(true)
                 .setOngoing(true)
-                .addAction(R.drawable.ic_stat_manar, "إيقاف الأذان", stopPi);
+                // الكتم أوّلاً: هو ما يحتاجه المستخدم في ثانيةٍ واحدة.
+                .addAction(R.drawable.ic_stat_manar, "كتم الصوت", mutePi)
+                .addAction(R.drawable.ic_stat_manar, stopLabel(kind), stopPi);
 
         if (session != null) {
             b.setStyle(new androidx.media.app.NotificationCompat.MediaStyle()
                     .setMediaSession(session.getSessionToken())
-                    .setShowActionsInCompactView(0)
+                    .setShowActionsInCompactView(0, 1)
                     .setShowCancelButton(true)
                     .setCancelButtonIntent(stopPi));
         }
         return b.build();
+    }
+
+    /**
+     * تنبيه الصلاة الذي يبقى بعد الكتم.
+     *
+     * <p>الكتم يُسكت الصوت ولا يُلغي التنبيه ولا الأذان القادم ولا الميزة —
+     * فنُبقي إشعاراً نصيّاً على قناة الأذان بلا صوت.
+     */
+    private void postSilentNotice() {
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        if (nm == null) return;
+        String channel = "iqama".equals(currentNoticeKind) ? ManarChannels.IQAMA : ManarChannels.ADHAN;
+        if ("preview".equals(currentNoticeKind)) return;
+
+        Intent open = new Intent(this, MainActivity.class)
+                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent openPi = PendingIntent.getActivity(
+                this, 3, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        Notification n = new NotificationCompat.Builder(this, channel)
+                .setSmallIcon(R.drawable.ic_stat_manar)
+                .setColor(0xFFC9A227)
+                .setContentTitle(currentNoticeTitle)
+                .setContentText(currentNoticeBody.isEmpty() ? "تم كتم الصوت" : currentNoticeBody)
+                .setSubText("تم كتم الصوت")
+                .setContentIntent(openPi)
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setSilent(true)
+                .setAutoCancel(true)
+                .build();
+        try {
+            nm.notify(NOTICE_ID, n);
+        } catch (SecurityException ignored) {
+            // إذن الإشعارات مسحوب
+        }
     }
 
     private boolean requestFocus() {
@@ -231,7 +406,7 @@ public class AdhanService extends Service
     private void startPlayback(String sound) {
         int resId = getResources().getIdentifier(sound, "raw", getPackageName());
         if (resId == 0) {
-            stopSelfSoon();
+            stopEverything();
             return;
         }
         try {
@@ -248,7 +423,7 @@ public class AdhanService extends Service
             player.prepare();
             player.start();
         } catch (Exception e) {
-            stopSelfSoon();
+            stopEverything();
         }
     }
 
@@ -268,20 +443,30 @@ public class AdhanService extends Service
                 .build());
     }
 
-    private void stopSelfSoon() {
-        stopEverything();
+    /** يُوقف المشغّل ويُحرّره دون إنهاء الخدمة — أساس منع تراكب الأصوات. */
+    private void releasePlayer() {
+        if (player == null) return;
+        try {
+            if (player.isPlaying()) player.stop();
+        } catch (IllegalStateException ignored) {
+            // player already released
+        }
+        try {
+            player.release();
+        } catch (Exception ignored) {
+            // nothing else to do
+        }
+        player = null;
     }
 
-    private void stopEverything() {
-        if (player != null) {
-            try {
-                if (player.isPlaying()) player.stop();
-            } catch (IllegalStateException ignored) {
-                // player already released
-            }
-            player.release();
-            player = null;
-        }
+    private void stopForegroundOnly() {
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
+    }
+
+    /** كتم: يُسكت صوت منار فوراً ويُبقي تنبيه الصلاة. */
+    private void muteOnly() {
+        boolean wasSounding = player != null;
+        releasePlayer();
         abandonFocus();
         releaseWakeLock();
         if (session != null) {
@@ -289,13 +474,34 @@ public class AdhanService extends Service
                     .setState(PlaybackStateCompat.STATE_STOPPED, 0, 1f)
                     .build());
         }
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
+        if (wasSounding) postSilentNotice();
+        publish(STATE_MUTED, currentNoticeKind, currentNoticeTitle);
+        stopForegroundOnly();
+        stopSelf();
+    }
+
+    private void stopEverything() {
+        releasePlayer();
+        abandonFocus();
+        releaseWakeLock();
+        if (session != null) {
+            session.setPlaybackState(new PlaybackStateCompat.Builder()
+                    .setState(PlaybackStateCompat.STATE_STOPPED, 0, 1f)
+                    .build());
+        }
+        publish(STATE_STOPPED, currentNoticeKind, currentNoticeTitle);
+        stopForegroundOnly();
         stopSelf();
     }
 
     @Override
     public void onCompletion(MediaPlayer mp) {
-        stopEverything();
+        releasePlayer();
+        abandonFocus();
+        releaseWakeLock();
+        publish(STATE_IDLE, currentNoticeKind, currentNoticeTitle);
+        stopForegroundOnly();
+        stopSelf();
     }
 
     @Override
@@ -306,11 +512,16 @@ public class AdhanService extends Service
 
     @Override
     public void onDestroy() {
-        stopEverything();
+        releasePlayer();
+        abandonFocus();
+        releaseWakeLock();
         if (session != null) {
             session.setActive(false);
             session.release();
             session = null;
+        }
+        if (STATE_PLAYING_AZAN.equals(state) || STATE_PLAYING_IQAMA.equals(state)) {
+            publish(STATE_IDLE, stateKind, stateTitle);
         }
         super.onDestroy();
     }

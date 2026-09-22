@@ -33,6 +33,8 @@ import {
   type NativeAdhanStatus,
 } from "@/lib/native-notifications";
 import { useLocation, useSettings } from "@/lib/prayer";
+import { SAKINAH_EVENT } from "@/lib/sakinah";
+import { syncSakinahSchedule } from "@/lib/sakinah-native";
 import { Icon, icons } from "@/components/manar/shell";
 
 const DISMISS_KEY = "manar.native.reliabilityPromptDismissed";
@@ -112,6 +114,21 @@ export function NativeBridge() {
       void syncNativePrayerSchedule(location, calc);
       void nativeAdhanStatus().then(setStatus);
     });
+  }, [location, calc]);
+
+  /* سكينة: يُعاد بناء فترات الهدوء عند كل استئناف، وعند تغيّر الموقع أو
+     طريقة الحساب، وعند تغيّر إعدادات سكينة نفسها. الاستئناف هو أول لحظة
+     نكتشف فيها أن اليوم تغيّر أو المنطقة الزمنية اختلفت بعد سفر. */
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    const sync = () => void syncSakinahSchedule(location, calc);
+    sync();
+    const offResume = onResume(sync);
+    window.addEventListener(SAKINAH_EVENT, sync);
+    return () => {
+      offResume();
+      window.removeEventListener(SAKINAH_EVENT, sync);
+    };
   }, [location, calc]);
 
   if (!isNativeApp() || dismissed || !status) return null;

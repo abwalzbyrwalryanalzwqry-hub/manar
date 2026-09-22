@@ -16,6 +16,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth-context";
 import { CloudSyncBridge } from "@/components/manar/cloud-sync-bridge";
 import { NativeBridge } from "@/components/manar/native-bridge";
+import { AudioStopBar } from "@/components/manar/audio-stop-bar";
 import { hideSplash } from "@/lib/native-shell";
 import { StorageGate } from "@/components/manar/storage-gate";
 
@@ -195,6 +196,7 @@ function RootComponent() {
           <CloudSyncBridge />
           <AdhanProvider />
           <NativeBridge />
+          <AudioStopBar />
           <Toaster position="top-center" dir="rtl" richColors closeButton />
           <Outlet />
         </AuthProvider>

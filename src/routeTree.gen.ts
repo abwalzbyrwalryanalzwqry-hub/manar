@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WirdRouteImport } from './routes/wird'
 import { Route as StatisticsRouteImport } from './routes/statistics'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SakinahRouteImport } from './routes/sakinah'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as RegisterRouteImport } from './routes/register'
@@ -60,6 +61,11 @@ const StatisticsRoute = StatisticsRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SakinahRoute = SakinahRouteImport.update({
+  id: '/sakinah',
+  path: '/sakinah',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -247,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/reminders': typeof RemindersRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sakinah': typeof SakinahRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
   '/wird': typeof WirdRouteWithChildren
@@ -285,6 +292,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/reminders': typeof RemindersRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sakinah': typeof SakinahRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
   '/azkar': typeof TabsAzkarRoute
@@ -324,6 +332,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/reminders': typeof RemindersRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sakinah': typeof SakinahRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
   '/wird': typeof WirdRouteWithChildren
@@ -364,6 +373,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reminders'
     | '/reset-password'
+    | '/sakinah'
     | '/settings'
     | '/statistics'
     | '/wird'
@@ -402,6 +412,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reminders'
     | '/reset-password'
+    | '/sakinah'
     | '/settings'
     | '/statistics'
     | '/azkar'
@@ -440,6 +451,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reminders'
     | '/reset-password'
+    | '/sakinah'
     | '/settings'
     | '/statistics'
     | '/wird'
@@ -480,6 +492,7 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   RemindersRoute: typeof RemindersRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SakinahRoute: typeof SakinahRoute
   SettingsRoute: typeof SettingsRoute
   StatisticsRoute: typeof StatisticsRoute
   WirdRoute: typeof WirdRouteWithChildren
@@ -517,6 +530,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sakinah': {
+      id: '/sakinah'
+      path: '/sakinah'
+      fullPath: '/sakinah'
+      preLoaderRoute: typeof SakinahRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -808,6 +828,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   RemindersRoute: RemindersRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SakinahRoute: SakinahRoute,
   SettingsRoute: SettingsRoute,
   StatisticsRoute: StatisticsRoute,
   WirdRoute: WirdRouteWithChildren,

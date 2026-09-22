@@ -14,6 +14,7 @@ const ITEMS = [
 
   { to: "/iqama", l: "الإقامة", d: "الفاصل بين الأذان والإقامة", i: icons.prayer },
   { to: "/notifications", l: "مركز التنبيهات", d: "الأذان، الإقامة، التذكيرات", i: icons.bell },
+  { to: "/sakinah", l: "🕌 سكينة", d: "الوضع الهادئ للصلاة", i: icons.moon },
   {
     to: "/reminders",
     l: "تذكيرات الأذكار والوِرد",

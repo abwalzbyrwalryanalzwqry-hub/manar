@@ -23,6 +23,8 @@ public final class ManarChannels {
     public static final String SILENT = "manar_silent";
     /** Ongoing notification shown while the Adhan is actually playing. */
     public static final String PLAYBACK = "manar_playback";
+    /** إشعار «سكينة» الجاري وأخبار تعذّرها — صامتٌ دائماً. */
+    public static final String SAKINAH = "manar_sakinah";
 
     private ManarChannels() {}
 
@@ -76,5 +78,15 @@ public final class ManarChannels {
         playback.enableVibration(false);
         playback.setShowBadge(false);
         nm.createNotificationChannel(playback);
+
+        // سكينة تُسكت الهاتف، فلا يصحّ أن يكون إشعارها هو أوّل ما يُزعج:
+        // أهميّة منخفضة، بلا صوت ولا اهتزاز، ولا يحمل شارة.
+        NotificationChannel sakinah =
+                new NotificationChannel(SAKINAH, "سكينة", NotificationManager.IMPORTANCE_LOW);
+        sakinah.setDescription("حالة الوضع الهادئ أثناء الصلاة");
+        sakinah.setSound(null, null);
+        sakinah.enableVibration(false);
+        sakinah.setShowBadge(false);
+        nm.createNotificationChannel(sakinah);
     }
 }

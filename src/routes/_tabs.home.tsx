@@ -12,6 +12,7 @@ import {
   StatusBar,
 } from "@/components/manar/shell";
 import { LocationSheet } from "@/components/manar/location-sheet";
+import { SakinahCard } from "@/components/manar/sakinah-card";
 import { PRAYER_LABELS, usePrayerSchedule } from "@/lib/prayer";
 import { useHijriAdjust } from "@/lib/hijri";
 import {
@@ -157,6 +158,11 @@ function Home() {
             <div className="text-[10px] text-muted-foreground">س : د : ث</div>
           </div>
         </Link>
+      </div>
+
+      {/* سكينة — اختصار الوضع الهادئ للصلاة */}
+      <div className="px-4 pt-3 animate-fade-up" style={{ animationDelay: "120ms" }}>
+        <SakinahCard nextPrayerLabel={nextLabel} />
       </div>
 
       {/* QUICK ACTIONS */}

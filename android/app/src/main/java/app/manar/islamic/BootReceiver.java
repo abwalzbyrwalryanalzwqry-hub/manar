@@ -29,6 +29,16 @@ public class BootReceiver extends BroadcastReceiver {
             case Intent.ACTION_TIME_CHANGED:
                 ManarChannels.ensure(context);
                 AdhanScheduler.rearm(context);
+                // وسكينة معها: فترةٌ محفوظة بلا منبّه هي ميزة مُعطّلة في الحقيقة.
+                SakinahLog.add(
+                        context,
+                        Intent.ACTION_TIMEZONE_CHANGED.equals(action)
+                                        || Intent.ACTION_TIME_CHANGED.equals(action)
+                                ? SakinahLog.TIMEZONE_CHANGED
+                                : SakinahLog.DEVICE_RESTARTED,
+                        "",
+                        action);
+                SakinahScheduler.rearm(context);
                 break;
             default:
                 break;
