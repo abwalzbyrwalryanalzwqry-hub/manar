@@ -8,6 +8,11 @@
 import { useEffect, useState } from "react";
 import { PRAYER_LABELS, type PrayerKey } from "./prayer";
 
+/* فهرس أصوات «تذكيرات الأذكار والوِرد» وحده. لا يُقرأ منه إلا هذا القسم، ولا
+ * يعرف شيئاً عن أصوات «اقتراب الصلاة» (src/lib/prayer-approach-audio.ts) —
+ * فلا يمكن أن يظهر صوتٌ من إحدى الحزمتين في قائمة الأخرى. */
+export const AZKAR_WIRD_AUDIO_CATEGORY = "azkar_wird_reminders";
+
 export const REMINDER_TONES = [
   {
     id: "azkar-morning",
@@ -39,6 +44,79 @@ export const REMINDER_TONES = [
     name: "نقرة",
     hint: "قصيرة محايدة",
     url: "/audio/reminders/reminder-chime.mp3",
+  },
+  /* حزمة «أصوات تذكيرات الأذكار والوِرد» — نداءات صوتية قصيرة. */
+  {
+    id: "azkar-morning-01",
+    name: "أذكار الصباح",
+    hint: "نداء صوتي",
+    url: "/audio/reminders/azkar-morning-01.mp3",
+  },
+  {
+    id: "azkar-morning-02",
+    name: "أذكارُ الصباح",
+    hint: "نداء صوتي بأداء آخر",
+    url: "/audio/reminders/azkar-morning-02.mp3",
+  },
+  {
+    id: "azkar-morning-03",
+    name: "حان وقت أذكار الصباح",
+    hint: "نداء صوتي",
+    url: "/audio/reminders/azkar-morning-03.mp3",
+  },
+  {
+    id: "azkar-evening-01",
+    name: "أذكار المساء",
+    hint: "نداء صوتي",
+    url: "/audio/reminders/azkar-evening-01.mp3",
+  },
+  {
+    id: "azkar-evening-02",
+    name: "حان وقت أذكار المساء",
+    hint: "نداء صوتي",
+    url: "/audio/reminders/azkar-evening-02.mp3",
+  },
+  {
+    id: "azkar-sleep-01",
+    name: "أذكار النوم",
+    hint: "نداء صوتي",
+    url: "/audio/reminders/azkar-sleep-01.mp3",
+  },
+  {
+    id: "azkar-sleep-02",
+    name: "حان وقت أذكار النوم",
+    hint: "نداء صوتي",
+    url: "/audio/reminders/azkar-sleep-02.mp3",
+  },
+  {
+    id: "azkar-wake-01",
+    name: "أذكار الاستيقاظ من النوم",
+    hint: "نداء صوتي",
+    url: "/audio/reminders/azkar-wake-01.mp3",
+  },
+  {
+    id: "wird-daily-01",
+    name: "لا تنسَ وِردك اليومي",
+    hint: "نداء صوتي",
+    url: "/audio/reminders/wird-daily-01.mp3",
+  },
+  {
+    id: "wird-quran-01",
+    name: "لا تنسَ وِردك من القرآن",
+    hint: "نداء صوتي",
+    url: "/audio/reminders/wird-quran-01.mp3",
+  },
+  {
+    id: "azkar-general-01",
+    name: "لا تنسَ الأذكار",
+    hint: "نداء صوتي",
+    url: "/audio/reminders/azkar-general-01.mp3",
+  },
+  {
+    id: "azkar-general-02",
+    name: "وقت الذكر",
+    hint: "نداء صوتي",
+    url: "/audio/reminders/azkar-general-02.mp3",
   },
   { id: "silent", name: "صامت", hint: "إشعار بلا صوت", url: "" },
 ] as const;

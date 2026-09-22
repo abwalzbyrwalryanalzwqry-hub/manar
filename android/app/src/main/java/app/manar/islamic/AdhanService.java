@@ -118,6 +118,18 @@ public class AdhanService extends Service
     @Nullable private PowerManager.WakeLock wakeLock;
     @Nullable private AudioManager audioManager;
 
+    /**
+     * آخر طلب تشغيل استلمته الخدمة.
+     *
+     * <p>معاينة نغمة ترسل «إيقاف» ثم «تشغيل» متتاليين. الإيقاف كان يستدعي
+     * {@code stopSelf()} بلا رقم، فيُنزل النظام الخدمة بينما طلب التشغيل الذي
+     * جاء عبر {@code startForegroundService} ما زال في الطابور ولم يبلغ
+     * {@code startForeground} — وهذا ينهي التطبيق كله بـ
+     * «Context.startForegroundService() did not then call Service.startForeground()».
+     * الإيقاف برقم الطلب لا يُنزل الخدمة إن كان بعده طلبٌ لم يُعالَج بعد.
+     */
+    private int lastStartId = 0;
+
     private String currentNoticeTitle = "منار";
     private String currentNoticeBody = "";
     private String currentNoticeKind = "adhan";
@@ -190,6 +202,7 @@ public class AdhanService extends Service
 
     @Override
     public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
+        lastStartId = startId;
         String action = intent != null ? intent.getAction() : null;
 
         if (ACTION_STOP.equals(action)) {
@@ -231,7 +244,7 @@ public class AdhanService extends Service
             postSilentNotice();
             publish(STATE_MUTED, kind, title);
             stopForegroundOnly();
-            stopSelf();
+            stopSelfSafely();
             return START_NOT_STICKY;
         }
 
@@ -240,7 +253,7 @@ public class AdhanService extends Service
             postSilentNotice();
             publish(STATE_MUTED, kind, title);
             stopForegroundOnly();
-            stopSelf();
+            stopSelfSafely();
             return START_NOT_STICKY;
         }
 
@@ -248,7 +261,7 @@ public class AdhanService extends Service
             postSilentNotice();
             publish(STATE_MUTED, kind, title);
             stopForegroundOnly();
-            stopSelf();
+            stopSelfSafely();
             return START_NOT_STICKY;
         }
 
@@ -459,6 +472,11 @@ public class AdhanService extends Service
         player = null;
     }
 
+    /** يُنهي الخدمة فقط إن لم يصلها طلب أحدث — انظر {@link #lastStartId}. */
+    private void stopSelfSafely() {
+        stopSelf(lastStartId);
+    }
+
     private void stopForegroundOnly() {
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
     }
@@ -477,7 +495,7 @@ public class AdhanService extends Service
         if (wasSounding) postSilentNotice();
         publish(STATE_MUTED, currentNoticeKind, currentNoticeTitle);
         stopForegroundOnly();
-        stopSelf();
+        stopSelfSafely();
     }
 
     private void stopEverything() {
@@ -491,7 +509,7 @@ public class AdhanService extends Service
         }
         publish(STATE_STOPPED, currentNoticeKind, currentNoticeTitle);
         stopForegroundOnly();
-        stopSelf();
+        stopSelfSafely();
     }
 
     @Override
@@ -501,7 +519,7 @@ public class AdhanService extends Service
         releaseWakeLock();
         publish(STATE_IDLE, currentNoticeKind, currentNoticeTitle);
         stopForegroundOnly();
-        stopSelf();
+        stopSelfSafely();
     }
 
     @Override

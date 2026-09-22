@@ -43,7 +43,8 @@ import {
   resolveIqamaForPrayer,
 } from "@/lib/adhan-settings";
 import { adhanVariantUrl, iqamaVariantUrl } from "@/lib/adhan-sound";
-import { readReminders, reminderTimeOn, toneUrl } from "@/lib/daily-reminders";
+import { REMINDER_TONES, readReminders, reminderTimeOn, toneUrl } from "@/lib/daily-reminders";
+import { PRAYER_APPROACH_CLIPS, approachClipFor } from "@/lib/prayer-approach-audio";
 
 type LocalNotificationsPlugin = {
   requestPermissions: () => Promise<{ display: string }>;
@@ -52,6 +53,15 @@ type LocalNotificationsPlugin = {
   getPending: () => Promise<{ notifications: { id: number }[] }>;
   cancel: (o: { notifications: { id: number }[] }) => Promise<void>;
   schedule: (o: { notifications: unknown[] }) => Promise<void>;
+  createChannel: (c: {
+    id: string;
+    name: string;
+    description?: string;
+    importance?: number;
+    visibility?: number;
+    sound?: string;
+    vibration?: boolean;
+  }) => Promise<void>;
   addListener: (event: string, cb: (e: unknown) => void) => Promise<unknown>;
 };
 
@@ -342,6 +352,87 @@ export async function previewNativeAdhan(
   }
 }
 
+/* ------------------- قنوات الصوت: حزمتان منفصلتان -------------------
+ *
+ * منذ أندرويد ٨ يُحدَّد صوت الإشعار بقناته لا بالإشعار نفسه، وصوت القناة لا
+ * يتغيّر بعد إنشائها. لذلك لكل صوتٍ قناته الثابتة، وبادئتان لا تلتقيان:
+ *
+ *   manar_azkar_<مورد>     ← «تذكيرات الأذكار والوِرد» فقط  (REMINDER_TONES)
+ *   manar_approach_<مورد>  ← «التنبيهات قبل الصلاة» فقط     (PRAYER_APPROACH_CLIPS)
+ *
+ * قنوات الأذان والإقامة وسكينة و`manar_reminders` لا تُمسّ.
+ */
+
+const AZKAR_CHANNEL_PREFIX = "manar_azkar_";
+const APPROACH_CHANNEL_PREFIX = "manar_approach_";
+
+/** قناة تذكير أذكار/وِرد لصوتٍ من فهرسه — أو القناة الصامتة. */
+export function azkarWirdChannelFor(url: string): string {
+  const raw = rawResourceName(url);
+  return raw ? AZKAR_CHANNEL_PREFIX + raw : "manar_silent";
+}
+
+/** قناة تنبيه قبل صلاة لمقطعٍ من حزمة اقتراب الصلاة. */
+export function prayerApproachChannelFor(url: string): string {
+  return APPROACH_CHANNEL_PREFIX + rawResourceName(url);
+}
+
+let soundChannelsReady = false;
+
+async function ensureSoundChannels(p: LocalNotificationsPlugin) {
+  if (soundChannelsReady) return;
+  const channels: Parameters<LocalNotificationsPlugin["createChannel"]>[0][] = [];
+  for (const t of REMINDER_TONES) {
+    if (!t.url) continue;
+    channels.push({
+      id: azkarWirdChannelFor(t.url),
+      name: `تذكيرات الأذكار والوِرد · ${t.name}`,
+      description: "تذكير الأذكار والوِرد اليومي",
+      importance: 3,
+      visibility: 1,
+      sound: `${rawResourceName(t.url)}.mp3`,
+      vibration: true,
+    });
+  }
+  for (const c of Object.values(PRAYER_APPROACH_CLIPS)) {
+    channels.push({
+      id: prayerApproachChannelFor(c.url),
+      name: `التنبيه قبل الصلاة · ${c.name}`,
+      description: "تذكير قبل دخول وقت الصلاة",
+      importance: 3,
+      visibility: 1,
+      sound: `${rawResourceName(c.url)}.mp3`,
+      vibration: true,
+    });
+  }
+  let ok = true;
+  for (const c of channels) {
+    try {
+      await p.createChannel(c);
+    } catch {
+      /* قناة واحدة تعذّرت لا تُسقط الجدولة: إشعارها يُحوَّل إلى قناة القسم
+       * الاحتياطية أدناه، ونحاول إنشاءها ثانيةً في المزامنة التالية. */
+      ok = false;
+      failedChannels.add(c.id);
+    }
+  }
+  soundChannelsReady = ok;
+}
+
+const failedChannels = new Set<string>();
+
+/** إن تعذّر إنشاء قناة الصوت نرجع لقناة القسم نفسه، لا لقناة قسمٍ آخر. */
+function channelOr(id: string, fallback: string): string {
+  return failedChannels.has(id) ? fallback : id;
+}
+
+/** احتياط قسم الأذكار والوِرد: نغمته الأولى، ثم الصمت — لا قناة التنبيه قبل الصلاة. */
+function azkarWirdFallbackChannel(): string {
+  const first = REMINDER_TONES.find((t) => t.url);
+  const id = first ? azkarWirdChannelFor(first.url) : "manar_silent";
+  return failedChannels.has(id) ? "manar_silent" : id;
+}
+
 let actionsRegistered = false;
 
 async function registerActions(p: LocalNotificationsPlugin) {
@@ -367,7 +458,20 @@ async function registerActions(p: LocalNotificationsPlugin) {
  *
  * @returns the number of scheduled items (adhan + iqama + reminders).
  */
-export async function syncNativePrayerSchedule(
+let syncChain: Promise<unknown> = Promise.resolve();
+
+/* المزامنة تُلغي المُجدوَل ثم تُعيد جدولته؛ مزامنتان متداخلتان قد تُلغي إحداهما
+ * ما جدولته الأخرى. نُسلسلها في طابور واحد. */
+export function syncNativePrayerSchedule(location: LocationState, calc: Settings): Promise<number> {
+  const run = syncChain.then(
+    () => syncNativePrayerScheduleNow(location, calc),
+    () => syncNativePrayerScheduleNow(location, calc),
+  );
+  syncChain = run.catch(() => 0);
+  return run;
+}
+
+async function syncNativePrayerScheduleNow(
   location: LocationState,
   calc: Settings,
 ): Promise<number> {
@@ -377,6 +481,7 @@ export async function syncNativePrayerSchedule(
   const p = plugin();
   const adhan = adhanPlugin();
   if (p) await registerActions(p);
+  if (p) await ensureSoundChannels(p);
 
   const s = getAdhanSettings();
   const now = Date.now();
@@ -413,6 +518,12 @@ export async function syncNativePrayerSchedule(
 
       // Pre-prayer reminders — ordinary short notifications.
       if (s.remindersEnabled && per.reminder) {
+        /* صوت التنبيه قبل الصلاة من حزمة «اقتراب الصلاة» وحدها؛ الافتراضي يبقى
+         * على قناته القديمة `manar_reminders` كما كان. */
+        const clip = approachClipFor(s.reminderSound, prayer);
+        const approachChannel = clip
+          ? channelOr(prayerApproachChannelFor(clip.url), "manar_reminders")
+          : "manar_reminders";
         s.reminderMinutes.forEach((m, mi) => {
           const t = at - m * 60_000;
           if (t <= now) return;
@@ -422,7 +533,7 @@ export async function syncNativePrayerSchedule(
             body: `تبقى ${m} دقيقة على صلاة ${label}`,
             schedule: { at: new Date(t), allowWhileIdle: true },
             smallIcon: "ic_stat_manar",
-            channelId: s.silentMode ? "manar_silent" : "manar_reminders",
+            channelId: s.silentMode ? "manar_silent" : approachChannel,
             extra: { kind: "reminder", prayer, minutes: m },
           });
         });
@@ -470,7 +581,12 @@ export async function syncNativePrayerSchedule(
           body: r.body,
           schedule: { at, allowWhileIdle: true },
           smallIcon: "ic_stat_manar",
-          channelId: url ? "manar_reminders" : "manar_silent",
+          /* قناة الصوت المختار من فهرس الأذكار والوِرد. كانت كل التذكيرات تمرّ
+           * بقناة `manar_reminders` (صوت التكبير) فيضيع اختيار المستخدم على
+           * أندرويد ٨+، حيث القناة لا الإشعار هي من تُحدّد الصوت. */
+          channelId: url
+            ? channelOr(azkarWirdChannelFor(url), azkarWirdFallbackChannel())
+            : "manar_silent",
           /* الصوت يُمرَّر باسم المورد الأصلي؛ نغمات التذكير القصيرة (٢–٦ ثوانٍ)
            * تصلح لإشعار عادي، بخلاف الأذان الذي يحتاج خدمةً أمامية. */
           sound: url ? rawResourceName(url) : undefined,
