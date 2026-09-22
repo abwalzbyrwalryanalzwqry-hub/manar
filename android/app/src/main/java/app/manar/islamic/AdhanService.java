@@ -59,6 +59,10 @@ public class AdhanService extends Service
     public static final String EXTRA_TITLE = "title";
     public static final String EXTRA_BODY = "body";
     public static final String EXTRA_KIND = "kind";
+    /** مستوى صوت صريح (٠..١) للمعاينة؛ غيابه يعني مستوى المستخدم المحفوظ. */
+    public static final String EXTRA_VOLUME = "volume";
+    /** "notification" لمعاينة نغمات التنبيه على مسار الإشعارات لا المنبّه. */
+    public static final String EXTRA_USAGE = "usage";
 
     private static final int NOTIFICATION_ID = 40990;
     /** تنبيه الصلاة الباقي بعد الكتم — منفصلٌ عن إشعار التحكم. */
@@ -146,12 +150,26 @@ public class AdhanService extends Service
 
     /** Starts playback of a bundled recording from {@code res/raw}. */
     public static void play(Context context, String sound, String title, String body, String kind) {
+        play(context, sound, title, body, kind, -1f, null);
+    }
+
+    /** مثل {@link #play} مع مستوى صوت صريح ومسار تشغيل (للمعاينة). */
+    public static void play(
+            Context context,
+            String sound,
+            String title,
+            String body,
+            String kind,
+            float volume,
+            @Nullable String usage) {
         Intent intent = new Intent(context, AdhanService.class)
                 .setAction(ACTION_PLAY)
                 .putExtra(EXTRA_SOUND, sound)
                 .putExtra(EXTRA_TITLE, title)
                 .putExtra(EXTRA_BODY, body)
-                .putExtra(EXTRA_KIND, kind);
+                .putExtra(EXTRA_KIND, kind)
+                .putExtra(EXTRA_VOLUME, volume)
+                .putExtra(EXTRA_USAGE, usage);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(intent);
         } else {
@@ -223,6 +241,10 @@ public class AdhanService extends Service
         if (title == null) title = "منار";
         if (body == null) body = "";
         if (kind == null) kind = "adhan";
+        float requested = intent != null ? intent.getFloatExtra(EXTRA_VOLUME, -1f) : -1f;
+        float volume = requested >= 0f ? Math.min(1f, requested) : ManarVolumes.forKind(this, kind);
+        boolean notificationUsage =
+                intent != null && "notification".equals(intent.getStringExtra(EXTRA_USAGE));
 
         currentNoticeTitle = title;
         currentNoticeBody = body;
@@ -248,16 +270,17 @@ public class AdhanService extends Service
             return START_NOT_STICKY;
         }
 
-        if (sound == null || sound.trim().isEmpty()) {
+        // مستوى الصوت صفر يعني صمتاً مقصوداً: يبقى التنبيه المكتوب وحده.
+        if (sound == null || sound.trim().isEmpty() || volume <= 0.001f) {
             // Silent mode: the notification alone is the reminder.
-            postSilentNotice();
+            if (!"preview".equals(kind)) postSilentNotice();
             publish(STATE_MUTED, kind, title);
             stopForegroundOnly();
             stopSelfSafely();
             return START_NOT_STICKY;
         }
 
-        if (!requestFocus()) {
+        if (!requestFocus(notificationUsage)) {
             postSilentNotice();
             publish(STATE_MUTED, kind, title);
             stopForegroundOnly();
@@ -266,7 +289,7 @@ public class AdhanService extends Service
         }
 
         acquireWakeLock();
-        startPlayback(sound);
+        startPlayback(sound, volume, notificationUsage);
         updatePlaybackState(true, title, body, kind);
         publish("iqama".equals(kind) ? STATE_PLAYING_IQAMA : STATE_PLAYING_AZAN, kind, title);
         return START_NOT_STICKY;
@@ -370,12 +393,21 @@ public class AdhanService extends Service
         }
     }
 
-    private boolean requestFocus() {
+    private static AudioAttributes attributes(boolean notificationUsage) {
+        return notificationUsage
+                ? new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                : new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build();
+    }
+
+    private boolean requestFocus(boolean notificationUsage) {
         if (audioManager == null) return false;
-        AudioAttributes attrs = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                .build();
+        AudioAttributes attrs = attributes(notificationUsage);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             focusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
@@ -388,7 +420,9 @@ public class AdhanService extends Service
         }
         @SuppressWarnings("deprecation")
         int result = audioManager.requestAudioFocus(
-                focusListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN);
+                focusListener,
+                notificationUsage ? AudioManager.STREAM_NOTIFICATION : AudioManager.STREAM_ALARM,
+                AudioManager.AUDIOFOCUS_GAIN);
         return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
     }
 
@@ -416,7 +450,7 @@ public class AdhanService extends Service
         wakeLock = null;
     }
 
-    private void startPlayback(String sound) {
+    private void startPlayback(String sound, float volume, boolean notificationUsage) {
         int resId = getResources().getIdentifier(sound, "raw", getPackageName());
         if (resId == 0) {
             stopEverything();
@@ -424,15 +458,16 @@ public class AdhanService extends Service
         }
         try {
             player = new MediaPlayer();
-            player.setAudioAttributes(new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build());
+            player.setAudioAttributes(attributes(notificationUsage));
             player.setDataSource(
                     this, Uri.parse("android.resource://" + getPackageName() + "/raw/" + sound));
             player.setOnCompletionListener(this);
             player.setOnErrorListener(this);
             player.setLooping(false);
+            // مستوى المستخدم نسبةً إلى صوت المنبّه في الجهاز (١ = كما كان).
+            player.setVolume(volume, volume);
+            android.util.Log.i("ManarAudio", "play " + sound + " volume=" + volume
+                    + " usage=" + (notificationUsage ? "notification" : "alarm"));
             player.prepare();
             player.start();
         } catch (Exception e) {

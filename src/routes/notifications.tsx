@@ -8,11 +8,12 @@ import {
   ScreenHeader,
   SectionLabel,
 } from "@/components/manar/shell";
-import { REMINDER_OPTIONS, useAdhanSettings } from "@/lib/adhan-settings";
+import { REMINDER_OPTIONS, effectiveVolume, useAdhanSettings } from "@/lib/adhan-settings";
+import { VolumeLevelsCard } from "@/components/manar/volume-levels-card";
 import { PRAYER_LABELS, PRAYER_ORDER, type PrayerKey } from "@/lib/prayer";
 import { toArabicDigits } from "@/lib/format";
 import { requestNotificationPermission } from "@/components/manar/adhan-provider";
-import { playReminder, adhanVariantLabel } from "@/lib/adhan-sound";
+import { adhanVariantLabel } from "@/lib/adhan-sound";
 import { play } from "@/lib/audio-engine";
 import { isNativeShell } from "@/lib/native-notifications";
 import {
@@ -66,7 +67,8 @@ function Notifications() {
     if (!isNativeShell()) stopRef.current?.();
     setPreviewing(key);
     stopRef.current = play(url, {
-      volume: settings.volume,
+      volume: effectiveVolume(settings, "reminder"),
+      usage: "notification",
       onEnd: () => setPreviewing((cur) => (cur === key ? null : cur)),
       onError: () => setPreviewing((cur) => (cur === key ? null : cur)),
       label,
@@ -163,29 +165,7 @@ function Notifications() {
           onToggle={() => update({ silentMode: !settings.silentMode })}
         />
 
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-sm font-medium">مستوى الصوت</div>
-            <div className="text-xs text-muted-foreground tabular-nums">
-              {toArabicDigits(Math.round(settings.volume * 100))}٪
-            </div>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={Math.round(settings.volume * 100)}
-            onChange={(e) => update({ volume: Number(e.target.value) / 100 })}
-            className="w-full accent-[hsl(var(--primary))]"
-            dir="ltr"
-          />
-          <button
-            onClick={() => playReminder({ volume: settings.volume })}
-            className="mt-3 w-full rounded-xl border border-border bg-secondary/40 py-2 text-xs"
-          >
-            تجربة الصوت
-          </button>
-        </div>
+        <VolumeLevelsCard settings={settings} onConfirm={(levels) => update(levels)} />
       </div>
 
       {/* Reminders */}

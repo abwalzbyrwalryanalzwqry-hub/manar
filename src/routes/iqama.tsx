@@ -13,6 +13,7 @@ import {
   DEFAULT_IQAMA,
   IQAMA_CATEGORIES,
   useAdhanSettings,
+  effectiveVolume,
 } from "@/lib/adhan-settings";
 import { PRAYER_LABELS, type PrayerKey } from "@/lib/prayer";
 import { toArabicDigits } from "@/lib/format";
@@ -35,7 +36,7 @@ function IqamaSettings() {
     }
     setPlaying(v);
     playIqama(v, {
-      volume: settings.volume,
+      volume: effectiveVolume(settings, "iqama"),
       onEnd: () => setPlaying(null),
       onError: () => setPlaying(null),
     });

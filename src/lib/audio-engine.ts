@@ -16,6 +16,8 @@ export type PlayOptions = {
   onError?: (msg: string) => void;
   silentOnMissing?: boolean; // suppress toast (used for optional chains)
   label?: string; // human label included in error toast
+  /** داخل أندرويد: مسار صوت التنبيهات (notification) أو الأذان (alarm، الافتراضي). */
+  usage?: "alarm" | "notification";
 };
 
 let current: HTMLAudioElement | null = null;
@@ -57,7 +59,13 @@ export function isPlaying() {
 /* --------------------- الجسر إلى المُشغّل الأصلي --------------------- */
 
 type NativeAdhanBridge = {
-  preview: (o: { sound: string; title?: string; body?: string }) => Promise<void>;
+  preview: (o: {
+    sound: string;
+    title?: string;
+    body?: string;
+    volume?: number;
+    usage?: "alarm" | "notification";
+  }) => Promise<void>;
   stop: () => Promise<void>;
 };
 
@@ -114,7 +122,13 @@ export function play(url: string, opts: PlayOptions = {}): () => void {
       return () => {};
     }
     void bridge
-      .preview({ sound, title: opts.label ?? "معاينة", body: "" })
+      .preview({
+        sound,
+        title: opts.label ?? "معاينة",
+        body: "",
+        volume: clamp(opts.volume ?? 1, 0, 1),
+        usage: opts.usage ?? "alarm",
+      })
       .then(() => opts.onEnd?.())
       .catch(() => {
         opts.onError?.("native_error");

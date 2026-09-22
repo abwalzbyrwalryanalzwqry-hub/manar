@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   Arabesque,
@@ -13,6 +13,10 @@ import {
 } from "@/components/manar/shell";
 import { LocationSheet } from "@/components/manar/location-sheet";
 import { SakinahCard } from "@/components/manar/sakinah-card";
+import { HadithSheet } from "@/components/manar/hadith-sheet";
+import { formatSecondsAr, useDailyHadith, useDailyVerse, useLocalDay } from "@/lib/daily-content";
+import { toggleBookmark, useBookmarks } from "@/lib/quran/bookmarks";
+import { formatRangeAr } from "@/lib/quran/format";
 import { PRAYER_LABELS, usePrayerSchedule } from "@/lib/prayer";
 import { useHijriAdjust } from "@/lib/hijri";
 import {
@@ -33,6 +37,13 @@ function Home() {
   const { adjust: hijriAdjust } = useHijriAdjust();
   const [sheet, setSheet] = useState(false);
   const [askedOnce, setAskedOnce] = useState(false);
+  const [hadithOpen, setHadithOpen] = useState(false);
+  const navigate = useNavigate();
+  const day = useLocalDay();
+  const verse = useDailyVerse(day);
+  const hadith = useDailyHadith(day);
+  const { has: hasBookmark } = useBookmarks();
+  const verseSaved = verse ? hasBookmark(verse.surah, verse.from) : false;
   const {
     now,
     location,
@@ -197,24 +208,71 @@ function Home() {
           <div className="pointer-events-none absolute -left-12 -top-12 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
           <div className="relative flex items-center justify-between">
             <span className="gradient-gold inline-flex h-7 items-center rounded-full px-3 text-[10px] font-medium text-navy">
-              سورة الكهف · ١٠
+              {verse
+                ? `سورة ${verse.surahName} · ${formatRangeAr(verse.from, verse.to)}`
+                : "آية اليوم"}
             </span>
-            <span className="text-[10px] text-muted-foreground">٤٥ ثانية</span>
+            <span className="text-[10px] text-muted-foreground">
+              {verse ? formatSecondsAr(verse.seconds) : ""}
+            </span>
           </div>
-          <p className="relative mt-5 text-right font-display text-xl leading-loose">
-            ﴿ رَبَّنَا آتِنَا مِنْ لَدُنْكَ رَحْمَةً وَهَيِّئْ لَنَا مِنْ أَمْرِنَا رَشَدًا ﴾
-          </p>
-          <p className="relative mt-3 text-[11px] leading-relaxed text-muted-foreground">
-            ربنا أعطنا من عندك رحمة، ويسّر لنا أمرنا على الطريق الصواب.
-          </p>
+          <Link
+            to="/quran/mushaf"
+            search={verse ? { surah: verse.surah, ayah: verse.from } : {}}
+            disabled={!verse}
+            className="relative mt-5 block text-right font-display text-xl leading-loose"
+          >
+            {verse ? `﴿ ${verse.text} ﴾` : "…"}
+          </Link>
+          {verse?.meaning && (
+            <p className="relative mt-3 line-clamp-3 text-[11px] leading-relaxed text-muted-foreground">
+              {verse.meaning}
+            </p>
+          )}
           <div className="relative mt-5 flex gap-2">
-            <button className="gradient-primary flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-xs font-medium text-primary-foreground shadow-glow">
+            <button
+              disabled={!verse}
+              onClick={() =>
+                verse &&
+                navigate({
+                  to: "/quran/recitations",
+                  search: { surah: verse.surah, ayah: verse.from },
+                })
+              }
+              className="gradient-primary flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-xs font-medium text-primary-foreground shadow-glow"
+            >
               <Icon d={icons.play} size={12} /> استمع
             </button>
-            <button className="flex h-10 w-10 items-center justify-center rounded-full border border-border">
+            <button
+              disabled={!verse}
+              aria-label={verseSaved ? "إزالة من المحفوظات" : "حفظ الآية"}
+              aria-pressed={verseSaved}
+              onClick={() =>
+                verse &&
+                toggleBookmark({
+                  surah: verse.surah,
+                  ayah: verse.from,
+                  page: verse.page,
+                  juz: verse.juz,
+                  text: verse.firstText,
+                  tag: "tadabbur",
+                })
+              }
+              className={`flex h-10 w-10 items-center justify-center rounded-full border ${
+                verseSaved ? "border-primary/40 bg-primary/10 text-primary" : "border-border"
+              }`}
+            >
               <Icon d={icons.bookmark} size={14} />
             </button>
-            <button className="flex h-10 w-10 items-center justify-center rounded-full border border-border">
+            <button
+              disabled={!verse}
+              aria-label="مشاركة الآية"
+              onClick={() =>
+                verse &&
+                navigate({ to: "/quran/share", search: { surah: verse.surah, ayah: verse.from } })
+              }
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-border"
+            >
               <Icon d={icons.share} size={14} />
             </button>
           </div>
@@ -227,17 +285,24 @@ function Home() {
         <div className="gradient-night relative overflow-hidden rounded-3xl p-5 text-white shadow-elegant">
           <Arabesque className="absolute -bottom-10 -right-10 h-44 w-44 text-gold/30" />
           <div className="relative flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-gold">
-            <span className="h-1 w-6 bg-gold" /> صحيح البخاري · حديث ١
+            <span className="h-1 w-6 bg-gold" />{" "}
+            {hadith ? `${hadith.source} · ${hadith.topic}` : "حديث اليوم"}
           </div>
           <p className="relative mt-4 font-display text-lg leading-loose">
-            «إنما الأعمال بالنيات، وإنما لكل امرئٍ ما نوى»
+            {hadith ? `«${hadith.text}»` : "…"}
           </p>
-          <p className="relative mt-3 text-[11px] text-white/70">رواه عمر بن الخطاب رضي الله عنه</p>
+          <p className="relative mt-3 text-[11px] text-white/70">
+            {hadith ? `رواه ${hadith.narrator} ${hadith.suffix}` : ""}
+          </p>
           <div className="relative mt-5 flex items-center justify-between border-t border-white/10 pt-4">
             <div className="flex items-center gap-2 text-[10px] text-white/60">
               <Mark size={16} tone="light" /> منار · يومياً
             </div>
-            <button className="flex items-center gap-1 text-[11px] text-gold">
+            <button
+              disabled={!hadith}
+              onClick={() => setHadithOpen(true)}
+              className="flex items-center gap-1 text-[11px] text-gold"
+            >
               اقرأ المزيد{" "}
               <span className="rotate-180">
                 <Icon d={icons.chevron} size={12} />
@@ -246,6 +311,8 @@ function Home() {
           </div>
         </div>
       </div>
+
+      <HadithSheet hadith={hadith} open={hadithOpen} onClose={() => setHadithOpen(false)} />
 
       <LocationSheet
         open={sheet}
