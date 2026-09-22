@@ -31,7 +31,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: npm ci --no-audit --no-fund
       - name: تمكين فحص WebView لبناء الاختبار فقط
-        run: sed -i 's/webContentsDebuggingEnabled: false/webContentsDebuggingEnabled: true/' capacitor.config.ts
+        run: |
+          sed -i 's/webContentsDebuggingEnabled: false/webContentsDebuggingEnabled: true/' capacitor.config.ts
+          grep -n webContentsDebuggingEnabled capacitor.config.ts
       - run: npm run build:android
       - name: بناء APK إصدار (موقَّع بمفتاح التصحيح لأن الأسرار غير متاحة هنا)
         working-directory: android
