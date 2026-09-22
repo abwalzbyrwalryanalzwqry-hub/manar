@@ -23,6 +23,7 @@ import {
 } from "@/lib/prayer";
 import { ampmAr, formatHHMM, toArabicDigits } from "@/lib/format";
 import { play, stop } from "@/lib/audio-engine";
+import { isNativeShell } from "@/lib/native-notifications";
 
 export const Route = createFileRoute("/reminders")({
   head: () => ({ meta: [{ title: "تذكيرات الأذكار والوِرد — منار" }] }),
@@ -49,17 +50,24 @@ function Reminders() {
     [],
   );
 
+  /* لا نُرسل «إيقاف» قبل كل معاينة: `play` يُوقف الصوت السابق بنفسه،
+   * والخدمة الأصلية تُحرّر مشغّلها قبل أي تشغيل جديد. الإيقاف المسبق كان
+   * يُسابق طلب التشغيل في أندرويد فيُنهي التطبيق (انظر AdhanService). */
   const preview = (id: ReminderToneId) => {
-    stopRef.current?.();
-    stop();
     const url = toneUrl(id);
-    if (!url) {
+    if (!url || previewing === id) {
+      stopRef.current?.();
+      stopRef.current = null;
       setPreviewing(null);
       return;
     }
+    /* على الويب نُسكت عنصر <audio> السابق بمُوقفه هو، حتى لا يُطلق حدث خطأ
+     * كاذباً عند تفريغه. داخل أندرويد مُوقفه طلب «إيقاف» للخدمة — وهو المسبّب. */
+    if (!isNativeShell()) stopRef.current?.();
     setPreviewing(id);
     stopRef.current = play(url, {
-      onEnd: () => setPreviewing(null),
+      onEnd: () => setPreviewing((cur) => (cur === id ? null : cur)),
+      onError: () => setPreviewing((cur) => (cur === id ? null : cur)),
       label: `نغمة ${toneName(id)}`,
     });
   };

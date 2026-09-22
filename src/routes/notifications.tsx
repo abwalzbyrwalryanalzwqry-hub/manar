@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Arabesque,
   Icon,
@@ -13,6 +13,13 @@ import { PRAYER_LABELS, PRAYER_ORDER, type PrayerKey } from "@/lib/prayer";
 import { toArabicDigits } from "@/lib/format";
 import { requestNotificationPermission } from "@/components/manar/adhan-provider";
 import { playReminder, adhanVariantLabel } from "@/lib/adhan-sound";
+import { play } from "@/lib/audio-engine";
+import { isNativeShell } from "@/lib/native-notifications";
+import {
+  PRAYER_APPROACH_CLIPS,
+  PRAYER_APPROACH_SOUNDS,
+  type ApproachPrayer,
+} from "@/lib/prayer-approach-audio";
 
 export const Route = createFileRoute("/notifications")({
   head: () => ({ meta: [{ title: "مركز التنبيهات — منار" }] }),
@@ -37,6 +44,33 @@ function Notifications() {
     const r = await requestNotificationPermission();
     setPerm(r);
     setShowPermSheet(false);
+  };
+
+  /* معاينة أصوات التنبيه قبل الصلاة — صوت واحد في كل لحظة، ويُسكَت عند المغادرة. */
+  const [previewing, setPreviewing] = useState<string | null>(null);
+  const stopRef = useRef<(() => void) | null>(null);
+  useEffect(
+    () => () => {
+      stopRef.current?.();
+      stopRef.current = null;
+    },
+    [],
+  );
+  const previewApproach = (key: string, url: string, label: string) => {
+    if (!url || previewing === key) {
+      stopRef.current?.();
+      stopRef.current = null;
+      setPreviewing(null);
+      return;
+    }
+    if (!isNativeShell()) stopRef.current?.();
+    setPreviewing(key);
+    stopRef.current = play(url, {
+      volume: settings.volume,
+      onEnd: () => setPreviewing((cur) => (cur === key ? null : cur)),
+      onError: () => setPreviewing((cur) => (cur === key ? null : cur)),
+      label,
+    });
   };
 
   const selectedAdhan = adhanVariantLabel(settings.selectedAdhan);
@@ -183,6 +217,77 @@ function Notifications() {
             );
           })}
         </div>
+      </div>
+
+      {/* صوت التنبيه قبل الصلاة — من حزمة «اقتراب الصلاة» وحدها */}
+      <SectionLabel hint="يُسمَع مع كل تذكير قبل الصلاة">صوت التنبيه</SectionLabel>
+      <div className="space-y-1.5 px-4">
+        {PRAYER_APPROACH_SOUNDS.map((t) => {
+          const active = settings.reminderSound === t.id;
+          return (
+            <div
+              key={t.id}
+              className={`rounded-2xl border px-3 py-2.5 shadow-soft ${
+                active ? "border-primary/50 bg-primary/10" : "border-border bg-card"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => update({ reminderSound: t.id })}
+                  role="radio"
+                  aria-checked={active}
+                  className="flex min-w-0 flex-1 items-center gap-2 text-right"
+                >
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                      active
+                        ? "gradient-primary border-transparent text-primary-foreground"
+                        : "border-border"
+                    }`}
+                  >
+                    {active && <Icon d={icons.check} size={10} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-medium">{t.name}</span>
+                    <span className="block truncate text-[9px] text-muted-foreground">
+                      {t.hint}
+                    </span>
+                  </span>
+                </button>
+                {t.url && (
+                  <button
+                    onClick={() => previewApproach(t.id, t.url, t.name)}
+                    aria-label={`تجربة صوت ${t.name}`}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border text-primary"
+                  >
+                    <Icon d={previewing === t.id ? icons.stop : icons.play} size={11} />
+                  </button>
+                )}
+              </div>
+              {t.id === "approach-voice" && (
+                <div className="mt-2 flex flex-wrap gap-1.5 pr-7">
+                  {(Object.keys(PRAYER_APPROACH_CLIPS) as ApproachPrayer[]).map((p) => {
+                    const clip = PRAYER_APPROACH_CLIPS[p];
+                    const key = `${t.id}:${p}`;
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => previewApproach(key, clip.url, clip.name)}
+                        aria-label={`تجربة ${clip.name}`}
+                        className="flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
+                      >
+                        <span className="text-primary">
+                          <Icon d={previewing === key ? icons.stop : icons.play} size={9} />
+                        </span>
+                        {PRAYER_LABELS[p].ar}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Per-prayer */}

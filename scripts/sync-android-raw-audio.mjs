@@ -26,9 +26,13 @@ const root = resolve(import.meta.dirname, "..");
  * `library` مقاطع الأذان، و`reminders`/`iqama` النغمات المُركَّبة محلياً
  * (scripts/build-tones.py). لو نُسخ الأول وحده صمتت كل تذكيرات الأذكار
  * والوِرد والإقامة حين يكون التطبيق مغلقاً — وهو بالضبط وقت الحاجة إليها. */
-const sources = ["public/audio/library", "public/audio/reminders", "public/audio/iqama"].map((d) =>
-  resolve(root, d),
-);
+/* `prayer-approach` حزمة «التنبيهات قبل الصلاة» — مجلدها مستقل عن `reminders`. */
+const sources = [
+  "public/audio/library",
+  "public/audio/reminders",
+  "public/audio/iqama",
+  "public/audio/prayer-approach",
+].map((d) => resolve(root, d));
 const target = resolve(root, "android/app/src/main/res/raw");
 
 export function rawResourceName(fileName) {

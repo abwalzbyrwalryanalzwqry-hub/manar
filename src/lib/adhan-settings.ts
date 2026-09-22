@@ -18,6 +18,11 @@ import {
 import { migrateAdhanVariant } from "./adhan-sound";
 import { ADHAN_ASSETS, LEGACY_VARIANT_MIGRATION, assetDurationLabel } from "./adhan-library-assets";
 export { ADHAN_ASSET_RIGHTS_NOTICE } from "./adhan-library-assets";
+import {
+  DEFAULT_PRAYER_APPROACH_SOUND,
+  normalizeApproachSound,
+  type PrayerApproachSoundId,
+} from "./prayer-approach-audio";
 
 /* ----------------------------- Catalogs ----------------------------- */
 
@@ -124,6 +129,8 @@ export type AdhanSettings = {
   /* Reminders */
   remindersEnabled: boolean;
   reminderMinutes: ReminderMinutes[];
+  /** صوت التنبيه قبل الصلاة — من فهرس «اقتراب الصلاة» وحده. */
+  reminderSound: PrayerApproachSoundId;
 
   /* Iqama */
   iqamaEnabled: boolean;
@@ -167,6 +174,7 @@ const DEFAULTS: AdhanSettings = {
   fajrReminderEnabled: true,
   remindersEnabled: true,
   reminderMinutes: [15, 5],
+  reminderSound: DEFAULT_PRAYER_APPROACH_SOUND,
   iqamaEnabled: true,
   iqamaSoundEnabled: true,
   iqamaVariant: "iqama_qad",
@@ -219,6 +227,7 @@ function read(): AdhanSettings {
       reminderMinutes: Array.isArray(parsed.reminderMinutes)
         ? parsed.reminderMinutes
         : DEFAULTS.reminderMinutes,
+      reminderSound: normalizeApproachSound(parsed.reminderSound),
     };
   } catch {
     return DEFAULTS;

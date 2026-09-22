@@ -22,6 +22,8 @@ import {
   syncNativePrayerSchedule,
   attachNativeActionListener,
 } from "@/lib/native-notifications";
+import { approachClipFor } from "@/lib/prayer-approach-audio";
+import { play as enginePlay } from "@/lib/audio-engine";
 
 type FiredKey = string;
 
@@ -93,7 +95,16 @@ export function AdhanProvider() {
                 firedRef.current.add(k);
                 notify("تذكير الصلاة", `تبقى ${m} دقيقة على صلاة ${PRAYER_LABELS[p].ar}`);
                 if (s.soundEnabled && !s.silentMode) {
-                  playReminder({ volume: s.volume * 0.6, silentOnMissing: true });
+                  const clip = approachClipFor(s.reminderSound, p);
+                  if (clip) {
+                    enginePlay(clip.url, {
+                      volume: s.volume * 0.6,
+                      silentOnMissing: true,
+                      label: clip.name,
+                    });
+                  } else {
+                    playReminder({ volume: s.volume * 0.6, silentOnMissing: true });
+                  }
                 }
                 if (s.vibrationEnabled) vibrate([120, 80, 120]);
               }
@@ -188,9 +199,21 @@ export function AdhanProvider() {
     };
     document.addEventListener("resume", onResume);
     document.addEventListener("visibilitychange", onResume);
+    /* تغيير صوت تذكير (أذكار/وِرد أو قبل الصلاة) يُطبَّق على الإشعارات المُجدوَلة
+     * فوراً، لا عند العودة التالية للتطبيق. مؤجَّل قليلاً ليجمع النقرات المتتالية. */
+    let pending: ReturnType<typeof setTimeout> | undefined;
+    const onSoundSettings = () => {
+      clearTimeout(pending);
+      pending = setTimeout(() => void syncNativePrayerSchedule(location, calc), 800);
+    };
+    window.addEventListener("manar:daily-reminders", onSoundSettings);
+    window.addEventListener("manar:adhan-settings", onSoundSettings);
     return () => {
       document.removeEventListener("resume", onResume);
       document.removeEventListener("visibilitychange", onResume);
+      window.removeEventListener("manar:daily-reminders", onSoundSettings);
+      window.removeEventListener("manar:adhan-settings", onSoundSettings);
+      clearTimeout(pending);
     };
   }, [location, calc]);
 
