@@ -1,0 +1,72 @@
+name: QA أصوات التذكيرات (فرع اختبار فقط)
+
+# لا يُدمج في main. يبني حزمة إصدار (minify + shrinkResources) مع تمكين فحص
+# WebView، ثم يقود الواجهة الحقيقية على محاكي أندرويد ويجمع الأدلة.
+
+on:
+  push:
+    branches: ["qa/**"]
+  workflow_dispatch:
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [34, 29, 35]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci --no-audit --no-fund
+      - name: تمكين فحص WebView لبناء الاختبار فقط
+        run: |
+          sed -i 's/webContentsDebuggingEnabled: false/webContentsDebuggingEnabled: true/' capacitor.config.ts
+          grep -n webContentsDebuggingEnabled capacitor.config.ts
+      - run: npm run build:android
+      - name: بناء APK إصدار (موقَّع بمفتاح التصحيح لأن الأسرار غير متاحة هنا)
+        working-directory: android
+        run: ./gradlew --no-daemon assembleRelease
+      - name: فحص الموارد داخل الحزمة
+        run: |
+          mkdir -p evidence
+          APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          cp "$APK" evidence/manar-qa-release.apk
+          unzip -l "$APK" | grep "res/raw" | tee evidence/apk-raw.txt
+          AAPT=$(find $ANDROID_HOME/build-tools -name aapt2 | sort | tail -1)
+          $AAPT dump resources "$APK" | grep -A1 "raw/" | tee evidence/apk-raw-resources.txt || true
+      - name: تمكين KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - run: pip install websocket-client
+      - name: الاختبار على المحاكي
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -no-boot-anim -gpu swiftshader_indirect
+          script: |
+            adb install -r evidence/manar-qa-release.apk
+            cd qa && python3 driver.py ${{ contains(github.ref, 'baseline') && 'baseline' || 'full' }} ../evidence/api${{ matrix.api }} || true
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-evidence-api${{ matrix.api }}
+          path: evidence
