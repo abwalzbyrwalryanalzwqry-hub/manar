@@ -74,8 +74,14 @@ function rawName(url: string): string {
 
 function nativeBridge(): NativeAdhanBridge | null {
   if (typeof window === "undefined") return null;
-  const cap = (window as unknown as { Capacitor?: { Plugins?: Record<string, unknown> } })
-    .Capacitor;
+  const cap = (
+    window as unknown as {
+      Capacitor?: { Plugins?: Record<string, unknown>; isNativePlatform?: () => boolean };
+    }
+  ).Capacitor;
+  /* على الويب يُسجِّل `registerPlugin` وكيلاً لـ ManarAdhan بلا تنفيذ، فكان كل
+   * تشغيل يُرفض ويظهر «تعذّر تشغيل الصوت». الجسر للقشرة الأصلية وحدها. */
+  if (typeof cap?.isNativePlatform !== "function" || !cap.isNativePlatform()) return null;
   return (cap?.Plugins?.["ManarAdhan"] as NativeAdhanBridge | undefined) ?? null;
 }
 
