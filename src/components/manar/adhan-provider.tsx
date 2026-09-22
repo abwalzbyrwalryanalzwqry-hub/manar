@@ -15,6 +15,7 @@ import {
   getAdhanSettings,
   resolveAdhanForPrayer,
   resolveIqamaForPrayer,
+  effectiveVolume,
 } from "@/lib/adhan-settings";
 import { playAdhan, playIqama, playReminder, vibrate, stopAdhan } from "@/lib/adhan-sound";
 import {
@@ -98,12 +99,17 @@ export function AdhanProvider() {
                   const clip = approachClipFor(s.reminderSound, p);
                   if (clip) {
                     enginePlay(clip.url, {
-                      volume: s.volume * 0.6,
+                      volume: effectiveVolume(s, "reminder"),
+                      usage: "notification",
                       silentOnMissing: true,
                       label: clip.name,
                     });
                   } else {
-                    playReminder({ volume: s.volume * 0.6, silentOnMissing: true });
+                    playReminder({
+                      volume: effectiveVolume(s, "reminder"),
+                      usage: "notification",
+                      silentOnMissing: true,
+                    });
                   }
                 }
                 if (s.vibrationEnabled) vibrate([120, 80, 120]);
@@ -125,7 +131,7 @@ export function AdhanProvider() {
               );
               if (s.vibrationEnabled) vibrate([200, 100, 200]);
               if (!s.silentMode && s.soundEnabled) {
-                playAdhan(s.fajrFirstAdhanAudio, { volume: s.volume * 0.85 });
+                playAdhan(s.fajrFirstAdhanAudio, { volume: effectiveVolume(s, "adhan") });
               }
             }
           }
@@ -144,10 +150,10 @@ export function AdhanProvider() {
             if (!s.silentMode && s.soundEnabled && !isNativeShell()) {
               const variant = resolveAdhanForPrayer(s, p);
               playAdhan(variant, {
-                volume: s.volume,
+                volume: effectiveVolume(s, "adhan"),
                 onEnd: () => {
                   if (p === "fajr" && s.fajrTathweebEnabled && !s.silentMode && s.soundEnabled) {
-                    playAdhan(s.fajrTathweebAudio, { volume: s.volume * 0.9 });
+                    playAdhan(s.fajrTathweebAudio, { volume: effectiveVolume(s, "adhan") });
                   }
                 },
               });
@@ -166,7 +172,7 @@ export function AdhanProvider() {
               if (s.vibrationEnabled) vibrate([200, 100, 200]);
               if (s.iqamaSoundEnabled && !s.silentMode && !isNativeShell()) {
                 const iv = resolveIqamaForPrayer(s, p);
-                playIqama(iv, { volume: s.volume * 0.85 });
+                playIqama(iv, { volume: effectiveVolume(s, "iqama") });
               }
             }
           }

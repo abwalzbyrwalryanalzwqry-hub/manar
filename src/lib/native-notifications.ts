@@ -38,9 +38,12 @@ import {
   type Settings,
 } from "@/lib/prayer";
 import {
+  effectiveVolume,
   getAdhanSettings,
+  notificationLevel,
   resolveAdhanForPrayer,
   resolveIqamaForPrayer,
+  type NotificationLevel,
 } from "@/lib/adhan-settings";
 import { adhanVariantUrl, iqamaVariantUrl } from "@/lib/adhan-sound";
 import { REMINDER_TONES, readReminders, reminderTimeOn, toneUrl } from "@/lib/daily-reminders";
@@ -62,6 +65,8 @@ type LocalNotificationsPlugin = {
     sound?: string;
     vibration?: boolean;
   }) => Promise<void>;
+  deleteChannel?: (c: { id: string }) => Promise<void>;
+  listChannels?: () => Promise<{ channels: { id: string }[] }>;
   addListener: (event: string, cb: (e: unknown) => void) => Promise<unknown>;
 };
 
@@ -122,7 +127,20 @@ type ManarAdhanPlugin = {
   }) => Promise<{ scheduled: number; exactAlarms: boolean }>;
   cancelAll: () => Promise<void>;
   stop: () => Promise<void>;
-  preview: (o: { sound: string; title?: string; body?: string }) => Promise<void>;
+  preview: (o: {
+    sound: string;
+    title?: string;
+    body?: string;
+    volume?: number;
+    usage?: "alarm" | "notification";
+  }) => Promise<void>;
+  /** مستويات الأذان والإقامة للخدمة الأصلية (0..1) — تُقرأ وقت التشغيل. */
+  setVolumes: (o: {
+    master: number;
+    adhan: number;
+    iqama: number;
+    reminder: number;
+  }) => Promise<void>;
   status: () => Promise<NativeAdhanStatus>;
   requestExactAlarmPermission: () => Promise<{ granted: boolean; opened?: boolean }>;
   requestIgnoreBatteryOptimizations: () => Promise<{ granted: boolean; opened?: boolean }>;
@@ -366,49 +384,88 @@ export async function previewNativeAdhan(
 const AZKAR_CHANNEL_PREFIX = "manar_azkar_";
 const APPROACH_CHANNEL_PREFIX = "manar_approach_";
 
+/* ------------------- مستوى صوت الإشعارات -------------------
+ *
+ * صوت القناة ملفٌّ ثابت لا يقبل مستوى صوت، فلكل درجة من درجات
+ * `NOTIFICATION_LEVELS` نسخةٌ مخفَّضة من كل نغمة (`<مورد>_v60` مثلاً، من
+ * scripts/build-volume-levels.mjs) وقناةٌ خاصة بها. الدرجة ١٠٠ هي القنوات
+ * الأصلية نفسها بلا أي تغيير، والدرجة ٠ هي القناة الصامتة. */
+
+const levelSuffix = (level: NotificationLevel) => (level === 100 ? "" : `_v${level}`);
+const LEVEL_CHANNEL = /^manar_(?:azkar_.+|approach_.+|reminders)_v(\d+)$/;
+
+/** اسم مورد الصوت بالدرجة المطلوبة. */
+function leveledRaw(raw: string, level: NotificationLevel): string {
+  return raw + levelSuffix(level);
+}
+
 /** قناة تذكير أذكار/وِرد لصوتٍ من فهرسه — أو القناة الصامتة. */
-export function azkarWirdChannelFor(url: string): string {
+export function azkarWirdChannelFor(url: string, level: NotificationLevel = 100): string {
   const raw = rawResourceName(url);
-  return raw ? AZKAR_CHANNEL_PREFIX + raw : "manar_silent";
+  return raw && level > 0 ? AZKAR_CHANNEL_PREFIX + leveledRaw(raw, level) : "manar_silent";
 }
 
 /** قناة تنبيه قبل صلاة لمقطعٍ من حزمة اقتراب الصلاة. */
-export function prayerApproachChannelFor(url: string): string {
-  return APPROACH_CHANNEL_PREFIX + rawResourceName(url);
+export function prayerApproachChannelFor(url: string, level: NotificationLevel = 100): string {
+  if (level === 0) return "manar_silent";
+  return APPROACH_CHANNEL_PREFIX + leveledRaw(rawResourceName(url), level);
 }
 
-let soundChannelsReady = false;
+/** قناة التنبيه الافتراضي قبل الصلاة (التكبير) بالدرجة المطلوبة. */
+export function defaultReminderChannelFor(level: NotificationLevel = 100): string {
+  if (level === 0) return "manar_silent";
+  return level === 100 ? "manar_reminders" : `manar_reminders_v${level}`;
+}
 
-async function ensureSoundChannels(p: LocalNotificationsPlugin) {
-  if (soundChannelsReady) return;
+let soundChannelsLevel: NotificationLevel | null = null;
+
+async function ensureSoundChannels(p: LocalNotificationsPlugin, level: NotificationLevel) {
+  if (soundChannelsLevel === level) return;
+  const levels: NotificationLevel[] = level === 100 || level === 0 ? [100] : [100, level];
+  const pct = (l: NotificationLevel) => (l === 100 ? "" : ` · ${toArabicDigitsLocal(l)}٪`);
   const channels: Parameters<LocalNotificationsPlugin["createChannel"]>[0][] = [];
-  for (const t of REMINDER_TONES) {
-    if (!t.url) continue;
-    channels.push({
-      id: azkarWirdChannelFor(t.url),
-      name: `تذكيرات الأذكار والوِرد · ${t.name}`,
-      description: "تذكير الأذكار والوِرد اليومي",
-      importance: 3,
-      visibility: 1,
-      sound: `${rawResourceName(t.url)}.mp3`,
-      vibration: true,
-    });
-  }
-  for (const c of Object.values(PRAYER_APPROACH_CLIPS)) {
-    channels.push({
-      id: prayerApproachChannelFor(c.url),
-      name: `التنبيه قبل الصلاة · ${c.name}`,
-      description: "تذكير قبل دخول وقت الصلاة",
-      importance: 3,
-      visibility: 1,
-      sound: `${rawResourceName(c.url)}.mp3`,
-      vibration: true,
-    });
+  for (const l of levels) {
+    for (const t of REMINDER_TONES) {
+      if (!t.url) continue;
+      channels.push({
+        id: azkarWirdChannelFor(t.url, l),
+        name: `تذكيرات الأذكار والوِرد · ${t.name}${pct(l)}`,
+        description: "تذكير الأذكار والوِرد اليومي",
+        importance: 3,
+        visibility: 1,
+        sound: `${leveledRaw(rawResourceName(t.url), l)}.mp3`,
+        vibration: true,
+      });
+    }
+    for (const c of Object.values(PRAYER_APPROACH_CLIPS)) {
+      channels.push({
+        id: prayerApproachChannelFor(c.url, l),
+        name: `التنبيه قبل الصلاة · ${c.name}${pct(l)}`,
+        description: "تذكير قبل دخول وقت الصلاة",
+        importance: 3,
+        visibility: 1,
+        sound: `${leveledRaw(rawResourceName(c.url), l)}.mp3`,
+        vibration: true,
+      });
+    }
+    if (l !== 100) {
+      // `manar_reminders` نفسها تُنشأ أصلياً (ManarChannels) ولا تُمسّ.
+      channels.push({
+        id: defaultReminderChannelFor(l),
+        name: `التذكيرات${pct(l)}`,
+        description: "تذكير قبل دخول وقت الصلاة",
+        importance: 3,
+        visibility: 1,
+        sound: `segment_takbir_v${l}.mp3`,
+        vibration: true,
+      });
+    }
   }
   let ok = true;
   for (const c of channels) {
     try {
       await p.createChannel(c);
+      failedChannels.delete(c.id);
     } catch {
       /* قناة واحدة تعذّرت لا تُسقط الجدولة: إشعارها يُحوَّل إلى قناة القسم
        * الاحتياطية أدناه، ونحاول إنشاءها ثانيةً في المزامنة التالية. */
@@ -416,7 +473,24 @@ async function ensureSoundChannels(p: LocalNotificationsPlugin) {
       failedChannels.add(c.id);
     }
   }
-  soundChannelsReady = ok;
+  /* قنوات الدرجات السابقة لا حاجة لها بعد تغيير المستوى، فنحذفها حتى لا
+   * تتراكم في إعدادات النظام. القنوات الأصلية (بلا لاحقة) لا تُحذف أبداً. */
+  if (p.listChannels && p.deleteChannel) {
+    try {
+      const { channels: existing } = await p.listChannels();
+      for (const c of existing) {
+        const m = LEVEL_CHANNEL.exec(c.id);
+        if (m && Number(m[1]) !== level) await p.deleteChannel({ id: c.id }).catch(() => {});
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  soundChannelsLevel = ok ? level : null;
+}
+
+function toArabicDigitsLocal(n: number): string {
+  return String(n).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
 }
 
 const failedChannels = new Set<string>();
@@ -427,9 +501,9 @@ function channelOr(id: string, fallback: string): string {
 }
 
 /** احتياط قسم الأذكار والوِرد: نغمته الأولى، ثم الصمت — لا قناة التنبيه قبل الصلاة. */
-function azkarWirdFallbackChannel(): string {
+function azkarWirdFallbackChannel(level: NotificationLevel): string {
   const first = REMINDER_TONES.find((t) => t.url);
-  const id = first ? azkarWirdChannelFor(first.url) : "manar_silent";
+  const id = first ? azkarWirdChannelFor(first.url, level) : "manar_silent";
   return failedChannels.has(id) ? "manar_silent" : id;
 }
 
@@ -480,10 +554,25 @@ async function syncNativePrayerScheduleNow(
 
   const p = plugin();
   const adhan = adhanPlugin();
-  if (p) await registerActions(p);
-  if (p) await ensureSoundChannels(p);
-
   const s = getAdhanSettings();
+  const level = notificationLevel(s);
+  if (p) await registerActions(p);
+  if (p) await ensureSoundChannels(p, level);
+  if (adhan) {
+    /* الأذان والإقامة يُشغَّلان في الخدمة الأصلية ولو كان التطبيق مغلقاً،
+     * فتحفظ الخدمة مستوياتهما لتقرأها لحظة التشغيل. */
+    try {
+      await adhan.setVolumes({
+        master: s.volume,
+        adhan: s.adhanVolume,
+        iqama: s.iqamaVolume,
+        reminder: effectiveVolume(s, "reminder"),
+      });
+    } catch {
+      /* نسخة أصلية أقدم بلا هذه الدالة: يبقى التشغيل بكامل الصوت كما كان */
+    }
+  }
+
   const now = Date.now();
   const reminders: unknown[] = [];
   const adhanEvents: ManarAdhanEvent[] = [];
@@ -521,9 +610,10 @@ async function syncNativePrayerScheduleNow(
         /* صوت التنبيه قبل الصلاة من حزمة «اقتراب الصلاة» وحدها؛ الافتراضي يبقى
          * على قناته القديمة `manar_reminders` كما كان. */
         const clip = approachClipFor(s.reminderSound, prayer);
+        const fallback = channelOr(defaultReminderChannelFor(level), "manar_reminders");
         const approachChannel = clip
-          ? channelOr(prayerApproachChannelFor(clip.url), "manar_reminders")
-          : "manar_reminders";
+          ? channelOr(prayerApproachChannelFor(clip.url, level), fallback)
+          : fallback;
         s.reminderMinutes.forEach((m, mi) => {
           const t = at - m * 60_000;
           if (t <= now) return;
@@ -574,7 +664,7 @@ async function syncNativePrayerScheduleNow(
       active.forEach((r, ri) => {
         const at = reminderTimeOn(r, date, (p) => times[p]);
         if (!at || at.getTime() <= now) return;
-        const url = s.silentMode || !s.soundEnabled ? "" : toneUrl(r.tone);
+        const url = s.silentMode || !s.soundEnabled || level === 0 ? "" : toneUrl(r.tone);
         reminders.push({
           id: dailyIdFor(d, ri),
           title: r.name,
@@ -585,11 +675,11 @@ async function syncNativePrayerScheduleNow(
            * بقناة `manar_reminders` (صوت التكبير) فيضيع اختيار المستخدم على
            * أندرويد ٨+، حيث القناة لا الإشعار هي من تُحدّد الصوت. */
           channelId: url
-            ? channelOr(azkarWirdChannelFor(url), azkarWirdFallbackChannel())
+            ? channelOr(azkarWirdChannelFor(url, level), azkarWirdFallbackChannel(level))
             : "manar_silent",
           /* الصوت يُمرَّر باسم المورد الأصلي؛ نغمات التذكير القصيرة (٢–٦ ثوانٍ)
            * تصلح لإشعار عادي، بخلاف الأذان الذي يحتاج خدمةً أمامية. */
-          sound: url ? rawResourceName(url) : undefined,
+          sound: url ? leveledRaw(rawResourceName(url), level) : undefined,
           extra: { kind: "daily-reminder", reminder: r.id, route: r.route },
         });
       });

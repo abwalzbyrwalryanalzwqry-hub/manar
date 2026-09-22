@@ -23,6 +23,7 @@ import {
 } from "@/lib/prayer";
 import { ampmAr, formatHHMM, toArabicDigits } from "@/lib/format";
 import { play, stop } from "@/lib/audio-engine";
+import { effectiveVolume, getAdhanSettings } from "@/lib/adhan-settings";
 import { isNativeShell } from "@/lib/native-notifications";
 
 export const Route = createFileRoute("/reminders")({
@@ -66,6 +67,8 @@ function Reminders() {
     if (!isNativeShell()) stopRef.current?.();
     setPreviewing(id);
     stopRef.current = play(url, {
+      volume: effectiveVolume(getAdhanSettings(), "reminder"),
+      usage: "notification",
       onEnd: () => setPreviewing((cur) => (cur === id ? null : cur)),
       onError: () => setPreviewing((cur) => (cur === id ? null : cur)),
       label: `نغمة ${toneName(id)}`,

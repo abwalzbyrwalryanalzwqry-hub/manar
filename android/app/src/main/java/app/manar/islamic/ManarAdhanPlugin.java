@@ -222,12 +222,27 @@ public class ManarAdhanPlugin extends Plugin {
             call.reject("sound is required");
             return;
         }
+        Double volume = call.getDouble("volume");
         AdhanService.play(
                 getContext(),
                 sound,
                 call.getString("title", "معاينة الأذان"),
                 call.getString("body", ""),
-                "preview");
+                "preview",
+                volume == null ? 1f : (float) Math.max(0d, Math.min(1d, volume)),
+                call.getString("usage", "alarm"));
+        call.resolve();
+    }
+
+    /** يحفظ مستويات «مستوى الأصوات» لتقرأها خدمة الأذان لحظة التشغيل. */
+    @PluginMethod
+    public void setVolumes(PluginCall call) {
+        ManarVolumes.save(
+                getContext(),
+                call.getDouble("master", 1d),
+                call.getDouble("adhan", 1d),
+                call.getDouble("iqama", 1d),
+                call.getDouble("reminder", 1d));
         call.resolve();
     }
 

@@ -32,6 +32,8 @@ const sources = [
   "public/audio/reminders",
   "public/audio/iqama",
   "public/audio/prayer-approach",
+  /* نسخ نغمات التنبيه بدرجات صوت ثابتة لقنوات الإشعار (build-volume-levels.mjs). */
+  "assets/audio-levels",
 ].map((d) => resolve(root, d));
 const target = resolve(root, "android/app/src/main/res/raw");
 

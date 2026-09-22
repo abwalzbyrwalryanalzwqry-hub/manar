@@ -143,7 +143,14 @@ export type AdhanSettings = {
   soundEnabled: boolean;
   vibrationEnabled: boolean;
   silentMode: boolean;
+  /** المستوى العام — يُطبَّق على جميع أصوات منار وإشعاراتها (0..1). */
   volume: number;
+  /** مستوى الأذان (بما فيه الأذان الأول للفجر والتثويب) نسبةً إلى العام. */
+  adhanVolume: number;
+  /** مستوى الإقامة نسبةً إلى العام. */
+  iqamaVolume: number;
+  /** مستوى التنبيهات: قبل الصلاة، وتذكيرات الأذكار والوِرد. */
+  reminderVolume: number;
 
   /* Per-prayer toggles */
   perPrayer: Record<PrayerKey, { adhan: boolean; reminder: boolean; iqama: boolean }>;
@@ -183,7 +190,10 @@ const DEFAULTS: AdhanSettings = {
   soundEnabled: true,
   vibrationEnabled: true,
   silentMode: false,
-  volume: 0.7,
+  volume: 1,
+  adhanVolume: 1,
+  iqamaVolume: 1,
+  reminderVolume: 1,
   perPrayer: {
     fajr: { adhan: true, reminder: true, iqama: true },
     sunrise: { adhan: false, reminder: false, iqama: false },
@@ -228,10 +238,61 @@ function read(): AdhanSettings {
         ? parsed.reminderMinutes
         : DEFAULTS.reminderMinutes,
       reminderSound: normalizeApproachSound(parsed.reminderSound),
+      ...readVolumes(parsed),
     };
   } catch {
     return DEFAULTS;
   }
+}
+
+const unit = (v: unknown, fb: number): number =>
+  typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fb;
+
+/**
+ * مستويات الصوت المحفوظة. قبل هذه الميزة كان `volume` حقلاً وحيداً قيمته
+ * الافتراضية ٠٫٧ يؤثّر في معاينات الويب فقط، بينما كان الأذان على أندرويد
+ * يُشغَّل بكامل صوته. من لم يُحرّك المؤشّر قطّ (٠٫٧ بلا الحقول الجديدة) نرفعه
+ * إلى ١٠٠٪ حتى لا يخفت أذانه فجأةً بعد التحديث.
+ */
+function readVolumes(parsed: Record<string, unknown>) {
+  const fresh = parsed.adhanVolume === undefined && parsed.iqamaVolume === undefined;
+  const legacyDefault = fresh && parsed.volume === 0.7;
+  return {
+    volume: legacyDefault ? 1 : unit(parsed.volume, DEFAULTS.volume),
+    adhanVolume: unit(parsed.adhanVolume, DEFAULTS.adhanVolume),
+    iqamaVolume: unit(parsed.iqamaVolume, DEFAULTS.iqamaVolume),
+    reminderVolume: unit(parsed.reminderVolume, DEFAULTS.reminderVolume),
+  };
+}
+
+export type VolumeKind = "adhan" | "iqama" | "reminder";
+
+export type VolumeLevels = Pick<
+  AdhanSettings,
+  "volume" | "adhanVolume" | "iqamaVolume" | "reminderVolume"
+>;
+
+/** المستوى الفعلي لفئة = العام × مستوى الفئة. */
+export function effectiveVolume(s: VolumeLevels, kind: VolumeKind): number {
+  const cat =
+    kind === "adhan" ? s.adhanVolume : kind === "iqama" ? s.iqamaVolume : s.reminderVolume;
+  return Math.min(1, Math.max(0, s.volume * cat));
+}
+
+/**
+ * درجات صوت الإشعارات. على أندرويد ٨+ صوت الإشعار ملفٌّ ثابت في قناته ولا
+ * يقبل تحديد مستوى، فنشحن نسخاً مخفَّضة مسبقاً من كل نغمة (scripts/
+ * build-volume-levels.mjs) ونقرّب المستوى الفعلي لأقرب درجة منها.
+ */
+export const NOTIFICATION_LEVELS = [0, 20, 40, 60, 80, 100] as const;
+export type NotificationLevel = (typeof NOTIFICATION_LEVELS)[number];
+
+export function notificationLevel(s: VolumeLevels): NotificationLevel {
+  const pct = effectiveVolume(s, "reminder") * 100;
+  let best: NotificationLevel = 100;
+  for (const l of NOTIFICATION_LEVELS) if (Math.abs(l - pct) < Math.abs(best - pct)) best = l;
+  // صوتٌ مسموع مهما قلّ لا يُقرَّب إلى الصمت.
+  return best === 0 && pct > 0 ? 20 : best;
 }
 
 function write(next: AdhanSettings) {

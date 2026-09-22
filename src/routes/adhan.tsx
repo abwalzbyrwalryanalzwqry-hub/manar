@@ -14,6 +14,7 @@ import {
   ADJUSTABLE_PRAYERS,
   TATHWEEB_LIBRARY,
   useAdhanSettings,
+  effectiveVolume,
 } from "@/lib/adhan-settings";
 import {
   ADHAN_STYLES,
@@ -68,7 +69,7 @@ function AdhanLibrary() {
     }
     setPlaying(v);
     playAdhan(v, {
-      volume: settings.volume,
+      volume: effectiveVolume(settings, "adhan"),
       onEnd: () => setPlaying(null),
       onError: () => setPlaying(null),
     });
