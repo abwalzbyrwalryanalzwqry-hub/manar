@@ -246,6 +246,16 @@ public class ManarAdhanPlugin extends Plugin {
         call.resolve();
     }
 
+    /** لقطة ويدجت الشاشة الرئيسية من الويب ({@code src/lib/widget-snapshot.ts}). */
+    @PluginMethod
+    public void updateWidget(PluginCall call) {
+        Context context = getContext();
+        ManarWidget.saveSnapshot(context, call.getString("snapshot", ""));
+        JSObject result = new JSObject();
+        result.put("widgets", ManarWidget.updateAll(context));
+        call.resolve(result);
+    }
+
     @PluginMethod
     public void status(PluginCall call) {
         Context context = getContext();

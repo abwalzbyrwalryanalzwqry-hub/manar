@@ -142,6 +142,8 @@ type ManarAdhanPlugin = {
     reminder: number;
   }) => Promise<void>;
   status: () => Promise<NativeAdhanStatus>;
+  /** لقطة ويدجت الشاشة الرئيسية (JSON من `buildWidgetSnapshot`). */
+  updateWidget: (o: { snapshot: string }) => Promise<{ widgets: number }>;
   requestExactAlarmPermission: () => Promise<{ granted: boolean; opened?: boolean }>;
   requestIgnoreBatteryOptimizations: () => Promise<{ granted: boolean; opened?: boolean }>;
   openNotificationSettings: () => Promise<void>;
@@ -205,6 +207,20 @@ export function isNativeShell(): boolean {
 /** منفذ واحد للإضافة الأصلية — لا تُستخدم `window.Capacitor.Plugins` أبداً. */
 export function manarAdhanPlugin(): ManarAdhanPlugin | null {
   return adhanPlugin();
+}
+
+/**
+ * يسلّم لقطة ويدجت الشاشة الرئيسية للطبقة الأصلية. نسخة قديمة من التطبيق الأصلي
+ * بلا هذه الدالة تُرفض بصمت — الويدجت ميزة إضافية لا تُعطّل شيئاً.
+ */
+export async function updateHomeWidget(snapshot: string): Promise<void> {
+  const p = adhanPlugin();
+  if (!p) return;
+  try {
+    await p.updateWidget({ snapshot });
+  } catch {
+    /* ignore */
+  }
 }
 
 /** يكتم صوت منار الجاري فوراً مع إبقاء تنبيه الصلاة والأذان القادم. */

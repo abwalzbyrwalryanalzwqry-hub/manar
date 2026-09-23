@@ -39,6 +39,8 @@ public class BootReceiver extends BroadcastReceiver {
                         "",
                         action);
                 SakinahScheduler.rearm(context);
+                // والويدجت: منبّه تحديثه سقط مع إعادة التشغيل، والساعة ربما تغيّرت.
+                ManarWidget.updateAll(context);
                 break;
             default:
                 break;

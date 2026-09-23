@@ -83,6 +83,20 @@
             </intent-filter>
         </receiver>
 
+        <!-- ويدجت الشاشة الرئيسية: الصلاة القادمة وآية اليوم. exported=true
+             مطلوب ليصله مضيف الويدجت (مشغّل الشاشة الرئيسية). -->
+        <receiver
+            android:name=".ManarWidget"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/manar_widget_info" />
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

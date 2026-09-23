@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AdhanProvider } from "@/components/manar/adhan-provider";
+import { WidgetSync } from "@/components/manar/widget-sync";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth-context";
 import { CloudSyncBridge } from "@/components/manar/cloud-sync-bridge";
@@ -195,6 +196,7 @@ function RootComponent() {
         <AuthProvider>
           <CloudSyncBridge />
           <AdhanProvider />
+          <WidgetSync />
           <NativeBridge />
           <AudioStopBar />
           <Toaster position="top-center" dir="rtl" richColors closeButton />
