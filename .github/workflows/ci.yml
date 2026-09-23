@@ -61,6 +61,15 @@ jobs:
       - name: التحليل الساكن
         run: npm run lint
 
+      - name: اختبارات الوحدة
+        run: npm test
+
+      # الحسابات التاريخية حسّاسة للمنطقة الزمنية؛ نعيدها في منطقتين متطرفتين.
+      - name: اختبارات الوحدة (مناطق زمنية أخرى)
+        run: |
+          MANAR_TEST_TZ=America/New_York npm test
+          MANAR_TEST_TZ=Pacific/Auckland npm test
+
       - name: بناء الويب
         run: npm run build
 

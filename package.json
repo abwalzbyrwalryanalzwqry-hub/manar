@@ -17,7 +17,9 @@
     "android:apk:debug": "npm run build:android && cd android && ./gradlew assembleDebug",
     "android:aab": "npm run build:android && cd android && ./gradlew bundleRelease",
     "cap": "cap",
-    "audio:tones": "python3 scripts/build-tones.py"
+    "audio:tones": "python3 scripts/build-tones.py",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.9",
@@ -105,7 +107,8 @@
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^3.2.7"
   },
   "version": "1.0.0"
 }

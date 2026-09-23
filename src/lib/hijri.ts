@@ -142,22 +142,26 @@ function hijriToOrdinal(h: HijriDate): number {
  * (٥ تكرارات كحد أقصى عملياً) لأن `Intl` لا يوفّر تحويلاً عكسياً مباشراً.
  */
 export function fromHijri(h: HijriDate, adjust: number = 0): Date {
-  // ١ محرّم ١٤٤٧هـ ≈ ٢٦ يونيو ٢٠٢٥م — نستخدم نقطة ارتساء ثم نقدّر.
+  /* نعمل بتواريخ محلية في منتصف النهار من البداية إلى النهاية، لأن `toHijri`
+   * يقرأ اليوم المحلي. النسخة السابقة كانت تقدّر بتوقيت UTC وبكسور يوم ثم تُرجع
+   * يوم UTC، فتنزاح أشهر كاملة يوماً في المناطق ذات التوقيت الموجب (كل البلاد
+   * العربية) — منها شوّال وذو الحجة ١٤٤٦، أي العيدان ويوم عرفة في التقويم. */
+  // ١ محرّم ١٤٤٧هـ = ٢٦ يونيو ٢٠٢٥م — نقطة ارتساء ثم تقدير بأيام كاملة.
   const anchorHijri: HijriDate = { year: 1447, month: 1, day: 1 };
-  const anchorGregorian = Date.UTC(2025, 5, 26, 12);
-  const estimateDays = (hijriToOrdinal(h) - hijriToOrdinal(anchorHijri)) * 1.0;
-  let guess = new Date(anchorGregorian + Math.round(estimateDays * MS_PER_DAY));
+  const localNoon = (days: number) => new Date(2025, 5, 26 + days, 12);
+  let offset = Math.round(hijriToOrdinal(h) - hijriToOrdinal(anchorHijri));
+  let guess = localNoon(offset);
 
   for (let i = 0; i < 60; i += 1) {
     const got = toHijri(guess, adjust);
     if (got.year === h.year && got.month === h.month && got.day === h.day) break;
     const delta = (h.year - got.year) * 354 + (h.month - got.month) * 29.53 + (h.day - got.day);
     const step = Math.abs(delta) < 1 ? Math.sign(delta) || 1 : Math.round(delta);
-    guess = shiftDays(guess, step);
+    offset += step;
+    guess = localNoon(offset);
   }
 
-  // نُرجع تاريخاً محلياً في منتصف النهار حتى تكون العمليات اللاحقة آمنة.
-  return new Date(guess.getUTCFullYear(), guess.getUTCMonth(), guess.getUTCDate(), 12);
+  return guess;
 }
 
 /** عدد أيام الشهر الهجري (٢٩ أو ٣٠) وفق أم القرى بعد الإزاحة. */
