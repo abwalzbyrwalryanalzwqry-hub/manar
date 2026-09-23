@@ -139,7 +139,10 @@ android {
     // know so it does not try to re-compress them into the APK.
     androidResources {
         // وتسجيلات الإقامة (Ogg Opus وM4A) كذلك: تُقرأ من الحزمة كما هي.
-        noCompress += ['mp3', 'ogg', 'm4a', 'woff2', 'json']
+        // ملفات JSON (نص القرآن والتفسيران والأذكار والأحاديث) نصّ خام يُضغط
+        // إلى نحو الربع، فتُترك للضغط: الـ WebView يقرؤها عبر AssetManager.open
+        // الذي يفكّ الضغط تلقائياً، ولا شيء يفتحها بـ openFd.
+        noCompress += ['mp3', 'ogg', 'm4a', 'woff2']
     }
 
     bundle {
