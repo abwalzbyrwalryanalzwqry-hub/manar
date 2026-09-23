@@ -37,6 +37,7 @@ import { Route as QuranRecitationsRouteImport } from './routes/quran.recitations
 import { Route as QuranReaderSettingsRouteImport } from './routes/quran.reader-settings'
 import { Route as QuranMushafRouteImport } from './routes/quran.mushaf'
 import { Route as QuranLastReadRouteImport } from './routes/quran.last-read'
+import { Route as QuranKhatmahRouteImport } from './routes/quran.khatmah'
 import { Route as QuranBookmarksRouteImport } from './routes/quran.bookmarks'
 import { Route as AzkarSearchRouteImport } from './routes/azkar.search'
 import { Route as AzkarChapterRouteImport } from './routes/azkar.$chapter'
@@ -187,6 +188,11 @@ const QuranLastReadRoute = QuranLastReadRouteImport.update({
   path: '/quran/last-read',
   getParentRoute: () => rootRouteImport,
 } as any)
+const QuranKhatmahRoute = QuranKhatmahRouteImport.update({
+  id: '/quran/khatmah',
+  path: '/quran/khatmah',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const QuranBookmarksRoute = QuranBookmarksRouteImport.update({
   id: '/quran/bookmarks',
   path: '/quran/bookmarks',
@@ -265,6 +271,7 @@ export interface FileRoutesByFullPath {
   '/azkar/$chapter': typeof AzkarChapterRoute
   '/azkar/search': typeof AzkarSearchRoute
   '/quran/bookmarks': typeof QuranBookmarksRoute
+  '/quran/khatmah': typeof QuranKhatmahRoute
   '/quran/last-read': typeof QuranLastReadRoute
   '/quran/mushaf': typeof QuranMushafRoute
   '/quran/reader-settings': typeof QuranReaderSettingsRoute
@@ -303,6 +310,7 @@ export interface FileRoutesByTo {
   '/azkar/$chapter': typeof AzkarChapterRoute
   '/azkar/search': typeof AzkarSearchRoute
   '/quran/bookmarks': typeof QuranBookmarksRoute
+  '/quran/khatmah': typeof QuranKhatmahRoute
   '/quran/last-read': typeof QuranLastReadRoute
   '/quran/mushaf': typeof QuranMushafRoute
   '/quran/reader-settings': typeof QuranReaderSettingsRoute
@@ -344,6 +352,7 @@ export interface FileRoutesById {
   '/azkar/$chapter': typeof AzkarChapterRoute
   '/azkar/search': typeof AzkarSearchRoute
   '/quran/bookmarks': typeof QuranBookmarksRoute
+  '/quran/khatmah': typeof QuranKhatmahRoute
   '/quran/last-read': typeof QuranLastReadRoute
   '/quran/mushaf': typeof QuranMushafRoute
   '/quran/reader-settings': typeof QuranReaderSettingsRoute
@@ -385,6 +394,7 @@ export interface FileRouteTypes {
     | '/azkar/$chapter'
     | '/azkar/search'
     | '/quran/bookmarks'
+    | '/quran/khatmah'
     | '/quran/last-read'
     | '/quran/mushaf'
     | '/quran/reader-settings'
@@ -423,6 +433,7 @@ export interface FileRouteTypes {
     | '/azkar/$chapter'
     | '/azkar/search'
     | '/quran/bookmarks'
+    | '/quran/khatmah'
     | '/quran/last-read'
     | '/quran/mushaf'
     | '/quran/reader-settings'
@@ -463,6 +474,7 @@ export interface FileRouteTypes {
     | '/azkar/$chapter'
     | '/azkar/search'
     | '/quran/bookmarks'
+    | '/quran/khatmah'
     | '/quran/last-read'
     | '/quran/mushaf'
     | '/quran/reader-settings'
@@ -499,6 +511,7 @@ export interface RootRouteChildren {
   AzkarChapterRoute: typeof AzkarChapterRoute
   AzkarSearchRoute: typeof AzkarSearchRoute
   QuranBookmarksRoute: typeof QuranBookmarksRoute
+  QuranKhatmahRoute: typeof QuranKhatmahRoute
   QuranLastReadRoute: typeof QuranLastReadRoute
   QuranMushafRoute: typeof QuranMushafRoute
   QuranReaderSettingsRoute: typeof QuranReaderSettingsRoute
@@ -707,6 +720,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof QuranLastReadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/quran/khatmah': {
+      id: '/quran/khatmah'
+      path: '/quran/khatmah'
+      fullPath: '/quran/khatmah'
+      preLoaderRoute: typeof QuranKhatmahRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/quran/bookmarks': {
       id: '/quran/bookmarks'
       path: '/quran/bookmarks'
@@ -835,6 +855,7 @@ const rootRouteChildren: RootRouteChildren = {
   AzkarChapterRoute: AzkarChapterRoute,
   AzkarSearchRoute: AzkarSearchRoute,
   QuranBookmarksRoute: QuranBookmarksRoute,
+  QuranKhatmahRoute: QuranKhatmahRoute,
   QuranLastReadRoute: QuranLastReadRoute,
   QuranMushafRoute: QuranMushafRoute,
   QuranReaderSettingsRoute: QuranReaderSettingsRoute,

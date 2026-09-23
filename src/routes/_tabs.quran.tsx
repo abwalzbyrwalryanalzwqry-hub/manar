@@ -11,6 +11,7 @@ import {
 import { toArabicDigits, useBookmarks, useReadingHistory } from "@/lib/quran";
 import { SURAH_META } from "@/lib/quran/metadata";
 import { formatRelativeArabic } from "@/lib/quran-reader-state";
+import { useKhatmah } from "@/lib/quran/khatmah-plan";
 
 export const Route = createFileRoute("/_tabs/quran")({
   head: () => ({
@@ -81,7 +82,16 @@ const CARDS: Card[] = [
 function QuranHub() {
   const { last, streak, progress } = useReadingHistory();
   const { items: bookmarks } = useBookmarks();
+  const khatmah = useKhatmah();
   const percent = Math.round(progress * 100);
+  const k = khatmah.status;
+  const khatmahHint = !k
+    ? "حدّد مدة ختمتك ويوزّع منار الصفحات على الأيام."
+    : k.phase === "finished"
+      ? "تمّت ختمتك — ابدأ ختمة جديدة."
+      : k.portion
+        ? `ورد اليوم: الصفحات ${toArabicDigits(k.portion.from.page)} إلى ${toArabicDigits(k.portion.to.page)}`
+        : "أتممت ورد اليوم — نلتقي غداً.";
 
   return (
     <Screen>
@@ -163,7 +173,11 @@ function QuranHub() {
       <div className="mt-4 grid grid-cols-3 gap-2.5 px-5">
         <StatPill label="العلامات" value={toArabicDigits(bookmarks.length)} to="/quran/bookmarks" />
         <StatPill label="سلسلة الأيام" value={toArabicDigits(streak)} to="/quran/last-read" />
-        <StatPill label="الختمة" value={`${toArabicDigits(percent)}٪`} to="/quran/last-read" />
+        <StatPill
+          label="الختمة"
+          value={`${toArabicDigits(k ? Math.round(k.progress * 100) : percent)}٪`}
+          to="/quran/khatmah"
+        />
       </div>
 
       <SectionLabel hint="٦ أقسام">أقسام القرآن</SectionLabel>
@@ -174,7 +188,26 @@ function QuranHub() {
         ))}
       </div>
 
-      <div className="mt-8 px-5">
+      <div className="mt-8 space-y-3 px-5">
+        <Link
+          to="/quran/khatmah"
+          className="glass flex items-center gap-3 rounded-2xl border border-border/60 p-4 text-right"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary">
+            <Icon d={icons.target} size={18} />
+          </span>
+          <div className="flex-1">
+            <div className="text-sm font-medium">
+              {k ? `الختمة المخطّطة — اليوم ${toArabicDigits(k.day)}` : "الختمة المخطّطة"}
+            </div>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground tabular-nums">
+              {khatmahHint}
+            </p>
+          </div>
+          <span className="rotate-180 text-muted-foreground">
+            <Icon d={icons.chevron} size={14} />
+          </span>
+        </Link>
         <Link
           to="/quran/last-read"
           className="glass flex items-center gap-3 rounded-2xl border border-border/60 p-4 text-right"

@@ -11,6 +11,7 @@ import { quranRepository, toArabicDigits, REVELATION_LABEL_AR, formatRangeAr } f
 import { formatRelativeArabic, useReaderState } from "@/lib/quran-reader-state";
 import { isBookmarked, toggleBookmark, useBookmarks } from "@/lib/quran/bookmarks";
 import { recordRead } from "@/lib/quran/reading-history";
+import { recordPageTurn } from "@/lib/quran/khatmah-plan";
 import { buildShareText, shareCardText } from "@/lib/quran/share-card";
 import type { AyahText } from "@/lib/quran/text-types";
 
@@ -335,7 +336,14 @@ function MushafReader() {
         )}
 
         {!isSurahMode && (
-          <MushafPagesMode page={pageNumber} onChange={(p) => update({ page: clampPage(p) })} />
+          <MushafPagesMode
+            page={pageNumber}
+            onChange={(p) => {
+              const next = clampPage(p);
+              recordPageTurn(pageNumber, next);
+              update({ page: next });
+            }}
+          />
         )}
         {isSurahMode && (
           <>
