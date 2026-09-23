@@ -12,6 +12,8 @@
 #      ٢. تدفّق: أذان ← تنبيه قبل الإقامة ← إقامة، ومنع التكرار، وصوت واحد فقط.
 #      ٣. إعادة الضبط بالمفاتيح نفسها بعد إطلاقها: لا يُطلق شيء مرّتين.
 #      ٤. مورد مفقود: لا انهيار، لا صوت بديل، إشعار مكتوب.
+#      ٤ب. الإيقاف السريع دون فتح التطبيق: زرّ الصوت وزرّ التشغيل، والشاشة
+#          مضاءة ومطفأة — مع التحقق أن الصوت يُسمع فعلاً قبلها.
 #      ٥. إعادة تشغيل الجهاز: الإقامة تُطلق دون فتح التطبيق.
 #   ب) حزمة الإصدار (المصغّرة، كما تصل للمستخدم):
 #      ٦. التطبيق نفسه يبني الجدول (JS → الطبقة الأصلية) — فحص محتواه.
@@ -201,6 +203,89 @@ expect "مورد مفقود يُسجَّل" "$OUT/missing-logcat.txt" "missing r
 expect_none "مورد مفقود: لا صوت بديل" "$OUT/missing-logcat.txt" "start key=t_missing_iqamah"
 expect_none "مورد مفقود: لا انهيار" "$OUT/missing-logcat.txt" "FATAL EXCEPTION"
 expect "مورد مفقود: يبقى الإشعار المكتوب" "$OUT/missing-notifications.txt" "id=309201"
+
+# ---- ٤ب. الإيقاف السريع بأزرار الجهاز والتطبيق مغلق ----
+wait_log() { # wait_log <regex> <seconds> — ينتظر سطراً في السجلّ بدل مهلة ثابتة
+  local re="$1" max="$2" i=0
+  while [ $i -lt "$max" ]; do
+    adb logcat -d 2> /dev/null | grep -qE "$re" && return 0
+    sleep 1
+    i=$((i + 1))
+  done
+  return 1
+}
+OLD_TIMEOUT=$(adb shell settings get system screen_off_timeout | tr -d '\r')
+adb shell input keyevent KEYCODE_WAKEUP
+kill_app "$DP"
+adb logcat -c
+adb shell am broadcast -n "$RECV" -a app.manar.islamic.test.SCHEDULE --es scenario quick
+sleep 3
+adb shell am kill "$DP"
+Q="$OUT/quick-logcat.txt"
+# ١) زرّ الصوت والشاشة مطفأة.
+if wait_log "start key=t_q1_adhan" 110; then
+  sleep 4
+  adb shell dumpsys audio > "$OUT/quick-audio-playing.txt" 2>&1 || true
+  adb shell dumpsys media_session > "$OUT/quick-media-session.txt" 2>&1 || true
+  echo "DIAG interactive=$(adb shell dumpsys power | grep -m1 -oE 'mWakefulness=[A-Za-z]+')"
+  grep -E "global priority|Volume default|default volume|package=app.manar|active=|state=PlaybackState" \
+    "$OUT/quick-media-session.txt" | head -12 | sed 's/^/DIAG /'
+  grep -E "USAGE_MEDIA|USAGE_ALARM" "$OUT/quick-audio-playing.txt" | grep -i started | head -4 | sed 's/^/DIAG /'
+  # `input keyevent` يُعلَّم «محقوناً» فيسلك والشاشة مطفأة مسار الشاشة المضاءة؛ زرّ
+  # الجهاز الحقيقي يُرسَل من لوحة المحاكي كمفتاح عتادي (EV_KEY) ليسلك مساره الفعلي.
+  if adb emu event send EV_KEY:KEY_VOLUMEDOWN:1 EV_SYN:0:0 > /dev/null 2>&1 \
+    && adb emu event send EV_KEY:KEY_VOLUMEDOWN:0 EV_SYN:0:0 > /dev/null 2>&1; then
+    note "زرّ الصوت والشاشة مطفأة: مفتاح عتادي من لوحة المحاكي"
+  else
+    note "لوحة المحاكي غير متاحة — مفتاح محقون"
+    adb shell input keyevent KEYCODE_VOLUME_DOWN
+  fi
+  wait_log "muted by=volume-(key|stream) key=t_q1_adhan" 15 || true
+  adb logcat -d | grep -iE "key bridge|MediaSessionService|dispatchVolume|adjustSuggested|skipping volume|ManarAudio" \
+    | tail -15 | sed 's/^/DIAG /'
+  adb shell dumpsys audio | grep -m3 -iE "STREAM_MUSIC|- STREAM_MUSIC" | sed 's/^/DIAG /' || true
+fi
+# ٢) زرّ التشغيل والشاشة مضاءة (مهلة انطفاء طويلة حتى لا تنطفئ وحدها).
+adb shell settings put system screen_off_timeout 600000
+adb shell input keyevent KEYCODE_WAKEUP
+if wait_log "start key=t_q2_iqamah" 110; then
+  sleep 4
+  adb shell input keyevent KEYCODE_POWER
+  wait_log "muted by=power-key key=t_q2_iqamah" 15 || true
+fi
+# ٣) زرّ التشغيل والشاشة مطفأة (أطفأتها الضغطة السابقة).
+adb shell input keyevent KEYCODE_SLEEP || true
+if wait_log "start key=t_q3_adhan" 110; then
+  sleep 4
+  adb shell input keyevent KEYCODE_POWER
+  wait_log "muted by=power-key key=t_q3_adhan" 15 || true
+fi
+# ٤) زرّ الصوت والشاشة مضاءة.
+adb shell input keyevent KEYCODE_WAKEUP
+if wait_log "start key=t_q4_iqamah" 110; then
+  sleep 4
+  adb shell input keyevent KEYCODE_VOLUME_UP
+  wait_log "muted by=volume-(key|stream) key=t_q4_iqamah" 15 || true
+fi
+sleep 3
+adb logcat -d > "$Q"
+adb shell dumpsys notification --noredact > "$OUT/quick-notifications.txt"
+[ -n "$OLD_TIMEOUT" ] && [ "$OLD_TIMEOUT" != "null" ] \
+  && adb shell settings put system screen_off_timeout "$OLD_TIMEOUT" || true
+expect "الأذان يُشغَّل والتطبيق مغلق" "$Q" "start key=t_q1_adhan sound=afasy_full_1 kind=adhan"
+expect "الإيقاف السريع مُفعَّل مع التشغيل" "$Q" "quick-stop armed screen=off"
+if [ "$API" -ge 26 ]; then
+  expect "الصوت يُسمع فعلاً (مشغّل منبّه نشط)" "$OUT/quick-audio-playing.txt" "state:started.*USAGE_ALARM|USAGE_ALARM.*state:started"
+else
+  note "API $API: لا قائمة مشغّلات في dumpsys audio — يُكتفى بسجلّ بدء التشغيل"
+fi
+expect "زرّ الصوت يُسكت الأذان" "$Q" "muted by=volume-(key|stream) key=t_q1_adhan" 1
+expect "زرّ الصوت والشاشة مضاءة يُسكت الإقامة" "$Q" "muted by=volume-(key|stream) key=t_q4_iqamah" 1
+expect "زرّ التشغيل والشاشة مضاءة يُسكت الإقامة" "$Q" "muted by=power-key key=t_q2_iqamah" 1
+expect "زرّ التشغيل والشاشة مطفأة يُسكت الأذان" "$Q" "muted by=power-key key=t_q3_adhan" 1
+expect "لا صوت يكمل بعد الإيقاف" "$Q" "completed key=t_q[1-4]_" 0
+expect "يبقى تنبيه الصلاة مكتوباً بعد الإسكات" "$OUT/quick-notifications.txt" "id=40995"
+expect_no_crash "الإيقاف السريع: لا انهيار" "$Q"
 
 # ---- ٥. إعادة تشغيل الجهاز ----
 adb shell am broadcast -n "$RECV" -a app.manar.islamic.test.SCHEDULE --es scenario reboot

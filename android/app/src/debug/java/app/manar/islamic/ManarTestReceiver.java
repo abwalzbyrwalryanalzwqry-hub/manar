@@ -188,6 +188,12 @@ public class ManarTestReceiver extends BroadcastReceiver {
         } else if ("reboot".equals(scenario)) {
             list.add(ev(9101, "t_isha_iqamah", now + 240_000, "iqamah_19", "iqama", "", false));
             list.add(ev(9102, "t_isha_iqamah_reminder", now + 230_000, "", "notice", "iqama", false));
+        } else if ("quick".equals(scenario)) {
+            // الإيقاف السريع بأزرار الجهاز: أصوات طويلة يُسكتها الاختبار قبل نهايتها.
+            list.add(ev(9301, "t_q1_adhan", now + 20_000, "afasy_full_1", "adhan", "", false));
+            list.add(ev(9302, "t_q2_iqamah", now + 70_000, "iqamah_02", "iqama", "", false));
+            list.add(ev(9303, "t_q3_adhan", now + 120_000, "afasy_full_2", "adhan", "", false));
+            list.add(ev(9304, "t_q4_iqamah", now + 170_000, "iqamah_02", "iqama", "", false));
         } else if ("missing".equals(scenario)) {
             // مورد غير موجود: لا انهيار، لا صوت بديل، يبقى الإشعار المكتوب.
             list.add(ev(9201, "t_missing_iqamah", now + 20_000, "iqamah_99", "iqama", "", false));

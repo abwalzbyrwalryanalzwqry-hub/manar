@@ -3,17 +3,22 @@ package app.manar.islamic;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
+import android.media.AudioFormat;
 import android.media.AudioManager;
+import android.media.AudioTrack;
 import android.media.MediaPlayer;
 import android.media.audiofx.LoudnessEnhancer;
 import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 
@@ -129,6 +134,21 @@ public class AdhanService extends Service
     @Nullable private LoudnessEnhancer enhancer;
     /** صوت منبّه الجهاز قبل رفعه مؤقتاً (−١ = لم يُرفع)، ليُعاد بعد الأذان. */
     private int restoreAlarmVolume = -1;
+
+    /* ------------- الإيقاف السريع بأزرار الجهاز (انظر startQuickStop) ------------- */
+
+    /** مهلة بعد بدء الصوت تُهمَل فيها أحداث الشاشة والصوت التي يُسبّبها بدء التشغيل نفسه. */
+    private static final long QUICK_STOP_GRACE_MS = 1200L;
+    @Nullable private BroadcastReceiver quickStopReceiver;
+    /** يمنع انطفاء الشاشة بالمهلة أثناء الصوت، فيصير انطفاؤها ضغطةَ زرّ التشغيل حتماً. */
+    @Nullable private PowerManager.WakeLock screenLock;
+    private long playStartedAt;
+    /**
+     * مسار صامت على قناة الوسائط طوال الصوت. أندرويد لا يوجّه أزرار الصوت والشاشة
+     * مطفأة إلى أي جلسة إلا إن كانت قناة الوسائط نشطة (والأذان على قناة المنبّه)،
+     * فكان زرّ الصوت يُهمَل والشاشة مطفأة. أصفار خالصة: لا يُسمع شيء.
+     */
+    @Nullable private AudioTrack keyBridge;
     @Nullable private MediaSessionCompat session;
     @Nullable private AudioFocusRequest focusRequest;
     @Nullable private PowerManager.WakeLock wakeLock;
@@ -236,7 +256,7 @@ public class AdhanService extends Service
         session = new MediaSessionCompat(this, "manar-adhan");
         session.setCallback(new MediaSessionCompat.Callback() {
             @Override public void onStop() { stopEverything(); }
-            @Override public void onPause() { muteOnly(); }
+            @Override public void onPause() { muteOnly("media-pause"); }
         });
         // أزرار الصوت أثناء تشغيل الأذان: التصرّف المتوقّع أن تُسكت الأذان، لا
         // أن تُنزل صوت الهاتف كلّه. ونمرّرها عبر الجلسة — وهي الآلة الرسمية —
@@ -246,12 +266,12 @@ public class AdhanService extends Service
                     VolumeProviderCompat.VOLUME_CONTROL_RELATIVE, 100, 100) {
                 @Override
                 public void onAdjustVolume(int direction) {
-                    if (direction != 0) muteOnly();
+                    if (direction != 0) muteOnly("volume-key");
                 }
 
                 @Override
                 public void onSetVolumeTo(int volume) {
-                    if (volume < 100) muteOnly();
+                    if (volume < 100) muteOnly("volume-key");
                 }
             });
         } catch (Exception ignored) {
@@ -271,7 +291,7 @@ public class AdhanService extends Service
         }
 
         if (ACTION_MUTE.equals(action)) {
-            muteOnly();
+            muteOnly("notification");
             return START_NOT_STICKY;
         }
 
@@ -396,6 +416,8 @@ public class AdhanService extends Service
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setOnlyAlertOnce(true)
                 .setOngoing(true)
+                // على أندرويد ١٤+ يمكن سحب إشعار الخدمة جانباً: السحب يُسكت الصوت.
+                .setDeleteIntent(mutePi)
                 // الكتم أوّلاً: هو ما يحتاجه المستخدم في ثانيةٍ واحدة.
                 .addAction(R.drawable.ic_stat_manar, "كتم الصوت", mutePi)
                 .addAction(R.drawable.ic_stat_manar, stopLabel(kind), stopPi);
@@ -532,6 +554,7 @@ public class AdhanService extends Service
             applyLoudness(sound);
             if (!notificationUsage) raiseAlarmStreamIfWanted();
             player.start();
+            startQuickStop();
             android.util.Log.i("ManarAudio", "start key=" + currentKey + " sound=" + sound
                     + " kind=" + currentNoticeKind);
             return true;
@@ -570,6 +593,158 @@ public class AdhanService extends Service
     }
 
     /** يُوقف المشغّل ويُحرّره دون إنهاء الخدمة — أساس منع تراكب الأصوات. */
+    /**
+     * إيقاف سريع دون فتح التطبيق، ما دام صوت منار يعمل:
+     *
+     * <ul>
+     *   <li>أزرار الصوت: تمرّ عبر {@link MediaSessionCompat} (مزوّد الصوت البعيد في
+     *       {@link #onCreate})، ويُلتقط هنا احتياطياً أيّ تغيّر فعلي في صوت الجهاز
+     *       إن وجّه النظام الزرّ إلى قناة أخرى.</li>
+     *   <li>زرّ التشغيل: إن كانت الشاشة مطفأة فإضاءتها تُسكت الصوت؛ وإن كانت مضاءة
+     *       نمنع انطفاءها بالمهلة أثناء الصوت، فيكون انطفاؤها ضغطةَ الزرّ لا غير.</li>
+     * </ul>
+     *
+     * <p>كلها «كتم» كزرّ الإشعار: يسكت الصوت ويبقى تنبيه الصلاة مكتوباً، والأذان
+     * التالي في موعده. ولا يُحفظ شيء: يُسجَّل المستقبِل مع كل تشغيل ويُلغى معه.
+     */
+    private void startQuickStop() {
+        stopQuickStop();
+        playStartedAt = SystemClock.elapsedRealtime();
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        boolean screenOn = pm != null && pm.isInteractive();
+        if (screenOn && pm != null) {
+            try {
+                @SuppressWarnings("deprecation")
+                PowerManager.WakeLock lock =
+                        pm.newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK, "manar:adhan-screen");
+                lock.setReferenceCounted(false);
+                lock.acquire(10 * 60 * 1000L);
+                screenLock = lock;
+            } catch (Throwable t) {
+                screenLock = null;
+            }
+        }
+        startKeyBridge();
+        quickStopReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                onQuickStopEvent(intent);
+            }
+        };
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_SCREEN_ON);
+        filter.addAction(Intent.ACTION_SCREEN_OFF);
+        filter.addAction("android.media.VOLUME_CHANGED_ACTION");
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(quickStopReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(quickStopReceiver, filter);
+            }
+        } catch (Throwable t) {
+            quickStopReceiver = null;
+        }
+        android.util.Log.i("ManarAudio", "quick-stop armed screen=" + (screenOn ? "on" : "off"));
+    }
+
+    private void onQuickStopEvent(Intent intent) {
+        if (player == null || intent == null) return;
+        String action = intent.getAction();
+        boolean settled = SystemClock.elapsedRealtime() - playStartedAt >= QUICK_STOP_GRACE_MS;
+        if (Intent.ACTION_SCREEN_ON.equals(action)) {
+            if (settled) muteOnly("power-key");
+        } else if (Intent.ACTION_SCREEN_OFF.equals(action)) {
+            // بلا قفل الشاشة قد يكون الانطفاء مهلةً لا ضغطة (شاشة أضاءها النظام) — نتجاهله.
+            if (screenLock != null && screenLock.isHeld()) muteOnly("power-key");
+        } else if ("android.media.VOLUME_CHANGED_ACTION".equals(action)) {
+            int now = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_VALUE", -1);
+            int prev = intent.getIntExtra("android.media.EXTRA_PREV_VOLUME_STREAM_VALUE", -1);
+            if (settled && now != prev && !quietModeChanging()) muteOnly("volume-stream");
+        }
+    }
+
+    /**
+     * «عدم الإزعاج» (ومنه سكينة) ووضع الصامت يغيّران أصوات الجهاز آلياً — ليس
+     * ذلك ضغطة زرّ، فلا نُسكت الأذان بسببه.
+     */
+    private boolean quietModeChanging() {
+        try {
+            if (audioManager != null && audioManager.getRingerMode() != AudioManager.RINGER_MODE_NORMAL) {
+                return true;
+            }
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            return nm != null
+                    && nm.getCurrentInterruptionFilter() != NotificationManager.INTERRUPTION_FILTER_ALL
+                    && nm.getCurrentInterruptionFilter() != NotificationManager.INTERRUPTION_FILTER_UNKNOWN;
+        } catch (Throwable t) {
+            return true;
+        }
+    }
+
+    private void startKeyBridge() {
+        try {
+            int rate = 8000;
+            int frames = rate / 2; // نصف ثانية تُكرَّر
+            short[] silence = new short[frames];
+            AudioTrack track = new AudioTrack.Builder()
+                    .setAudioAttributes(new AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build())
+                    .setAudioFormat(new AudioFormat.Builder()
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setSampleRate(rate)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                            .build())
+                    .setTransferMode(AudioTrack.MODE_STATIC)
+                    .setBufferSizeInBytes(frames * 2)
+                    .build();
+            track.write(silence, 0, frames);
+            track.setLoopPoints(0, frames, -1);
+            track.play();
+            keyBridge = track;
+        } catch (Throwable t) {
+            // بدونه تبقى أزرار الصوت تعمل والشاشة مضاءة، وزرّ التشغيل والإشعار دائماً.
+            android.util.Log.w("ManarAudio", "key bridge unavailable", t);
+            releaseKeyBridge();
+        }
+    }
+
+    private void releaseKeyBridge() {
+        if (keyBridge == null) return;
+        try {
+            keyBridge.stop();
+        } catch (Throwable ignored) {
+            // not playing
+        }
+        try {
+            keyBridge.release();
+        } catch (Throwable ignored) {
+            // already released
+        }
+        keyBridge = null;
+    }
+
+    private void stopQuickStop() {
+        releaseKeyBridge();
+        if (quickStopReceiver != null) {
+            try {
+                unregisterReceiver(quickStopReceiver);
+            } catch (Throwable ignored) {
+                // already unregistered
+            }
+            quickStopReceiver = null;
+        }
+        if (screenLock != null) {
+            try {
+                if (screenLock.isHeld()) screenLock.release();
+            } catch (Throwable ignored) {
+                // already released
+            }
+            screenLock = null;
+        }
+    }
+
     /**
      * التسجيلات المرفقة متفاوتة الارتفاع حتى ١٩ ديسيبل؛ نرفع الضعيف منها وقت
      * التشغيل دون إعادة ترميز الملف. أيّ فشل هنا (جهاز لا يدعم المؤثّر) لا يمنع
@@ -631,6 +806,7 @@ public class AdhanService extends Service
     }
 
     private void releasePlayer() {
+        stopQuickStop();
         releaseEnhancer();
         restoreAlarmStream();
         if (player == null) return;
@@ -657,8 +833,9 @@ public class AdhanService extends Service
     }
 
     /** كتم: يُسكت صوت منار فوراً ويُبقي تنبيه الصلاة. */
-    private void muteOnly() {
+    private void muteOnly(String by) {
         boolean wasSounding = player != null;
+        if (wasSounding) android.util.Log.i("ManarAudio", "muted by=" + by + " key=" + currentKey);
         releasePlayer();
         abandonFocus();
         releaseWakeLock();
@@ -674,6 +851,7 @@ public class AdhanService extends Service
     }
 
     private void stopEverything() {
+        if (player != null) android.util.Log.i("ManarAudio", "stopped by=user key=" + currentKey);
         releasePlayer();
         abandonFocus();
         releaseWakeLock();
