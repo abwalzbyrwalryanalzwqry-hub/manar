@@ -81,11 +81,15 @@ public class ManarWidget extends AppWidgetProvider {
 
     private static void render(Context context, AppWidgetManager manager, int[] ids) {
         long now = System.currentTimeMillis();
-        Pick pick = pick(prefs(context).getString(KEY_SNAPSHOT, ""), now);
+        String json = prefs(context).getString(KEY_SNAPSHOT, "");
+        Pick pick = pick(json, now);
+        Options opts = options(json);
 
         for (int id : ids) {
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_manar);
             views.setOnClickPendingIntent(R.id.widget_root, openAppIntent(context));
+            views.setInt(R.id.widget_root, "setBackgroundResource",
+                    opts.emerald ? R.drawable.widget_background_emerald : R.drawable.widget_background);
 
             if (pick == null) {
                 views.setTextViewText(R.id.widget_prayer, context.getString(R.string.widget_open_app));
@@ -93,20 +97,31 @@ public class ManarWidget extends AppWidgetProvider {
                 views.setViewVisibility(R.id.widget_countdown, View.GONE);
                 views.setViewVisibility(R.id.widget_countdown_label, View.GONE);
                 views.setTextViewText(R.id.widget_meta, context.getString(R.string.app_name));
+                views.setViewVisibility(R.id.widget_meta, View.VISIBLE);
                 views.setViewVisibility(R.id.widget_verse_block, View.GONE);
             } else {
                 views.setTextViewText(R.id.widget_prayer, pick.name);
                 views.setTextViewText(R.id.widget_time, pick.time);
-                views.setTextViewText(R.id.widget_meta, pick.meta);
+                String meta = opts.hijri ? pick.hijri : "";
+                if (opts.city && !pick.city.isEmpty()) {
+                    meta = meta.isEmpty() ? pick.city : meta + "  ·  " + pick.city;
+                }
+                views.setTextViewText(R.id.widget_meta, meta);
+                views.setViewVisibility(R.id.widget_meta, meta.isEmpty() ? View.GONE : View.VISIBLE);
+                if (opts.countdown) {
+                    // Chronometer يعدّ تنازلياً وحده من القاعدة إلى الصفر.
+                    long base = SystemClock.elapsedRealtime() + (pick.at - now);
+                    views.setChronometer(R.id.widget_countdown, base, null, true);
+                    views.setChronometerCountDown(R.id.widget_countdown, true);
+                    views.setViewVisibility(R.id.widget_countdown, View.VISIBLE);
+                    views.setViewVisibility(R.id.widget_countdown_label, View.VISIBLE);
+                } else {
+                    views.setChronometer(R.id.widget_countdown, SystemClock.elapsedRealtime(), null, false);
+                    views.setViewVisibility(R.id.widget_countdown, View.GONE);
+                    views.setViewVisibility(R.id.widget_countdown_label, View.GONE);
+                }
 
-                // Chronometer يعدّ تنازلياً وحده من القاعدة إلى الصفر.
-                long base = SystemClock.elapsedRealtime() + (pick.at - now);
-                views.setChronometer(R.id.widget_countdown, base, null, true);
-                views.setChronometerCountDown(R.id.widget_countdown, true);
-                views.setViewVisibility(R.id.widget_countdown, View.VISIBLE);
-                views.setViewVisibility(R.id.widget_countdown_label, View.VISIBLE);
-
-                if (pick.verse.isEmpty()) {
+                if (!opts.verse || pick.verse.isEmpty()) {
                     views.setViewVisibility(R.id.widget_verse_block, View.GONE);
                 } else {
                     views.setViewVisibility(R.id.widget_verse_block, View.VISIBLE);
@@ -128,7 +143,35 @@ public class ManarWidget extends AppWidgetProvider {
         String meta = "";
         String verse = "";
         String verseRef = "";
+        String hijri = "";
+        String city = "";
         long at;
+    }
+
+    /** إعدادات العرض من شاشة «ويدجت الشاشة الرئيسية» ({@code snapshot.options}). */
+    static final class Options {
+        boolean verse = true;
+        boolean countdown = true;
+        boolean hijri = true;
+        boolean city = true;
+        boolean emerald = false;
+    }
+
+    static Options options(String json) {
+        Options o = new Options();
+        if (json == null || json.isEmpty()) return o;
+        try {
+            JSONObject opts = new JSONObject(json).optJSONObject("options");
+            if (opts == null) return o;
+            o.verse = opts.optBoolean("verse", true);
+            o.countdown = opts.optBoolean("countdown", true);
+            o.hijri = opts.optBoolean("hijri", true);
+            o.city = opts.optBoolean("city", true);
+            o.emerald = "emerald".equals(opts.optString("theme", "night"));
+        } catch (Exception ignored) {
+            // لقطة تالفة: الافتراضيات.
+        }
+        return o;
     }
 
     /** مفتاح اليوم المحلي بصيغة الويب {@code YYYY-MM-DD}. */
@@ -177,6 +220,8 @@ public class ManarWidget extends AppWidgetProvider {
                     JSONObject shown = todayObj != null ? todayObj : d;
                     String hijri = shown.optString("hijri", "");
                     out.meta = city.isEmpty() ? hijri : hijri + "  ·  " + city;
+                    out.hijri = hijri;
+                    out.city = city;
                     JSONObject verse = shown.optJSONObject("verse");
                     if (verse != null) {
                         out.verse = verse.optString("text", "");

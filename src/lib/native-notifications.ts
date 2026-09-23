@@ -157,7 +157,15 @@ type ManarAdhanPlugin = {
     adhan: number;
     iqama: number;
     reminder: number;
+    /** رفع صوت المنبّه في الجوال مؤقتاً وقت الأذان والإقامة. */
+    raiseAlarm?: boolean;
   }) => Promise<void>;
+  /** صوت «المنبّه» في الجوال — الأذان نسبةٌ منه. */
+  alarmVolume: () => Promise<{ level: number; max: number; percent: number }>;
+  setAlarmVolume: (o: { fraction: number }) => Promise<{ ok: boolean; percent: number }>;
+  widgetStatus: () => Promise<{ placed: number; pinSupported: boolean }>;
+  pinWidget: () => Promise<{ requested: boolean }>;
+  openExternal: (o: { urls: string[] }) => Promise<{ opened: boolean; url?: string }>;
   status: () => Promise<NativeAdhanStatus>;
   /** لقطة ويدجت الشاشة الرئيسية (JSON من `buildWidgetSnapshot`). */
   updateWidget: (o: { snapshot: string }) => Promise<{ widgets: number }>;
@@ -230,6 +238,65 @@ export function manarAdhanPlugin(): ManarAdhanPlugin | null {
  * يسلّم لقطة ويدجت الشاشة الرئيسية للطبقة الأصلية. نسخة قديمة من التطبيق الأصلي
  * بلا هذه الدالة تُرفض بصمت — الويدجت ميزة إضافية لا تُعطّل شيئاً.
  */
+/** صوت المنبّه في الجوال بالنسبة المئوية، أو `null` خارج أندرويد/نسخة أقدم. */
+export async function getPhoneAlarmVolume(): Promise<number | null> {
+  const p = adhanPlugin();
+  if (!p) return null;
+  try {
+    const r = await p.alarmVolume();
+    return r.max > 0 ? r.percent : null;
+  } catch {
+    return null;
+  }
+}
+
+/** يرفع صوت المنبّه في الجوال إلى النسبة المطلوبة. يعيد النسبة الجديدة أو `null`. */
+export async function setPhoneAlarmVolume(fraction: number): Promise<number | null> {
+  const p = adhanPlugin();
+  if (!p) return null;
+  try {
+    const r = await p.setAlarmVolume({ fraction });
+    return r.ok ? r.percent : null;
+  } catch {
+    return null;
+  }
+}
+
+export type HomeWidgetStatus = { placed: number; pinSupported: boolean };
+
+/** حالة ويدجت الشاشة الرئيسية، أو `null` خارج أندرويد. */
+export async function getHomeWidgetStatus(): Promise<HomeWidgetStatus | null> {
+  const p = adhanPlugin();
+  if (!p) return null;
+  try {
+    return await p.widgetStatus();
+  } catch {
+    return null;
+  }
+}
+
+/** يطلب من المُشغّل إضافة الويدجت مباشرة. `false` إن لم يدعم ذلك. */
+export async function requestPinHomeWidget(): Promise<boolean> {
+  const p = adhanPlugin();
+  if (!p) return false;
+  try {
+    return (await p.pinWidget()).requested;
+  } catch {
+    return false;
+  }
+}
+
+/** يفتح أول رابط يوجد له تطبيق على الجوال. `null` خارج أندرويد. */
+export async function openExternalNative(urls: string[]): Promise<boolean | null> {
+  const p = adhanPlugin();
+  if (!p) return null;
+  try {
+    return (await p.openExternal({ urls })).opened;
+  } catch {
+    return null;
+  }
+}
+
 export async function updateHomeWidget(snapshot: string): Promise<void> {
   const p = adhanPlugin();
   if (!p) return;
@@ -567,28 +634,31 @@ async function syncNativePrayerScheduleNow(
   calc: Settings,
 ): Promise<number> {
   if (!isNativeShell()) return 0;
-  if (!(await ensureNativePermission())) return 0;
 
-  const p = plugin();
   const adhan = adhanPlugin();
   const s = getAdhanSettings();
-  const level = notificationLevel(s);
-  if (p) await registerActions(p);
-  if (p) await ensureSoundChannels(p, level);
   if (adhan) {
     /* الأذان والإقامة يُشغَّلان في الخدمة الأصلية ولو كان التطبيق مغلقاً،
-     * فتحفظ الخدمة مستوياتهما لتقرأها لحظة التشغيل. */
+     * فتحفظ الخدمة مستوياتهما لتقرأها لحظة التشغيل. تُحفظ قبل فحص إذن
+     * الإشعارات: كانت تُتخطّى كلياً إن لم يُمنح الإذن بعد، فيبقى مستوى قديم. */
     try {
       await adhan.setVolumes({
         master: s.volume,
         adhan: s.adhanVolume,
         iqama: s.iqamaVolume,
         reminder: effectiveVolume(s, "reminder"),
+        raiseAlarm: s.raisePhoneAlarm,
       });
     } catch {
       /* نسخة أصلية أقدم بلا هذه الدالة: يبقى التشغيل بكامل الصوت كما كان */
     }
   }
+  if (!(await ensureNativePermission())) return 0;
+
+  const p = plugin();
+  const level = notificationLevel(s);
+  if (p) await registerActions(p);
+  if (p) await ensureSoundChannels(p, level);
 
   const now = Date.now();
   const reminders: unknown[] = [];

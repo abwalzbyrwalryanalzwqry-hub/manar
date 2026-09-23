@@ -1,5 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Icon, icons, Screen, ScreenHeader, SectionLabel, Mark } from "@/components/manar/shell";
+import { DeveloperCard } from "@/components/manar/developer-card";
 
 export const Route = createFileRoute("/about")({
   head: () => ({ meta: [{ title: "عن التطبيق — منار" }] }),
@@ -37,6 +38,10 @@ function About() {
         </div>
       </div>
 
+      <div className="mt-6 px-5">
+        <DeveloperCard />
+      </div>
+
       <SectionLabel>روابط</SectionLabel>
       <div className="space-y-2 px-5">
         <LinkRow icon={icons.globe} l="موقعنا" v="manar.app" />
@@ -47,8 +52,8 @@ function About() {
 
       <SectionLabel>قانوني</SectionLabel>
       <div className="space-y-2 px-5">
-        <LinkRow icon={icons.lock} l="سياسة الخصوصية" v="" />
-        <LinkRow icon={icons.info} l="شروط الاستخدام" v="" />
+        <LinkRow icon={icons.lock} l="سياسة الخصوصية" v="" to="/privacy" />
+        <LinkRow icon={icons.info} l="شروط الاستخدام" v="" to="/terms" />
         <LinkRow icon={icons.heart} l="المصادر والاعتمادات" v="" />
       </div>
 
@@ -62,9 +67,11 @@ function About() {
   );
 }
 
-function LinkRow({ icon, l, v }: { icon: string; l: string; v: string }) {
-  return (
-    <button className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft">
+function LinkRow({ icon, l, v, to }: { icon: string; l: string; v: string; to?: string }) {
+  const cls =
+    "flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft";
+  const body = (
+    <>
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-primary">
         <Icon d={icon} size={16} />
       </span>
@@ -75,6 +82,13 @@ function LinkRow({ icon, l, v }: { icon: string; l: string; v: string }) {
           <Icon d={icons.chevron} size={14} />
         </span>
       </span>
-    </button>
+    </>
   );
+  if (to)
+    return (
+      <Link to={to} className={cls}>
+        {body}
+      </Link>
+    );
+  return <button className={cls}>{body}</button>;
 }

@@ -21,12 +21,18 @@ const ITEMS = [
     d: "أوقات وأصوات تختارها بنفسك",
     i: icons.sparkle,
   },
+  {
+    to: "/widget",
+    l: "ويدجت الشاشة الرئيسية",
+    d: "أضف الصلاة القادمة وآية اليوم إلى شاشة جوالك",
+    i: icons.widget,
+  },
   { to: "/qibla", l: "القِبلة", d: "البوصلة واتجاه الكعبة", i: icons.qibla },
   { to: "/calendar", l: "التقويم", d: "هجري وميلادي ومناسبات", i: icons.calendar },
   { to: "/statistics", l: "الإحصائيات", d: "تقدمك ورحلتك", i: icons.stats },
   { to: "/profile", l: "الملف الشخصي", d: "بياناتك وحسابك", i: icons.profile },
   { to: "/settings", l: "الإعدادات", d: "اللغة، الإشعارات، المظهر", i: icons.settings },
-  { to: "/about", l: "عن التطبيق", d: "النسخة والفريق", i: icons.info },
+  { to: "/about", l: "عن التطبيق", d: "النسخة، المطور، الخصوصية والشروط", i: icons.info },
 ] as const;
 
 function More() {

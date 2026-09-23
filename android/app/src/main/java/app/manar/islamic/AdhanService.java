@@ -9,6 +9,7 @@ import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.media.audiofx.LoudnessEnhancer;
 import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
@@ -124,6 +125,10 @@ public class AdhanService extends Service
     }
 
     @Nullable private MediaPlayer player;
+    /** تضخيم التسجيلات الضعيفة ({@link ManarLoudness}) — يُحرَّر مع المشغّل. */
+    @Nullable private LoudnessEnhancer enhancer;
+    /** صوت منبّه الجهاز قبل رفعه مؤقتاً (−١ = لم يُرفع)، ليُعاد بعد الأذان. */
+    private int restoreAlarmVolume = -1;
     @Nullable private MediaSessionCompat session;
     @Nullable private AudioFocusRequest focusRequest;
     @Nullable private PowerManager.WakeLock wakeLock;
@@ -524,6 +529,8 @@ public class AdhanService extends Service
             android.util.Log.i("ManarAudio", "play " + sound + " volume=" + volume
                     + " usage=" + (notificationUsage ? "notification" : "alarm"));
             player.prepare();
+            applyLoudness(sound);
+            if (!notificationUsage) raiseAlarmStreamIfWanted();
             player.start();
             android.util.Log.i("ManarAudio", "start key=" + currentKey + " sound=" + sound
                     + " kind=" + currentNoticeKind);
@@ -563,7 +570,69 @@ public class AdhanService extends Service
     }
 
     /** يُوقف المشغّل ويُحرّره دون إنهاء الخدمة — أساس منع تراكب الأصوات. */
+    /**
+     * التسجيلات المرفقة متفاوتة الارتفاع حتى ١٩ ديسيبل؛ نرفع الضعيف منها وقت
+     * التشغيل دون إعادة ترميز الملف. أيّ فشل هنا (جهاز لا يدعم المؤثّر) لا يمنع
+     * التشغيل — يُسمع الأذان بارتفاعه الأصلي.
+     */
+    private void applyLoudness(String sound) {
+        releaseEnhancer();
+        int gain = ManarLoudness.gainMillibels(sound);
+        if (gain <= 0 || player == null) return;
+        try {
+            enhancer = new LoudnessEnhancer(player.getAudioSessionId());
+            enhancer.setTargetGain(gain);
+            enhancer.setEnabled(true);
+            android.util.Log.i("ManarAudio", "loudness +" + gain + "mB " + sound);
+        } catch (Throwable t) {
+            android.util.Log.w("ManarAudio", "loudness enhancer unavailable", t);
+            releaseEnhancer();
+        }
+    }
+
+    private void releaseEnhancer() {
+        if (enhancer == null) return;
+        try {
+            enhancer.release();
+        } catch (Throwable ignored) {
+            // already released
+        }
+        enhancer = null;
+    }
+
+    /**
+     * صوت الأذان نسبةٌ من «صوت المنبّه» في الجوال: لو كان منخفضاً سُمع الأذان
+     * ضعيفاً مهما رُفع مستواه في منار. إن فعّل المستخدم «رفع صوت المنبّه وقت
+     * الأذان» نرفعه مؤقتاً إلى الأقصى ونعيده كما كان عند الانتهاء.
+     */
+    private void raiseAlarmStreamIfWanted() {
+        if (audioManager == null || !ManarVolumes.raiseAlarm(this)) return;
+        try {
+            int max = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM);
+            int cur = audioManager.getStreamVolume(AudioManager.STREAM_ALARM);
+            if (cur >= max) return;
+            if (restoreAlarmVolume < 0) restoreAlarmVolume = cur;
+            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, max, 0);
+            android.util.Log.i("ManarAudio", "alarm stream raised " + cur + " -> " + max);
+        } catch (Throwable t) {
+            // عدم الإزعاج أو سياسة الجهاز قد تمنع ذلك: يبقى التشغيل بالمستوى الحالي.
+            android.util.Log.w("ManarAudio", "could not raise alarm stream", t);
+        }
+    }
+
+    private void restoreAlarmStream() {
+        if (restoreAlarmVolume < 0 || audioManager == null) return;
+        try {
+            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, restoreAlarmVolume, 0);
+        } catch (Throwable ignored) {
+            // nothing else to do
+        }
+        restoreAlarmVolume = -1;
+    }
+
     private void releasePlayer() {
+        releaseEnhancer();
+        restoreAlarmStream();
         if (player == null) return;
         try {
             if (player.isPlaying()) player.stop();

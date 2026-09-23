@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WirdRouteImport } from './routes/wird'
+import { Route as WidgetRouteImport } from './routes/widget'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as StatisticsRouteImport } from './routes/statistics'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SakinahRouteImport } from './routes/sakinah'
@@ -18,6 +20,7 @@ import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as QiblaRouteImport } from './routes/qibla'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LoginRouteImport } from './routes/login'
@@ -52,6 +55,16 @@ import { Route as AzkarGroupGroupRouteImport } from './routes/azkar.group.$group
 const WirdRoute = WirdRouteImport.update({
   id: '/wird',
   path: '/wird',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WidgetRoute = WidgetRouteImport.update({
+  id: '/widget',
+  path: '/widget',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StatisticsRoute = StatisticsRouteImport.update({
@@ -92,6 +105,11 @@ const QiblaRoute = QiblaRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -254,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
@@ -262,6 +281,8 @@ export interface FileRoutesByFullPath {
   '/sakinah': typeof SakinahRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
+  '/terms': typeof TermsRoute
+  '/widget': typeof WidgetRoute
   '/wird': typeof WirdRouteWithChildren
   '/azkar': typeof TabsAzkarRoute
   '/home': typeof TabsHomeRoute
@@ -294,6 +315,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
@@ -302,6 +324,8 @@ export interface FileRoutesByTo {
   '/sakinah': typeof SakinahRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
+  '/terms': typeof TermsRoute
+  '/widget': typeof WidgetRoute
   '/azkar': typeof TabsAzkarRoute
   '/home': typeof TabsHomeRoute
   '/more': typeof TabsMoreRoute
@@ -335,6 +359,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
   '/register': typeof RegisterRoute
@@ -343,6 +368,8 @@ export interface FileRoutesById {
   '/sakinah': typeof SakinahRoute
   '/settings': typeof SettingsRoute
   '/statistics': typeof StatisticsRoute
+  '/terms': typeof TermsRoute
+  '/widget': typeof WidgetRoute
   '/wird': typeof WirdRouteWithChildren
   '/_tabs/azkar': typeof TabsAzkarRoute
   '/_tabs/home': typeof TabsHomeRoute
@@ -377,6 +404,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/notifications'
     | '/onboarding'
+    | '/privacy'
     | '/profile'
     | '/qibla'
     | '/register'
@@ -385,6 +413,8 @@ export interface FileRouteTypes {
     | '/sakinah'
     | '/settings'
     | '/statistics'
+    | '/terms'
+    | '/widget'
     | '/wird'
     | '/azkar'
     | '/home'
@@ -417,6 +447,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/notifications'
     | '/onboarding'
+    | '/privacy'
     | '/profile'
     | '/qibla'
     | '/register'
@@ -425,6 +456,8 @@ export interface FileRouteTypes {
     | '/sakinah'
     | '/settings'
     | '/statistics'
+    | '/terms'
+    | '/widget'
     | '/azkar'
     | '/home'
     | '/more'
@@ -457,6 +490,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/notifications'
     | '/onboarding'
+    | '/privacy'
     | '/profile'
     | '/qibla'
     | '/register'
@@ -465,6 +499,8 @@ export interface FileRouteTypes {
     | '/sakinah'
     | '/settings'
     | '/statistics'
+    | '/terms'
+    | '/widget'
     | '/wird'
     | '/_tabs/azkar'
     | '/_tabs/home'
@@ -499,6 +535,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
   OnboardingRoute: typeof OnboardingRoute
+  PrivacyRoute: typeof PrivacyRoute
   ProfileRoute: typeof ProfileRoute
   QiblaRoute: typeof QiblaRoute
   RegisterRoute: typeof RegisterRoute
@@ -507,6 +544,8 @@ export interface RootRouteChildren {
   SakinahRoute: typeof SakinahRoute
   SettingsRoute: typeof SettingsRoute
   StatisticsRoute: typeof StatisticsRoute
+  TermsRoute: typeof TermsRoute
+  WidgetRoute: typeof WidgetRoute
   WirdRoute: typeof WirdRouteWithChildren
   AzkarChapterRoute: typeof AzkarChapterRoute
   AzkarSearchRoute: typeof AzkarSearchRoute
@@ -529,6 +568,20 @@ declare module '@tanstack/react-router' {
       path: '/wird'
       fullPath: '/wird'
       preLoaderRoute: typeof WirdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/widget': {
+      id: '/widget'
+      path: '/widget'
+      fullPath: '/widget'
+      preLoaderRoute: typeof WidgetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/statistics': {
@@ -585,6 +638,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -843,6 +903,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
   OnboardingRoute: OnboardingRoute,
+  PrivacyRoute: PrivacyRoute,
   ProfileRoute: ProfileRoute,
   QiblaRoute: QiblaRoute,
   RegisterRoute: RegisterRoute,
@@ -851,6 +912,8 @@ const rootRouteChildren: RootRouteChildren = {
   SakinahRoute: SakinahRoute,
   SettingsRoute: SettingsRoute,
   StatisticsRoute: StatisticsRoute,
+  TermsRoute: TermsRoute,
+  WidgetRoute: WidgetRoute,
   WirdRoute: WirdRouteWithChildren,
   AzkarChapterRoute: AzkarChapterRoute,
   AzkarSearchRoute: AzkarSearchRoute,

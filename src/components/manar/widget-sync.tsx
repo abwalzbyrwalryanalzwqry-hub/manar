@@ -5,7 +5,7 @@
  * أو اليوم. على الويب لا يفعل شيئاً.
  */
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useSettings } from "@/lib/prayer";
 import { useHijriAdjust } from "@/lib/hijri";
 import { loadDailyVerse, localDayNumber, useLocalDay } from "@/lib/daily-content";
@@ -18,12 +18,22 @@ import {
   type WidgetVerse,
 } from "@/lib/widget-snapshot";
 import { isNativeShell, updateHomeWidget } from "@/lib/native-notifications";
+import { useWidgetOptions, WIDGET_REFRESH_EVENT } from "@/lib/widget-settings";
 
 export function WidgetSync() {
   const { location } = useLocation();
   const { settings } = useSettings();
   const { adjust: hijriAdjust } = useHijriAdjust();
   const day = useLocalDay();
+  const { options } = useWidgetOptions();
+  /* «تحديث الويدجت الآن» من شاشة الويدجت: يزيد العدّاد فيُعاد بناء اللقطة. */
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  useEffect(() => {
+    const onRefresh = () => setRefreshTick((n) => n + 1);
+    window.addEventListener(WIDGET_REFRESH_EVENT, onRefresh);
+    return () => window.removeEventListener(WIDGET_REFRESH_EVENT, onRefresh);
+  }, []);
 
   useEffect(() => {
     if (!isNativeShell()) return;
@@ -46,7 +56,14 @@ export function WidgetSync() {
         }
         if (cancelled) return;
       }
-      const snapshot = buildWidgetSnapshot({ location, settings, from, hijriAdjust, verses });
+      const snapshot = buildWidgetSnapshot({
+        location,
+        settings,
+        from,
+        hijriAdjust,
+        verses,
+        options,
+      });
       await updateHomeWidget(JSON.stringify(snapshot));
     };
 
@@ -56,7 +73,7 @@ export function WidgetSync() {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [location, settings, hijriAdjust, day]);
+  }, [location, settings, hijriAdjust, day, options, refreshTick]);
 
   return null;
 }

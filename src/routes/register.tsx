@@ -93,8 +93,16 @@ function Register() {
               onChange={(e) => setAgree(e.target.checked)}
               className="mt-0.5 h-4 w-4 accent-primary"
             />
-            أوافق على <span className="text-primary">الشروط والأحكام</span> و{" "}
-            <span className="text-primary">سياسة الخصوصية</span>
+            <span>
+              أوافق على{" "}
+              <Link to="/terms" className="text-primary underline-offset-2 hover:underline">
+                الشروط والأحكام
+              </Link>{" "}
+              و{" "}
+              <Link to="/privacy" className="text-primary underline-offset-2 hover:underline">
+                سياسة الخصوصية
+              </Link>
+            </span>
           </label>
           <button
             disabled={busy}

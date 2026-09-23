@@ -242,8 +242,132 @@ public class ManarAdhanPlugin extends Plugin {
                 call.getDouble("master", 1d),
                 call.getDouble("adhan", 1d),
                 call.getDouble("iqama", 1d),
-                call.getDouble("reminder", 1d));
+                call.getDouble("reminder", 1d),
+                Boolean.TRUE.equals(call.getBoolean("raiseAlarm", false)));
         call.resolve();
+    }
+
+    /**
+     * صوت «المنبّه» في الجوال — الأذان والإقامة يُشغَّلان عليه، فمستوى منار
+     * نسبةٌ منه. يعيد {@code level}/{@code max} و{@code percent}.
+     */
+    @PluginMethod
+    public void alarmVolume(PluginCall call) {
+        android.media.AudioManager am =
+                (android.media.AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+        JSObject result = new JSObject();
+        int level = 0;
+        int max = 0;
+        if (am != null) {
+            level = am.getStreamVolume(android.media.AudioManager.STREAM_ALARM);
+            max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM);
+        }
+        result.put("level", level);
+        result.put("max", max);
+        result.put("percent", max > 0 ? Math.round(level * 100f / max) : 0);
+        call.resolve(result);
+    }
+
+    /** يضبط صوت المنبّه في الجوال (نسبة ٠–١)، مع شريط النظام ليرى المستخدم التغيير. */
+    @PluginMethod
+    public void setAlarmVolume(PluginCall call) {
+        android.media.AudioManager am =
+                (android.media.AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+        JSObject result = new JSObject();
+        if (am == null) {
+            result.put("ok", false);
+            call.resolve(result);
+            return;
+        }
+        double fraction = Math.max(0d, Math.min(1d, call.getDouble("fraction", 1d)));
+        int max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM);
+        try {
+            am.setStreamVolume(
+                    android.media.AudioManager.STREAM_ALARM,
+                    (int) Math.round(max * fraction),
+                    android.media.AudioManager.FLAG_SHOW_UI);
+            result.put("ok", true);
+        } catch (SecurityException e) {
+            // وضع عدم الإزعاج قد يمنع تغيير الصوت من التطبيقات.
+            result.put("ok", false);
+        }
+        int level = am.getStreamVolume(android.media.AudioManager.STREAM_ALARM);
+        result.put("percent", max > 0 ? Math.round(level * 100f / max) : 0);
+        call.resolve(result);
+    }
+
+    /** حالة الويدجت: عدد النسخ على الشاشة الرئيسية، وهل يدعم المُشغّل الإضافة المباشرة. */
+    @PluginMethod
+    public void widgetStatus(PluginCall call) {
+        Context context = getContext();
+        android.appwidget.AppWidgetManager manager =
+                android.appwidget.AppWidgetManager.getInstance(context);
+        int[] ids = manager.getAppWidgetIds(
+                new android.content.ComponentName(context, ManarWidget.class));
+        JSObject result = new JSObject();
+        result.put("placed", ids == null ? 0 : ids.length);
+        result.put("pinSupported",
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                        && manager.isRequestPinAppWidgetSupported());
+        call.resolve(result);
+    }
+
+    /** يطلب من المُشغّل إضافة ويدجت منار مباشرة (أندرويد ٨+ ومُشغّل يدعم ذلك). */
+    @PluginMethod
+    public void pinWidget(PluginCall call) {
+        Context context = getContext();
+        JSObject result = new JSObject();
+        boolean requested = false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            android.appwidget.AppWidgetManager manager =
+                    android.appwidget.AppWidgetManager.getInstance(context);
+            if (manager.isRequestPinAppWidgetSupported()) {
+                try {
+                    requested = manager.requestPinAppWidget(
+                            new android.content.ComponentName(context, ManarWidget.class), null, null);
+                } catch (Exception ignored) {
+                    requested = false;
+                }
+            }
+        }
+        result.put("requested", requested);
+        call.resolve(result);
+    }
+
+    /**
+     * يفتح رابطاً خارجياً (اتصال، بريد، واتساب، تلجرام، متصفح) بنيّة النظام.
+     * يجرّب الروابط بالترتيب ويعيد {@code opened=false} إن لم يوجد تطبيق
+     * يفتح أيّاً منها — فتعرض الواجهة بديلاً (نسخ) بدل الفشل الصامت.
+     */
+    @PluginMethod
+    public void openExternal(PluginCall call) {
+        Context context = getContext();
+        JSONArray urls = call.getArray("urls");
+        JSObject result = new JSObject();
+        result.put("opened", false);
+        if (urls != null) {
+            for (int i = 0; i < urls.length(); i++) {
+                String url = urls.optString(i, "");
+                if (url.isEmpty()) continue;
+                Uri uri = Uri.parse(url);
+                String scheme = uri.getScheme() == null ? "" : uri.getScheme();
+                String action = "tel".equals(scheme)
+                        ? Intent.ACTION_DIAL
+                        : "mailto".equals(scheme) ? Intent.ACTION_SENDTO : Intent.ACTION_VIEW;
+                Intent intent = new Intent(action, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                try {
+                    context.startActivity(intent);
+                    result.put("opened", true);
+                    result.put("url", url);
+                    break;
+                } catch (android.content.ActivityNotFoundException e) {
+                    // لا تطبيق لهذا الرابط — نجرّب التالي.
+                } catch (Exception e) {
+                    // رفض النظام — نجرّب التالي.
+                }
+            }
+        }
+        call.resolve(result);
     }
 
     /** لقطة ويدجت الشاشة الرئيسية من الويب ({@code src/lib/widget-snapshot.ts}). */

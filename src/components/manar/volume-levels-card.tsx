@@ -9,7 +9,11 @@ import {
 import { playAdhan, playIqama } from "@/lib/adhan-sound";
 import { play, stop } from "@/lib/audio-engine";
 import { toArabicDigits } from "@/lib/format";
-import { isNativeShell } from "@/lib/native-notifications";
+import {
+  getPhoneAlarmVolume,
+  isNativeShell,
+  setPhoneAlarmVolume,
+} from "@/lib/native-notifications";
 import { approachPreviewUrl } from "@/lib/prayer-approach-audio";
 
 type RowKey = "volume" | "adhanVolume" | "iqamaVolume" | "reminderVolume";
@@ -45,9 +49,12 @@ const same = (a: VolumeLevels, b: VolumeLevels) =>
 export function VolumeLevelsCard({
   settings,
   onConfirm,
+  onRaisePhoneAlarm,
 }: {
   settings: AdhanSettings;
   onConfirm: (levels: VolumeLevels) => void;
+  /** تفعيل/إيقاف «رفع صوت المنبّه في الجوال وقت الأذان» — يُحفظ فوراً. */
+  onRaisePhoneAlarm?: (on: boolean) => void;
 }) {
   const saved = pick(settings);
   const [draft, setDraft] = useState<VolumeLevels>(saved);
@@ -223,6 +230,123 @@ export function VolumeLevelsCard({
           {note}
         </p>
       )}
+
+      {isNativeShell() && (
+        <PhoneAlarmPanel
+          raise={settings.raisePhoneAlarm}
+          onRaise={(on) => onRaisePhoneAlarm?.(on)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** تحت هذه النسبة يُسمع الأذان ضعيفاً على أغلب الأجهزة. */
+const LOW_PHONE_ALARM = 60;
+
+/**
+ * صوت «المنبّه» في الجوال. الأذان والإقامة يُشغَّلان على قناة المنبّه، ومستوى
+ * منار نسبةٌ منها: ١٠٠٪ في منار × ٣٠٪ منبّه = أذان ضعيف. هذه اللوحة تُظهر
+ * المستوى الحقيقي وتتيح رفعه بلمسة، أو رفعه تلقائياً وقت الأذان فقط.
+ */
+function PhoneAlarmPanel({ raise, onRaise }: { raise: boolean; onRaise: (on: boolean) => void }) {
+  const [percent, setPercent] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    const read = () =>
+      void getPhoneAlarmVolume().then((p) => {
+        if (alive) setPercent(p);
+      });
+    read();
+    // أزرار الصوت في الجوال لا تُبلغ الويب؛ قراءة خفيفة كل ثانيتين والشاشة ظاهرة.
+    const t = window.setInterval(() => {
+      if (document.visibilityState === "visible") read();
+    }, 2000);
+    document.addEventListener("visibilitychange", read);
+    return () => {
+      alive = false;
+      window.clearInterval(t);
+      document.removeEventListener("visibilitychange", read);
+    };
+  }, []);
+
+  if (percent == null) return null;
+  const low = percent < LOW_PHONE_ALARM;
+
+  const raiseNow = async () => {
+    setBusy(true);
+    const p = await setPhoneAlarmVolume(1);
+    setBusy(false);
+    if (p != null) setPercent(p);
+  };
+
+  return (
+    <div
+      className={`mt-4 rounded-xl border p-3 ${low ? "border-gold/50 bg-gold/10" : "border-border bg-secondary/30"}`}
+    >
+      <div className="flex items-center gap-2">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-card text-primary">
+          <Icon d={icons.bell} size={14} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-medium">صوت المنبّه في جوالك</div>
+          <div className="text-[10px] leading-relaxed text-muted-foreground">
+            الأذان والإقامة يُشغَّلان على صوت المنبّه، ومستويات منار نسبةٌ منه.
+          </div>
+        </div>
+        <span className="text-sm font-medium tabular-nums">{pct(percent / 100)}</span>
+      </div>
+
+      <div
+        className="mt-2 h-1.5 overflow-hidden rounded-full bg-border"
+        role="progressbar"
+        aria-label="صوت المنبّه في الجوال"
+        aria-valuenow={percent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        dir="ltr"
+      >
+        <div
+          className={`h-full rounded-full ${low ? "bg-gold" : "bg-primary"}`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+
+      {low && (
+        <p className="mt-2 text-[11px] leading-relaxed text-foreground">
+          صوت المنبّه منخفض، لذلك يُسمع الأذان ضعيفاً مهما رفعت مستواه هنا. ارفعه الآن أو فعّل الرفع
+          التلقائي.
+        </p>
+      )}
+
+      {percent < 100 && (
+        <button
+          onClick={() => void raiseNow()}
+          disabled={busy}
+          className="mt-2 w-full rounded-lg border border-primary/40 bg-card py-2 text-xs font-medium text-primary disabled:opacity-60"
+        >
+          رفع صوت المنبّه إلى الأقصى
+        </button>
+      )}
+
+      <label className="mt-3 flex cursor-pointer items-start gap-3">
+        <span className="min-w-0 flex-1">
+          <span className="block text-xs font-medium">رفعه تلقائياً وقت الأذان</span>
+          <span className="block text-[10px] leading-relaxed text-muted-foreground">
+            يُرفع صوت المنبّه إلى الأقصى أثناء الأذان والإقامة فقط، ثم يعود كما كان.
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          role="switch"
+          checked={raise}
+          onChange={(e) => onRaise(e.target.checked)}
+          className="mt-0.5 h-5 w-5 shrink-0 accent-primary"
+          aria-label="رفع صوت المنبّه تلقائياً وقت الأذان"
+        />
+      </label>
     </div>
   );
 }

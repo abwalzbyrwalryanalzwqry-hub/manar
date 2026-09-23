@@ -206,7 +206,11 @@ function Notifications() {
           onToggle={() => update({ silentMode: !settings.silentMode })}
         />
 
-        <VolumeLevelsCard settings={settings} onConfirm={(levels) => update(levels)} />
+        <VolumeLevelsCard
+          settings={settings}
+          onConfirm={(levels) => update(levels)}
+          onRaisePhoneAlarm={(on) => update({ raisePhoneAlarm: on })}
+        />
       </div>
 
       {/* Reminders */}

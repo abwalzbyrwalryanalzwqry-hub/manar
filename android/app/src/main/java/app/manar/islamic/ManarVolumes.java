@@ -22,14 +22,21 @@ public final class ManarVolumes {
         return (float) Math.max(0d, Math.min(1d, v));
     }
 
-    public static void save(Context context, double master, double adhan, double iqama, double reminder) {
+    public static void save(
+            Context context, double master, double adhan, double iqama, double reminder, boolean raiseAlarm) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit()
+                .putBoolean("raiseAlarm", raiseAlarm)
                 .putFloat("master", clamp(master))
                 .putFloat("adhan", clamp(adhan))
                 .putFloat("iqama", clamp(iqama))
                 .putFloat("reminder", clamp(reminder))
                 .apply();
+    }
+
+    /** هل يرفع منار صوت المنبّه في الجوال مؤقتاً وقت الأذان والإقامة؟ */
+    public static boolean raiseAlarm(Context context) {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("raiseAlarm", false);
     }
 
     /** المستوى الفعلي لنوع التشغيل: العام × مستوى الفئة. */

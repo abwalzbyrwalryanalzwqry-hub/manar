@@ -161,6 +161,12 @@ export type AdhanSettings = {
   iqamaVolume: number;
   /** مستوى التنبيهات: قبل الصلاة، وتذكيرات الأذكار والوِرد. */
   reminderVolume: number;
+  /**
+   * رفع «صوت المنبّه» في الجوال مؤقتاً إلى الأقصى وقت الأذان والإقامة ثم
+   * إعادته كما كان (أندرويد). الأذان يُشغَّل نسبةً من صوت المنبّه، فلو كان
+   * منخفضاً سُمع الأذان ضعيفاً مهما رُفع مستواه في منار.
+   */
+  raisePhoneAlarm: boolean;
 
   /* Per-prayer toggles */
   perPrayer: Record<PrayerKey, { adhan: boolean; reminder: boolean; iqama: boolean }>;
@@ -207,6 +213,7 @@ const DEFAULTS: AdhanSettings = {
   adhanVolume: 1,
   iqamaVolume: 1,
   reminderVolume: 1,
+  raisePhoneAlarm: false,
   perPrayer: {
     fajr: { adhan: true, reminder: true, iqama: true },
     sunrise: { adhan: false, reminder: false, iqama: false },
@@ -253,6 +260,7 @@ function read(): AdhanSettings {
         : DEFAULTS.reminderMinutes,
       reminderSound: normalizeApproachSound(parsed.reminderSound),
       ...readVolumes(parsed),
+      raisePhoneAlarm: parsed.raisePhoneAlarm === true,
     };
   } catch {
     return DEFAULTS;

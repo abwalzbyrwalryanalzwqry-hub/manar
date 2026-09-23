@@ -18,6 +18,7 @@ import {
   type PrayerKey,
   type Settings,
 } from "./prayer";
+import { DEFAULT_WIDGET_OPTIONS, type WidgetOptions } from "./widget-settings";
 
 export const WIDGET_DAYS = 7;
 export const WIDGET_PRAYERS: PrayerKey[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
@@ -49,6 +50,8 @@ export interface WidgetSnapshot {
   city: string;
   generatedAt: number;
   days: WidgetDay[];
+  /** ما يعرضه الويدجت ولونه (إعدادات «ويدجت الشاشة الرئيسية»). */
+  options: WidgetOptions;
 }
 
 export function buildWidgetSnapshot(input: {
@@ -60,6 +63,7 @@ export function buildWidgetSnapshot(input: {
   verses?: Record<string, WidgetVerse | undefined>;
   days?: number;
   now?: number;
+  options?: WidgetOptions;
 }): WidgetSnapshot {
   const count = input.days ?? WIDGET_DAYS;
   const days: WidgetDay[] = [];
@@ -89,7 +93,13 @@ export function buildWidgetSnapshot(input: {
       verse: input.verses?.[key] ?? null,
     });
   }
-  return { v: 1, city: input.location.city, generatedAt: input.now ?? Date.now(), days };
+  return {
+    v: 1,
+    city: input.location.city,
+    generatedAt: input.now ?? Date.now(),
+    days,
+    options: input.options ?? DEFAULT_WIDGET_OPTIONS,
+  };
 }
 
 /** نص الآية المختصر للويدجت: حدّ أقصى للطول حتى لا يُقصّ في منتصف كلمة. */
