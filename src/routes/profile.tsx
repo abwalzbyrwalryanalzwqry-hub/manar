@@ -11,7 +11,7 @@ import {
   SectionLabel,
 } from "@/components/manar/shell";
 import { useAuth } from "@/lib/auth-context";
-import { pushAll, pullAll } from "@/lib/cloud-sync";
+import { pushAll, pullAll, readMeta } from "@/lib/cloud-sync";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({ meta: [{ title: "الملف الشخصي — منار" }] }),
@@ -27,6 +27,7 @@ function Profile() {
   const [city, setCity] = useState("");
   const [language, setLanguage] = useState("ar");
   const [busy, setBusy] = useState(false);
+  const syncStatus = useSyncStatus();
 
   useEffect(() => {
     if (profile) {
@@ -71,9 +72,9 @@ function Profile() {
     setBusy(true);
     try {
       await pushAll(user.id);
-      toast.success("تم رفع نسخة احتياطية");
-    } catch {
-      toast.error("فشل الرفع");
+      toast.success("تمت المزامنة مع السحابة");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "فشلت المزامنة");
     } finally {
       setBusy(false);
     }
@@ -86,8 +87,8 @@ function Profile() {
       await pullAll(user.id);
       toast.success("تم استرجاع الإعدادات");
       await refreshProfile();
-    } catch {
-      toast.error("فشل الاسترجاع");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "فشل الاسترجاع");
     } finally {
       setBusy(false);
     }
@@ -186,8 +187,10 @@ function Profile() {
             <Icon d={icons.bell} size={16} />
           </span>
           <div className="flex-1 text-right">
-            <div className="text-sm font-medium">رفع نسخة احتياطية الآن</div>
-            <div className="text-[11px] text-muted-foreground">حفظ كل إعداداتك في السحابة</div>
+            <div className="text-sm font-medium">مزامنة الآن</div>
+            <div className="text-[11px] text-muted-foreground">
+              دمج ما على جهازك مع السحابة دون فقد أيّ تعديل
+            </div>
           </div>
         </button>
         <button
@@ -200,9 +203,22 @@ function Profile() {
           </span>
           <div className="flex-1 text-right">
             <div className="text-sm font-medium">استرجاع من السحابة</div>
-            <div className="text-[11px] text-muted-foreground">إعادة تطبيق آخر نسخة محفوظة</div>
+            <div className="text-[11px] text-muted-foreground">
+              نسخة السحابة تحلّ محلّ إعدادات هذا الجهاز
+            </div>
           </div>
         </button>
+        {user && (
+          <p
+            className={`px-1 text-[11px] ${syncStatus.error ? "text-destructive" : "text-muted-foreground"}`}
+          >
+            {syncStatus.error
+              ? `تعذّرت آخر مزامنة: ${syncStatus.error}`
+              : syncStatus.lastSyncAt
+                ? `آخر مزامنة: ${new Date(syncStatus.lastSyncAt).toLocaleString("ar", { dateStyle: "medium", timeStyle: "short" })}`
+                : "لم تتم أي مزامنة بعد"}
+          </p>
+        )}
       </div>
 
       <SectionLabel>الحساب</SectionLabel>
@@ -278,4 +294,22 @@ function EditField({
       />
     </label>
   );
+}
+
+/** حالة آخر مزامنة، تتحدّث مع كل مزامنة. */
+function useSyncStatus() {
+  const [status, setStatus] = useState<{ lastSyncAt: number | null; error: string | null }>({
+    lastSyncAt: null,
+    error: null,
+  });
+  useEffect(() => {
+    const read = () => {
+      const m = readMeta(window.localStorage);
+      setStatus({ lastSyncAt: m.lastSyncAt, error: m.lastError });
+    };
+    read();
+    window.addEventListener("manar:sync-status", read);
+    return () => window.removeEventListener("manar:sync-status", read);
+  }, []);
+  return status;
 }
