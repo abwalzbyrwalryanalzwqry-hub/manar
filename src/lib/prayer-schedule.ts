@@ -1,0 +1,250 @@
+/* منار — جدول أحداث الصلاة الموحّد (الأذان · الإقامة · التنبيهات).
+ *
+ * دالّة نقيّة بلا أيّ اعتماد على Capacitor أو المتصفح: تأخذ الإعدادات والموقع
+ * وطريقة الحساب ولحظة «الآن»، وتُخرج قائمة الأحداث التي تُسلَّم للطبقة الأصلية
+ * (AdhanScheduler) لتُضبط منبّهاتٍ دقيقة تعمل والتطبيق مغلق. لذلك تُختبر
+ * بالكامل في `tests/unit/prayer-schedule.test.ts`.
+ *
+ * التدفّق لكل صلاة:
+ *
+ *   الأذان الأول للفجر (اختياري)
+ *        ↓
+ *   دخول الوقت ── الأذان (صوت)            أو  إشعار دخول الوقت (نصّ)
+ *        ↓
+ *   تنبيه قبل الإقامة (نصّ، اختياري)
+ *        ↓
+ *   الإقامة (صوت من مكتبة الإقامة وحدها)
+ *
+ * كل مرحلة مستقلّة بمفتاحها: تعطيل الأذان لا يُعطّل الإقامة ولا تنبيهها.
+ * والأصوات منفصلة: حدث «adhan» لا يحمل إلا صوت أذان، وحدث «iqama» لا يحمل
+ * إلا صوتاً من `iqamah-library.ts`، وحدث «notice» بلا صوت إطلاقاً.
+ *
+ * منع التكرار: لكل حدث مفتاح فريد مقروء (`fajr_iqamah_2026_09_23`) ومعرّف
+ * رقمي مشتقّ من التاريخ نفسه لا من ترتيب اليوم، فإعادة البناء مرّتين تُنتج
+ * القائمة ذاتها بالمعرّفات ذاتها — والطبقة الأصلية تستبدل ولا تُضيف.
+ */
+
+import {
+  computePrayerTimes,
+  PRAYER_LABELS,
+  PRAYER_ORDER,
+  type LocationState,
+  type PrayerKey,
+  type Settings,
+} from "./prayer";
+import { resolveAdhanForPrayer, resolveIqamaForPrayer, type AdhanSettings } from "./adhan-settings";
+import { adhanVariantUrl } from "./adhan-sound";
+import { getIqamahSound } from "./iqamah-library";
+
+export type AlarmKind = "adhan" | "iqama" | "notice";
+
+/** نوع الحدث داخل الجدول — أدقّ من `kind` الذي تفهمه الطبقة الأصلية. */
+export type AlarmRole =
+  | "fajr_first_adhan"
+  | "adhan"
+  | "prayer_notice"
+  | "iqamah_reminder"
+  | "iqamah";
+
+export type ManarAlarmEvent = {
+  /** معرّف رقمي ثابت للحدث (≤ ٩٩٬٩٩٩) — مشتقّ من التاريخ والصلاة والدور. */
+  id: number;
+  /** مفتاح فريد مقروء: `<صلاة>_<دور>_<سنة>_<شهر>_<يوم>`. */
+  key: string;
+  /** اللحظة المطلقة (ميلي ثانية). */
+  at: number;
+  /** اسم مورد res/raw، أو "" للصمت. */
+  sound: string;
+  title: string;
+  body: string;
+  kind: AlarmKind;
+  role: AlarmRole;
+  prayer: PrayerKey;
+  /** قناة الإشعار لحدث «notice». */
+  channel?: "adhan" | "iqama";
+  /** بعد انتهاء الأذان يبقى إشعار دخول الوقت (إن كان مفعّلاً). */
+  notice?: boolean;
+};
+
+export const SCHEDULE_DAYS_AHEAD = 7;
+
+const ROLE_CODE: Record<AlarmRole, number> = {
+  adhan: 1,
+  fajr_first_adhan: 2,
+  iqamah: 3,
+  prayer_notice: 4,
+  iqamah_reminder: 5,
+};
+
+/**
+ * اسم مورد أندرويد لصوتٍ مضمَّن. `res/raw` لا يقبل إلا [a-z0-9_]، فـ
+ * `/audio/library/makkah-mulla-full-1.mp3` يصير `makkah_mulla_full_1`.
+ * مطابقٌ لـ`rawResourceName` في scripts/sync-android-raw-audio.mjs.
+ */
+export function rawResourceName(url: string | null | undefined): string {
+  if (!url) return "";
+  const file = url.split("/").pop();
+  if (!file) return "";
+  return file
+    .replace(/\.[a-z0-9]+$/i, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/^(\d)/, "a$1");
+}
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** `2026_09_23` — التاريخ المحلي للصلاة. */
+export function dateKey(d: Date): string {
+  return `${d.getFullYear()}_${pad(d.getMonth() + 1)}_${pad(d.getDate())}`;
+}
+
+export function eventKey(prayer: PrayerKey, role: AlarmRole, day: Date): string {
+  return `${prayer}_${role}_${dateKey(day)}`;
+}
+
+/** رقم اليوم المحلي منذ ١٩٧٠ — مستقلّ عن الساعة وعن التوقيت الصيفي. */
+function localDayNumber(d: Date): number {
+  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000);
+}
+
+/** معرّف رقمي فريد ضمن أيّ نافذة ≤ ١٠٠ يوم. */
+export function eventId(prayer: PrayerKey, role: AlarmRole, day: Date): number {
+  return (localDayNumber(day) % 100) * 1000 + PRAYER_ORDER.indexOf(prayer) * 100 + ROLE_CODE[role];
+}
+
+const AR = (n: number | string) => String(n).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
+
+function hhmm(d: Date): string {
+  const h = ((d.getHours() + 11) % 12) + 1;
+  return AR(`${h}:${pad(d.getMinutes())}`) + (d.getHours() < 12 ? " ص" : " م");
+}
+
+function minutesAr(m: number): string {
+  if (m === 1) return "دقيقة واحدة";
+  if (m === 2) return "دقيقتان";
+  if (m >= 3 && m <= 10) return `${AR(m)} دقائق`;
+  return `${AR(m)} دقيقة`;
+}
+
+export type BuildOptions = {
+  settings: AdhanSettings;
+  location: LocationState;
+  calc: Settings;
+  /** لحظة البناء (ميلي ثانية) — الأحداث الماضية تُستبعد. */
+  now: number;
+  days?: number;
+};
+
+/** وقت الإقامة لصلاةٍ في يومٍ معيّن، أو null إن كانت الإقامة بلا فاصل. */
+export function iqamahTimeFor(s: AdhanSettings, prayer: PrayerKey, adhanAt: Date): Date | null {
+  const offset = Math.round(s.iqamaOffsets[prayer] ?? 0);
+  if (prayer === "sunrise" || offset <= 0) return null;
+  return new Date(adhanAt.getTime() + offset * 60_000);
+}
+
+export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
+  const { settings: s, location, calc, now } = o;
+  const days = o.days ?? SCHEDULE_DAYS_AHEAD;
+  const byKey = new Map<string, ManarAlarmEvent>();
+  const soundOn = s.soundEnabled && !s.silentMode;
+
+  const push = (e: ManarAlarmEvent) => {
+    if (e.at <= now) return;
+    // المفتاح نفسه لا يُضاف مرّتين أبداً — الأوّل يبقى.
+    if (!byKey.has(e.key)) byKey.set(e.key, e);
+  };
+
+  for (let d = 0; d < days; d++) {
+    const day = new Date(now);
+    day.setHours(12, 0, 0, 0);
+    day.setDate(day.getDate() + d);
+    const times = computePrayerTimes(location, calc, day);
+
+    for (const prayer of PRAYER_ORDER) {
+      if (prayer === "sunrise") continue;
+      const per = s.perPrayer[prayer] ?? { adhan: true, reminder: true, iqama: true };
+      const label = PRAYER_LABELS[prayer].ar;
+      const adhanAt = times[prayer];
+      const base = (role: AlarmRole) => ({
+        id: eventId(prayer, role, day),
+        key: eventKey(prayer, role, day),
+        role,
+        prayer,
+      });
+
+      /* ---------------- الأذان الأول للفجر ---------------- */
+      if (prayer === "fajr" && s.adhanEnabled && per.adhan && s.fajrFirstAdhanEnabled) {
+        const offset = Math.max(1, Math.round(s.fajrFirstAdhanOffset || 20));
+        push({
+          ...base("fajr_first_adhan"),
+          at: adhanAt.getTime() - offset * 60_000,
+          sound: soundOn ? rawResourceName(adhanVariantUrl(s.fajrFirstAdhanAudio)) : "",
+          title: "الأذان الأول للفجر",
+          body: `${location.city} · يتبقى ${minutesAr(offset)} على أذان الفجر`,
+          kind: "adhan",
+        });
+      }
+
+      /* ---------------- دخول الوقت: أذان أو إشعار ---------------- */
+      const adhanScheduled = s.adhanEnabled && per.adhan;
+      if (adhanScheduled) {
+        push({
+          ...base("adhan"),
+          at: adhanAt.getTime(),
+          sound: soundOn ? rawResourceName(adhanVariantUrl(resolveAdhanForPrayer(s, prayer))) : "",
+          title: `حان الآن وقت ${label}`,
+          body: `${location.city} · أذان ${label}`,
+          kind: "adhan",
+          notice: s.prayerNoticeEnabled,
+        });
+      } else if (s.prayerNoticeEnabled) {
+        push({
+          ...base("prayer_notice"),
+          at: adhanAt.getTime(),
+          sound: "",
+          title: `حان الآن وقت ${label}`,
+          body: `${location.city} · ${hhmm(adhanAt)}`,
+          kind: "notice",
+          channel: "adhan",
+        });
+      }
+
+      /* ---------------- الإقامة وتنبيهها ---------------- */
+      const iqamaAt = per.iqama ? iqamahTimeFor(s, prayer, adhanAt) : null;
+      if (!iqamaAt) continue;
+      const offset = Math.round(s.iqamaOffsets[prayer]);
+
+      if (s.iqamaReminderEnabled) {
+        const m = Math.round(s.iqamaReminderMinutes);
+        // التنبيه يقع بين الأذان والإقامة، وإلا فلا معنى له.
+        if (m > 0 && m < offset) {
+          push({
+            ...base("iqamah_reminder"),
+            at: iqamaAt.getTime() - m * 60_000,
+            sound: "",
+            title: `اقتربت إقامة ${label}`,
+            body: `تبقى ${minutesAr(m)} على إقامة الصلاة · ${hhmm(iqamaAt)}`,
+            kind: "notice",
+            channel: "iqama",
+          });
+        }
+      }
+
+      if (s.iqamaEnabled) {
+        const sound = getIqamahSound(resolveIqamaForPrayer(s, prayer));
+        push({
+          ...base("iqamah"),
+          at: iqamaAt.getTime(),
+          sound: soundOn && s.iqamaSoundEnabled && sound ? rawResourceName(sound.url) : "",
+          title: `إقامة ${label}`,
+          body: "حان موعد إقامة الصلاة الآن",
+          kind: "iqama",
+        });
+      }
+    }
+  }
+
+  return [...byKey.values()].sort((a, b) => a.at - b.at || a.id - b.id);
+}

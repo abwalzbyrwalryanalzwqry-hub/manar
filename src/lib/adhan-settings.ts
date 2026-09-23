@@ -17,6 +17,13 @@ import {
 } from "./adhan-sound";
 import { migrateAdhanVariant } from "./adhan-sound";
 import { ADHAN_ASSETS, LEGACY_VARIANT_MIGRATION, assetDurationLabel } from "./adhan-library-assets";
+import {
+  DEFAULT_IQAMAH,
+  IQAMAH_SOUNDS,
+  iqamahDurationLabel,
+  migrateIqamahId,
+  type IqamahGroup,
+} from "./iqamah-library";
 export { ADHAN_ASSET_RIGHTS_NOTICE } from "./adhan-library-assets";
 import {
   DEFAULT_PRAYER_APPROACH_SOUND,
@@ -84,25 +91,23 @@ export type IqamaCategory = {
   name: string;
   hint: string;
   duration: string;
+  group: IqamahGroup;
 };
 
-export const IQAMA_CATEGORIES: IqamaCategory[] = [
-  { id: "iqama_full", name: "إقامة كاملة", hint: "إقامة تقليدية ممتدة", duration: "٠:٤٥" },
-  { id: "iqama_qad", name: "قد قامت الصلاة", hint: "تنبيه قِصار للإقامة", duration: "٠:٢٥" },
-  { id: "iqama_short", name: "تنبيه قصير", hint: "نغمة قصيرة تَنبيهية", duration: "٠:١٠" },
-  {
-    id: "iqama_masjid",
-    name: "إقامة المسجد",
-    hint: "على طريقة الأئمة في المساجد",
-    duration: "٠:٣٥",
-  },
-  { id: "tone_iqama", name: "نغمة الإقامة", hint: "نغمة منار — بلا حقوق", duration: "٠:٠٣" },
-  { id: "tone_iqama_short", name: "نقرة الإقامة", hint: "نغمة منار قصيرة", duration: "٠:٠٢" },
-  { id: "silent", name: "إشعار صامت", hint: "إشعار بدون صوت", duration: "—" },
-];
+/** أصوات الإقامة كما تعرضها الواجهة — مشتقّة من مكتبة الإقامة المستقلة وحدها. */
+export const IQAMA_CATEGORIES: IqamaCategory[] = IQAMAH_SOUNDS.map((s) => ({
+  id: s.id,
+  name: s.name,
+  hint: s.hint,
+  duration: iqamahDurationLabel(s),
+  group: s.group,
+}));
 
 export type ReminderMinutes = 5 | 10 | 15 | 30;
 export const REMINDER_OPTIONS: ReminderMinutes[] = [5, 10, 15, 30];
+
+/** خيارات «تنبيه قبل الإقامة» بالدقائق. */
+export const IQAMA_REMINDER_OPTIONS = [2, 3, 5, 10] as const;
 
 /* ------------------------------ Shape ------------------------------- */
 
@@ -131,6 +136,8 @@ export type AdhanSettings = {
   reminderMinutes: ReminderMinutes[];
   /** صوت التنبيه قبل الصلاة — من فهرس «اقتراب الصلاة» وحده. */
   reminderSound: PrayerApproachSoundId;
+  /** إشعار نصّي عند دخول وقت الصلاة — مستقلّ عن صوت الأذان. */
+  prayerNoticeEnabled: boolean;
 
   /* Iqama */
   iqamaEnabled: boolean;
@@ -138,6 +145,9 @@ export type AdhanSettings = {
   iqamaVariant: IqamaVariant;
   iqamaOffsets: Record<PrayerKey, number>;
   perPrayerIqama: Partial<Record<PrayerKey, IqamaVariant>>;
+  /** تنبيه نصّي قبل موعد الإقامة. */
+  iqamaReminderEnabled: boolean;
+  iqamaReminderMinutes: number;
 
   /* Notifications */
   soundEnabled: boolean;
@@ -182,11 +192,14 @@ const DEFAULTS: AdhanSettings = {
   remindersEnabled: true,
   reminderMinutes: [15, 5],
   reminderSound: DEFAULT_PRAYER_APPROACH_SOUND,
+  prayerNoticeEnabled: true,
   iqamaEnabled: true,
   iqamaSoundEnabled: true,
-  iqamaVariant: "iqama_qad",
+  iqamaVariant: DEFAULT_IQAMAH,
   iqamaOffsets: { ...DEFAULT_IQAMA },
   perPrayerIqama: {},
+  iqamaReminderEnabled: false,
+  iqamaReminderMinutes: 5,
   soundEnabled: true,
   vibrationEnabled: true,
   silentMode: false,
@@ -218,6 +231,7 @@ function read(): AdhanSettings {
     const mig = (v: unknown, fb: AdhanVariant): AdhanVariant =>
       typeof v === "string" ? migrateAdhanVariant(v as AdhanVariant) : fb;
     const perPrayerAudio: Partial<Record<PrayerKey, AdhanVariant>> = {};
+    const iqama = readIqama(parsed);
     for (const [k, v] of Object.entries(parsed.perPrayerAudio ?? {})) {
       if (typeof v === "string")
         perPrayerAudio[k as PrayerKey] = migrateAdhanVariant(v as AdhanVariant);
@@ -233,7 +247,7 @@ function read(): AdhanSettings {
       iqamaOffsets: { ...DEFAULT_IQAMA, ...(parsed.iqamaOffsets ?? {}) },
       perPrayer: { ...DEFAULTS.perPrayer, ...(parsed.perPrayer ?? {}) },
       perPrayerAudio,
-      perPrayerIqama: { ...(parsed.perPrayerIqama ?? {}) },
+      ...iqama,
       reminderMinutes: Array.isArray(parsed.reminderMinutes)
         ? parsed.reminderMinutes
         : DEFAULTS.reminderMinutes,
@@ -243,6 +257,35 @@ function read(): AdhanSettings {
   } catch {
     return DEFAULTS;
   }
+}
+
+/**
+ * إعدادات الإقامة المحفوظة بعد ترحيلها إلى مكتبة الإقامة الجديدة. أيّ معرّفٍ
+ * قديم يُنقل إلى تسجيل إقامةٍ حقيقي؛ ومن كان اختار «إشعار صامت» يبقى صامتاً
+ * عبر مفتاح صوت الإقامة بدل أن يُفاجأ بصوت.
+ */
+function readIqama(parsed: Record<string, unknown>) {
+  const legacySilent = parsed.iqamaVariant === "silent";
+  const perPrayerIqama: Partial<Record<PrayerKey, IqamaVariant>> = {};
+  const rawPer = (parsed.perPrayerIqama ?? {}) as Record<string, unknown>;
+  for (const [k, v] of Object.entries(rawPer)) {
+    const id = migrateIqamahId(v);
+    if (id) perPrayerIqama[k as PrayerKey] = id;
+  }
+  const minutes = Number(parsed.iqamaReminderMinutes);
+  return {
+    iqamaVariant: migrateIqamahId(parsed.iqamaVariant) ?? DEFAULTS.iqamaVariant,
+    iqamaSoundEnabled: legacySilent
+      ? false
+      : typeof parsed.iqamaSoundEnabled === "boolean"
+        ? parsed.iqamaSoundEnabled
+        : DEFAULTS.iqamaSoundEnabled,
+    perPrayerIqama,
+    iqamaReminderMinutes:
+      Number.isFinite(minutes) && minutes >= 1 && minutes <= 30
+        ? Math.round(minutes)
+        : DEFAULTS.iqamaReminderMinutes,
+  };
 }
 
 const unit = (v: unknown, fb: number): number =>

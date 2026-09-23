@@ -18,6 +18,7 @@ import {
   isAdhanAssetId,
   type AdhanAssetId,
 } from "./adhan-library-assets";
+import { getIqamahSound, type IqamahId } from "./iqamah-library";
 
 /* ----------------------------- Reciters ------------------------------ */
 
@@ -44,14 +45,8 @@ export type AdhanVariant =
   | "silent"
   | AdhanAssetId;
 
-export type IqamaVariant =
-  | "iqama_full"
-  | "iqama_qad"
-  | "iqama_short"
-  | "iqama_masjid"
-  | "tone_iqama"
-  | "tone_iqama_short"
-  | "silent";
+/** صوت الإقامة — من مكتبة الإقامة وحدها (`iqamah-library.ts`)، لا من الأذان. */
+export type IqamaVariant = IqamahId;
 
 export type ReminderVariant = "reminder_default" | "reminder_chime" | "tone_reminder" | "tone_bell";
 
@@ -59,8 +54,6 @@ export type ReminderVariant = "reminder_default" | "reminder_chime" | "tone_remi
  * آخر، بخلاف مقاطع الأذان المستعارة أعلاه التي لم تُرفَق لها وثائق ترخيص.
  * تُحلّ قبل مكتبة الأصول، فتعمل حتى لو غابت تلك المقاطع عن البناء. */
 const GENERATED_TONES: Record<string, string> = {
-  tone_iqama: "/audio/iqama/iqama-chime.mp3",
-  tone_iqama_short: "/audio/iqama/iqama-short.mp3",
   tone_reminder: "/audio/reminders/reminder-default.mp3",
   tone_bell: "/audio/reminders/reminder-bell.mp3",
   tone_chime: "/audio/reminders/reminder-chime.mp3",
@@ -174,9 +167,12 @@ export function adhanVariantUrl(v: AdhanVariant): string | null {
   return assetUrlFor(v);
 }
 
-export function iqamaVariantUrl(v: IqamaVariant): string | null {
-  if (v === "silent") return null;
-  return assetUrlFor(v);
+/**
+ * مسار صوت الإقامة. يُحلّ من مكتبة الإقامة وحدها — لا يمرّ بـ`assetUrlFor`
+ * ولا بمكتبة الأذان، فلا يمكن أن يُعاد ملفّ أذانٍ لحدث إقامة مهما كانت القيمة.
+ */
+export function iqamaVariantUrl(v: IqamaVariant | string | null | undefined): string | null {
+  return getIqamahSound(v)?.url ?? null;
 }
 
 export function reminderUrl(v: ReminderVariant = "reminder_default"): string | null {
@@ -230,16 +226,14 @@ export function playAdhan(variant: AdhanVariant, opts: AudioOptions = {}): () =>
 }
 
 export function playIqama(variant: IqamaVariant, opts: AudioOptions = {}): () => void {
-  if (variant === "silent") {
-    opts.onEnd?.();
+  const sound = getIqamahSound(variant);
+  if (!sound) {
+    /* معرّف مجهول: نُسجّل ونتوقّف بأمان — ولا نستبدله بصوت أذان أبداً. */
+    console.error(`[manar] صوت إقامة غير معروف: ${String(variant)}`);
+    opts.onError?.("صوت الإقامة غير متوفر");
     return () => {};
   }
-  const url = iqamaVariantUrl(variant);
-  if (!url) {
-    opts.onEnd?.();
-    return () => {};
-  }
-  return enginePlay(url, { ...opts, label: "الإقامة" });
+  return enginePlay(sound.url, { ...opts, label: sound.name });
 }
 
 export function playReminder(opts: AudioOptions & { variant?: ReminderVariant } = {}): () => void {

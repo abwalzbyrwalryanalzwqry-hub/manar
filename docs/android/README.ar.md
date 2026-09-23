@@ -64,7 +64,8 @@ cd android
    كلها من الحزمة (كان الأذان سيرنّ بلا صوت). الحل: `android/app/src/main/res/raw/keep.xml`
    مع `tools:keep="@raw/*"`. التحقق: `aapt2 dump resources` يُظهر `type raw entryCount=21`.
 2. **مسارات صوت معطّلة.** كانت متغيّرات الأذان/الإقامة/التنبيه تشير إلى
-   `/audio/adhan/*.mp3` و`/audio/iqama/*.mp3` و`/audio/reminders/*.mp3` وهي مجلدات
+   `/audio/adhan/*.mp3` و`/audio/iqama/*.mp3` (أُزيل لاحقًا — الإقامة الآن في
+   `public/audio/iqamah/`، انظر `docs/audio/iqamah.md`) و`/audio/reminders/*.mp3` وهي مجلدات
    فارغة (README فقط)، فيظهر خطأ «ملف الصوت غير متوفر». الحل: توسيع
    `LEGACY_VARIANT_MIGRATION` لتغطية كل المؤذنين × كل الأنماط + الفجر + الإقامة +
    التنبيه، وربطها بملفات موجودة فعلًا في `public/audio/library`، وإرجاع `null`

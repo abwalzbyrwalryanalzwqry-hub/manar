@@ -138,7 +138,8 @@ android {
     // The bundled Adhan recordings are already compressed MP3 — let the build
     // know so it does not try to re-compress them into the APK.
     androidResources {
-        noCompress += ['mp3', 'woff2', 'json']
+        // وتسجيلات الإقامة (Ogg Opus وM4A) كذلك: تُقرأ من الحزمة كما هي.
+        noCompress += ['mp3', 'ogg', 'm4a', 'woff2', 'json']
     }
 
     bundle {

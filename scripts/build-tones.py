@@ -7,10 +7,11 @@
 
 التصميم مقصود: نغمات جرسية دافئة قصيرة، لا رنيناً حاداً. التنبيه قبل الصلاة
 وللأذكار والوِرد يتكرّر يومياً عدّة مرات، فالنغمة المزعجة تُطفَأ بعد يومين
-فتفقد التذكير كلّه قيمته. الإقامة وحدها أوضح وأقصر لأنها تعني «قُم الآن».
+فتفقد التذكير كلّه قيمته.
 
 التشغيل:  python3 scripts/build-tones.py
-المخرجات: public/audio/reminders/*.mp3  و  public/audio/iqama/*.mp3
+المخرجات: public/audio/reminders/*.mp3
+(أصوات الإقامة تسجيلات حقيقية في public/audio/iqamah — لا تُولَّد هنا.)
 """
 
 from __future__ import annotations
@@ -191,23 +192,6 @@ def tone_reminder_bell() -> np.ndarray:
     return finish(reverb(c, 0.32))
 
 
-def tone_iqama() -> np.ndarray:
-    """الإقامة — نغمتان متتابعتان أوضح وأقصر: «قُم الآن»."""
-    c = np.zeros(int(SR * 3.0))
-    for i in range(2):
-        place(c, bell(NOTE["D5"], 1.5, amp=0.9, bright=1.25), 0.0 + 0.42 * i)
-    place(c, bell(NOTE["G5"], 1.8, amp=0.55, bright=1.1), 0.84)
-    place(c, soft_tone(NOTE["D3"], 1.6, amp=0.2), 0.0)
-    return finish(reverb(c, 0.2), fade_out=0.2)
-
-
-def tone_iqama_short() -> np.ndarray:
-    """الإقامة — نقرة واحدة قصيرة لمن يفضّل الأقل إلحاحاً."""
-    c = np.zeros(int(SR * 1.8))
-    place(c, bell(NOTE["G5"], 1.4, amp=0.9, bright=1.2), 0.0)
-    return finish(reverb(c, 0.18), fade_out=0.15)
-
-
 def tone_azkar_morning() -> np.ndarray:
     """أذكار الصباح — صاعد مشرق، بإيقاع منتشٍ خفيف."""
     c = np.zeros(int(SR * 5.0))
@@ -252,8 +236,6 @@ TONES = [
     ("reminders/azkar-morning.mp3", tone_azkar_morning, "أذكار الصباح"),
     ("reminders/azkar-evening.mp3", tone_azkar_evening, "أذكار المساء"),
     ("reminders/wird.mp3", tone_wird, "الوِرد اليومي"),
-    ("iqama/iqama-chime.mp3", tone_iqama, "تنبيه الإقامة"),
-    ("iqama/iqama-short.mp3", tone_iqama_short, "إقامة قصيرة"),
 ]
 
 

@@ -5,7 +5,7 @@
  * missing, an Arabic toast is surfaced and playback aborts — we
  * never substitute synthetic audio.
  *
- * Supported formats: MP3, WAV, OGG.
+ * Supported formats: MP3, M4A (AAC), OGG (Opus/Vorbis), WAV.
  */
 
 import { toast } from "sonner";

@@ -10,6 +10,8 @@ import {
 } from "@/components/manar/shell";
 import { REMINDER_OPTIONS, effectiveVolume, useAdhanSettings } from "@/lib/adhan-settings";
 import { VolumeLevelsCard } from "@/components/manar/volume-levels-card";
+import { AlertSystemStatus } from "@/components/manar/alert-system-status";
+import { iqamahLabel } from "@/lib/iqamah-library";
 import { PRAYER_LABELS, PRAYER_ORDER, type PrayerKey } from "@/lib/prayer";
 import { toArabicDigits } from "@/lib/format";
 import { requestNotificationPermission } from "@/components/manar/adhan-provider";
@@ -114,8 +116,12 @@ function Notifications() {
         </div>
       </div>
 
-      {/* Master controls */}
-      <SectionLabel>التحكم العام</SectionLabel>
+      <div className="mt-4 px-4">
+        <AlertSystemStatus settings={settings} />
+      </div>
+
+      {/* Master controls — كل مرحلة مستقلّة: تعطيل الأذان لا يُعطّل الإقامة */}
+      <SectionLabel hint="كل مرحلة مستقلّة عن غيرها">التحكم العام</SectionLabel>
       <div className="space-y-2 px-4">
         <Toggle
           icon={icons.bell}
@@ -125,11 +131,11 @@ function Notifications() {
           onToggle={() => update({ adhanEnabled: !settings.adhanEnabled })}
         />
         <Toggle
-          icon={icons.prayer}
-          label="الإقامة"
-          hint="تنبيه عند موعد الإقامة"
-          on={settings.iqamaEnabled}
-          onToggle={() => update({ iqamaEnabled: !settings.iqamaEnabled })}
+          icon={icons.bell}
+          label="إشعار دخول الوقت"
+          hint="إشعار نصّي عند دخول وقت الصلاة، ولو كان الأذان معطّلاً"
+          on={settings.prayerNoticeEnabled}
+          onToggle={() => update({ prayerNoticeEnabled: !settings.prayerNoticeEnabled })}
         />
         <Toggle
           icon={icons.bell}
@@ -138,6 +144,41 @@ function Notifications() {
           on={settings.remindersEnabled}
           onToggle={() => update({ remindersEnabled: !settings.remindersEnabled })}
         />
+        <Toggle
+          icon={icons.prayer}
+          label="الإقامة"
+          hint={
+            settings.iqamaSoundEnabled
+              ? `الصوت: ${iqamahLabel(settings.iqamaVariant)}`
+              : "إشعار بلا صوت في موعد الإقامة"
+          }
+          on={settings.iqamaEnabled}
+          onToggle={() => update({ iqamaEnabled: !settings.iqamaEnabled })}
+        />
+        <Toggle
+          icon={icons.bell}
+          label="تنبيه قبل الإقامة"
+          hint={`إشعار نصّي قبل الإقامة — ${toArabicDigits(settings.iqamaReminderMinutes)} دقائق`}
+          on={settings.iqamaReminderEnabled}
+          onToggle={() => update({ iqamaReminderEnabled: !settings.iqamaReminderEnabled })}
+        />
+        <Link
+          to="/iqama"
+          className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-soft"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-primary">
+            <Icon d={icons.speed} size={16} />
+          </span>
+          <div className="flex-1">
+            <div className="text-sm font-medium">صوت الإقامة وموعدها</div>
+            <div className="text-[11px] text-muted-foreground">
+              الفاصل بين الأذان والإقامة لكل صلاة
+            </div>
+          </div>
+          <span className="rotate-180 text-muted-foreground">
+            <Icon d={icons.chevron} size={16} />
+          </span>
+        </Link>
       </div>
 
       {/* Sound */}

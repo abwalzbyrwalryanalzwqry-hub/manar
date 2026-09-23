@@ -5,7 +5,12 @@
  *   - Adhan at exact prayer time (per-prayer audio assignment)
  *   - Iqama notification N minutes after Adhan
  *
- * All audio is real (MP3/WAV/OGG). No synthesized fallbacks.
+ * All audio is real (MP3/M4A/OGG). No synthesized fallbacks.
+ *
+ * داخل أندرويد لا يُطلق هذا المحرّك شيئاً: الطبقة الأصلية (AdhanScheduler)
+ * تملك الجدول كلّه بمنبّهات دقيقة تعمل والتطبيق مغلق. لو أطلق الويب أيضاً
+ * لتكرّر التنبيه أو الصوت حين يكون التطبيق مفتوحاً. دوره هناك: إعادة بناء
+ * الجدول عند كل تغيير (المدينة، طريقة الحساب، الإعدادات، اليوم، المنطقة الزمنية).
  */
 
 import { useEffect, useRef } from "react";
@@ -24,6 +29,7 @@ import {
   attachNativeActionListener,
 } from "@/lib/native-notifications";
 import { approachClipFor } from "@/lib/prayer-approach-audio";
+import { buildPrayerAlarms, type ManarAlarmEvent } from "@/lib/prayer-schedule";
 import { play as enginePlay } from "@/lib/audio-engine";
 
 type FiredKey = string;
@@ -72,6 +78,8 @@ export function AdhanProvider() {
 
     const tick = () => {
       if (cancelled) return;
+      // القشرة الأصلية: المنبّهات الأصلية وحدها تُطلق — منعاً للتكرار.
+      if (isNativeShell()) return;
       const s = getAdhanSettings();
       const now = new Date();
       const dk = dayKey(now);
@@ -117,66 +125,52 @@ export function AdhanProvider() {
             }
           }
         }
+      }
 
-        // First Adhan of Fajr
-        if (p === "fajr" && s.fajrFirstAdhanEnabled && s.adhanEnabled) {
-          const offset = Math.max(1, s.fajrFirstAdhanOffset || 20);
-          if (Math.abs(diffSec - offset * 60) <= 1) {
-            const k = `${dk}:fajr:first`;
-            if (!firedRef.current.has(k)) {
-              firedRef.current.add(k);
-              notify(
-                "الأذان الأول للفجر",
-                `${location.city} · يتبقى ${offset} دقيقة على أذان الفجر`,
-              );
-              if (s.vibrationEnabled) vibrate([200, 100, 200]);
-              if (!s.silentMode && s.soundEnabled) {
-                playAdhan(s.fajrFirstAdhanAudio, { volume: effectiveVolume(s, "adhan") });
-              }
-            }
-          }
-        }
+      /* الأذان والإقامة وتنبيهاتهما — من الجدول الموحّد نفسه الذي تُسلَّم منه
+       * المنبّهات الأصلية، فيتطابق السلوك بين الويب وأندرويد. كل حدث بمفتاحه
+       * الفريد يُطلق مرّة واحدة. */
+      const events = buildPrayerAlarms({
+        settings: s,
+        location,
+        calc,
+        now: now.getTime() - 2000,
+        days: 1,
+      });
+      for (const e of events) {
+        if (Math.abs(e.at - now.getTime()) > 1000) continue;
+        if (firedRef.current.has(e.key)) continue;
+        firedRef.current.add(e.key);
+        fireEvent(e, s);
+      }
+    };
 
-        // Adhan
-        if (s.adhanEnabled && per.adhan && Math.abs(diffSec) <= 1) {
-          const k = `${dk}:${p}:adhan`;
-          if (!firedRef.current.has(k)) {
-            firedRef.current.add(k);
-            notify(
-              `حان الآن وقت ${PRAYER_LABELS[p].ar}`,
-              `${location.city} · أذان ${PRAYER_LABELS[p].ar}`,
-            );
-            if (s.vibrationEnabled) vibrate([300, 120, 300, 120, 600]);
-            if (!s.silentMode && s.soundEnabled && !isNativeShell()) {
-              const variant = resolveAdhanForPrayer(s, p);
-              playAdhan(variant, {
-                volume: effectiveVolume(s, "adhan"),
-                onEnd: () => {
-                  if (p === "fajr" && s.fajrTathweebEnabled && !s.silentMode && s.soundEnabled) {
-                    playAdhan(s.fajrTathweebAudio, { volume: effectiveVolume(s, "adhan") });
-                  }
-                },
-              });
+    const fireEvent = (e: ManarAlarmEvent, s: ReturnType<typeof getAdhanSettings>) => {
+      notify(e.title, e.body);
+      if (s.vibrationEnabled) {
+        vibrate(
+          e.kind === "adhan"
+            ? [300, 120, 300, 120, 600]
+            : e.kind === "iqama"
+              ? [200, 100, 200]
+              : [120, 80, 120],
+        );
+      }
+      if (!e.sound) return; // صامت أو إشعار نصّي
+      if (e.role === "fajr_first_adhan") {
+        playAdhan(s.fajrFirstAdhanAudio, { volume: effectiveVolume(s, "adhan") });
+      } else if (e.role === "adhan") {
+        playAdhan(resolveAdhanForPrayer(s, e.prayer), {
+          volume: effectiveVolume(s, "adhan"),
+          onEnd: () => {
+            if (e.prayer === "fajr" && s.fajrTathweebEnabled) {
+              playAdhan(s.fajrTathweebAudio, { volume: effectiveVolume(s, "adhan") });
             }
-          }
-        }
-
-        // Iqama
-        if (s.iqamaEnabled && per.iqama) {
-          const offset = s.iqamaOffsets[p] ?? 0;
-          if (offset > 0 && Math.abs(diffSec + offset * 60) <= 1) {
-            const k = `${dk}:${p}:iq`;
-            if (!firedRef.current.has(k)) {
-              firedRef.current.add(k);
-              notify(`إقامة ${PRAYER_LABELS[p].ar}`, `حان موعد إقامة الصلاة الآن`);
-              if (s.vibrationEnabled) vibrate([200, 100, 200]);
-              if (s.iqamaSoundEnabled && !s.silentMode && !isNativeShell()) {
-                const iv = resolveIqamaForPrayer(s, p);
-                playIqama(iv, { volume: effectiveVolume(s, "iqama") });
-              }
-            }
-          }
-        }
+          },
+        });
+      } else if (e.role === "iqamah") {
+        // صوت الإقامة من مكتبة الإقامة وحدها.
+        playIqama(resolveIqamaForPrayer(s, e.prayer), { volume: effectiveVolume(s, "iqama") });
       }
     };
 
@@ -214,11 +208,26 @@ export function AdhanProvider() {
     };
     window.addEventListener("manar:daily-reminders", onSoundSettings);
     window.addEventListener("manar:adhan-settings", onSoundSettings);
+
+    /* تغيّر اليوم أو المنطقة الزمنية والتطبيق مفتوح: نافذة الأيام السبعة تتقدّم
+     * يوماً، والأوقات المطلقة تُعاد حسابها. فحصٌ خفيف كل دقيقة لا يُنشئ منبّهاً. */
+    let lastDay = new Date().toDateString();
+    let lastOffset = new Date().getTimezoneOffset();
+    const watch = window.setInterval(() => {
+      const d = new Date();
+      if (d.toDateString() !== lastDay || d.getTimezoneOffset() !== lastOffset) {
+        lastDay = d.toDateString();
+        lastOffset = d.getTimezoneOffset();
+        void syncNativePrayerSchedule(location, calc);
+      }
+    }, 60_000);
+
     return () => {
       document.removeEventListener("resume", onResume);
       document.removeEventListener("visibilitychange", onResume);
       window.removeEventListener("manar:daily-reminders", onSoundSettings);
       window.removeEventListener("manar:adhan-settings", onSoundSettings);
+      window.clearInterval(watch);
       clearTimeout(pending);
     };
   }, [location, calc]);

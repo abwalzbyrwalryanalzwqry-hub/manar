@@ -12,7 +12,11 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Manar — exact-alarm scheduler for Adhan and Iqama.
@@ -25,53 +29,90 @@ import java.util.List;
  * The list is persisted verbatim so {@link BootReceiver} can re-arm everything
  * after a reboot, an app update, or a timezone change — without needing the
  * WebView to be alive.
+ *
+ * <p>منع التكرار على ثلاث طبقات:
+ * <ol>
+ *   <li>لكل حدث مفتاح فريد ({@code fajr_iqamah_2026_09_23}). القائمة الواردة
+ *       تُصفّى بالمفتاح قبل الضبط، فلا يُضبط منبّهان لحدثٍ واحد.</li>
+ *   <li>{@link #replaceAll} يُلغي كل ما ضُبط قبله ثم يضبط الجديد — استبدالٌ لا
+ *       إضافة، مهما تكرّرت المزامنة (فتح التطبيق، تغيير الإعدادات، إعادة التشغيل).</li>
+ *   <li>{@link #markFired} يحفظ مفاتيح ما أُطلق فعلاً؛ فلو أعاد النظام حدثاً بعد
+ *       إرجاع الساعة أو إعادة الضبط، يُتجاهل ولا يُسمَع الأذان أو الإقامة مرّتين.</li>
+ * </ol>
  */
 public final class AdhanScheduler {
 
     private static final String PREFS = "manar_adhan_schedule";
     private static final String KEY_EVENTS = "events";
+    private static final String KEY_FIRED = "fired";
+    private static final String KEY_LAST_SCHEDULED = "last_scheduled";
+    /** كم مفتاحاً مُطلَقاً نتذكّر — أكثر من يومين من الأحداث بهامشٍ واسع. */
+    private static final int FIRED_MEMORY = 96;
 
     /** Request-code range reserved for Manar alarms. */
     private static final int REQUEST_BASE = 41000;
 
+    static final String EXTRA_EVENT_ID = "event_id";
+
     private AdhanScheduler() {}
 
-    /** One scheduled Adhan / Iqama event. */
+    public static final String KIND_ADHAN = "adhan";
+    public static final String KIND_IQAMA = "iqama";
+    /** إشعار نصّي بلا صوت: دخول الوقت حين يكون الأذان معطّلاً، أو «اقتربت الإقامة». */
+    public static final String KIND_NOTICE = "notice";
+
+    /** One scheduled Adhan / Iqama / notice event. */
     public static final class Event {
         public final int id;
+        /** مفتاح فريد مقروء، مثل {@code fajr_iqamah_2026_09_23}. */
+        public final String key;
         public final long atMillis;
         public final String sound;
         public final String title;
         public final String body;
         public final String kind;
+        /** قناة الإشعار لحدث notice: "adhan" أو "iqama". */
+        public final String channel;
+        /** بعد انتهاء الأذان يبقى إشعار دخول الوقت. */
+        public final boolean notice;
 
-        Event(int id, long atMillis, String sound, String title, String body, String kind) {
+        Event(int id, String key, long atMillis, String sound, String title, String body,
+              String kind, String channel, boolean notice) {
             this.id = id;
+            this.key = key == null || key.isEmpty() ? (kind + "_" + id) : key;
             this.atMillis = atMillis;
             this.sound = sound;
             this.title = title;
             this.body = body;
             this.kind = kind;
+            this.channel = channel == null ? "" : channel;
+            this.notice = notice;
         }
 
         static Event fromJson(JSONObject o) {
             return new Event(
                     o.optInt("id"),
+                    o.optString("key", ""),
                     o.optLong("at"),
                     o.optString("sound", ""),
                     o.optString("title", "منار"),
                     o.optString("body", ""),
-                    o.optString("kind", "adhan"));
+                    o.optString("kind", KIND_ADHAN),
+                    o.optString("channel", ""),
+                    o.optBoolean("notice", false));
         }
 
         JSONObject toJson() throws JSONException {
             return new JSONObject()
                     .put("id", id)
+                    .put("key", key)
                     .put("at", atMillis)
                     .put("sound", sound == null ? "" : sound)
                     .put("title", title)
                     .put("body", body)
-                    .put("kind", kind);
+                    .put("kind", kind)
+                    .put("channel", channel)
+                    .put("notice", notice);
         }
     }
 
@@ -85,6 +126,18 @@ public final class AdhanScheduler {
         return events;
     }
 
+    /** يُصفّي القائمة بالمفتاح والمعرّف: الأوّل يبقى، والمكرّر يُسقط. */
+    static List<Event> dedupe(List<Event> events) {
+        Map<String, Event> byKey = new LinkedHashMap<>();
+        Set<Integer> ids = new HashSet<>();
+        for (Event e : events) {
+            if (byKey.containsKey(e.key) || ids.contains(e.id)) continue;
+            byKey.put(e.key, e);
+            ids.add(e.id);
+        }
+        return new ArrayList<>(byKey.values());
+    }
+
     /** Replaces the whole schedule: cancels what we armed before, then re-arms. */
     public static int replaceAll(Context context, List<Event> events) {
         cancelAll(context);
@@ -94,9 +147,11 @@ public final class AdhanScheduler {
 
         long now = System.currentTimeMillis();
         List<Event> armed = new ArrayList<>();
+        Set<String> fired = firedKeys(context);
 
-        for (Event e : events) {
+        for (Event e : dedupe(events)) {
             if (e.atMillis <= now) continue;
+            if (fired.contains(e.key)) continue;
             PendingIntent pi = pendingIntentFor(context, e, PendingIntent.FLAG_UPDATE_CURRENT);
             if (pi == null) continue;
             try {
@@ -115,7 +170,77 @@ public final class AdhanScheduler {
         }
 
         persist(context, armed);
+        prefs(context).edit().putLong(KEY_LAST_SCHEDULED, now).apply();
+        android.util.Log.i("ManarSchedule", "armed " + armed.size() + " of " + events.size()
+                + " exact=" + canScheduleExact(context));
         return armed.size();
+    }
+
+    /* ------------------------- منع الإطلاق المكرّر ------------------------- */
+
+    /**
+     * يُسجّل أن الحدث أُطلق. يُرجع false إن كان قد أُطلق من قبل — فيتوقّف
+     * المستقبِل ولا يُشغّل شيئاً.
+     */
+    public static synchronized boolean markFired(Context context, String key) {
+        if (key == null || key.isEmpty()) return true;
+        SharedPreferences p = prefs(context);
+        JSONArray list;
+        try {
+            list = new JSONArray(p.getString(KEY_FIRED, "[]"));
+        } catch (JSONException e) {
+            list = new JSONArray();
+        }
+        for (int i = 0; i < list.length(); i++) {
+            if (key.equals(list.optString(i))) return false;
+        }
+        list.put(key);
+        JSONArray trimmed = new JSONArray();
+        int start = Math.max(0, list.length() - FIRED_MEMORY);
+        for (int i = start; i < list.length(); i++) trimmed.put(list.optString(i));
+        p.edit().putString(KEY_FIRED, trimmed.toString()).apply();
+        return true;
+    }
+
+    static Set<String> firedKeys(Context context) {
+        Set<String> out = new HashSet<>();
+        try {
+            JSONArray list = new JSONArray(prefs(context).getString(KEY_FIRED, "[]"));
+            for (int i = 0; i < list.length(); i++) out.add(list.optString(i));
+        } catch (JSONException ignored) {
+            // سجلّ تالف: نبدأ من جديد
+        }
+        return out;
+    }
+
+    /** حدث مُجدوَل بمفتاحه — يقرؤه المستقبِل ليتأكّد أن الحدث ما زال قائماً. */
+    public static Event find(Context context, String key) {
+        if (key == null) return null;
+        for (Event e : restore(context)) if (key.equals(e.key)) return e;
+        return null;
+    }
+
+    public static long lastScheduledAt(Context context) {
+        return prefs(context).getLong(KEY_LAST_SCHEDULED, 0L);
+    }
+
+    /** المُجدوَل القادم لنوعٍ معيّن. */
+    public static int pendingCount(Context context, String kind) {
+        long now = System.currentTimeMillis();
+        int count = 0;
+        for (Event e : restore(context)) if (e.atMillis > now && kind.equals(e.kind)) count++;
+        return count;
+    }
+
+    /** أقرب حدث قادم، أو null. */
+    public static Event next(Context context) {
+        long now = System.currentTimeMillis();
+        Event best = null;
+        for (Event e : restore(context)) {
+            if (e.atMillis <= now) continue;
+            if (best == null || e.atMillis < best.atMillis) best = e;
+        }
+        return best;
     }
 
     public static void cancelAll(Context context) {
@@ -162,7 +287,11 @@ public final class AdhanScheduler {
                 .putExtra(AdhanService.EXTRA_SOUND, e.sound)
                 .putExtra(AdhanService.EXTRA_TITLE, e.title)
                 .putExtra(AdhanService.EXTRA_BODY, e.body)
-                .putExtra(AdhanService.EXTRA_KIND, e.kind);
+                .putExtra(AdhanService.EXTRA_KIND, e.kind)
+                .putExtra(AdhanService.EXTRA_KEY, e.key)
+                .putExtra(AdhanService.EXTRA_CHANNEL, e.channel)
+                .putExtra(AdhanService.EXTRA_NOTICE, e.notice)
+                .putExtra(EXTRA_EVENT_ID, e.id);
 
         return PendingIntent.getBroadcast(
                 context, REQUEST_BASE + e.id, intent, extraFlags | PendingIntent.FLAG_IMMUTABLE);

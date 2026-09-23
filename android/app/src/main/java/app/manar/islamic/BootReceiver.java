@@ -27,7 +27,10 @@ public class BootReceiver extends BroadcastReceiver {
             case Intent.ACTION_MY_PACKAGE_REPLACED:
             case Intent.ACTION_TIMEZONE_CHANGED:
             case Intent.ACTION_TIME_CHANGED:
+            case "android.intent.action.QUICKBOOT_POWERON":
+            case "com.htc.intent.action.QUICKBOOT_POWERON":
                 ManarChannels.ensure(context);
+                android.util.Log.i("ManarSchedule", "re-arm after " + action);
                 AdhanScheduler.rearm(context);
                 // وسكينة معها: فترةٌ محفوظة بلا منبّه هي ميزة مُعطّلة في الحقيقة.
                 SakinahLog.add(

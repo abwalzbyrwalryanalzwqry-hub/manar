@@ -12,7 +12,7 @@ const ITEMS = [
   { to: "/wird", l: "الوِرد", d: "ورد الصباح والمساء", i: icons.sparkle },
   { to: "/adhan", l: "مكتبة الأذان", d: "اختر صوت الأذان لكل صلاة", i: icons.bell },
 
-  { to: "/iqama", l: "الإقامة", d: "الفاصل بين الأذان والإقامة", i: icons.prayer },
+  { to: "/iqama", l: "الإقامة", d: "صوت الإقامة وموعدها بعد الأذان", i: icons.prayer },
   { to: "/notifications", l: "مركز التنبيهات", d: "الأذان، الإقامة، التذكيرات", i: icons.bell },
   { to: "/sakinah", l: "🕌 سكينة", d: "الوضع الهادئ للصلاة", i: icons.moon },
   {

@@ -20,6 +20,7 @@ import { NativeBridge } from "@/components/manar/native-bridge";
 import { AudioStopBar } from "@/components/manar/audio-stop-bar";
 import { hideSplash } from "@/lib/native-shell";
 import { StorageGate } from "@/components/manar/storage-gate";
+import { markAppMounted } from "@/lib/boot-guard";
 
 function NotFoundComponent() {
   return (
@@ -188,6 +189,11 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  // يُعلن لدرع الإقلاع أن الحزمة عملت فعلاً (لا يكفي وجود HTML المبني مسبقاً).
+  useEffect(() => {
+    markAppMounted();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

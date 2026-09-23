@@ -366,11 +366,7 @@ export const LEGACY_VARIANT_MIGRATION: Record<string, AdhanAssetId> = {
   fajr_first: "asset:afasy-2",
   fajr_second: "asset:fajr-dossary-second",
   fajr_tathweeb: "asset:tathweeb-madinah",
-  // الإقامة (لا تتوفر تسجيلات إقامة مستقلة — نستخدم مقاطع حقيقية مناسبة)
-  iqama_full: "asset:segment-hayya",
-  iqama_qad: "asset:segment-takbir",
-  iqama_short: "asset:madinah-takbir",
-  iqama_masjid: "asset:segment-hayya-aqsa",
+  // الإقامة: لا ربط هنا إطلاقاً — لها مكتبتها المستقلة (iqamah-library.ts).
   // تنبيه قبل الصلاة
   reminder_default: "asset:segment-hayya",
   reminder_chime: "asset:segment-takbir",

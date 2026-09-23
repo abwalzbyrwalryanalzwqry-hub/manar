@@ -63,6 +63,13 @@ public class AdhanService extends Service
     public static final String EXTRA_VOLUME = "volume";
     /** "notification" لمعاينة نغمات التنبيه على مسار الإشعارات لا المنبّه. */
     public static final String EXTRA_USAGE = "usage";
+    /** مفتاح الحدث الفريد (fajr_iqamah_2026_09_23) — للسجل ومنع التكرار. */
+    public static final String EXTRA_KEY = "key";
+    /** قناة إشعار حدث notice. */
+    public static final String EXTRA_CHANNEL = "channel";
+    /** بعد انتهاء الأذان يبقى إشعار دخول الوقت. */
+    public static final String EXTRA_NOTICE = "notice";
+    static final String EXTRA_EVENT_ID = "event_id";
 
     private static final int NOTIFICATION_ID = 40990;
     /** تنبيه الصلاة الباقي بعد الكتم — منفصلٌ عن إشعار التحكم. */
@@ -137,6 +144,9 @@ public class AdhanService extends Service
     private String currentNoticeTitle = "منار";
     private String currentNoticeBody = "";
     private String currentNoticeKind = "adhan";
+    private String currentKey = "";
+    private int currentEventId = 0;
+    private boolean currentWantsNotice = false;
 
     private final AudioManager.OnAudioFocusChangeListener focusListener = change -> {
         if (change == AudioManager.AUDIOFOCUS_LOSS) {
@@ -151,6 +161,33 @@ public class AdhanService extends Service
     /** Starts playback of a bundled recording from {@code res/raw}. */
     public static void play(Context context, String sound, String title, String body, String kind) {
         play(context, sound, title, body, kind, -1f, null);
+    }
+
+    /** تشغيل حدثٍ مُجدوَل بمفتاحه — من {@link AdhanAlarmReceiver}. */
+    public static void play(
+            Context context,
+            String sound,
+            String title,
+            String body,
+            String kind,
+            String key,
+            int eventId,
+            boolean notice) {
+        Intent intent = new Intent(context, AdhanService.class)
+                .setAction(ACTION_PLAY)
+                .putExtra(EXTRA_SOUND, sound)
+                .putExtra(EXTRA_TITLE, title)
+                .putExtra(EXTRA_BODY, body)
+                .putExtra(EXTRA_KIND, kind)
+                .putExtra(EXTRA_VOLUME, -1f)
+                .putExtra(EXTRA_KEY, key)
+                .putExtra(EXTRA_EVENT_ID, eventId)
+                .putExtra(EXTRA_NOTICE, notice);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(intent);
+        } else {
+            context.startService(intent);
+        }
     }
 
     /** مثل {@link #play} مع مستوى صوت صريح ومسار تشغيل (للمعاينة). */
@@ -246,9 +283,16 @@ public class AdhanService extends Service
         boolean notificationUsage =
                 intent != null && "notification".equals(intent.getStringExtra(EXTRA_USAGE));
 
+        final String previousKey = currentKey;
+        final boolean previousPlaying = player != null;
+
         currentNoticeTitle = title;
         currentNoticeBody = body;
         currentNoticeKind = kind;
+        currentKey = intent != null && intent.getStringExtra(EXTRA_KEY) != null
+                ? intent.getStringExtra(EXTRA_KEY) : "";
+        currentEventId = intent != null ? intent.getIntExtra(EXTRA_EVENT_ID, 0) : 0;
+        currentWantsNotice = intent != null && intent.getBooleanExtra(EXTRA_NOTICE, false);
 
         // The notification must be posted before anything else can fail, or
         // Android kills the service for starting foreground too late.
@@ -257,6 +301,10 @@ public class AdhanService extends Service
         // صوتٌ فوق صوت: أي تشغيلٍ جديد يُوقف السابق أولاً. وقبل هذا الإصلاح كان
         // المشغّل القديم يُستبدل مرجعُه فيبقى يعمل بلا سبيلٍ لإيقافه.
         releasePlayer();
+        if (previousPlaying) {
+            android.util.Log.i("ManarAudio", "stopped previous key=" + previousKey
+                    + " before key=" + currentKey);
+        }
 
         // سكينة: إن كانت فترة الهدوء جارية والمستخدم اختار كتم الأذان أيضاً،
         // فلا نُشغّل الصوت — ونُبقي التنبيه المكتوب وحده.
@@ -289,7 +337,7 @@ public class AdhanService extends Service
         }
 
         acquireWakeLock();
-        startPlayback(sound, volume, notificationUsage);
+        if (!startPlayback(sound, volume, notificationUsage)) return START_NOT_STICKY;
         updatePlaybackState(true, title, body, kind);
         publish("iqama".equals(kind) ? STATE_PLAYING_IQAMA : STATE_PLAYING_AZAN, kind, title);
         return START_NOT_STICKY;
@@ -450,11 +498,18 @@ public class AdhanService extends Service
         wakeLock = null;
     }
 
-    private void startPlayback(String sound, float volume, boolean notificationUsage) {
+    /**
+     * يبدأ تشغيل مورد من {@code res/raw}. عند أيّ فشل (مورد مفقود، فكّ ترميز،
+     * حالة مشغّل) لا انهيار: يُسجَّل الخطأ، ويُنشر التنبيه المكتوب إن كان حدثاً
+     * مُجدوَلاً، ثم تتوقّف الخدمة بأمان. ولا يُستبدل الصوت بصوتٍ آخر — فالإقامة
+     * لا تُعوَّض بأذانٍ أبداً.
+     */
+    private boolean startPlayback(String sound, float volume, boolean notificationUsage) {
         int resId = getResources().getIdentifier(sound, "raw", getPackageName());
         if (resId == 0) {
-            stopEverything();
-            return;
+            android.util.Log.e("ManarAudio", "missing raw resource: " + sound + " key=" + currentKey);
+            failSafely();
+            return false;
         }
         try {
             player = new MediaPlayer();
@@ -470,8 +525,24 @@ public class AdhanService extends Service
                     + " usage=" + (notificationUsage ? "notification" : "alarm"));
             player.prepare();
             player.start();
+            android.util.Log.i("ManarAudio", "start key=" + currentKey + " sound=" + sound
+                    + " kind=" + currentNoticeKind);
+            return true;
         } catch (Exception e) {
-            stopEverything();
+            android.util.Log.e("ManarAudio", "playback failed: " + sound + " key=" + currentKey, e);
+            failSafely();
+            return false;
+        }
+    }
+
+    /** فشل التشغيل: تنبيه مكتوب لحدثٍ مُجدوَل، ثم إيقاف نظيف. */
+    private void failSafely() {
+        boolean scheduled = !"preview".equals(currentNoticeKind) && !currentKey.isEmpty();
+        stopEverything();
+        if (scheduled) {
+            ManarNotices.post(this, currentEventId,
+                    "iqama".equals(currentNoticeKind) ? "iqama" : "adhan",
+                    currentNoticeTitle, currentNoticeBody, null, false);
         }
     }
 
@@ -554,12 +625,21 @@ public class AdhanService extends Service
         releaseWakeLock();
         publish(STATE_IDLE, currentNoticeKind, currentNoticeTitle);
         stopForegroundOnly();
+        // إشعار دخول الوقت يبقى بعد انتهاء الأذان (إن كان مفعّلاً) — صامتاً لأن
+        // الأذان سُمِع للتوّ. إشعار التحكم أُزيل مع انتهاء الخدمة الأمامية.
+        if (currentWantsNotice && !"preview".equals(currentNoticeKind)) {
+            ManarNotices.post(this, currentEventId, "adhan",
+                    currentNoticeTitle, currentNoticeBody, null, true);
+        }
+        android.util.Log.i("ManarAudio", "completed key=" + currentKey);
         stopSelfSafely();
     }
 
     @Override
     public boolean onError(MediaPlayer mp, int what, int extra) {
-        stopEverything();
+        android.util.Log.e("ManarAudio", "decoder error what=" + what + " extra=" + extra
+                + " key=" + currentKey);
+        failSafely();
         return true;
     }
 

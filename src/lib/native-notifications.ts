@@ -41,11 +41,14 @@ import {
   effectiveVolume,
   getAdhanSettings,
   notificationLevel,
-  resolveAdhanForPrayer,
-  resolveIqamaForPrayer,
   type NotificationLevel,
 } from "@/lib/adhan-settings";
-import { adhanVariantUrl, iqamaVariantUrl } from "@/lib/adhan-sound";
+import {
+  buildPrayerAlarms,
+  rawResourceName as rawName,
+  SCHEDULE_DAYS_AHEAD,
+  type ManarAlarmEvent,
+} from "@/lib/prayer-schedule";
 import { REMINDER_TONES, readReminders, reminderTimeOn, toneUrl } from "@/lib/daily-reminders";
 import { PRAYER_APPROACH_CLIPS, approachClipFor } from "@/lib/prayer-approach-audio";
 
@@ -70,23 +73,37 @@ type LocalNotificationsPlugin = {
   addListener: (event: string, cb: (e: unknown) => void) => Promise<unknown>;
 };
 
-export type ManarAdhanEvent = {
-  id: number;
-  /** Epoch milliseconds. */
-  at: number;
-  /** res/raw resource name, or "" for silent mode. */
-  sound: string;
-  title: string;
-  body: string;
-  kind: "adhan" | "iqama";
-};
+/** حدث واحد كما يُسلَّم لـ`AdhanScheduler` — انظر `prayer-schedule.ts`. */
+export type ManarAdhanEvent = ManarAlarmEvent;
 
 export type NativeAdhanStatus = {
   exactAlarms: boolean;
   batteryUnrestricted: boolean;
   pending: number;
   sdk: number;
+  /** عدد المُجدوَل لكل نوع (نسخ أصلية أقدم لا تُرجعها). */
+  pendingAdhan?: number;
+  pendingIqama?: number;
+  pendingNotice?: number;
+  notificationsAllowed?: boolean;
+  /** آخر إعادة جدولة (ميلي ثانية). */
+  lastScheduledAt?: number;
+  nextKey?: string;
+  nextAt?: number;
 };
+
+/** نتيجة آخر مزامنة للجدول — تعرضها الواجهة في بطاقة الحالة. */
+export type ScheduleSyncResult = {
+  at: number;
+  alarms: number;
+  reminders: number;
+  exactAlarms: boolean;
+};
+
+let lastSync: ScheduleSyncResult | null = null;
+export function lastScheduleSync(): ScheduleSyncResult | null {
+  return lastSync;
+}
 
 /** فترة هدوء واحدة كما تُسلّم إلى الطبقة الأصلية — أوقات مطلقة محسوبة من المواقيت. */
 export type SakinahNativeWindow = {
@@ -176,7 +193,7 @@ export type SakinahLogEvent = {
   detail: string;
 };
 
-const DAYS_AHEAD = 7;
+const DAYS_AHEAD = SCHEDULE_DAYS_AHEAD;
 const ID_BASE = 41000;
 
 /** Our own native plugin, reached through the supported `registerPlugin` proxy. */
@@ -276,24 +293,8 @@ function idFor(dayIndex: number, prayerIndex: number, kind: number, extra = 0) {
   return ID_BASE + dayIndex * 100 + prayerIndex * 10 + kind + extra * 1000;
 }
 
-/**
- * Android resource name of a bundled sound.
- *
- * `res/raw` names may only contain [a-z0-9_], so `/audio/library/makkah-mulla-full-1.mp3`
- * resolves to `makkah_mulla_full_1`. Mirrors `rawResourceName` in
- * `scripts/sync-android-raw-audio.mjs` — keep the two in sync.
- */
-export function rawResourceName(url: string | undefined): string {
-  if (!url) return "";
-  const file = url.split("/").pop();
-  if (!file) return "";
-  return file
-    .replace(/\.[a-z0-9]+$/i, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .replace(/^(\d)/, "a$1");
-}
+/** اسم مورد أندرويد لصوت مضمَّن — التحويل نفسه في `sync-android-raw-audio.mjs`. */
+export const rawResourceName = rawName;
 
 export async function ensureNativePermission(): Promise<boolean> {
   const p = plugin();
@@ -591,7 +592,14 @@ async function syncNativePrayerScheduleNow(
 
   const now = Date.now();
   const reminders: unknown[] = [];
-  const adhanEvents: ManarAdhanEvent[] = [];
+  /* الأذان والإقامة وتنبيهاتها: جدول واحد من دالّة نقيّة بمفاتيح فريدة. */
+  const adhanEvents: ManarAdhanEvent[] = buildPrayerAlarms({
+    settings: s,
+    location,
+    calc,
+    now,
+    days: DAYS_AHEAD,
+  });
 
   for (let d = 0; d < DAYS_AHEAD; d++) {
     const date = new Date();
@@ -604,22 +612,6 @@ async function syncNativePrayerScheduleNow(
       const per = s.perPrayer[prayer];
       const at = times[prayer].getTime();
       const label = PRAYER_LABELS[prayer].ar;
-
-      // Adhan — native exact alarm + foreground playback.
-      if (s.adhanEnabled && per.adhan && at > now) {
-        const variant = resolveAdhanForPrayer(s, prayer);
-        adhanEvents.push({
-          id: idFor(d, pi, 1) - ID_BASE,
-          at,
-          sound:
-            s.silentMode || !s.soundEnabled
-              ? ""
-              : rawResourceName(adhanVariantUrl(variant) ?? undefined),
-          title: `حان الآن وقت ${label}`,
-          body: `${location.city} · أذان ${label}`,
-          kind: "adhan",
-        });
-      }
 
       // Pre-prayer reminders — ordinary short notifications.
       if (s.remindersEnabled && per.reminder) {
@@ -643,25 +635,6 @@ async function syncNativePrayerScheduleNow(
             extra: { kind: "reminder", prayer, minutes: m },
           });
         });
-      }
-
-      // Iqama — native too, so the recording plays in full.
-      if (s.iqamaEnabled && per.iqama) {
-        const offset = s.iqamaOffsets[prayer] ?? 0;
-        const t = at + offset * 60_000;
-        if (offset > 0 && t > now) {
-          adhanEvents.push({
-            id: idFor(d, pi, 3) - ID_BASE,
-            at: t,
-            sound:
-              s.silentMode || !s.iqamaSoundEnabled
-                ? ""
-                : rawResourceName(iqamaVariantUrl(resolveIqamaForPrayer(s, prayer)) ?? undefined),
-            title: `إقامة ${label}`,
-            body: "حان موعد إقامة الصلاة الآن",
-            kind: "iqama",
-          });
-        }
       }
     });
   }
@@ -703,13 +676,18 @@ async function syncNativePrayerScheduleNow(
   }
 
   let scheduled = 0;
+  let alarms = 0;
+  let exactAlarms = false;
 
   if (adhan) {
     try {
       const r = await adhan.schedule({ events: adhanEvents });
       scheduled += r.scheduled;
-    } catch {
+      alarms = r.scheduled;
+      exactAlarms = r.exactAlarms;
+    } catch (e) {
       /* the reminders below are still worth scheduling */
+      console.error("[manar] تعذّرت جدولة الأذان والإقامة", e);
     }
   }
 
@@ -734,6 +712,10 @@ async function syncNativePrayerScheduleNow(
     }
   }
 
+  lastSync = { at: Date.now(), alarms, reminders: reminders.length, exactAlarms };
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("manar:schedule-synced", { detail: lastSync }));
+  }
   return scheduled;
 }
 

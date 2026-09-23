@@ -1,6 +1,9 @@
 /**
  * Manar — copies the bundled Adhan / Iqama recordings into android/res/raw.
  *
+ * Adhan: public/audio/library (mp3). Iqama: public/audio/iqamah (ogg/m4a) — two
+ * separate folders, two separate catalogs; nothing here maps one onto the other.
+ *
  * Android resource names may only contain [a-z0-9_], so `makkah-mulla-full-1.mp3`
  * becomes `makkah_mulla_full_1.mp3`. The same transform lives in
  * `src/lib/native-notifications.ts` (`rawResourceName`) so the web layer and the
@@ -30,7 +33,8 @@ const root = resolve(import.meta.dirname, "..");
 const sources = [
   "public/audio/library",
   "public/audio/reminders",
-  "public/audio/iqama",
+  /* مكتبة الإقامة — تسجيلات حقيقية (Ogg Opus وM4A)، منفصلة تماماً عن `library`. */
+  "public/audio/iqamah",
   "public/audio/prayer-approach",
   /* نسخ نغمات التنبيه بدرجات صوت ثابتة لقنوات الإشعار (build-volume-levels.mjs). */
   "assets/audio-levels",
@@ -58,17 +62,23 @@ mkdirSync(target, { recursive: true });
 let bytes = 0;
 const copied = [];
 const seen = new Map();
+/* الصيغ التي يفكّها MediaPlayer على كل إصدارات أندرويد المدعومة (minSdk 24)
+ * ولا يضغطها aapt داخل الحزمة (فتبقى قابلة للفتح بواصف ملف مباشرة). */
+const AUDIO_EXT = /\.(mp3|ogg|m4a)$/i;
+
 for (const source of present) {
   for (const file of readdirSync(source)) {
-    if (!file.toLowerCase().endsWith(".mp3")) continue;
-    const name = `${rawResourceName(file)}.mp3`;
+    const ext = AUDIO_EXT.exec(file)?.[1]?.toLowerCase();
+    if (!ext) continue;
+    const name = `${rawResourceName(file)}.${ext}`;
     /* res/raw مسطّح بلا مجلدات فرعية، فملفان بالاسم نفسه في مجلدين مختلفين
      * يدهس أحدهما الآخر بصمت وتُشغّل نغمةٌ خاطئة. نُعلِن الاصطدام بدل ابتلاعه. */
-    if (seen.has(name)) {
-      console.error(`[manar] اسم مورد مكرّر: raw/${name} من ${seen.get(name)} و${file}`);
+    const base = rawResourceName(file);
+    if (seen.has(base)) {
+      console.error(`[manar] اسم مورد مكرّر: raw/${base} من ${seen.get(base)} و${file}`);
       process.exit(1);
     }
-    seen.set(name, file);
+    seen.set(base, file);
     copyFileSync(resolve(source, file), resolve(target, name));
     bytes += statSync(resolve(source, file)).size;
     copied.push(`${file} -> raw/${name}`);

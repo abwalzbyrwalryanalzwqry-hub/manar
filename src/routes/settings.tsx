@@ -144,7 +144,7 @@ function Settings() {
           value="تفصيل لكل صلاة"
           to="/notifications"
         />
-        <Row icon={icons.speed} label="الإقامة" value="إعداد فروق الإقامة" to="/iqama" />
+        <Row icon={icons.speed} label="الإقامة" value="الصوت والموعد بعد الأذان" to="/iqama" />
         <Row icon={icons.play} label="مكتبة الأذان" value="اختيار الصوت" to="/adhan" />
       </div>
 

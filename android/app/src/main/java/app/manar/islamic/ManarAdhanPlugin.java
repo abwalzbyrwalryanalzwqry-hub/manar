@@ -263,6 +263,18 @@ public class ManarAdhanPlugin extends Plugin {
         result.put("exactAlarms", AdhanScheduler.canScheduleExact(context));
         result.put("batteryUnrestricted", isIgnoringBatteryOptimizations(context));
         result.put("pending", AdhanScheduler.pendingCount(context));
+        result.put("pendingAdhan", AdhanScheduler.pendingCount(context, AdhanScheduler.KIND_ADHAN));
+        result.put("pendingIqama", AdhanScheduler.pendingCount(context, AdhanScheduler.KIND_IQAMA));
+        result.put("pendingNotice", AdhanScheduler.pendingCount(context, AdhanScheduler.KIND_NOTICE));
+        result.put("lastScheduledAt", AdhanScheduler.lastScheduledAt(context));
+        android.app.NotificationManager nm =
+                context.getSystemService(android.app.NotificationManager.class);
+        result.put("notificationsAllowed", nm != null && nm.areNotificationsEnabled());
+        AdhanScheduler.Event next = AdhanScheduler.next(context);
+        if (next != null) {
+            result.put("nextKey", next.key);
+            result.put("nextAt", next.atMillis);
+        }
         result.put("sdk", Build.VERSION.SDK_INT);
         call.resolve(result);
     }
