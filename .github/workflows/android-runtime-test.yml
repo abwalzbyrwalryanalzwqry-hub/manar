@@ -125,3 +125,21 @@ jobs:
           name: runtime-evidence-api${{ matrix.api }}
           path: evidence-${{ matrix.api }}
           if-no-files-found: warn
+      - name: ملخص النتائج في التعليقات
+        if: always()
+        run: |
+          D=evidence-${{ matrix.api }}
+          emit() { # emit <level> <title> <file> — يقسم الملف إلى تعليقات قصيرة تُقرأ من واجهة GitHub وواجهتها البرمجية
+            [ -s "$3" ] || return 0
+            rm -rf chunks && mkdir chunks
+            split -C 3000 "$3" chunks/c_
+            for c in chunks/c_*; do
+              body=$(tr -d '\r' < "$c" | sed -e 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+              echo "::$1 title=$2::$body"
+            done
+          }
+          grep -E "^FAIL" "$D/summary.txt" > fails.txt || true
+          grep -E "^NOTE" "$D/summary.txt" > notes.txt || true
+          emit error "API ${{ matrix.api }} فشل" fails.txt
+          emit notice "API ${{ matrix.api }} ملاحظات" notes.txt
+          emit notice "API ${{ matrix.api }} تشخيص" "$D/diag.txt"

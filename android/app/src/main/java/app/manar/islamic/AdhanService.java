@@ -261,21 +261,32 @@ public class AdhanService extends Service
         // أزرار الصوت أثناء تشغيل الأذان: التصرّف المتوقّع أن تُسكت الأذان، لا
         // أن تُنزل صوت الهاتف كلّه. ونمرّرها عبر الجلسة — وهي الآلة الرسمية —
         // ولا نعترض أزراراً أخرى ولا زرّ التشغيل.
-        try {
-            session.setPlaybackToRemote(new VolumeProviderCompat(
-                    VolumeProviderCompat.VOLUME_CONTROL_RELATIVE, 100, 100) {
-                @Override
-                public void onAdjustVolume(int direction) {
-                    if (direction != 0) muteOnly("volume-key");
-                }
+        //
+        // منذ أندرويد ١٣ (واجهة ٣٣) لا يوجّه النظام أزرار الصوت إلى جلسة «بعيدة»
+        // ما لم يكن لها مسار توجيه (MediaRouter2) — يظهر ذلك في السجل:
+        // «No routing session for app.manar.islamic». فالجلسة البعيدة تُهمَل،
+        // والشاشة مطفأة لا يصل الزرّ إلى أيّ جهة. لذلك نجعلها هناك جلسةً محلية
+        // على قناة الوسائط: تصير الجلسة الافتراضية للصوت، فيغيّر الزرّ صوت
+        // الوسائط درجةً، فيلتقطه onQuickStopEvent فيُسكت الأذان ويُعيد الدرجة.
+        if (Build.VERSION.SDK_INT >= 33) {
+            session.setPlaybackToLocal(AudioManager.STREAM_MUSIC);
+        } else {
+            try {
+                session.setPlaybackToRemote(new VolumeProviderCompat(
+                        VolumeProviderCompat.VOLUME_CONTROL_RELATIVE, 100, 100) {
+                    @Override
+                    public void onAdjustVolume(int direction) {
+                        if (direction != 0) muteOnly("volume-key");
+                    }
 
-                @Override
-                public void onSetVolumeTo(int volume) {
-                    if (volume < 100) muteOnly("volume-key");
-                }
-            });
-        } catch (Exception ignored) {
-            // لو رفضت المنصّة التحكّم البعيد، يبقى زرّ الإشعار وشاشة القفل
+                    @Override
+                    public void onSetVolumeTo(int volume) {
+                        if (volume < 100) muteOnly("volume-key");
+                    }
+                });
+            } catch (Exception ignored) {
+                // لو رفضت المنصّة التحكّم البعيد، يبقى زرّ الإشعار وشاشة القفل
+            }
         }
         session.setActive(true);
     }
@@ -592,7 +603,6 @@ public class AdhanService extends Service
                 .build());
     }
 
-    /** يُوقف المشغّل ويُحرّره دون إنهاء الخدمة — أساس منع تراكب الأصوات. */
     /**
      * إيقاف سريع دون فتح التطبيق، ما دام صوت منار يعمل:
      *
@@ -659,8 +669,29 @@ public class AdhanService extends Service
         } else if ("android.media.VOLUME_CHANGED_ACTION".equals(action)) {
             int now = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_VALUE", -1);
             int prev = intent.getIntExtra("android.media.EXTRA_PREV_VOLUME_STREAM_VALUE", -1);
-            if (settled && now != prev && !quietModeChanging()) muteOnly("volume-stream");
+            int stream = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_TYPE", -1);
+            // يبثّ النظام التغيّر لكل قناة مُسمّاة باسم قناة الوسائط أيضاً (المساعد ١١،
+            // الإتاحة ١٠، القراءة الآلية ٩) وقد يصل بثّها قبل الوسائط؛ لو أسكتنا عليها
+            // لحاولنا إعادة قناة لا نملك صلاحيتها وضاعت إعادة صوت الوسائط. فنكتفي بالقنوات
+            // الأصلية التي يغيّرها الزرّ فعلاً.
+            if (!isUserVolumeStream(stream)) return;
+            if (settled && now != prev && !quietModeChanging()) {
+                // صوت المنبّه المرفوع مؤقتاً تُعيده restoreAlarmStream داخل muteOnly.
+                boolean alarmHandled = stream == AudioManager.STREAM_ALARM && restoreAlarmVolume >= 0;
+                muteOnly("volume-stream");
+                // الضغطة كانت لإسكات الأذان لا لتغيير الصوت: نُعيد الدرجة كما كانت.
+                if (!alarmHandled && stream >= 0 && prev >= 0) restoreStreamLevel(stream, prev);
+            }
         }
+    }
+
+    private static boolean isUserVolumeStream(int stream) {
+        return stream == AudioManager.STREAM_MUSIC
+                || stream == AudioManager.STREAM_ALARM
+                || stream == AudioManager.STREAM_RING
+                || stream == AudioManager.STREAM_NOTIFICATION
+                || stream == AudioManager.STREAM_SYSTEM
+                || stream == AudioManager.STREAM_VOICE_CALL;
     }
 
     /**
@@ -678,6 +709,16 @@ public class AdhanService extends Service
                     && nm.getCurrentInterruptionFilter() != NotificationManager.INTERRUPTION_FILTER_UNKNOWN;
         } catch (Throwable t) {
             return true;
+        }
+    }
+
+    private void restoreStreamLevel(int stream, int level) {
+        if (audioManager == null) return;
+        try {
+            audioManager.setStreamVolume(stream, level, 0);
+            android.util.Log.i("ManarAudio", "restored stream=" + stream + " level=" + level);
+        } catch (Throwable ignored) {
+            // عدم الإزعاج أو سياسة الجهاز قد تمنع ذلك: لا ضرر.
         }
     }
 
@@ -805,6 +846,7 @@ public class AdhanService extends Service
         restoreAlarmVolume = -1;
     }
 
+    /** يُوقف المشغّل ويُحرّره دون إنهاء الخدمة — أساس منع تراكب الأصوات. */
     private void releasePlayer() {
         stopQuickStop();
         releaseEnhancer();

@@ -34,6 +34,9 @@ FAILED=0
 
 API=$(adb shell getprop ro.build.version.sdk | tr -d '\r')
 echo "API=$API" | tee -a "$SUMMARY"
+# مخزن السجل الافتراضي في المحاكي صغير (٢٥٦ ك.ب) فتدور أسطر الاختبار خارجه على
+# العدّاءات البطيئة الكثيرة الضجيج؛ نكبّره حتى تبقى كل أسطر كل خطوة.
+adb logcat -G 16M > /dev/null 2>&1 || true
 
 pass() { echo "PASS  $*" | tee -a "$SUMMARY"; }
 fail() {
@@ -76,6 +79,7 @@ wait_boot() {
     [ $i -gt 150 ] && break
   done
   sleep 8
+  adb logcat -G 16M > /dev/null 2>&1 || true
 }
 
 airplane_on() {
@@ -150,6 +154,7 @@ done
 expect "فكّ ترميز كامل لكل ملف إقامة (MediaCodec)" "$OUT/decode.txt" "DECODE iqamah_[0-9]{2} OK" 19
 expect "تشغيل كل ملف إقامة (MediaPlayer)" "$OUT/decode.txt" "PLAY iqamah_[0-9]{2} OK" 19
 expect "خلاصة الفكّ والتشغيل" "$OUT/decode.txt" "DECODE_DONE pass=19 fail=0"
+grep -E "FAIL|DECODE_DONE" "$OUT/decode.txt" | head -8 | sed 's/^/DIAG decode: /' >> "$OUT/diag.txt" || true
 
 # ---- ٢. التدفّق الكامل والتطبيق مغلق والشاشة مطفأة ----
 # نُغلق التطبيق أولاً: لو بقيت واجهته حيّة لأعادت مزامنة جدولها الحقيقي فوق
@@ -201,7 +206,7 @@ adb logcat -d > "$OUT/missing-logcat.txt"
 adb shell dumpsys notification --noredact > "$OUT/missing-notifications.txt"
 expect "مورد مفقود يُسجَّل" "$OUT/missing-logcat.txt" "missing raw resource: iqamah_99"
 expect_none "مورد مفقود: لا صوت بديل" "$OUT/missing-logcat.txt" "start key=t_missing_iqamah"
-expect_none "مورد مفقود: لا انهيار" "$OUT/missing-logcat.txt" "FATAL EXCEPTION"
+expect_no_crash "مورد مفقود: لا انهيار" "$OUT/missing-logcat.txt"
 expect "مورد مفقود: يبقى الإشعار المكتوب" "$OUT/missing-notifications.txt" "id=309201"
 
 # ---- ٤ب. الإيقاف السريع بأزرار الجهاز والتطبيق مغلق ----
@@ -227,23 +232,48 @@ if wait_log "start key=t_q1_adhan" 110; then
   sleep 4
   adb shell dumpsys audio > "$OUT/quick-audio-playing.txt" 2>&1 || true
   adb shell dumpsys media_session > "$OUT/quick-media-session.txt" 2>&1 || true
-  echo "DIAG interactive=$(adb shell dumpsys power | grep -m1 -oE 'mWakefulness=[A-Za-z]+')"
+  DIAG="$OUT/diag.txt"
+  echo "DIAG interactive=$(adb shell dumpsys power | grep -m1 -oE 'mWakefulness=[A-Za-z]+')" | tee -a "$DIAG"
+  echo "DIAG music-before=$(adb shell dumpsys audio | grep -m1 -oE 'STREAM_MUSIC.*' | head -c 200)" | tee -a "$DIAG"
   grep -E "global priority|Volume default|default volume|package=app.manar|active=|state=PlaybackState" \
-    "$OUT/quick-media-session.txt" | head -12 | sed 's/^/DIAG /'
-  grep -E "USAGE_MEDIA|USAGE_ALARM" "$OUT/quick-audio-playing.txt" | grep -i started | head -4 | sed 's/^/DIAG /'
-  # `input keyevent` يُعلَّم «محقوناً» فيسلك والشاشة مطفأة مسار الشاشة المضاءة؛ زرّ
-  # الجهاز الحقيقي يُرسَل من لوحة المحاكي كمفتاح عتادي (EV_KEY) ليسلك مساره الفعلي.
-  if adb emu event send EV_KEY:KEY_VOLUMEDOWN:1 EV_SYN:0:0 > /dev/null 2>&1 \
+    "$OUT/quick-media-session.txt" | head -12 | sed 's/^/DIAG /' | tee -a "$DIAG"
+  grep -E "USAGE_MEDIA|USAGE_ALARM" "$OUT/quick-audio-playing.txt" | grep -i started | head -4 | sed 's/^/DIAG /' | tee -a "$DIAG"
+  VOL_DEV=$(adb shell getevent -pl 2> /dev/null | tr -d '\r' \
+    | awk '/^add device/{d=$NF} /KEY_VOLUMEDOWN/{print d; exit}')
+  echo "DIAG volume-device=${VOL_DEV:-none}" | tee -a "$DIAG"
+  adb shell log -t ManarTest DIAG_VOLKEY_MARK
+  # هل يصل المفتاح إلى نواة الجهاز أصلاً؟ نسجّل أحداث الإدخال الخام حول الضغطة.
+  adb shell "timeout 6 getevent -lt" > "$OUT/quick-getevent.txt" 2>&1 &
+  GETEVENT_PID=$!
+  sleep 1
+  # `input keyevent` يُعلَّم «محقوناً» فيسلك والشاشة مطفأة مسار الشاشة المضاءة.
+  # مفتاح عتادي حقيقي: نكتب الحدث في جهاز الإدخال الذي يعلن KEY_VOLUMEDOWN في النواة
+  # (sendevent بصلاحية الجذر)، فيصل إلى النظام غير «محقون» ويسلك مسار الشاشة المطفأة
+  # الفعلي. أحداث لوحة المحاكي (adb emu event) لا تصل إلى النواة مع -no-window.
+  if [ -n "$VOL_DEV" ] && adb shell su 0 sh -c "'sendevent $VOL_DEV 1 114 1; sendevent $VOL_DEV 0 0 0; sleep 0.1; sendevent $VOL_DEV 1 114 0; sendevent $VOL_DEV 0 0 0'" > /dev/null 2>&1; then
+    note "زرّ الصوت والشاشة مطفأة: مفتاح عتادي عبر جهاز إدخال النواة ($VOL_DEV)"
+  elif adb emu event send EV_KEY:KEY_VOLUMEDOWN:1 EV_SYN:0:0 > /dev/null 2>&1 \
     && adb emu event send EV_KEY:KEY_VOLUMEDOWN:0 EV_SYN:0:0 > /dev/null 2>&1; then
-    note "زرّ الصوت والشاشة مطفأة: مفتاح عتادي من لوحة المحاكي"
+    note "زرّ الصوت والشاشة مطفأة: مفتاح من لوحة المحاكي"
   else
-    note "لوحة المحاكي غير متاحة — مفتاح محقون"
+    note "لا مفتاح عتادي متاح — مفتاح محقون"
     adb shell input keyevent KEYCODE_VOLUME_DOWN
   fi
   wait_log "muted by=volume-(key|stream) key=t_q1_adhan" 15 || true
-  adb logcat -d | grep -iE "key bridge|MediaSessionService|dispatchVolume|adjustSuggested|skipping volume|ManarAudio" \
-    | tail -15 | sed 's/^/DIAG /'
-  adb shell dumpsys audio | grep -m3 -iE "STREAM_MUSIC|- STREAM_MUSIC" | sed 's/^/DIAG /' || true
+  wait "$GETEVENT_PID" 2> /dev/null || true
+  tail -2 "$SUMMARY" | sed 's/^/DIAG /' | tee -a "$DIAG"
+  echo "DIAG ---- getevent (raw input) ----" | tee -a "$DIAG"
+  grep -iE "VOLUME|KEY_" "$OUT/quick-getevent.txt" | head -8 | sed 's/^/DIAG /' | tee -a "$DIAG"
+  echo "DIAG getevent-lines=$(wc -l < "$OUT/quick-getevent.txt")" | tee -a "$DIAG"
+  echo "DIAG ---- logcat after volume key (screen off) ----" | tee -a "$DIAG"
+  adb logcat -d | sed -n '/DIAG_VOLKEY_MARK/,$p' > "$OUT/quick-volume-key-logcat.txt"
+  grep -iE "key bridge|MediaSession|dispatchVolume|adjustSuggested|adjustStreamVolume|skipping volume|ManarAudio|PhoneWindowManager|interceptKey|VolumeDialog|routing|KEYCODE_VOLUME|VOLUME_DOWN|WindowManager.*Volume|AudioService|volume" \
+    "$OUT/quick-volume-key-logcat.txt" | tail -40 | sed 's/^/DIAG /' | tee -a "$DIAG"
+  echo "DIAG ---- unfiltered tail ----" | tee -a "$DIAG"
+  grep -vE "ManarTest|chatty|GoogleApiManager|Finsky|GmsClient|Phenotype|logd|BufferPool|freezing|ProcessStats" \
+    "$OUT/quick-volume-key-logcat.txt" | head -25 | cut -c1-220 | sed 's/^/DIAG /' | tee -a "$DIAG"
+  adb shell dumpsys audio | grep -m3 -iE "STREAM_MUSIC|- STREAM_MUSIC" | sed 's/^/DIAG /' | tee -a "$DIAG" || true
+  adb shell dumpsys media_session | grep -iE "Media button session|global priority|Sessions Stack" -A2 | head -12 | sed 's/^/DIAG /' | tee -a "$DIAG" || true
 fi
 # ٢) زرّ التشغيل والشاشة مضاءة (مهلة انطفاء طويلة حتى لا تنطفئ وحدها).
 adb shell settings put system screen_off_timeout 600000
@@ -280,6 +310,10 @@ else
   note "API $API: لا قائمة مشغّلات في dumpsys audio — يُكتفى بسجلّ بدء التشغيل"
 fi
 expect "زرّ الصوت يُسكت الأذان" "$Q" "muted by=volume-(key|stream) key=t_q1_adhan" 1
+if [ "$API" -ge 33 ]; then # ما دون ٣٣ جلسة بعيدة لا تغيّر صوت الجهاز أصلاً
+  expect "درجة صوت الوسائط تُعاد بعد الإسكات بالزرّ" "$Q" "restored stream=3 level="
+fi
+expect_none "لا محاولة لإعادة قناة مُسمّاة بلا صلاحية" "$Q" "restored stream=(9|10|11) |setStreamVolume\(\) for STREAM_(ASSISTANT|ACCESSIBILITY|TTS).*app\.manar"
 expect "زرّ الصوت والشاشة مضاءة يُسكت الإقامة" "$Q" "muted by=volume-(key|stream) key=t_q4_iqamah" 1
 expect "زرّ التشغيل والشاشة مضاءة يُسكت الإقامة" "$Q" "muted by=power-key key=t_q2_iqamah" 1
 expect "زرّ التشغيل والشاشة مطفأة يُسكت الأذان" "$Q" "muted by=power-key key=t_q3_adhan" 1
@@ -303,7 +337,7 @@ adb logcat -d > "$OUT/reboot-logcat.txt"
 expect "إعادة الضبط بعد الإقلاع" "$OUT/reboot-logcat.txt" "re-arm after android.intent.action.(LOCKED_)?BOOT_COMPLETED"
 expect "الإقامة تُطلق بعد إعادة التشغيل دون فتح التطبيق" "$OUT/reboot-logcat.txt" "fire t_isha_iqamah kind=iqama" 1
 expect "صوت الإقامة بعد إعادة التشغيل" "$OUT/reboot-logcat.txt" "start key=t_isha_iqamah sound=iqamah_19"
-expect_none "لا انهيار بعد إعادة التشغيل" "$OUT/reboot-logcat.txt" "FATAL EXCEPTION"
+expect_no_crash "لا انهيار بعد إعادة التشغيل" "$OUT/reboot-logcat.txt"
 
 adb uninstall "$DP" > /dev/null || true
 
@@ -451,7 +485,7 @@ if [ -f "$OUT/release-plan.env" ]; then
     adb shell dumpsys notification --noredact > "$OUT/release-notifications.txt"
     expect "الإصدار: إقامة حقيقية في موعدها والتطبيق مغلق ($IQ_KEY)" "$OUT/release-iqama-logcat.txt" "fire $IQ_KEY kind=iqama" 1
     expect "الإصدار: صوت الإقامة ($IQ_SOUND)" "$OUT/release-iqama-logcat.txt" "start key=$IQ_KEY sound=$IQ_SOUND kind=iqama"
-    expect_none "الإصدار: لا انهيار" "$OUT/release-iqama-logcat.txt" "FATAL EXCEPTION"
+    expect_no_crash "الإصدار: لا انهيار" "$OUT/release-iqama-logcat.txt"
     expect_none "الإصدار: لا خطأ صوت" "$OUT/release-iqama-logcat.txt" "ManarAudio.*(decoder error|missing raw|playback failed)"
   else
     note "تعذّر ضبط الساعة لموعد الإقامة"
@@ -459,7 +493,7 @@ if [ -f "$OUT/release-plan.env" ]; then
 fi
 
 adb logcat -d > "$OUT/release-final-logcat.txt"
-expect_none "الإصدار: لا انهيار طوال الاختبار" "$OUT/release-final-logcat.txt" "FATAL EXCEPTION.*|Process: app\.manar\.islamic"
+expect_no_crash "الإصدار: لا انهيار طوال الاختبار" "$OUT/release-final-logcat.txt"
 
 echo "----" | tee -a "$SUMMARY"
 if [ $FAILED = 0 ]; then echo "ALL PASSED" | tee -a "$SUMMARY"; else echo "SOME CHECKS FAILED" | tee -a "$SUMMARY"; fi
