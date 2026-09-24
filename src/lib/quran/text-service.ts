@@ -8,6 +8,7 @@
 // "quran-uthmani". Text is NOT hardcoded into any component.
 // ============================================================
 
+import { stripBasmala } from "./basmala";
 import type { SurahText } from "./text-types";
 
 const BASE = "/data/quran/uthmani";
@@ -31,6 +32,11 @@ export class QuranTextService {
         if (!data || !Array.isArray(data.ayahs) || data.ayahs.length === 0) {
           throw new Error("ملف السورة المحلي غير مكتمل — أعد المحاولة");
         }
+        // البسملة تُعرض رأساً مستقلاً؛ نفصلها هنا مرة واحدة لتصل الآية الأولى
+        // نظيفة إلى القارئ والبحث والتفسير والمشاركة والعلامات.
+        data.ayahs = data.ayahs.map((a) =>
+          a.n === 1 ? { ...a, t: stripBasmala(id, a.n, a.t) } : a,
+        );
         cache.set(id, data);
         return data;
       } finally {

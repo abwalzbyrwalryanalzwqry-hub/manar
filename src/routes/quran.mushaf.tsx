@@ -4,7 +4,12 @@ import { SurahRenderer } from "@/components/manar/surah-renderer";
 import { MushafPageRenderer } from "@/components/manar/mushaf-page-renderer";
 import { useSurahText } from "@/hooks/use-surah-text";
 import { useMushafPage } from "@/hooks/use-mushaf-page";
-import { clampPage, MUSHAF_PAGE_COUNT, quranPageService } from "@/lib/quran/page-service";
+import {
+  clampPage,
+  MUSHAF_PAGE_COUNT,
+  quranPageService,
+  surahIdsOnPage,
+} from "@/lib/quran/page-service";
 import { Arabesque, Icon, icons } from "@/components/manar/shell";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { quranRepository, toArabicDigits, REVELATION_LABEL_AR, formatRangeAr } from "@/lib/quran";
@@ -86,9 +91,8 @@ function MushafReader() {
   const headerSurah = useMemo(() => {
     if (state.mode !== "mushaf") return activeSurah;
     const p = state.page ?? 1;
-    const list = quranRepository.listSurahs();
-    const onPage = list.filter((s) => s.pages.start <= p && s.pages.end >= p);
-    return onPage[onPage.length - 1] ?? activeSurah;
+    const ids = surahIdsOnPage(p);
+    return quranRepository.getSurah(ids[ids.length - 1]) ?? activeSurah;
   }, [state.mode, state.page, activeSurah]);
 
   const filteredSurahs = useMemo(() => {
@@ -763,8 +767,8 @@ function MushafPagesMode({ page, onChange }: { page: number; onChange: (page: nu
           const dx = t.clientX - start.x;
           const dy = t.clientY - start.y;
           if (Math.abs(dx) < 46 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
-          // Mushaf order is right → left: dragging leftwards turns to the next page.
-          go(dx < 0 ? 1 : -1);
+          // كالمصحف الورقي: السحب نحو اليمين يقلب إلى الصفحة التالية.
+          go(dx > 0 ? 1 : -1);
         }}
       >
         <div className="pointer-events-none absolute inset-2.5 rounded-[20px] border border-gold/25" />

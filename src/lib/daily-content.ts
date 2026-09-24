@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from "react";
 import { quranTextService } from "@/lib/quran/text-service";
+import { stripBasmala } from "@/lib/quran/basmala";
 import { tafsirService } from "@/lib/quran/tafsir-service";
 import { SURAH_META } from "@/lib/quran/metadata";
 
@@ -108,7 +109,6 @@ export const DAILY_VERSES: ReadonlyArray<readonly [number, number, number?]> = [
 
 const VERSE_STRIDE = 37;
 const TAFSIR_EDITION = "ar-tafsir-muyassar";
-const BASMALA = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
 
 export interface DailyVerse {
   day: number;
@@ -136,9 +136,8 @@ const AR = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
 const ar = (n: number) => String(n).replace(/\d/g, (d) => AR[Number(d)]);
 
 function cleanAyah(surah: number, n: number, t: string): string {
-  let s = t;
-  if (n === 1 && surah !== 1 && s.startsWith(BASMALA)) s = s.slice(BASMALA.length);
-  return s.replace(/۞/g, "").replace(/\s+/g, " ").trim();
+  // البسملة تُفصل مسبقاً في خدمة النص؛ الاستدعاء هنا احتياط للنص الخام.
+  return stripBasmala(surah, n, t).replace(/۞/g, "").replace(/\s+/g, " ").trim();
 }
 
 /** ≈ words ÷ 1.6 words/s (a measured murattal pace), rounded to 5 s. */
