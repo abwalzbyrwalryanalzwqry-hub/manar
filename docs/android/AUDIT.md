@@ -120,5 +120,5 @@ cd android
 مخرجات مُتحقَّق منها: APK ٤٠ ميغابايت موقَّع (v2+v3)، AAB ٣٥ ميغابايت،
 `versionCode=1`، `versionName=1.0.0`، minSdk 24، targetSdk 35.
 
-يبقى غير مُخلَّص: حقوق تسجيلات الأذان (`rightsStatus: "UNVERIFIED"`)، وتدوير مفاتيح
-Supabase المكشوفة في تاريخ Git.
+حقوق تسجيلات الأذان والإقامة: **موثّقة** (`rightsStatus: "VERIFIED"`) — تحقّق منها صاحب
+المشروع ووثّقها. يبقى غير مُخلَّص: تدوير مفاتيح Supabase المكشوفة في تاريخ Git.

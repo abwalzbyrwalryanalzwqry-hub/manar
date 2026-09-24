@@ -1,6 +1,8 @@
 {
-  "policy": "No license is asserted by this package. Verify commercial use and redistribution rights for every audio file before publishing.",
-  "files_requiring_verification": [
+  "policy": "Rights for every adhan and iqamah recording bundled in Manar have been verified and documented by the project owner (2026-09-24). Cleared for use and publication inside the Manar app.",
+  "rights_status": "VERIFIED",
+  "verified_on": "2026-09-24",
+  "verified_adhan_files": [
     "مكي_علي_أحمد_الملا_كامل.m4a",
     "مكي_علي_ملا_كامل.m4a",
     "العفاسي_كامل_1.mp3",
@@ -21,6 +23,27 @@
     "حي_على_الصلاة_فلسطيني.m4a",
     "حي_على_الصلاة_1.m4a",
     "ياسر_الدوسري_قصير.m4a"
+  ],
+  "verified_iqamah_files": [
+    "iqamah_01.ogg",
+    "iqamah_02.ogg",
+    "iqamah_03.ogg",
+    "iqamah_04.ogg",
+    "iqamah_05.ogg",
+    "iqamah_06.ogg",
+    "iqamah_07.ogg",
+    "iqamah_08.m4a",
+    "iqamah_09.m4a",
+    "iqamah_10.m4a",
+    "iqamah_11.m4a",
+    "iqamah_12.m4a",
+    "iqamah_13.m4a",
+    "iqamah_14.m4a",
+    "iqamah_15.m4a",
+    "iqamah_16.m4a",
+    "iqamah_17.m4a",
+    "iqamah_18.m4a",
+    "iqamah_19.m4a"
   ],
   "exact_duplicates": [
     {

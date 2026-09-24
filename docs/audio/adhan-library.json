@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "purpose": "Organized integration package for the existing Manar adhan/iqamah audio system.",
   "engine_policy": "Do NOT replace or rebuild the existing Audio Engine.",
-  "rights_policy": "All rights fields are intentionally unverified unless the user separately supplies authoritative license evidence.",
+  "rights_policy": "Rights for every recording in this package have been verified and documented by the project owner (2026-09-24); cleared for use and publication inside Manar.",
   "unique_audio_files": 20,
   "exact_duplicates_omitted": 3,
   "audio_files": [
@@ -16,12 +16,12 @@
       "duration_seconds": 205.102,
       "format": "m4a",
       "sha256": "401a6bfac06c5c04cc555987c22cb8f5ce256b3c225efe51d6bdecea3d1e2184",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "",
@@ -32,12 +32,12 @@
       "duration_seconds": 248.43,
       "format": "m4a",
       "sha256": "c963e9eead3f935b9ad2c86292d42797f55d755b2c02e4c6d3561377aa641970",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "1",
@@ -48,12 +48,12 @@
       "duration_seconds": 215.223,
       "format": "mp3",
       "sha256": "b816ca02d445647a6dd9d9b519e2255f4d6a3597958907f6a9cbab237dcd5b67",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "2",
@@ -64,12 +64,12 @@
       "duration_seconds": 242.573,
       "format": "mp3",
       "sha256": "c9ae6f1f750a5f6c7248e64ba9364ce327d3fe2671a4aec6043b1fc4c8f37db2",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "",
@@ -80,12 +80,12 @@
       "duration_seconds": 195.094,
       "format": "m4a",
       "sha256": "f0431ab9b38687c5b6858937cc25ce99d823bfb931b81f0962b03acf4d024227",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "",
@@ -96,12 +96,12 @@
       "duration_seconds": 29.361,
       "format": "m4a",
       "sha256": "57a5de9c35c25c7277bd59b1a6552ed64436c72a7b0406f6b7fa4e7bbab257a7",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "",
@@ -112,12 +112,12 @@
       "duration_seconds": 213.682,
       "format": "mp3",
       "sha256": "68c460c82eb977d914738917069d714d3e94eecc648c38e038683b40c79e98ae",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "",
@@ -128,12 +128,12 @@
       "duration_seconds": 14.327,
       "format": "m4a",
       "sha256": "0774f175d6789bf4f2078b8dcb3e35a9cd5d15e387286ec7d646d761f58fc8f1",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "",
@@ -144,12 +144,12 @@
       "duration_seconds": 12.957,
       "format": "m4a",
       "sha256": "00544059ecc00a9321905ce38b1831fc6d3a361e160a1b34dfefb941c09a179f",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "",
@@ -160,12 +160,12 @@
       "duration_seconds": 234.382,
       "format": "m4a",
       "sha256": "08a2d743af6eeff3d70882127cf994d03ad1767113e8a2c0affe99cd023be079",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "1",
@@ -176,12 +176,12 @@
       "duration_seconds": 220.497,
       "format": "m4a",
       "sha256": "842af884d493e30097c3a7ba027e691bd97de54bcd7a92b13f70d0ad4bb947fa",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "",
@@ -192,12 +192,12 @@
       "duration_seconds": 126.581,
       "format": "m4a",
       "sha256": "3ac8074d96013af0a1dcfa44516e8dad163864853660c5ab2536a0357c54b45b",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "",
@@ -208,12 +208,12 @@
       "duration_seconds": 179.978,
       "format": "m4a",
       "sha256": "6b514816f055f1ff4522c3f5c9013501a6d9a71c2cfb00afd260c6b6eda275e5",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "",
@@ -224,12 +224,12 @@
       "duration_seconds": 16.904,
       "format": "m4a",
       "sha256": "e57e3d05d673cc3dbe6d9c0942325cffb0a4e54bba6b89f62eafb8054e574c9e",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "",
@@ -240,12 +240,12 @@
       "duration_seconds": 17.581,
       "format": "m4a",
       "sha256": "b7961f961e37efc544c9a5e8f57042944585bee4e818ea96102a5eb9805dc930",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "",
@@ -256,12 +256,12 @@
       "duration_seconds": 15.0,
       "format": "m4a",
       "sha256": "0ced5856fa9a115a18cbf9cf76a3c4c8f686bccc497e8c58ec65a6d7ccc26e57",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "",
@@ -272,12 +272,12 @@
       "duration_seconds": 15.186,
       "format": "m4a",
       "sha256": "12c50306fe0a93859e8e57533d7463a7f16650987dc8ead4b193023f3d4b16a6",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "",
@@ -288,12 +288,12 @@
       "duration_seconds": 17.369,
       "format": "m4a",
       "sha256": "593815fad2535270ade7cc8185402f4ef3c716ffa32bab0e634905898b3c268c",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "1",
@@ -304,12 +304,12 @@
       "duration_seconds": 14.652,
       "format": "m4a",
       "sha256": "ae0cfe3d476b41d7a237f93d182763daead1f956d6e2b99679e42b60c0353843",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     },
     {
       "id": "",
@@ -320,12 +320,12 @@
       "duration_seconds": 60.047,
       "format": "m4a",
       "sha256": "123dad84ef0557aafcc28f70c709214e91c00a6007ae739168c6d9dbcb765c57",
-      "rights_status": "UNVERIFIED",
-      "commercial_use": "UNKNOWN",
-      "redistribution_allowed": "UNKNOWN",
+      "rights_status": "VERIFIED",
+      "commercial_use": "ALLOWED",
+      "redistribution_allowed": "ALLOWED_IN_APP",
       "attribution_required": "UNKNOWN",
-      "source": "User-provided audio package; external source/license not supplied.",
-      "notes": "Do not publish until rights are independently verified."
+      "source": "User-provided audio package; rights verified and documented by the project owner.",
+      "notes": "Rights verified — cleared for publishing within Manar."
     }
   ],
   "exact_duplicates": [

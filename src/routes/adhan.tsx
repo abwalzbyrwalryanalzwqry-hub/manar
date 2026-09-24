@@ -9,7 +9,6 @@ import {
   SectionLabel,
 } from "@/components/manar/shell";
 import {
-  ADHAN_ASSET_RIGHTS_NOTICE,
   ADHAN_LIBRARY,
   ADJUSTABLE_PRAYERS,
   TATHWEEB_LIBRARY,
@@ -102,9 +101,6 @@ function AdhanLibrary() {
             <div className="mt-2 font-display text-2xl">تسجيلات أذان حقيقية</div>
             <div className="mt-1 text-xs text-white/70">
               مكة · المدينة · الأقصى · خليجي · عام · MP3 / M4A
-            </div>
-            <div className="mt-3 rounded-2xl bg-white/10 px-3 py-2 text-[10px] leading-relaxed text-white/80">
-              {ADHAN_ASSET_RIGHTS_NOTICE}
             </div>
           </div>
         </div>

@@ -26,19 +26,19 @@ concurrency:
 jobs:
   build:
     name: بناء وفحص ساكن
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
       - run: npm ci --no-audit --no-fund
       - run: npm run build:android
 
@@ -66,7 +66,7 @@ jobs:
           test "$(wc -l < aab.txt)" = 19
           ls -la "$APK" "$AAB"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: runtime-test-apks
           path: |
@@ -77,7 +77,9 @@ jobs:
   emulator:
     name: محاكي API ${{ matrix.api }}
     needs: build
-    runs-on: ubuntu-latest
+    # نظام مثبّت لا ubuntu-latest: انتقال latest إلى Ubuntu 26 (١٩ أكتوبر ٢٠٢٦) قد يكسر
+    # KVM والمحاكي؛ نرقّي يدوياً بعد التحقق.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -91,8 +93,8 @@ jobs:
             arch: x86_64
             target: google_apis
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: runtime-test-apks
           path: pkg
@@ -102,7 +104,7 @@ jobs:
             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
@@ -120,7 +122,7 @@ jobs:
           script: bash scripts/android-runtime-test.sh "$(find pkg -name app-debug.apk | head -1)" "$(find pkg -name app-release.apk | head -1)" evidence-${{ matrix.api }}
       - name: رفع الأدلة
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: runtime-evidence-api${{ matrix.api }}
           path: evidence-${{ matrix.api }}

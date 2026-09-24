@@ -29,23 +29,23 @@ concurrency:
 jobs:
   apk:
     name: حزمة APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
 
       # Capacitor 7 و AGP الحالي يحتاجان JDK 21 — وهو ما يضبطه build.gradle.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
 
       - name: تنصيب الحزم
         run: npm ci --no-audit --no-fund
@@ -90,7 +90,7 @@ jobs:
         run: rm -f android/manar-release.keystore
 
       - name: رفع الحزم
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: manar-android-${{ github.sha }}
           path: |

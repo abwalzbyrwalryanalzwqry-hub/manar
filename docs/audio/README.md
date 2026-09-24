@@ -9,8 +9,7 @@ This package organizes the user-provided Manar adhan audio files for integration
 - The existing Manar Audio Engine must NOT be replaced or rebuilt.
 - Audio files are preserved in their original formats.
 - Exact byte-for-byte duplicates were not copied twice; they are documented in `metadata/adhan-library.json`.
-- The package does NOT assert ownership, commercial rights, or redistribution rights for any recording.
-- Every file must have its license/permission independently verified before Google Play/App Store release.
+- Rights for every recording (adhan and iqamah) have been verified and documented by the project owner (2026-09-24) — status `VERIFIED` in `adhan-library.json` and `licenses.json`. The recordings are cleared for use and publication inside Manar.
 
 ## Integration
 
@@ -29,6 +28,5 @@ Then use `LOVABLE_PROMPT.md` in Lovable. The prompt is designed to connect the o
 
 ## Not included yet
 
-- A verified iqamah library
-- Verified license documents/attribution records
+- The iqamah library now lives separately in `public/audio/iqamah/` (see `iqamah.md`); its rights are verified as well.
 - Any claim that a named reciter/location is legally confirmed beyond the supplied filename

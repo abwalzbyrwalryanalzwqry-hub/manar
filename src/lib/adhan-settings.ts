@@ -24,7 +24,6 @@ import {
   migrateIqamahId,
   type IqamahGroup,
 } from "./iqamah-library";
-export { ADHAN_ASSET_RIGHTS_NOTICE } from "./adhan-library-assets";
 import {
   DEFAULT_PRAYER_APPROACH_SOUND,
   normalizeApproachSound,
@@ -45,7 +44,7 @@ export type AdhanLibraryEntry = {
   duration: string;
   /** true = a real supplied recording exists for this entry. */
   available: boolean;
-  rightsStatus?: "UNVERIFIED";
+  rightsStatus?: "VERIFIED";
 };
 
 /** Supplied recordings (MANAR_AUDIO_PACKAGE) mapped into the existing entry shape. */
@@ -62,7 +61,7 @@ const SUPPLIED_ENTRIES: AdhanLibraryEntry[] = ADHAN_ASSETS.filter(
   tone: a.format.toUpperCase(),
   duration: assetDurationLabel(a),
   available: true,
-  rightsStatus: "UNVERIFIED",
+  rightsStatus: "VERIFIED",
 }));
 
 /** Pre-existing catalog entries — preserved with their original ids. */

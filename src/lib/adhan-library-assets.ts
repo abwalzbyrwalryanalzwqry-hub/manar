@@ -5,9 +5,9 @@
  * never touches the network. The existing audio engine
  * (src/lib/audio-engine.ts) plays these paths unchanged.
  *
- * ⚠ RIGHTS: every recording below is `UNVERIFIED`. The package did not
- * ship license evidence. Nothing here may be treated as royalty-free,
- * copyright-free or cleared for commercial publication.
+ * RIGHTS: every recording below is `VERIFIED` — the project owner has
+ * verified and documented the rights to use and publish these recordings
+ * inside Manar (see docs/audio/licenses.json).
  */
 
 const LIB = "/audio/library";
@@ -43,7 +43,7 @@ export type AdhanAsset = {
   style: "full" | "short" | "takbir" | null;
   durationSec: number;
   format: "mp3" | "m4a";
-  rightsStatus: "UNVERIFIED";
+  rightsStatus: "VERIFIED";
 };
 
 /* ------------------------------ Catalog ------------------------------ */
@@ -59,7 +59,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: "full",
     durationSec: 205,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
   {
     id: "asset:makkah-mulla-2",
@@ -71,7 +71,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: "full",
     durationSec: 248,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
   {
     id: "asset:madinah-qassas",
@@ -83,7 +83,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: "full",
     durationSec: 234,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
   {
     id: "asset:aqsa-full",
@@ -95,7 +95,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: "full",
     durationSec: 220,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
   {
     id: "asset:gulf-khushoo",
@@ -107,7 +107,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: "full",
     durationSec: 214,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
   {
     id: "asset:afasy-1",
@@ -119,7 +119,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: "full",
     durationSec: 215,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
   {
     id: "asset:afasy-2",
@@ -131,7 +131,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: "full",
     durationSec: 243,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
   {
     id: "asset:omar-hashim",
@@ -143,7 +143,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: "full",
     durationSec: 180,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
   {
     id: "asset:qatami",
@@ -155,7 +155,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: "full",
     durationSec: 127,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
 
   {
@@ -168,7 +168,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: "short",
     durationSec: 29,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
   {
     id: "asset:madinah-short",
@@ -180,7 +180,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: "short",
     durationSec: 13,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
   {
     id: "asset:dossary-short",
@@ -192,7 +192,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: "short",
     durationSec: 60,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
 
   {
@@ -205,7 +205,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: "takbir",
     durationSec: 14,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
   {
     id: "asset:segment-takbir",
@@ -217,7 +217,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: "takbir",
     durationSec: 15,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
 
   {
@@ -230,7 +230,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: "full",
     durationSec: 195,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
 
   {
@@ -243,7 +243,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: null,
     durationSec: 17,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
   {
     id: "asset:tathweeb-makkah",
@@ -255,7 +255,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: null,
     durationSec: 18,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
   {
     id: "asset:tathweeb-suraihi",
@@ -267,7 +267,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: null,
     durationSec: 15,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
 
   /* Segment recordings — catalogued only. The existing audio engine plays a
@@ -283,7 +283,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: null,
     durationSec: 15,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
   {
     id: "asset:segment-hayya-aqsa",
@@ -295,7 +295,7 @@ export const ADHAN_ASSETS: AdhanAsset[] = [
     style: null,
     durationSec: 17,
     format: "mp3",
-    rightsStatus: "UNVERIFIED",
+    rightsStatus: "VERIFIED",
   },
 ];
 
@@ -306,9 +306,6 @@ export const ADHAN_ASSET_DUPLICATES = [
   { original: "اذان عثماني (أذان كامل).m4a", duplicateOf: "asset:aqsa-short" },
   { original: "المسجد الأقصى (أذان كامل).m4a", duplicateOf: "asset:omar-hashim" },
 ] as const;
-
-export const ADHAN_ASSET_RIGHTS_NOTICE =
-  "حقوق الملفات الصوتية غير مُحقَّقة (UNVERIFIED) — يُرجى التحقق من التراخيص قبل النشر.";
 
 const BY_ID = new Map(ADHAN_ASSETS.map((a) => [a.id, a]));
 

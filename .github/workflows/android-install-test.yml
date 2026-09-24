@@ -24,17 +24,19 @@ concurrency:
 jobs:
   install:
     name: تثبيت وإقلاع على محاكي
-    runs-on: ubuntu-latest
+    # نظام مثبّت لا ubuntu-latest: انتقال latest إلى Ubuntu 26 (١٩ أكتوبر ٢٠٢٦) قد يكسر
+    # KVM والمحاكي؛ نرقّي يدوياً بعد التحقق.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     # تنزيل أثر من تشغيلة أخرى يحتاج قراءة Actions.
     permissions:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: تنزيل حزمة الإصدار
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           run-id: ${{ inputs.run_id || '35670771501' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -57,7 +59,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
@@ -118,7 +120,7 @@ jobs:
 
       - name: رفع الأدلة
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: install-test-evidence
           path: evidence
