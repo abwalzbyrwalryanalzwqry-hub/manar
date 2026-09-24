@@ -20,13 +20,13 @@ import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as QiblaRouteImport } from './routes/qibla'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as DeleteAccountRouteImport } from './routes/delete-account'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IqamaRouteImport } from './routes/iqama'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as DeleteAccountRouteImport } from './routes/delete-account'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as AdhanRouteImport } from './routes/adhan'
 import { Route as AboutRouteImport } from './routes/about'
@@ -108,6 +108,11 @@ const ProfileRoute = ProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DeleteAccountRoute = DeleteAccountRouteImport.update({
+  id: '/delete-account',
+  path: '/delete-account',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
@@ -136,11 +141,6 @@ const IqamaRoute = IqamaRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DeleteAccountRoute = DeleteAccountRouteImport.update({
-  id: '/delete-account',
-  path: '/delete-account',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CalendarRoute = CalendarRouteImport.update({
@@ -273,12 +273,12 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/adhan': typeof AdhanRoute
   '/calendar': typeof CalendarRoute
-  '/delete-account': typeof DeleteAccountRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/iqama': typeof IqamaRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
+  '/delete-account': typeof DeleteAccountRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
@@ -317,12 +317,12 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/adhan': typeof AdhanRoute
   '/calendar': typeof CalendarRoute
-  '/delete-account': typeof DeleteAccountRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/iqama': typeof IqamaRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
+  '/delete-account': typeof DeleteAccountRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
@@ -362,12 +362,12 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/adhan': typeof AdhanRoute
   '/calendar': typeof CalendarRoute
-  '/delete-account': typeof DeleteAccountRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/iqama': typeof IqamaRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
+  '/delete-account': typeof DeleteAccountRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
@@ -408,12 +408,12 @@ export interface FileRouteTypes {
     | '/about'
     | '/adhan'
     | '/calendar'
-    | '/delete-account'
     | '/forgot-password'
     | '/iqama'
     | '/login'
     | '/notifications'
     | '/onboarding'
+    | '/delete-account'
     | '/privacy'
     | '/profile'
     | '/qibla'
@@ -452,12 +452,12 @@ export interface FileRouteTypes {
     | '/about'
     | '/adhan'
     | '/calendar'
-    | '/delete-account'
     | '/forgot-password'
     | '/iqama'
     | '/login'
     | '/notifications'
     | '/onboarding'
+    | '/delete-account'
     | '/privacy'
     | '/profile'
     | '/qibla'
@@ -496,12 +496,12 @@ export interface FileRouteTypes {
     | '/about'
     | '/adhan'
     | '/calendar'
-    | '/delete-account'
     | '/forgot-password'
     | '/iqama'
     | '/login'
     | '/notifications'
     | '/onboarding'
+    | '/delete-account'
     | '/privacy'
     | '/profile'
     | '/qibla'
@@ -542,12 +542,12 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AdhanRoute: typeof AdhanRoute
   CalendarRoute: typeof CalendarRoute
-  DeleteAccountRoute: typeof DeleteAccountRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   IqamaRoute: typeof IqamaRoute
   LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
   OnboardingRoute: typeof OnboardingRoute
+  DeleteAccountRoute: typeof DeleteAccountRoute
   PrivacyRoute: typeof PrivacyRoute
   ProfileRoute: typeof ProfileRoute
   QiblaRoute: typeof QiblaRoute
@@ -653,6 +653,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/delete-account': {
+      id: '/delete-account'
+      path: '/delete-account'
+      fullPath: '/delete-account'
+      preLoaderRoute: typeof DeleteAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/privacy': {
       id: '/privacy'
       path: '/privacy'
@@ -693,13 +700,6 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/delete-account': {
-      id: '/delete-account'
-      path: '/delete-account'
-      fullPath: '/delete-account'
-      preLoaderRoute: typeof DeleteAccountRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/calendar': {
@@ -918,12 +918,12 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AdhanRoute: AdhanRoute,
   CalendarRoute: CalendarRoute,
-  DeleteAccountRoute: DeleteAccountRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   IqamaRoute: IqamaRoute,
   LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
   OnboardingRoute: OnboardingRoute,
+  DeleteAccountRoute: DeleteAccountRoute,
   PrivacyRoute: PrivacyRoute,
   ProfileRoute: ProfileRoute,
   QiblaRoute: QiblaRoute,
