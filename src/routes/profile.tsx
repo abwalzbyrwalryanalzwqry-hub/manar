@@ -229,6 +229,13 @@ function Profile() {
         >
           تسجيل الخروج
         </button>
+        <button
+          onClick={() => nav({ to: "/delete-account" })}
+          disabled={!user}
+          className="mt-3 w-full py-2 text-center text-xs text-muted-foreground underline-offset-4 hover:underline disabled:opacity-50"
+        >
+          حذف الحساب وبياناته نهائياً
+        </button>
       </div>
     </Screen>
   );

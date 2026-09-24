@@ -6,6 +6,7 @@ import {
   isCloudConfigured,
 } from "@/integrations/supabase/optional-client";
 import { lovable } from "@/integrations/lovable";
+import { META_KEY as SYNC_META_KEY } from "@/lib/cloud-sync";
 
 type Profile = {
   id: string;
@@ -31,6 +32,8 @@ type AuthCtx = {
   resetPassword: (email: string) => Promise<{ error?: string }>;
   updatePassword: (password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
+  /** حذف الحساب وكل بياناته من الخادم نهائياً (بيانات الجهاز تبقى). */
+  deleteAccount: () => Promise<{ error?: string }>;
   enableGuest: () => void;
   refreshProfile: () => Promise<void>;
   updateProfile: (patch: Partial<Profile>) => Promise<{ error?: string }>;
@@ -215,6 +218,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsGuest(false);
   };
 
+  const deleteAccount: AuthCtx["deleteAccount"] = async () => {
+    const cloud = getCloud();
+    if (!cloud) return { error: CLOUD_UNAVAILABLE_MESSAGE };
+    if (!user) return { error: "يجب تسجيل الدخول لحذف الحساب" };
+    const { error } = await cloud.rpc("delete_my_account");
+    if (error) {
+      LOG("delete_my_account failed", error.message);
+      const offline = /fetch|network|timeout/i.test(error.message);
+      return {
+        error: offline
+          ? "تعذّر الاتصال بالخادم. تحقّق من الإنترنت ثم أعد المحاولة."
+          : "تعذّر حذف الحساب الآن. أعد المحاولة لاحقاً أو راسل المطوّر ليحذفه يدوياً.",
+      };
+    }
+    // الحساب لم يعد موجوداً في الخادم: نُنهي الجلسة محلياً فقط، ونمسح أثر
+    // المزامنة حتى لا يُعامَل الجهاز كأنه ما زال مرتبطاً بحساب.
+    await cloud.auth.signOut({ scope: "local" }).catch(() => undefined);
+    localStorage.removeItem(SYNC_META_KEY);
+    localStorage.removeItem(GUEST_KEY);
+    setIsGuest(false);
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+    return {};
+  };
+
   const enableGuest = () => {
     localStorage.setItem(GUEST_KEY, "1");
     setIsGuest(true);
@@ -248,6 +277,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resetPassword,
         updatePassword,
         signOut,
+        deleteAccount,
         enableGuest,
         refreshProfile,
         updateProfile,
