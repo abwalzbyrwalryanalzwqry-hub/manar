@@ -1,6 +1,5 @@
 package app.manar.islamic;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -429,10 +428,15 @@ public class ManarAdhanPlugin extends Plugin {
     }
 
     /**
-     * Asks to be exempt from battery optimisation. Without this, Doze delays or
-     * drops the Adhan alarm on many OEM builds (Xiaomi, Samsung, Huawei).
+     * Opens the system battery screen so the user can set Manar to «Unrestricted».
+     * Without this, Doze delays or drops the Adhan alarm on many OEM builds
+     * (Xiaomi, Samsung, Huawei).
+     *
+     * We deliberately do NOT use ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS: it
+     * needs the REQUEST_IGNORE_BATTERY_OPTIMIZATIONS permission, which Google Play
+     * restricts. Android 12+ keeps the «Unrestricted» option in App info → Battery;
+     * older versions list it under «Battery optimisation».
      */
-    @SuppressLint("BatteryLife")
     @PluginMethod
     public void requestIgnoreBatteryOptimizations(PluginCall call) {
         Context context = getContext();
@@ -442,18 +446,28 @@ public class ManarAdhanPlugin extends Plugin {
             call.resolve(result);
             return;
         }
-        try {
-            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                    .setData(Uri.parse("package:" + context.getPackageName()))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(intent);
-        } catch (Exception e) {
-            openAppSettings(context);
+        boolean opened = false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            opened = startSafely(context, new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(Uri.parse("package:" + context.getPackageName())));
         }
+        if (!opened) {
+            opened = startSafely(context, new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+        }
+        if (!opened) openAppSettings(context);
         JSObject result = new JSObject();
         result.put("granted", false);
         result.put("opened", true);
         call.resolve(result);
+    }
+
+    private static boolean startSafely(Context context, Intent intent) {
+        try {
+            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @PluginMethod

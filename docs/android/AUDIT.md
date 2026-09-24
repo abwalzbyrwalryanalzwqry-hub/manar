@@ -92,7 +92,7 @@ cd android
 
 - JDK 17، Android SDK 35، Gradle 8.11+، AGP 8.7+، Kotlin 2.0+ (متوافقة مع Capacitor 7).
 - minSdk 24 / target+compile 35، `supportsRtl="true"`، الافتراضي `ar`، ثيم DayNight.
-- الأذونات: POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM, USE_EXACT_ALARM,
+- الأذونات: POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM (بلا USE_EXACT_ALARM — سياسة Play),
   RECEIVE_BOOT_COMPLETED, FOREGROUND_SERVICE(+MEDIA_PLAYBACK), VIBRATE, WAKE_LOCK,
   ACCESS_COARSE/FINE_LOCATION, INTERNET (للمزامنة الاختيارية فقط).
 - أيقونة إطلاق تكيّفية + `ic_stat_manar` + شاشة بداية `#0B1F1A`.
