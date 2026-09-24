@@ -20,20 +20,22 @@ import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as QiblaRouteImport } from './routes/qibla'
 import { Route as ProfileRouteImport } from './routes/profile'
-import { Route as DeleteAccountRouteImport } from './routes/delete-account'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IqamaRouteImport } from './routes/iqama'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as DeleteAccountRouteImport } from './routes/delete-account'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as AdhanRouteImport } from './routes/adhan'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as TabsRouteImport } from './routes/_tabs'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WirdIndexRouteImport } from './routes/wird.index'
+import { Route as SeasonsIndexRouteImport } from './routes/seasons.index'
 import { Route as WirdSessionRouteImport } from './routes/wird.$session'
+import { Route as SeasonsSeasonRouteImport } from './routes/seasons.$season'
 import { Route as QuranTafsirRouteImport } from './routes/quran.tafsir'
 import { Route as QuranShareRouteImport } from './routes/quran.share'
 import { Route as QuranSearchRouteImport } from './routes/quran.search'
@@ -108,11 +110,6 @@ const ProfileRoute = ProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DeleteAccountRoute = DeleteAccountRouteImport.update({
-  id: '/delete-account',
-  path: '/delete-account',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
@@ -141,6 +138,11 @@ const IqamaRoute = IqamaRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeleteAccountRoute = DeleteAccountRouteImport.update({
+  id: '/delete-account',
+  path: '/delete-account',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CalendarRoute = CalendarRouteImport.update({
@@ -172,10 +174,20 @@ const WirdIndexRoute = WirdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => WirdRoute,
 } as any)
+const SeasonsIndexRoute = SeasonsIndexRouteImport.update({
+  id: '/seasons/',
+  path: '/seasons/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WirdSessionRoute = WirdSessionRouteImport.update({
   id: '/$session',
   path: '/$session',
   getParentRoute: () => WirdRoute,
+} as any)
+const SeasonsSeasonRoute = SeasonsSeasonRouteImport.update({
+  id: '/seasons/$season',
+  path: '/seasons/$season',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const QuranTafsirRoute = QuranTafsirRouteImport.update({
   id: '/quran/tafsir',
@@ -273,12 +285,12 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/adhan': typeof AdhanRoute
   '/calendar': typeof CalendarRoute
+  '/delete-account': typeof DeleteAccountRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/iqama': typeof IqamaRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
-  '/delete-account': typeof DeleteAccountRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
@@ -307,7 +319,9 @@ export interface FileRoutesByFullPath {
   '/quran/search': typeof QuranSearchRoute
   '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
+  '/seasons/$season': typeof SeasonsSeasonRoute
   '/wird/$session': typeof WirdSessionRoute
+  '/seasons/': typeof SeasonsIndexRoute
   '/wird/': typeof WirdIndexRoute
   '/azkar/group/$group': typeof AzkarGroupGroupRoute
   '/wird/list/$session': typeof WirdListSessionRoute
@@ -317,12 +331,12 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/adhan': typeof AdhanRoute
   '/calendar': typeof CalendarRoute
+  '/delete-account': typeof DeleteAccountRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/iqama': typeof IqamaRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
-  '/delete-account': typeof DeleteAccountRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
@@ -350,7 +364,9 @@ export interface FileRoutesByTo {
   '/quran/search': typeof QuranSearchRoute
   '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
+  '/seasons/$season': typeof SeasonsSeasonRoute
   '/wird/$session': typeof WirdSessionRoute
+  '/seasons': typeof SeasonsIndexRoute
   '/wird': typeof WirdIndexRoute
   '/azkar/group/$group': typeof AzkarGroupGroupRoute
   '/wird/list/$session': typeof WirdListSessionRoute
@@ -362,12 +378,12 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/adhan': typeof AdhanRoute
   '/calendar': typeof CalendarRoute
+  '/delete-account': typeof DeleteAccountRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/iqama': typeof IqamaRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
-  '/delete-account': typeof DeleteAccountRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/qibla': typeof QiblaRoute
@@ -396,7 +412,9 @@ export interface FileRoutesById {
   '/quran/search': typeof QuranSearchRoute
   '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
+  '/seasons/$season': typeof SeasonsSeasonRoute
   '/wird/$session': typeof WirdSessionRoute
+  '/seasons/': typeof SeasonsIndexRoute
   '/wird/': typeof WirdIndexRoute
   '/azkar/group/$group': typeof AzkarGroupGroupRoute
   '/wird/list/$session': typeof WirdListSessionRoute
@@ -408,12 +426,12 @@ export interface FileRouteTypes {
     | '/about'
     | '/adhan'
     | '/calendar'
+    | '/delete-account'
     | '/forgot-password'
     | '/iqama'
     | '/login'
     | '/notifications'
     | '/onboarding'
-    | '/delete-account'
     | '/privacy'
     | '/profile'
     | '/qibla'
@@ -442,7 +460,9 @@ export interface FileRouteTypes {
     | '/quran/search'
     | '/quran/share'
     | '/quran/tafsir'
+    | '/seasons/$season'
     | '/wird/$session'
+    | '/seasons/'
     | '/wird/'
     | '/azkar/group/$group'
     | '/wird/list/$session'
@@ -452,12 +472,12 @@ export interface FileRouteTypes {
     | '/about'
     | '/adhan'
     | '/calendar'
+    | '/delete-account'
     | '/forgot-password'
     | '/iqama'
     | '/login'
     | '/notifications'
     | '/onboarding'
-    | '/delete-account'
     | '/privacy'
     | '/profile'
     | '/qibla'
@@ -485,7 +505,9 @@ export interface FileRouteTypes {
     | '/quran/search'
     | '/quran/share'
     | '/quran/tafsir'
+    | '/seasons/$season'
     | '/wird/$session'
+    | '/seasons'
     | '/wird'
     | '/azkar/group/$group'
     | '/wird/list/$session'
@@ -496,12 +518,12 @@ export interface FileRouteTypes {
     | '/about'
     | '/adhan'
     | '/calendar'
+    | '/delete-account'
     | '/forgot-password'
     | '/iqama'
     | '/login'
     | '/notifications'
     | '/onboarding'
-    | '/delete-account'
     | '/privacy'
     | '/profile'
     | '/qibla'
@@ -530,7 +552,9 @@ export interface FileRouteTypes {
     | '/quran/search'
     | '/quran/share'
     | '/quran/tafsir'
+    | '/seasons/$season'
     | '/wird/$session'
+    | '/seasons/'
     | '/wird/'
     | '/azkar/group/$group'
     | '/wird/list/$session'
@@ -542,12 +566,12 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AdhanRoute: typeof AdhanRoute
   CalendarRoute: typeof CalendarRoute
+  DeleteAccountRoute: typeof DeleteAccountRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   IqamaRoute: typeof IqamaRoute
   LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
   OnboardingRoute: typeof OnboardingRoute
-  DeleteAccountRoute: typeof DeleteAccountRoute
   PrivacyRoute: typeof PrivacyRoute
   ProfileRoute: typeof ProfileRoute
   QiblaRoute: typeof QiblaRoute
@@ -571,6 +595,8 @@ export interface RootRouteChildren {
   QuranSearchRoute: typeof QuranSearchRoute
   QuranShareRoute: typeof QuranShareRoute
   QuranTafsirRoute: typeof QuranTafsirRoute
+  SeasonsSeasonRoute: typeof SeasonsSeasonRoute
+  SeasonsIndexRoute: typeof SeasonsIndexRoute
   AzkarGroupGroupRoute: typeof AzkarGroupGroupRoute
 }
 
@@ -653,13 +679,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/delete-account': {
-      id: '/delete-account'
-      path: '/delete-account'
-      fullPath: '/delete-account'
-      preLoaderRoute: typeof DeleteAccountRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/privacy': {
       id: '/privacy'
       path: '/privacy'
@@ -700,6 +719,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/delete-account': {
+      id: '/delete-account'
+      path: '/delete-account'
+      fullPath: '/delete-account'
+      preLoaderRoute: typeof DeleteAccountRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/calendar': {
@@ -744,12 +770,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WirdIndexRouteImport
       parentRoute: typeof WirdRoute
     }
+    '/seasons/': {
+      id: '/seasons/'
+      path: '/seasons'
+      fullPath: '/seasons/'
+      preLoaderRoute: typeof SeasonsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/wird/$session': {
       id: '/wird/$session'
       path: '/$session'
       fullPath: '/wird/$session'
       preLoaderRoute: typeof WirdSessionRouteImport
       parentRoute: typeof WirdRoute
+    }
+    '/seasons/$season': {
+      id: '/seasons/$season'
+      path: '/seasons/$season'
+      fullPath: '/seasons/$season'
+      preLoaderRoute: typeof SeasonsSeasonRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/quran/tafsir': {
       id: '/quran/tafsir'
@@ -918,12 +958,12 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AdhanRoute: AdhanRoute,
   CalendarRoute: CalendarRoute,
+  DeleteAccountRoute: DeleteAccountRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   IqamaRoute: IqamaRoute,
   LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
   OnboardingRoute: OnboardingRoute,
-  DeleteAccountRoute: DeleteAccountRoute,
   PrivacyRoute: PrivacyRoute,
   ProfileRoute: ProfileRoute,
   QiblaRoute: QiblaRoute,
@@ -947,6 +987,8 @@ const rootRouteChildren: RootRouteChildren = {
   QuranSearchRoute: QuranSearchRoute,
   QuranShareRoute: QuranShareRoute,
   QuranTafsirRoute: QuranTafsirRoute,
+  SeasonsSeasonRoute: SeasonsSeasonRoute,
+  SeasonsIndexRoute: SeasonsIndexRoute,
   AzkarGroupGroupRoute: AzkarGroupGroupRoute,
 }
 export const routeTree = rootRouteImport

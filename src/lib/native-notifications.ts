@@ -51,6 +51,9 @@ import {
 } from "@/lib/prayer-schedule";
 import { REMINDER_TONES, readReminders, reminderTimeOn, toneUrl } from "@/lib/daily-reminders";
 import { PRAYER_APPROACH_CLIPS, approachClipFor } from "@/lib/prayer-approach-audio";
+import { getHijriAdjust } from "@/lib/hijri";
+import { seasonNotificationsBetween } from "@/lib/seasons/engine";
+import { readSeasonNotifyPrefs } from "@/lib/seasons/store";
 
 type LocalNotificationsPlugin = {
   requestPermissions: () => Promise<{ display: string }>;
@@ -353,6 +356,14 @@ const DAILY_ID_BASE = ID_BASE + 100000;
 
 function dailyIdFor(dayIndex: number, reminderIndex: number) {
   return DAILY_ID_BASE + dayIndex * 100 + reminderIndex;
+}
+
+/* تنبيهات «مواسم منار» داخل مدى التذكيرات نفسه (فتُلغى وتُعاد جدولتها معه)،
+ * لكن بإزاحة لا تتقاطع مع معرّفات الأذكار والوِرد (dayIndex * 100 + ri). */
+const SEASON_ID_BASE = DAILY_ID_BASE + 50000;
+
+function seasonIdFor(dayIndex: number, slot: "morning" | "evening") {
+  return SEASON_ID_BASE + dayIndex * 10 + (slot === "morning" ? 0 : 1);
 }
 
 /** Stable, collision-free id per (day, prayer, kind). */
@@ -743,6 +754,39 @@ async function syncNativePrayerScheduleNow(
         });
       });
     }
+  }
+
+  /* ---------- تنبيهات مواسم منار (اختيارية، محلية بالكامل) ---------- */
+
+  try {
+    const start = new Date();
+    start.setHours(12, 0, 0, 0);
+    const planned = seasonNotificationsBetween(
+      start,
+      DAYS_AHEAD,
+      getHijriAdjust(),
+      readSeasonNotifyPrefs(),
+    );
+    const tone = REMINDER_TONES.find((t) => t.url);
+    const url = s.silentMode || !s.soundEnabled || level === 0 || !tone ? "" : toneUrl(tone.id);
+    for (const n of planned) {
+      if (n.at.getTime() <= now) continue;
+      reminders.push({
+        id: seasonIdFor(n.dayIndex, n.slot),
+        title: n.title,
+        body: n.body,
+        schedule: { at: n.at, allowWhileIdle: true },
+        smallIcon: "ic_stat_manar",
+        channelId: url
+          ? channelOr(azkarWirdChannelFor(url, level), azkarWirdFallbackChannel(level))
+          : "manar_silent",
+        sound: url ? leveledRaw(rawResourceName(url), level) : undefined,
+        extra: { kind: "season", season: n.seasonId, route: `/seasons/${n.seasonId}` },
+      });
+    }
+  } catch (e) {
+    /* خطأ في المواسم لا يمنع بقية التنبيهات */
+    console.error("[manar] تعذّر حساب تنبيهات المواسم", e);
   }
 
   let scheduled = 0;
