@@ -101,6 +101,12 @@ export {
 
 export {
   downloadSurah,
+  startDownload,
+  cancelDownload,
+  cancelAllDownloads,
+  useActiveDownload,
+  useActiveDownloads,
+  setDownloadManagerEvents,
   deleteDownload,
   deleteAllDownloads,
   localAyahSrc,
@@ -112,6 +118,7 @@ export {
   offlineSupported,
   type DownloadedSurah,
   type DownloadHandle,
+  type ActiveDownload,
 } from "./recitation-offline";
 
 export {

@@ -9,7 +9,7 @@
 // streaming instead.
 // ============================================================
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Capacitor } from "@capacitor/core";
 import { ayahAudioUrl, ayahFileName, needsBasmalaIntro, type Reciter } from "./recitations";
 
@@ -131,6 +131,7 @@ export function downloadSurah(
   cb: DownloadCallbacks = {},
 ): DownloadHandle {
   let cancelled = false;
+  const abort = new AbortController();
 
   void (async () => {
     try {
@@ -174,7 +175,7 @@ export function downloadSurah(
           if (existing && existing.size > 1024) {
             bytes += existing.size;
           } else {
-            const res = await fetch(file.url);
+            const res = await fetch(file.url, { signal: abort.signal });
             if (!res.ok) {
               failure = new Error(`تعذّر تحميل ${file.name} (${res.status})`);
               return;
@@ -227,8 +228,114 @@ export function downloadSurah(
   return {
     cancel: () => {
       cancelled = true;
+      abort.abort();
     },
   };
+}
+
+// ------------------------------------------------------------
+// مدير التحميلات: يعيش خارج الشاشات، فيستمر التحميل بعد مغادرة
+// شاشة التلاوات أو تمرير صف السورة خارج الشاشة، ويعود التقدم
+// إلى الصف عند الرجوع.
+// ------------------------------------------------------------
+
+export type ActiveDownload =
+  | {
+      status: "active";
+      folder: string;
+      surah: number;
+      done: number;
+      total: number;
+      bytes: number;
+    }
+  | { status: "error"; folder: string; surah: number; message: string };
+
+const active = new Map<string, { state: ActiveDownload; handle: DownloadHandle | null }>();
+const listeners = new Set<() => void>();
+let snapshot: ActiveDownload[] = [];
+
+function emit() {
+  snapshot = [...active.values()].map((v) => v.state);
+  for (const l of listeners) l();
+}
+
+function subscribe(l: () => void): () => void {
+  listeners.add(l);
+  return () => listeners.delete(l);
+}
+
+export interface DownloadManagerEvents {
+  onDone?: (entry: DownloadedSurah) => void;
+  onError?: (surah: number, message: string) => void;
+}
+
+/** يُضبط مرة من الواجهة لإشعار المستخدم بانتهاء التحميل أينما كان. */
+let managerEvents: DownloadManagerEvents = {};
+export function setDownloadManagerEvents(e: DownloadManagerEvents): void {
+  managerEvents = e;
+}
+
+/** يبدأ تحميل سورة إن لم يكن جارياً (ويستأنف من الملفات الموجودة). */
+export function startDownload(reciter: Reciter, surah: number, ayahCount: number): void {
+  const key = downloadKey(reciter.folder, surah);
+  if (active.get(key)?.state.status === "active") return;
+  const slot: { state: ActiveDownload; handle: DownloadHandle | null } = {
+    state: { status: "active", folder: reciter.folder, surah, done: 0, total: ayahCount, bytes: 0 },
+    handle: null,
+  };
+  active.set(key, slot);
+  emit();
+  slot.handle = downloadSurah(reciter, surah, ayahCount, {
+    onProgress: (done, total, bytes) => {
+      if (active.get(key) !== slot) return;
+      slot.state = { status: "active", folder: reciter.folder, surah, done, total, bytes };
+      emit();
+    },
+    onDone: (entry) => {
+      if (active.get(key) === slot) active.delete(key);
+      emit();
+      managerEvents.onDone?.(entry);
+    },
+    onError: (e) => {
+      if (active.get(key) !== slot) return;
+      slot.state = { status: "error", folder: reciter.folder, surah, message: e.message };
+      slot.handle = null;
+      emit();
+      managerEvents.onError?.(surah, e.message);
+    },
+  });
+}
+
+/** يلغي تحميلاً جارياً أو يمسح خطأه. الملفات المكتملة تبقى للاستئناف. */
+export function cancelDownload(folder: string, surah: number): void {
+  const key = downloadKey(folder, surah);
+  const slot = active.get(key);
+  if (!slot) return;
+  slot.handle?.cancel();
+  active.delete(key);
+  emit();
+}
+
+/** يلغي كل التحميلات الجارية (للاختبارات ولحذف الكل). */
+export function cancelAllDownloads(): void {
+  for (const slot of active.values()) slot.handle?.cancel();
+  active.clear();
+  emit();
+}
+
+/** قائمة التحميلات الجارية أو المتعثّرة، تفاعلية. */
+export function useActiveDownloads(): ActiveDownload[] {
+  return useSyncExternalStore(
+    subscribe,
+    () => snapshot,
+    () => snapshot,
+  );
+}
+
+/** حالة تحميل سورة واحدة لقارئ، أو undefined. */
+export function useActiveDownload(folder: string, surah: number): ActiveDownload | undefined {
+  const all = useActiveDownloads();
+  return all.find((d) => d.folder === folder && d.surah === surah);
 }
 
 /** Deletes a downloaded surah and its manifest entry. */
@@ -257,6 +364,7 @@ export async function deleteDownload(folder: string, surah: number): Promise<voi
 
 /** Deletes every downloaded recitation. */
 export async function deleteAllDownloads(): Promise<void> {
+  cancelAllDownloads();
   const all = listDownloads();
   for (const d of all) await deleteDownload(d.folder, d.surah);
   writeManifest({});

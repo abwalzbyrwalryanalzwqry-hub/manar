@@ -11,16 +11,17 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRecitationPlayer } from "@/hooks/use-recitation-player";
 import {
+  cancelDownload,
   deleteAllDownloads,
-  downloadSurah,
   formatBytesAr,
   offlineSupported,
   RECITATION_SOURCE_URL,
   RECITERS,
   toArabicDigits,
   useDownloads,
+  startDownload,
+  useActiveDownload,
   useRecitationPrefs,
-  type DownloadHandle,
 } from "@/lib/quran";
 import { SURAH_META } from "@/lib/quran/metadata";
 import { searchSurahNames } from "@/lib/quran/search-service";
@@ -517,27 +518,12 @@ function SurahRow({
 }) {
   const { reciter } = useRecitationPrefs();
   const downloads = useDownloads();
-  const [progress, setProgress] = useState<{ done: number; total: number; bytes: number } | null>(
-    null,
-  );
-  const [error, setError] = useState<string | null>(null);
-  const handleRef = useRef<DownloadHandle | null>(null);
+  // التحميل في مدير عام: يستمر بعد مغادرة الشاشة، ويعود تقدّمه هنا عند الرجوع.
+  const job = useActiveDownload(reciterFolder, id);
+  const progress = job?.status === "active" ? job : null;
+  const error = job?.status === "error" ? job.message : null;
 
-  useEffect(() => () => handleRef.current?.cancel(), []);
-
-  const start = () => {
-    setError(null);
-    setProgress({ done: 0, total: ayahs, bytes: 0 });
-    handleRef.current = downloadSurah(reciter, id, ayahs, {
-      onProgress: (done, total, bytes) => setProgress({ done, total, bytes }),
-      onDone: () => setProgress(null),
-      onError: (e) => {
-        setProgress(null);
-        setError(e.message);
-      },
-    });
-  };
-
+  const start = () => startDownload(reciter, id, ayahs);
   return (
     <div
       className={`rounded-2xl border p-3 shadow-soft backdrop-blur-xl transition ${
@@ -576,10 +562,7 @@ function SurahRow({
             </button>
           ) : progress ? (
             <button
-              onClick={() => {
-                handleRef.current?.cancel();
-                setProgress(null);
-              }}
+              onClick={() => cancelDownload(reciterFolder, id)}
               className="flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/70 text-muted-foreground"
               aria-label="إلغاء التحميل"
             >
