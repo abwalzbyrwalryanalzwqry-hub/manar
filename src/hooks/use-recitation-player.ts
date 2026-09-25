@@ -1,4 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { useKeepAwake } from "@/hooks/use-keep-awake";
+import { useReadingPrefs } from "@/lib/quran/reading-prefs";
 import { SURAH_META } from "@/lib/quran/metadata";
 import {
   ayahAudioUrl,
@@ -12,6 +24,15 @@ import { toArabicDigits } from "@/lib/quran/format";
 export interface PlayerTrack {
   surah: number;
   ayah: number;
+}
+
+/** مقطع يُكرَّر: من آية إلى آية في سورة واحدة، عدداً من المرات. */
+export interface PlayerRange {
+  surah: number;
+  from: number;
+  to: number;
+  /** عدد مرات تلاوة المقطع كاملاً (٠ = بلا حدّ). */
+  times: number;
 }
 
 export type PlayerStatus = "idle" | "loading" | "playing" | "paused" | "error";
@@ -36,11 +57,33 @@ function resolveSrc(
 }
 
 /**
+ * الآية التالية بعد `cur` حسب المقطع المكرَّر والتلاوة المتصلة، أو null عند النهاية.
+ * `loopsDone` عدد مرات إتمام المقطع حتى الآن.
+ */
+export function nextTrack(
+  cur: PlayerTrack,
+  opts: { continuous: boolean; range: PlayerRange | null; loopsDone: number },
+): PlayerTrack | null {
+  const { range } = opts;
+  if (range && cur.surah === range.surah && cur.ayah >= range.from && cur.ayah <= range.to) {
+    if (cur.ayah < range.to) return { surah: cur.surah, ayah: cur.ayah + 1 };
+    if (range.times === 0 || opts.loopsDone + 1 < range.times) {
+      return { surah: range.surah, ayah: range.from };
+    }
+    return null;
+  }
+  if (cur.ayah < ayahCount(cur.surah)) return { surah: cur.surah, ayah: cur.ayah + 1 };
+  if (!opts.continuous || cur.surah >= 114) return null;
+  return { surah: cur.surah + 1, ayah: 1 };
+}
+
+/**
  * Verse-by-verse recitation player.
  * Plays from downloaded files when available and streams otherwise,
  * honouring the user's repeat / continuous / speed preferences.
+ * محرّك واحد للتطبيق كله عبر RecitationPlayerProvider، فتستمر التلاوة بين الشاشات.
  */
-export function useRecitationPlayer() {
+function useRecitationPlayerEngine() {
   const { prefs, reciter } = useRecitationPrefs();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const repeatsRef = useRef(0);
@@ -49,12 +92,17 @@ export function useRecitationPlayer() {
   const pendingRef = useRef<{ src: string; offline: boolean } | null>(null);
   /** يزداد مع كل تحميل مصدر؛ الوعود القديمة تتجاهل نتيجتها. */
   const loadIdRef = useRef(0);
+  const rangeRef = useRef<PlayerRange | null>(null);
+  const loopsRef = useRef(0);
+  /** تحميل مسبق للآية التالية حتى لا يتوقف الصوت بين الآيات. */
+  const preloadRef = useRef<HTMLAudioElement | null>(null);
 
   const [track, setTrack] = useState<PlayerTrack | null>(null);
   const [status, setStatus] = useState<PlayerStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
   const [position, setPosition] = useState({ current: 0, duration: 0 });
+  const [range, setRangeState] = useState<PlayerRange | null>(null);
 
   // Keep a ref in sync so the `ended` handler always sees the live track.
   useEffect(() => {
@@ -206,15 +254,50 @@ export function useRecitationPlayer() {
         return;
       }
       repeatsRef.current = 0;
-      if (prefs.repeat === "range" && cur.ayah >= ayahCount(cur.surah)) {
+      if (prefs.repeat === "range" && !rangeRef.current && cur.ayah >= ayahCount(cur.surah)) {
         startTrack({ surah: cur.surah, ayah: 1 });
         return;
       }
-      advance(1);
+      const r = rangeRef.current;
+      const nxt = nextTrack(cur, {
+        continuous: prefs.continuous,
+        range: r,
+        loopsDone: loopsRef.current,
+      });
+      if (r && cur.ayah === r.to && cur.surah === r.surah) loopsRef.current += 1;
+      if (!nxt) {
+        if (r) {
+          rangeRef.current = null;
+          setRangeState(null);
+        }
+        setStatus("paused");
+        return;
+      }
+      startTrack(nxt);
     };
     audio.addEventListener("ended", onEnded);
     return () => audio.removeEventListener("ended", onEnded);
-  }, [advance, playPending, prefs.repeat, prefs.repeatCount, startTrack]);
+  }, [playPending, prefs.continuous, prefs.repeat, prefs.repeatCount, startTrack]);
+
+  // تحميل مسبق للآية التالية أثناء تلاوة الحالية (للبث فقط؛ الملف المحمّل محلي).
+  useEffect(() => {
+    if (status !== "playing" || !track) return;
+    const nxt = nextTrack(track, {
+      continuous: prefs.continuous,
+      range: rangeRef.current,
+      loopsDone: loopsRef.current,
+    });
+    if (!nxt) return;
+    const { src, offline: isLocal } = resolveSrc(reciter, nxt.surah, nxt.ayah);
+    if (isLocal) return;
+    const pre = preloadRef.current ?? new Audio();
+    preloadRef.current = pre;
+    if (pre.src === src) return;
+    pre.preload = "auto";
+    pre.muted = true;
+    pre.src = src;
+    pre.load();
+  }, [prefs.continuous, reciter, status, track]);
 
   // Live playback-rate changes.
   useEffect(() => {
@@ -249,7 +332,37 @@ export function useRecitationPlayer() {
     }
   }, [advance, reciter.nameAr, track]);
 
-  const play = useCallback((surah: number, ayah = 1) => startTrack({ surah, ayah }), [startTrack]);
+  const play = useCallback(
+    (surah: number, ayah = 1) => {
+      rangeRef.current = null;
+      loopsRef.current = 0;
+      setRangeState(null);
+      startTrack({ surah, ayah });
+    },
+    [startTrack],
+  );
+
+  /** يتلو المقطع من `from` إلى `to` ويكرّره `times` مرة (٠ = بلا حدّ). */
+  const playRange = useCallback(
+    (surah: number, from: number, to: number, times: number) => {
+      const max = ayahCount(surah);
+      const a = Math.min(max, Math.max(1, Math.min(from, to)));
+      const b = Math.min(max, Math.max(1, Math.max(from, to)));
+      const r: PlayerRange = { surah, from: a, to: b, times: Math.max(0, Math.trunc(times)) };
+      rangeRef.current = r;
+      loopsRef.current = 0;
+      repeatsRef.current = 0;
+      setRangeState(r);
+      startTrack({ surah, ayah: a });
+    },
+    [startTrack],
+  );
+
+  const clearRange = useCallback(() => {
+    rangeRef.current = null;
+    loopsRef.current = 0;
+    setRangeState(null);
+  }, []);
 
   const toggle = useCallback(() => {
     const audio = audioRef.current;
@@ -270,6 +383,10 @@ export function useRecitationPlayer() {
     }
     repeatsRef.current = 0;
     pendingRef.current = null;
+    rangeRef.current = null;
+    loopsRef.current = 0;
+    setRangeState(null);
+    if (preloadRef.current) preloadRef.current.src = "";
     setStatus("idle");
     setTrack(null);
     trackRef.current = null;
@@ -291,13 +408,52 @@ export function useRecitationPlayer() {
       position,
       isBusy,
       reciter,
+      range,
       play,
+      playRange,
+      clearRange,
       toggle,
       stop,
       next: () => advance(1),
       prev: () => advance(-1),
       seek,
     }),
-    [advance, error, isBusy, offline, play, position, reciter, seek, status, stop, toggle, track],
+    [
+      advance,
+      clearRange,
+      error,
+      isBusy,
+      offline,
+      play,
+      playRange,
+      position,
+      range,
+      reciter,
+      seek,
+      status,
+      stop,
+      toggle,
+      track,
+    ],
   );
+}
+
+export type RecitationPlayer = ReturnType<typeof useRecitationPlayerEngine>;
+
+const PlayerContext = createContext<RecitationPlayer | null>(null);
+
+/** يُركَّب مرة في جذر التطبيق: عنصر صوت واحد تستمر تلاوته بين الشاشات. */
+export function RecitationPlayerProvider({ children }: { children: ReactNode }) {
+  const player = useRecitationPlayerEngine();
+  const { prefs } = useReadingPrefs();
+  // أثناء التلاوة فقط: إطفاء الشاشة يوقف الصوت في WebView على كثير من الأجهزة.
+  useKeepAwake(prefs.keepAwake && player.isBusy);
+  return createElement(PlayerContext.Provider, { value: player }, children);
+}
+
+/** مشغّل التلاوة المشترك. */
+export function useRecitationPlayer(): RecitationPlayer {
+  const ctx = useContext(PlayerContext);
+  if (!ctx) throw new Error("useRecitationPlayer خارج RecitationPlayerProvider");
+  return ctx;
 }

@@ -19,6 +19,19 @@ export function pageStart(page: number): { surah: number; ayah: number } {
   return { surah, ayah };
 }
 
+/** صفحة المصحف (١..٦٠٤) التي تقع فيها الآية. */
+export function pageOfAyah(surah: number, ayah: number): number {
+  let lo = 0;
+  let hi = PAGE_STARTS.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    const [s, a] = PAGE_STARTS[mid];
+    if (s < surah || (s === surah && a <= ayah)) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo + 1;
+}
+
 /** الجزء الذي تقع فيه الآية. */
 export function juzOf(surah: number, ayah: number): number {
   let juz = 1;

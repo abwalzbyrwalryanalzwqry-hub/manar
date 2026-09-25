@@ -18,6 +18,8 @@ import { AuthProvider } from "@/lib/auth-context";
 import { CloudSyncBridge } from "@/components/manar/cloud-sync-bridge";
 import { NativeBridge } from "@/components/manar/native-bridge";
 import { AudioStopBar } from "@/components/manar/audio-stop-bar";
+import { GlobalRecitationBar } from "@/components/manar/recitation-bar";
+import { RecitationPlayerProvider } from "@/hooks/use-recitation-player";
 import { hideSplash } from "@/lib/native-shell";
 import { StorageGate } from "@/components/manar/storage-gate";
 import { markAppMounted } from "@/lib/boot-guard";
@@ -206,7 +208,10 @@ function RootComponent() {
           <NativeBridge />
           <AudioStopBar />
           <Toaster position="top-center" dir="rtl" richColors closeButton />
-          <Outlet />
+          <RecitationPlayerProvider>
+            <Outlet />
+            <GlobalRecitationBar />
+          </RecitationPlayerProvider>
         </AuthProvider>
       </StorageGate>
     </QueryClientProvider>
