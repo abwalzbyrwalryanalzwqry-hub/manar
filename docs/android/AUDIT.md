@@ -92,7 +92,7 @@ cd android
 
 - JDK 17، Android SDK 35، Gradle 8.11+، AGP 8.7+، Kotlin 2.0+ (متوافقة مع Capacitor 7).
 - minSdk 24 / target+compile 35، `supportsRtl="true"`، الافتراضي `ar`، ثيم DayNight.
-- الأذونات: POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM, USE_EXACT_ALARM,
+- الأذونات: POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM (بلا USE_EXACT_ALARM — سياسة Play),
   RECEIVE_BOOT_COMPLETED, FOREGROUND_SERVICE(+MEDIA_PLAYBACK), VIBRATE, WAKE_LOCK,
   ACCESS_COARSE/FINE_LOCATION, INTERNET (للمزامنة الاختيارية فقط).
 - أيقونة إطلاق تكيّفية + `ic_stat_manar` + شاشة بداية `#0B1F1A`.
@@ -120,5 +120,6 @@ cd android
 مخرجات مُتحقَّق منها: APK ٤٠ ميغابايت موقَّع (v2+v3)، AAB ٣٥ ميغابايت،
 `versionCode=1`، `versionName=1.0.0`، minSdk 24، targetSdk 35.
 
-حقوق تسجيلات الأذان والإقامة: **موثّقة** (`rightsStatus: "VERIFIED"`) — تحقّق منها صاحب
-المشروع ووثّقها. يبقى غير مُخلَّص: تدوير مفاتيح Supabase المكشوفة في تاريخ Git.
+حقوق كل الأصوات المشحونة: **موثّقة** (`rightsStatus: "VERIFIED"`) — الأذان والإقامة تحقّق منها
+صاحب المشروع ووثّقها، والنداءات الصوتية وتنبيهات «اقتربت الصلاة» تسجيلاته بصوته وملكه
+(`docs/audio/licenses.json`). يبقى غير مُخلَّص: تدوير مفاتيح Supabase المكشوفة في تاريخ Git.

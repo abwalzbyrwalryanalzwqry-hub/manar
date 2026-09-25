@@ -205,6 +205,7 @@ type ManarAdhanPlugin = {
   sakinahLog: () => Promise<{ events: SakinahLogEvent[] }>;
   sakinahClearSkips: () => Promise<void>;
   sakinahRequestPolicyAccess: () => Promise<{ granted: boolean; opened?: boolean }>;
+  sakinahOpenPolicyAccessSettings: () => Promise<{ granted: boolean; opened: boolean }>;
   addListener: (
     event: string,
     cb: (e: unknown) => void,
@@ -433,8 +434,10 @@ export async function requestExactAlarms(): Promise<boolean> {
 }
 
 /**
- * Asks to be excluded from battery optimisation. On Doze-aggressive OEM builds
- * this is the difference between the Adhan firing on time and not firing at all.
+ * Opens the system battery screen where the user sets Manar to «Unrestricted».
+ * On Doze-aggressive OEM builds this is the difference between the Adhan firing
+ * on time and not firing at all. (No direct exemption prompt: its permission is
+ * restricted on Google Play.)
  */
 export async function requestBatteryExemption(): Promise<boolean> {
   const p = adhanPlugin();

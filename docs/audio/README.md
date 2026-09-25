@@ -9,7 +9,7 @@ This package organizes the user-provided Manar adhan audio files for integration
 - The existing Manar Audio Engine must NOT be replaced or rebuilt.
 - Audio files are preserved in their original formats.
 - Exact byte-for-byte duplicates were not copied twice; they are documented in `metadata/adhan-library.json`.
-- Rights for every recording (adhan and iqamah) have been verified and documented by the project owner (2026-09-24) — status `VERIFIED` in `adhan-library.json` and `licenses.json`. The recordings are cleared for use and publication inside Manar.
+- Rights for every recording (adhan and iqamah) have been verified and documented by the project owner (2026-09-24) — status `VERIFIED` in `adhan-library.json` and `licenses.json`. The voice reminders (azkar / wird) and the prayer-approach announcements were recorded by the project owner personally and are the owner's property (2026-09-25). All recordings are cleared for use and publication inside Manar; `tests/unit/audio-rights.test.ts` enforces that every bundled file is documented.
 
 ## Integration
 

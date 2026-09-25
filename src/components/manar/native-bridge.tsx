@@ -156,7 +156,9 @@ export function NativeBridge() {
 
   const fixBattery = async () => {
     await requestBatteryExemption();
-    toast("بعد استثناء منار من تحسين البطارية، ارجع إلى التطبيق", { duration: 3000 });
+    toast("من «البطارية» اختر «غير مقيّد» (أو «عدم التحسين» حسب جهازك)، ثم ارجع إلى منار", {
+      duration: 5000,
+    });
   };
 
   return (

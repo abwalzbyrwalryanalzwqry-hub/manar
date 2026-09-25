@@ -1,10 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Manar keeps settings, counters, reading position and wird progress in the
-     WebView's localStorage plus Capacitor Preferences. Both are backed up so a
-     device change does not lose the user's progress. -->
+<!-- Manar mirrors settings, counters, reading position and wird progress into
+     Capacitor Preferences (CapacitorStorage.xml); that file is backed up so a
+     device change keeps the user's progress, and StorageGate restores it into
+     the WebView on first launch.
+
+     Excluded on purpose:
+     - ManarSession.xml: the Supabase sign-in token. A restored backup must not
+       sign the account in on another device; the user signs in again and cloud
+       sync merges their data.
+     - WebView Local Storage: it also holds the token, and everything we need
+       from it already lives in CapacitorStorage.xml.
+     - manar_adhan_schedule.xml: absolute alarm times from the old device. -->
 <full-backup-content>
     <include domain="sharedpref" path="." />
     <include domain="database" path="." />
-    <include domain="file" path="app_webview/Local Storage" />
+    <exclude domain="sharedpref" path="ManarSession.xml" />
     <exclude domain="sharedpref" path="manar_adhan_schedule.xml" />
 </full-backup-content>

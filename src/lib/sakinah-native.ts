@@ -107,6 +107,21 @@ export async function requestSakinahPolicyAccess(): Promise<boolean> {
   }
 }
 
+/**
+ * يفتح شاشة النظام «الوصول إلى عدم الإزعاج» دائماً، ممنوحاً كان الإذن أو لا،
+ * ليمنحه المستخدم أو يسحبه بنفسه. يعيد حالة الإذن لحظة الفتح.
+ */
+export async function openSakinahPolicyAccessSettings(): Promise<boolean> {
+  const plugin = manarAdhanPlugin();
+  if (!plugin) return false;
+  try {
+    const res = await plugin.sakinahOpenPolicyAccessSettings();
+    return Boolean(res.opened);
+  } catch {
+    return false;
+  }
+}
+
 export async function readSakinahLog(): Promise<SakinahLogEvent[]> {
   const plugin = manarAdhanPlugin();
   if (!plugin) return [];
