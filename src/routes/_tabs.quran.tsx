@@ -145,9 +145,12 @@ function QuranHub() {
           <Link
             to="/quran/mushaf"
             search={
-              last
-                ? { surah: last.surah, ayah: last.ayah, mode: "surah" as const }
-                : { surah: 1, mode: "surah" as const }
+              // الاستئناف بالوضع الذي كان يقرأ به: صفحة المصحف أو آية السورة.
+              last?.mode === "mushaf"
+                ? { page: last.page, mode: "mushaf" as const }
+                : last
+                  ? { surah: last.surah, ayah: last.ayah, mode: "surah" as const }
+                  : { surah: 1, mode: "surah" as const }
             }
             className="relative mt-5 flex items-center justify-center gap-2 rounded-2xl bg-white/15 py-3 text-[13px] font-medium backdrop-blur transition active:scale-[0.98]"
           >
@@ -163,7 +166,7 @@ function QuranHub() {
               />
             </div>
             <span className="text-[10px] tabular-nums text-white/70">
-              {toArabicDigits(percent)}٪ من الختمة
+              {toArabicDigits(percent)}٪ من المصحف
             </span>
           </div>
         </div>

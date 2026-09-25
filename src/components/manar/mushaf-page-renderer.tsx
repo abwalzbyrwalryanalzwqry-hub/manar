@@ -6,11 +6,16 @@ import { BASMALA } from "@/lib/quran/basmala";
 import type { MushafSegment } from "@/lib/quran/page-service";
 import { bareSurahNameAr, juzLabelAr } from "@/lib/quran/page-labels";
 import type { MushafPageState } from "@/hooks/use-mushaf-page";
+import type { AyahText } from "@/lib/quran/text-types";
+
+type AyahTap = (surahId: number, ayah: AyahText) => void;
 
 interface Props {
   page: number;
   state: MushafPageState;
   onRetry: () => void;
+  /** نقر آية في الصفحة: تفسير، حفظ، تلاوة، مشاركة. */
+  onAyahTap?: AyahTap;
 }
 
 /**
@@ -22,7 +27,7 @@ interface Props {
  * The whole page always fits its viewport — the text block is auto-fitted
  * (shrunk or grown) so no ayah is ever cut off and no scrolling is needed.
  */
-export function MushafPageRenderer({ page, state, onRetry }: Props) {
+export function MushafPageRenderer({ page, state, onRetry, onAyahTap }: Props) {
   const { style } = useReadingPrefs();
 
   if (state.status === "loading") return <PageLoading page={page} />;
@@ -45,7 +50,13 @@ export function MushafPageRenderer({ page, state, onRetry }: Props) {
         deps={`${page}|${style.fontSizePx}|${style.lineHeight}|${style.fontFamily}`}
       >
         {segments.map((seg, i) => (
-          <Segment key={`${seg.surahId}-${i}`} seg={seg} style={style} first={i === 0} />
+          <Segment
+            key={`${seg.surahId}-${i}`}
+            seg={seg}
+            style={style}
+            first={i === 0}
+            onAyahTap={onAyahTap}
+          />
         ))}
       </FitToPage>
 
@@ -128,10 +139,12 @@ function Segment({
   seg,
   style,
   first,
+  onAyahTap,
 }: {
   seg: MushafSegment;
   style: ReturnType<typeof useReadingPrefs>["style"];
   first: boolean;
+  onAyahTap?: AyahTap;
 }) {
   return (
     <div className={first ? "" : "mt-[0.6em]"}>
@@ -163,7 +176,30 @@ function Segment({
         lang="ar"
       >
         {seg.ayahs.map((a) => (
-          <span key={a.n}>
+          <span
+            key={a.n}
+            data-surah={seg.surahId}
+            data-ayah={a.n}
+            role={onAyahTap ? "button" : undefined}
+            tabIndex={onAyahTap ? 0 : undefined}
+            aria-label={onAyahTap ? `خيارات الآية ${a.n}` : undefined}
+            onClick={onAyahTap ? () => onAyahTap(seg.surahId, a) : undefined}
+            onKeyDown={
+              onAyahTap
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onAyahTap(seg.surahId, a);
+                    }
+                  }
+                : undefined
+            }
+            className={
+              onAyahTap
+                ? "cursor-pointer rounded-md transition-colors hover:bg-primary/5 focus-visible:bg-primary/10 focus-visible:outline-none active:bg-primary/10"
+                : undefined
+            }
+          >
             {a.t}
             <AyahMark n={a.n} />
           </span>

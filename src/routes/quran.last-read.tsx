@@ -28,7 +28,7 @@ export const Route = createFileRoute("/quran/last-read")({
 });
 
 function LastReadScreen() {
-  const { entries, last, streak, week, sessionsToday, progress, furthest, clear, remove } =
+  const { entries, last, streak, week, sessionsToday, progress, pagesRead, clear, remove } =
     useReadingHistory();
 
   const percent = Math.round(progress * 100);
@@ -43,7 +43,9 @@ function LastReadScreen() {
         action={
           entries.length ? (
             <button
-              onClick={clear}
+              onClick={() => {
+                if (window.confirm("تفريغ سجل القراءة كاملاً؟ لا يمكن التراجع.")) clear();
+              }}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-soft"
               aria-label="تفريغ السجل"
             >
@@ -79,7 +81,11 @@ function LastReadScreen() {
 
             <Link
               to="/quran/mushaf"
-              search={{ surah: last.surah, ayah: last.ayah, mode: "surah" }}
+              search={
+                last.mode === "mushaf"
+                  ? { page: last.page, mode: "mushaf" }
+                  : { surah: last.surah, ayah: last.ayah, mode: "surah" }
+              }
               className="relative mt-6 flex items-center justify-center gap-2 rounded-2xl bg-white/15 py-3 text-[13px] font-medium backdrop-blur transition active:scale-[0.98]"
             >
               <Icon d={icons.quran} size={16} />
@@ -127,8 +133,8 @@ function LastReadScreen() {
           />
           <StatBox
             icon={icons.target}
-            label="أبعد آية بلغتها"
-            value={`${toArabicDigits(furthest)} من ٦٢٣٦`}
+            label="الصفحات المقروءة"
+            value={`${toArabicDigits(pagesRead)} من ٦٠٤`}
           />
         </div>
       </div>
@@ -193,7 +199,11 @@ function HistoryRow({ entry, onRemove }: { entry: ReadEntry; onRemove: () => voi
     <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card/70 p-3 shadow-soft backdrop-blur-xl">
       <Link
         to="/quran/mushaf"
-        search={{ surah: entry.surah, ayah: entry.ayah, mode: "surah" }}
+        search={
+          entry.mode === "mushaf"
+            ? { page: entry.page, mode: "mushaf" }
+            : { surah: entry.surah, ayah: entry.ayah, mode: "surah" }
+        }
         className="min-w-0 flex-1 text-right"
       >
         <div className="truncate text-[13px] font-medium">
