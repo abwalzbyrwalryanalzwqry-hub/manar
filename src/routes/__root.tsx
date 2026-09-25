@@ -19,7 +19,7 @@ import { CloudSyncBridge } from "@/components/manar/cloud-sync-bridge";
 import { NativeBridge } from "@/components/manar/native-bridge";
 import { ReminderTapBridge } from "@/components/manar/reminder-tap-bridge";
 import { AudioStopBar } from "@/components/manar/audio-stop-bar";
-import { GlobalRecitationBar } from "@/components/manar/recitation-bar";
+import { GlobalRecitationBar, RecitationDownloadNotifier } from "@/components/manar/recitation-bar";
 import { RecitationPlayerProvider } from "@/hooks/use-recitation-player";
 import { hideSplash } from "@/lib/native-shell";
 import { StorageGate } from "@/components/manar/storage-gate";
@@ -213,6 +213,7 @@ function RootComponent() {
           <RecitationPlayerProvider>
             <Outlet />
             <GlobalRecitationBar />
+            <RecitationDownloadNotifier />
           </RecitationPlayerProvider>
         </AuthProvider>
       </StorageGate>

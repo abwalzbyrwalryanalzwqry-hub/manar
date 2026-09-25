@@ -7,11 +7,14 @@
  */
 
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { toast } from "sonner";
 
 import { Icon, icons } from "@/components/manar/shell";
 import { useRecitationPlayer } from "@/hooks/use-recitation-player";
 import { toArabicDigits } from "@/lib/quran/format";
 import { SURAH_META } from "@/lib/quran/metadata";
+import { setDownloadManagerEvents, useActiveDownloads } from "@/lib/quran/recitation-offline";
 
 function SmallButton({
   icon,
@@ -143,4 +146,35 @@ export function GlobalRecitationBar() {
       <RecitationBar variant="floating" />
     </div>
   );
+}
+
+/** إشعار بانتهاء تحميل سورة أو تعثّره، أينما كان المستخدم في التطبيق. */
+export function RecitationDownloadNotifier() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const jobs = useActiveDownloads();
+  const running = jobs.filter((j) => j.status === "active").length;
+
+  useEffect(() => {
+    setDownloadManagerEvents({
+      onDone: (e) => toast.success(`اكتمل تحميل سورة ${SURAH_META[e.surah - 1].nameAr}`),
+      onError: (surah, message) =>
+        toast.error(`تعذّر تحميل سورة ${SURAH_META[surah - 1].nameAr}`, { description: message }),
+    });
+    return () => setDownloadManagerEvents({});
+  }, []);
+
+  // عند مغادرة شاشة التلاوات والتحميل جارٍ: تنبيه بأنه مستمر.
+  const onRecitations = pathname.startsWith("/quran/recitations");
+  useEffect(() => {
+    if (onRecitations || running === 0) return;
+    toast.info(
+      running === 1
+        ? "يستمر تحميل السورة في الخلفية"
+        : `يستمر تحميل ${toArabicDigits(running)} سور في الخلفية`,
+      { id: "downloads-bg" },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onRecitations]);
+
+  return null;
 }
