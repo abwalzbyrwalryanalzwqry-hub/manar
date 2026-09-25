@@ -148,12 +148,14 @@ export function downloadSurah(
 
       // الملفات: آيات السورة، ومعها البسملة (001001) لسور تبدأ بها،
       // لتعمل البسملة التمهيدية بدون إنترنت أيضاً.
+      // البسملة أولاً، فلا يبلغ العدّاد آخر آية والتحميل لم ينتهِ بعد.
       const files: { name: string; url: string }[] = [];
-      for (let ayah = 1; ayah <= ayahCount; ayah++) {
-        files.push({ name: ayahFileName(surah, ayah), url: ayahAudioUrl(reciter, surah, ayah) });
-      }
       if (needsBasmalaIntro(surah, 1)) {
         files.push({ name: BASMALA_FILE, url: ayahAudioUrl(reciter, 1, 1) });
+      }
+      const extra = files.length;
+      for (let ayah = 1; ayah <= ayahCount; ayah++) {
+        files.push({ name: ayahFileName(surah, ayah), url: ayahAudioUrl(reciter, surah, ayah) });
       }
 
       // تُحسب أحجام الملفات الموجودة مسبقاً أيضاً، فيبقى الحجم صحيحاً عند الاستئناف.
@@ -183,7 +185,7 @@ export function downloadSurah(
             bytes += blob.size;
           }
           done += 1;
-          if (!cancelled) cb.onProgress?.(Math.min(done, ayahCount), ayahCount, bytes);
+          if (!cancelled) cb.onProgress?.(Math.max(0, done - extra), ayahCount, bytes);
         }
       };
 
