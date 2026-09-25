@@ -9,6 +9,12 @@ import { recordWird } from "@/lib/activity-log";
 
 const KEY = "manar.wird.progress.v1";
 const EVENT = "manar:wird-progress";
+/**
+ * إصدار ترتيب أذكار الوِرد. العدّادات مفهرسة بـ«الترتيب»، فإذا تغيّرت قائمة الأذكار
+ * (كما في توحيدها مع «حصن المسلم») صار التقدّم القديم يشير إلى أذكار أخرى،
+ * فيُهمل عند القراءة بدل عرضه على ذكر خاطئ.
+ */
+export const WIRD_LAYOUT = 2;
 
 export interface WirdSessionProgress {
   /** ترتيب الذكر → العدد الحالي */
@@ -18,6 +24,8 @@ export interface WirdSessionProgress {
   /** هل تم إكمال الوِرد بالكامل */
   done: boolean;
   updatedAt: number | null;
+  /** إصدار ترتيب الأذكار الذي كُتب به هذا التقدّم (انظر WIRD_LAYOUT). */
+  layout?: number;
 }
 
 export type WirdStore = Record<WirdSessionKey, WirdSessionProgress>;
@@ -27,7 +35,14 @@ const emptySession = (): WirdSessionProgress => ({
   current: 1,
   done: false,
   updatedAt: null,
+  layout: WIRD_LAYOUT,
 });
+
+/** يقبل تقدّم الجلسة فقط إن كُتب بترتيب الأذكار الحالي. */
+function readSession(raw: Partial<WirdSessionProgress> | undefined): WirdSessionProgress {
+  if (!raw || raw.layout !== WIRD_LAYOUT) return emptySession();
+  return { ...emptySession(), ...raw };
+}
 
 const EMPTY: WirdStore = { morning: emptySession(), evening: emptySession() };
 
@@ -36,10 +51,10 @@ function readStore(): WirdStore {
   try {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return EMPTY;
-    const parsed = JSON.parse(raw) as Partial<WirdStore>;
+    const parsed = JSON.parse(raw) as Partial<Record<WirdSessionKey, Partial<WirdSessionProgress>>>;
     return {
-      morning: { ...emptySession(), ...(parsed.morning ?? {}) },
-      evening: { ...emptySession(), ...(parsed.evening ?? {}) },
+      morning: readSession(parsed.morning),
+      evening: readSession(parsed.evening),
     };
   } catch {
     return EMPTY;
@@ -107,7 +122,7 @@ export function useWirdSessionProgress(session: WirdSessionKey) {
   const commit = useCallback(
     (fn: (prev: WirdSessionProgress) => WirdSessionProgress) => {
       setState((prev) => {
-        const next = { ...fn(prev), updatedAt: Date.now() };
+        const next = { ...fn(prev), updatedAt: Date.now(), layout: WIRD_LAYOUT };
         flush(next);
         return next;
       });

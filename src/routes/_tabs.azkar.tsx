@@ -55,6 +55,7 @@ const ACCENTS = ["primary", "gold", "night"] as const;
 function AzkarHub() {
   const { book, loading } = useAzkarBook();
   const { progress } = useAzkarProgress();
+  const total = book ? book.chapters.reduce((n, c) => n + c.azkar.length, 0) : 0;
 
   return (
     <Screen>
@@ -62,7 +63,7 @@ function AzkarHub() {
         title="الأذكار"
         subtitle={
           book
-            ? `${toArabicDigits(book.chapters.length)} بابًا · ${toArabicDigits(267)} ذكرًا`
+            ? `${toArabicDigits(book.chapters.length)} بابًا · ${toArabicDigits(total)} ذكرًا`
             : "حصن المسلم"
         }
       />
@@ -82,14 +83,16 @@ function AzkarHub() {
           <div className="relative mt-6">
             <div className="font-display text-3xl font-medium leading-snug">اذكر الله… يذكرك.</div>
             <p className="mt-2 max-w-[16rem] text-xs font-light leading-relaxed text-white/70">
-              أذكار وأدعية موثّقة بالتخريج، مع عدّاد لكل ذكر وحفظ تلقائي لتقدّمك.
+              أذكار وأدعية من الكتاب والسنة، مع عدّاد لكل ذكر وحفظ تلقائي لتقدّمك.
             </p>
           </div>
           <div className="relative mt-6 flex items-center gap-3">
             <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
               <div
                 className="gradient-gold h-full"
-                style={{ width: `${Math.min(100, (progress.completed.length / 267) * 100)}%` }}
+                style={{
+                  width: `${Math.min(100, (progress.completed.length / (total || 1)) * 100)}%`,
+                }}
               />
             </div>
             <span className="text-[10px] tabular-nums text-white/70">
@@ -174,11 +177,8 @@ function AzkarHub() {
           <p className="relative mt-3 text-[11px] text-muted-foreground">
             كلمتان خفيفتان على اللسان، ثقيلتان في الميزان، حبيبتان إلى الرحمن.
           </p>
-          <div className="relative mt-4 flex items-center justify-between text-[10px] text-muted-foreground">
+          <div className="relative mt-4 text-[10px] text-muted-foreground">
             <span>صحيح البخاري · ٦٤٠٦</span>
-            <span className="flex items-center gap-1">
-              <Icon d={icons.heart} size={12} /> ١.٢ك
-            </span>
           </div>
         </div>
       </div>
