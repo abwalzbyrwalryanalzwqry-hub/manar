@@ -32,17 +32,23 @@ function WirdSessionPage() {
   const nav = useNavigate();
   const wird = getWirdSession(session);
   const key = wird?.key ?? "morning";
-  const { progress, hydrated, increment, setCurrent, markDone, resetSession } =
-    useWirdSessionProgress(key);
+  const items = useMemo(() => wird?.items ?? [], [wird]);
+  const { progress, hydrated, increment, setCurrent, resetSession } = useWirdSessionProgress(
+    key,
+    items,
+  );
   const [index, setIndex] = useState(0);
   const [confirmReset, setConfirmReset] = useState(false);
   const [pulse, setPulse] = useState(0);
   const startX = useRef<number | null>(null);
   const restored = useRef(false);
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** الذكر المعروض الآن — يقرؤه مؤقت الانتقال التلقائي بدل فهرس قديم. */
+  const shownOrder = useRef<number | null>(null);
 
-  const items = useMemo(() => wird?.items ?? [], [wird]);
   const item = items[index];
   const count = item ? Math.min(item.repeat, progress.counts[item.order] ?? 0) : 0;
+  shownOrder.current = item?.order ?? null;
   const remaining = item ? item.repeat - count : 0;
   const overall = useMemo(() => wirdCompletion(progress, items), [progress, items]);
 
@@ -62,9 +68,18 @@ function WirdSessionPage() {
   const goto = useCallback(
     (next: number) => {
       if (next < 0 || next >= items.length) return;
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+      advanceTimer.current = null;
       setIndex(next);
     },
     [items.length],
+  );
+
+  useEffect(
+    () => () => {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    },
+    [],
   );
 
   const onTap = useCallback(() => {
@@ -75,11 +90,18 @@ function WirdSessionPage() {
     }
     increment(item.order, item.repeat);
     setPulse((p) => p + 1);
-    if (count + 1 >= item.repeat) {
-      if (index + 1 < items.length) window.setTimeout(() => goto(index + 1), 320);
-      else markDone(true);
+    /* الإكمال يُحسب في وحدة التقدّم من اكتمال كل الأذكار، لا من آخرها. */
+    if (count + 1 >= item.repeat && index + 1 < items.length) {
+      const doneOrder = item.order;
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+      advanceTimer.current = setTimeout(() => {
+        advanceTimer.current = null;
+        if (shownOrder.current !== doneOrder) return;
+        const at = items.findIndex((it) => it.order === doneOrder);
+        if (at >= 0 && at + 1 < items.length) setIndex(at + 1);
+      }, 320);
     }
-  }, [item, count, increment, index, items.length, goto, markDone]);
+  }, [item, count, increment, index, items, goto]);
 
   const onTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0]?.clientX ?? null;

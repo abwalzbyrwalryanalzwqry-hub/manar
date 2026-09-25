@@ -29,6 +29,7 @@ export type DayRecord = {
   /** جلسات الوِرد المكتملة: صباح و/أو مساء. */
   wird: ("morning" | "evening")[];
   /** فصول «حصن المسلم» المكتملة اليوم: رقم الفصل ← وقت الإكمال (ms).
+   * باب الصباح والمساء له مفتاحان «27:m» و«27:e» (والسجلات القديمة «27»).
    * اختياري حتى تبقى السجلات القديمة والمزامَنة صالحة. */
   chapters?: Record<string, number>;
 };
@@ -81,7 +82,8 @@ function normalizeChapters(raw: unknown): { chapters?: Record<string, number> } 
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const out: Record<string, number> = {};
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-    if (/^\d{1,3}$/.test(k) && typeof v === "number" && Number.isFinite(v) && v > 0) out[k] = v;
+    if (/^\d{1,3}(:[me])?$/.test(k) && typeof v === "number" && Number.isFinite(v) && v > 0)
+      out[k] = v;
   }
   return Object.keys(out).length ? { chapters: out } : {};
 }
@@ -217,7 +219,7 @@ export function recordWird(session: "morning" | "evening", date = new Date()) {
  * والفصل الذي أُعيد تصفيره يُحذف (فإن أُكمل ثانيةً سُجّل بالوقت الجديد).
  * تستعمله «تخطّي إذا أُنجز» في تذكيرات الأذكار.
  */
-export function syncAzkarChapters(completeIds: readonly number[], at = Date.now()) {
+export function syncAzkarChapters(completeIds: readonly (number | string)[], at = Date.now()) {
   const date = new Date(at);
   patchDay(dayKey(date), (d) => {
     const prev = d.chapters ?? {};

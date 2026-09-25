@@ -264,7 +264,18 @@ describe("تحذير التوقيت غير المنطقي", () => {
 });
 
 describe("تخطّي تذكير اليوم إذا أُنجز", () => {
-  const state: DailyRemindersState = { enabled: true, items: structuredClone(DEFAULT_REMINDERS) };
+  /* «أذكار الصباح» مطفأ افتراضيًا؛ يُفعَّل هنا لاختبار منطق التخطّي كما يراه من فعّله. */
+  const state: DailyRemindersState = {
+    enabled: true,
+    items: structuredClone(DEFAULT_REMINDERS).map((r) =>
+      r.id === "azkar-morning" ? { ...r, enabled: true } : r,
+    ),
+  };
+
+  it("الافتراضي: «أذكار الصباح» مطفأ و«ورد الصباح» مفعّل", () => {
+    expect(byId("azkar-morning").enabled).toBe(false);
+    expect(byId("wird").enabled).toBe(true);
+  });
   // ٢٤ سبتمبر ٢٠٢٦ ٢:٠٠ فجراً بصنعاء — قبل كل تذكيرات اليوم.
   const now = new Date(2026, 8, 24, 2).getTime();
   const todayOf = (wird: string[]) =>
@@ -346,7 +357,7 @@ describe("تخطّي تذكير اليوم إذا أُنجز", () => {
     );
     const only: DailyRemindersState = {
       enabled: true,
-      items: [{ ...byId("azkar-morning"), days: [5] }],
+      items: [{ ...byId("azkar-morning"), enabled: true, days: [5] }],
     };
     const plan = planDailyReminders(only, { now, days: 7, timesFor });
     expect(plan).toHaveLength(1);
@@ -421,7 +432,7 @@ describe("التذكيرات التي يضيفها المستخدم", () => {
     const tampered: Partial<DailyReminder> = { id: "wird", route: "/login" as never, body: "x" };
     const st = normalizeRemindersState({ items: [tampered] });
     const w = st.items.find((i) => i.id === "wird")!;
-    expect(w.route).toBe("/wird");
+    expect(w.route).toBe("/wird/morning");
     expect(w.body).toBe(byId("wird").body);
     expect(w.custom).toBeUndefined();
   });

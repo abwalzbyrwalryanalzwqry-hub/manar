@@ -3,6 +3,7 @@ import { DataError } from "@/components/manar/data-error";
 import { useMemo } from "react";
 import { useAzkarBook } from "@/hooks/use-azkar";
 import { useAzkarProgress } from "@/lib/azkar/progress";
+import { isZikrDone } from "@/lib/azkar/variant";
 import { Icon, icons, Screen, ScreenHeader, Skeleton } from "@/components/manar/shell";
 import { toArabicDigits } from "@/lib/format";
 
@@ -27,6 +28,7 @@ function GroupChapters() {
   const { group } = Route.useParams();
   const { book, loading, error, retry } = useAzkarBook();
   const { progress } = useAzkarProgress();
+  const completed = new Set(progress.completed);
 
   const info = useMemo(() => book?.groups.find((g) => g.id === group), [book, group]);
   const chapters = useMemo(
@@ -57,7 +59,7 @@ function GroupChapters() {
 
       <div className="space-y-3 px-5 stagger">
         {chapters.map((c) => {
-          const done = c.azkar.filter((z) => progress.completed.includes(z.id)).length;
+          const done = c.azkar.filter((z) => isZikrDone(completed, z.id)).length;
           return (
             <Link
               key={c.id}

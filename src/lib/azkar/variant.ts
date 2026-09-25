@@ -51,3 +51,17 @@ export function segmentState(zikr: Zikr, total: number): SegmentState | null {
   }
   return null;
 }
+
+/**
+ * مفتاح عدّاد الذكر. أذكار المساء في باب ٢٧ لها عدّاد مستقل (`id:e`) حتى لا
+ * يظهر ذكرٌ أُتمّ صباحًا تامًّا في المساء. الصباح وسائر الأبواب تبقى بالرقم
+ * وحده، فيبقى التقدّم المحفوظ قبل هذا التغيير صالحًا.
+ */
+export function progressKey(zikrId: number, time: ZikrTime | null): string {
+  return time === "evening" ? `${zikrId}:e` : String(zikrId);
+}
+
+/** هل أُتمّ هذا الذكر اليوم في أي وقت (صباحًا أو مساءً)؟ */
+export function isZikrDone(completed: ReadonlySet<string>, zikrId: number): boolean {
+  return completed.has(String(zikrId)) || completed.has(`${zikrId}:e`);
+}
