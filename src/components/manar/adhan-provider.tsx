@@ -31,6 +31,7 @@ import {
 import { approachClipFor } from "@/lib/prayer-approach-audio";
 import { buildPrayerAlarms, type ManarAlarmEvent } from "@/lib/prayer-schedule";
 import { play as enginePlay } from "@/lib/audio-engine";
+import { dayKey as logDayKey, readLog } from "@/lib/activity-log";
 
 type FiredKey = string;
 
@@ -209,6 +210,36 @@ export function AdhanProvider() {
       window.removeEventListener("manar:daily-reminders", onSoundSettings);
       window.removeEventListener("manar:adhan-settings", onSoundSettings);
       window.clearInterval(watch);
+      clearTimeout(pending);
+    };
+  }, [location, calc]);
+
+  /* إنجاز الوِرد أو فصل أذكار يُلغي تذكير اليوم نفسه إن لم يحن بعد (تخطّي ما أُنجز).
+   * السجل يتغيّر مع كل نقرة ذكر، فلا نعيد الجدولة إلا إن تغيّر ما أُنجز فعلاً.
+   * أثرٌ مستقل عن مستمعي الإعدادات أعلاه، ومؤجَّل قليلاً مثلها. */
+  useEffect(() => {
+    if (!isNativeShell()) return;
+    /* بصمة ما يُلغي تذكيراً: جلسات الوِرد وفصول الأذكار المكتملة اليوم. */
+    const wirdToday = () => {
+      const d = readLog().days[logDayKey()];
+      const wird = (d?.wird ?? []).slice().sort().join(",");
+      const chapters = Object.keys(d?.chapters ?? {})
+        .sort()
+        .join(",");
+      return `${wird}|${chapters}`;
+    };
+    let lastWird = wirdToday();
+    let pending: ReturnType<typeof setTimeout> | undefined;
+    const onActivity = () => {
+      const w = wirdToday();
+      if (w === lastWird) return;
+      lastWird = w;
+      clearTimeout(pending);
+      pending = setTimeout(() => void syncNativePrayerSchedule(location, calc), 800);
+    };
+    window.addEventListener("manar:activity", onActivity);
+    return () => {
+      window.removeEventListener("manar:activity", onActivity);
       clearTimeout(pending);
     };
   }, [location, calc]);

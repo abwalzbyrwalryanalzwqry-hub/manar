@@ -1,18 +1,34 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
 import {
+  CUSTOM_TEMPLATES,
+  MAX_CUSTOM_REMINDERS,
   REMINDER_TONES,
+  TONE_KIND_LABELS,
   WEEKDAY_ORDER,
   WEEKDAY_SHORT,
   describeTiming,
+  from12h,
+  offsetOptionsFor,
   reminderTimeOn,
+  stepClock,
+  suggestedToneFor,
+  switchTimingMode,
+  timingWarning,
+  to12h,
+  toneKind,
   toneName,
   toneUrl,
   useDailyReminders,
+  type CustomTemplateId,
   type DailyReminder,
   type ReminderToneId,
+  type ToneKind,
   type Weekday,
+  COMPLETION_HINTS,
+  completionKeyFor,
 } from "@/lib/daily-reminders";
 import {
   PRAYER_LABELS,
@@ -24,22 +40,26 @@ import {
 import { ampmAr, formatHHMM, toArabicDigits } from "@/lib/format";
 import { play, stop } from "@/lib/audio-engine";
 import { effectiveVolume, getAdhanSettings } from "@/lib/adhan-settings";
-import { isNativeShell } from "@/lib/native-notifications";
+import { isNativeShell, testDailyReminderNow } from "@/lib/native-notifications";
 
 export const Route = createFileRoute("/reminders")({
   head: () => ({ meta: [{ title: "تذكيرات الأذكار والوِرد — منار" }] }),
   component: Reminders,
 });
 
-/** خيارات الإزاحة المنسوبة لصلاة — بالدقائق. */
-const OFFSETS = [-30, -15, 0, 15, 30, 45, 60, 90, 120];
+/* الصلوات التي يُنسب إليها تذكير — الشروق مشمول لورد الضحى. */
+const ANCHORS = PRAYER_ORDER;
 
 function Reminders() {
-  const { state, setEnabled, patch, toggleDay } = useDailyReminders();
+  const { state, setEnabled, patch, toggleDay, reset, addCustom, remove } = useDailyReminders();
   const { location } = useLocation();
   const { settings } = useSettings();
   const [openId, setOpenId] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<ReminderToneId | null>(null);
+  const [toneTab, setToneTab] = useState<Record<string, ToneKind>>({});
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newTemplate, setNewTemplate] = useState<CustomTemplateId>("after-prayer");
   const stopRef = useRef<(() => void) | null>(null);
 
   /* إيقاف أي معاينة عند مغادرة الشاشة — وإلا استمرّ الصوت بعد الخروج. */
@@ -75,6 +95,13 @@ function Reminders() {
     });
   };
 
+  /* مواقيت اليوم — لاشتقاق الساعة عند تبديل نوع التوقيت، ولتحذير التوقيت. */
+  const todayTimes = useMemo(() => {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    return computePrayerTimes(location, settings, d);
+  }, [location, settings]);
+
   /* الوقت الفعلي لأول عمل قادم لكل تذكير: هو ما يُطمئن المستخدم أن إعداده صار
    * وقتاً حقيقياً، لا مجرّد وصف. نبحث سبعة أيام لأن التذكير قد يُستثنى من أيام. */
   const nextRun = (r: DailyReminder): Date | null => {
@@ -90,7 +117,58 @@ function Reminders() {
     return null;
   };
 
+  /* موعد التذكير اليوم (بغضّ النظر عن أيامه) — لتحذير التوقيت غير المنطقي. */
+  const warningFor = (r: DailyReminder): string | null => {
+    const at = reminderTimeOn(
+      { ...r, days: [0, 1, 2, 3, 4, 5, 6] },
+      todayTimes.dhuhr,
+      (p) => todayTimes[p],
+    );
+    return at ? timingWarning(r, at, todayTimes) : null;
+  };
+
+  const testNow = async (r: DailyReminder) => {
+    if (isNativeShell()) {
+      const ok = await testDailyReminderNow(r);
+      if (ok) toast.success("سيصل تنبيه تجريبي خلال ثانيتين بالصوت والقناة الفعليين");
+      else toast.error("تعذّر إرسال التنبيه — تحقّق من إذن الإشعارات");
+      return;
+    }
+    // على الويب لا إشعارات أصلية: نُسمع الصوت الفعلي ونعرض نصّ الإشعار.
+    if (toneUrl(r.tone)) preview(r.tone);
+    toast(r.name, { description: r.body });
+  };
+
+  const confirmReset = () => {
+    if (
+      !window.confirm(
+        "استعادة أوقات التذكيرات الخمسة وأصواتها وأيامها الافتراضية؟ التذكيرات التي أضفتها تبقى.",
+      )
+    )
+      return;
+    reset();
+    toast.success("استُعيدت القيم الافتراضية");
+  };
+
+  const submitNew = () => {
+    const item = addCustom(newTemplate, newName);
+    if (!item) {
+      toast.error(`الحد الأقصى ${toArabicDigits(MAX_CUSTOM_REMINDERS)} تذكيرات مضافة`);
+      return;
+    }
+    setAdding(false);
+    setNewName("");
+    setOpenId(item.id);
+  };
+
+  const confirmRemove = (r: DailyReminder) => {
+    if (!window.confirm(`حذف تذكير «${r.name}»؟`)) return;
+    remove(r.id);
+    if (openId === r.id) setOpenId(null);
+  };
+
   const activeCount = state.items.filter((r) => r.enabled).length;
+  const customCount = state.items.filter((r) => r.custom).length;
 
   return (
     <Screen>
@@ -124,8 +202,15 @@ function Reminders() {
 
       <div className="space-y-2 px-5">
         {state.items.map((r) => {
-          const at = r.enabled && state.enabled ? nextRun(r) : null;
+          const live = r.enabled && state.enabled;
+          const at = live ? nextRun(r) : null;
           const open = openId === r.id;
+          const warning = warningFor(r);
+          const suggested = suggestedToneFor(r);
+          const tab: ToneKind = toneTab[r.id] ?? toneKind(r.tone);
+          const tones = REMINDER_TONES.filter((t) => t.kind === tab)
+            .slice()
+            .sort((a, b) => Number(b.id === suggested) - Number(a.id === suggested));
           return (
             <div
               key={r.id}
@@ -142,18 +227,20 @@ function Reminders() {
                   className="shrink-0"
                   disabled={!state.enabled}
                 >
-                  <Switch on={r.enabled && state.enabled} />
+                  <Switch on={live} />
                 </button>
 
                 <button
                   onClick={() => setOpenId(open ? null : r.id)}
                   className="flex min-w-0 flex-1 items-center gap-3 text-right"
+                  aria-expanded={open}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{r.name}</span>
                     <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
                       {describeTiming(r.timing, toArabicDigits)} · {toneName(r.tone)}
                       {r.days.length < 7 && ` · ${toArabicDigits(r.days.length)} أيام`}
+                      {!live && " · مطفأ"}
                     </span>
                   </span>
                   {at && (
@@ -174,6 +261,27 @@ function Reminders() {
 
               {open && (
                 <div className="space-y-4 border-t border-border bg-secondary/20 px-4 py-4">
+                  {!live && (
+                    <div
+                      role="status"
+                      className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-2 text-[10px] text-muted-foreground"
+                    >
+                      <span>
+                        {state.enabled
+                          ? "هذا التذكير مطفأ — تعديلاته تُحفظ وتعمل عند تشغيله."
+                          : "كل التذكيرات مطفأة — تعديلاته تُحفظ وتعمل عند تشغيلها."}
+                      </span>
+                      <button
+                        onClick={() =>
+                          state.enabled ? patch(r.id, { enabled: true }) : setEnabled(true)
+                        }
+                        className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 font-medium text-primary"
+                      >
+                        تشغيل
+                      </button>
+                    </div>
+                  )}
+
                   {/* ------------ التوقيت ------------ */}
                   <div>
                     <Label>التوقيت</Label>
@@ -182,24 +290,20 @@ function Reminders() {
                         label="منسوب لصلاة"
                         hint="يتحرّك مع المواقيت"
                         active={r.timing.mode === "prayer"}
-                        onClick={() =>
-                          patch(r.id, { timing: { mode: "prayer", prayer: "fajr", offset: 30 } })
-                        }
+                        onClick={() => patch(r.id, switchTimingMode(r, "prayer", todayTimes))}
                       />
                       <Chip
                         label="ساعة ثابتة"
                         hint="نفس الوقت يومياً"
                         active={r.timing.mode === "clock"}
-                        onClick={() =>
-                          patch(r.id, { timing: { mode: "clock", hour: 6, minute: 0 } })
-                        }
+                        onClick={() => patch(r.id, switchTimingMode(r, "clock", todayTimes))}
                       />
                     </div>
 
                     {r.timing.mode === "prayer" ? (
                       <>
                         <div className="mt-3 flex flex-wrap gap-1.5">
-                          {PRAYER_ORDER.filter((p) => p !== "sunrise").map((p) => (
+                          {ANCHORS.map((p) => (
                             <MiniChip
                               key={p}
                               label={PRAYER_LABELS[p].ar}
@@ -217,7 +321,7 @@ function Reminders() {
                           ))}
                         </div>
                         <div className="mt-2 flex flex-wrap gap-1.5">
-                          {OFFSETS.map((o) => (
+                          {offsetOptionsFor(r.timing.offset).map((o) => (
                             <MiniChip
                               key={o}
                               label={
@@ -240,36 +344,20 @@ function Reminders() {
                         </div>
                       </>
                     ) : (
-                      <div className="mt-3 flex items-center justify-center gap-3">
-                        <Stepper
-                          label="الدقيقة"
-                          value={r.timing.minute}
-                          onChange={(v) =>
-                            patch(r.id, {
-                              timing: {
-                                mode: "clock",
-                                hour: r.timing.mode === "clock" ? r.timing.hour : 6,
-                                minute: (v + 60) % 60,
-                              },
-                            })
-                          }
-                          step={5}
-                        />
-                        <span className="pt-4 text-muted-foreground">:</span>
-                        <Stepper
-                          label="الساعة"
-                          value={r.timing.hour}
-                          onChange={(v) =>
-                            patch(r.id, {
-                              timing: {
-                                mode: "clock",
-                                hour: (v + 24) % 24,
-                                minute: r.timing.mode === "clock" ? r.timing.minute : 0,
-                              },
-                            })
-                          }
-                          step={1}
-                        />
+                      <ClockPicker
+                        hour={r.timing.hour}
+                        minute={r.timing.minute}
+                        onChange={(hour, minute) =>
+                          patch(r.id, { timing: { mode: "clock", hour, minute } })
+                        }
+                      />
+                    )}
+                    {warning && (
+                      <div
+                        role="status"
+                        className="mt-2 rounded-xl border border-border bg-card px-3 py-2 text-[10px] leading-relaxed text-muted-foreground"
+                      >
+                        {warning}
                       </div>
                     )}
                   </div>
@@ -277,8 +365,25 @@ function Reminders() {
                   {/* ------------ الصوت ------------ */}
                   <div>
                     <Label>الصوت</Label>
+                    <div className="mt-2 grid grid-cols-2 gap-2" role="tablist">
+                      {(["tone", "voice"] as const).map((k) => (
+                        <button
+                          key={k}
+                          role="tab"
+                          aria-selected={tab === k}
+                          onClick={() => setToneTab((cur) => ({ ...cur, [r.id]: k }))}
+                          className={`rounded-xl border py-1.5 text-[11px] font-medium transition ${
+                            tab === k
+                              ? "border-primary/50 bg-primary/10 text-primary"
+                              : "border-border bg-card text-muted-foreground"
+                          }`}
+                        >
+                          {TONE_KIND_LABELS[k]}
+                        </button>
+                      ))}
+                    </div>
                     <div className="mt-2 space-y-1.5">
-                      {REMINDER_TONES.map((t) => (
+                      {tones.map((t) => (
                         <div
                           key={t.id}
                           className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
@@ -290,6 +395,8 @@ function Reminders() {
                           <button
                             onClick={() => patch(r.id, { tone: t.id })}
                             className="flex min-w-0 flex-1 items-center gap-2 text-right"
+                            role="radio"
+                            aria-checked={r.tone === t.id}
                           >
                             <span
                               className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
@@ -301,7 +408,14 @@ function Reminders() {
                               {r.tone === t.id && <Icon d={icons.check} size={10} />}
                             </span>
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-xs font-medium">{t.name}</span>
+                              <span className="block truncate text-xs font-medium">
+                                {t.name}
+                                {t.id === suggested && (
+                                  <span className="ms-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+                                    مقترح
+                                  </span>
+                                )}
+                              </span>
                               <span className="block truncate text-[9px] text-muted-foreground">
                                 {t.hint}
                               </span>
@@ -337,20 +451,164 @@ function Reminders() {
                       ))}
                     </div>
                   </div>
+
+                  {/* ------------ تخطّي ما أُنجز ------------ */}
+                  {r.skipIfDone !== undefined && completionKeyFor(r) && (
+                    <button
+                      onClick={() => patch(r.id, { skipIfDone: !r.skipIfDone })}
+                      role="switch"
+                      aria-checked={r.skipIfDone}
+                      className="flex w-full items-center justify-between gap-3 text-right"
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-[11px] font-medium">تخطّي إذا أُنجز</span>
+                        <span className="block text-[9px] text-muted-foreground">
+                          {COMPLETION_HINTS[completionKeyFor(r)!]}
+                        </span>
+                      </span>
+                      <Switch on={!!r.skipIfDone} />
+                    </button>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => void testNow(r)}
+                      className="flex-1 rounded-xl border border-primary/30 bg-primary/10 py-2 text-[11px] font-medium text-primary"
+                    >
+                      تجربة التنبيه الآن
+                    </button>
+                    {r.custom && (
+                      <button
+                        onClick={() => confirmRemove(r)}
+                        className="rounded-xl border border-border bg-card px-4 py-2 text-[11px] font-medium text-destructive"
+                      >
+                        حذف
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           );
         })}
+
+        {adding ? (
+          <div className="space-y-3 rounded-2xl border border-primary/40 bg-card p-4 shadow-soft">
+            <Label>تذكير جديد</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {(Object.keys(CUSTOM_TEMPLATES) as CustomTemplateId[]).map((t) => (
+                <MiniChip
+                  key={t}
+                  label={CUSTOM_TEMPLATES[t].name}
+                  active={newTemplate === t}
+                  onClick={() => setNewTemplate(t)}
+                />
+              ))}
+            </div>
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              maxLength={40}
+              placeholder={`الاسم (اختياري): ${CUSTOM_TEMPLATES[newTemplate].name}`}
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs"
+              dir="rtl"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={submitNew}
+                className="flex-1 rounded-xl gradient-primary py-2 text-[11px] font-medium text-primary-foreground"
+              >
+                إضافة
+              </button>
+              <button
+                onClick={() => setAdding(false)}
+                className="rounded-xl border border-border bg-card px-4 py-2 text-[11px]"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        ) : (
+          customCount < MAX_CUSTOM_REMINDERS && (
+            <button
+              onClick={() => setAdding(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card py-3 text-sm text-primary shadow-soft"
+            >
+              <Icon d={icons.plus} size={14} />
+              إضافة تذكير
+            </button>
+          )
+        )}
       </div>
 
-      <div className="mt-5 px-5 pb-2">
+      <div className="mt-5 px-5">
+        <button
+          onClick={confirmReset}
+          className="w-full rounded-2xl border border-border bg-card py-3 text-sm shadow-soft"
+        >
+          استعادة القيم الافتراضية
+        </button>
+      </div>
+
+      <div className="mt-3 px-5 pb-2">
         <p className="rounded-2xl border border-border bg-secondary/30 p-4 text-[10px] leading-relaxed text-muted-foreground">
-          كل النغمات في منار مُركَّبة داخل التطبيق نفسه، فلا تحمل أي حقوق لطرف آخر. والتذكيرات
-          المنسوبة إلى صلاة تتحرّك مع المواقيت يومياً، فلا تحتاج تعديلاً كل موسم.
+          النغمات القصيرة مُركَّبة داخل منار نفسه، والنداءات الصوتية تسجيلات مضمّنة في التطبيق،
+          وكلها تعمل دون إنترنت. والتذكيرات المنسوبة إلى صلاة تتحرّك مع المواقيت يومياً، فلا تحتاج
+          تعديلاً كل موسم.
         </p>
       </div>
     </Screen>
+  );
+}
+
+/* محدِّد الساعة الثابتة بنظام ١٢ ساعة (كالوصف فوقه) مع ص/م، والدقائق تنقل
+ * الساعة عند تجاوز ٥٥ أو النزول تحت ٠٠. */
+function ClockPicker({
+  hour,
+  minute,
+  onChange,
+}: {
+  hour: number;
+  minute: number;
+  onChange: (hour: number, minute: number) => void;
+}) {
+  const { h12, pm } = to12h(hour);
+  const stepMin = (delta: number) => {
+    const n = stepClock(hour, minute, delta);
+    onChange(n.hour, n.minute);
+  };
+  return (
+    <div className="mt-3 flex items-center justify-center gap-3">
+      <Stepper
+        label="الدقيقة"
+        display={String(minute).padStart(2, "0")}
+        onInc={() => stepMin(5)}
+        onDec={() => stepMin(-5)}
+      />
+      <span className="pt-4 text-muted-foreground">:</span>
+      <Stepper
+        label="الساعة"
+        display={String(h12)}
+        onInc={() => onChange((hour + 1) % 24, minute)}
+        onDec={() => onChange((hour + 23) % 24, minute)}
+      />
+      <div className="flex flex-col gap-1 pt-4">
+        {([false, true] as const).map((isPm) => (
+          <button
+            key={String(isPm)}
+            onClick={() => onChange(from12h(h12, isPm), minute)}
+            aria-pressed={pm === isPm}
+            className={`rounded-lg border px-2.5 py-1 text-[10px] font-medium transition ${
+              pm === isPm
+                ? "gradient-primary border-transparent text-primary-foreground"
+                : "border-border bg-card text-muted-foreground"
+            }`}
+          >
+            {isPm ? "مساءً" : "صباحاً"}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -451,31 +709,29 @@ function DayChip({
 
 function Stepper({
   label,
-  value,
-  onChange,
-  step,
+  display,
+  onInc,
+  onDec,
 }: {
   label: string;
-  value: number;
-  onChange: (next: number) => void;
-  step: number;
+  display: string;
+  onInc: () => void;
+  onDec: () => void;
 }) {
   return (
     <div className="text-center">
       <div className="text-[9px] text-muted-foreground">{label}</div>
       <div className="mt-1 flex flex-col items-center gap-1">
         <button
-          onClick={() => onChange(value + step)}
+          onClick={onInc}
           aria-label={`زيادة ${label}`}
           className="flex h-7 w-12 items-center justify-center rounded-lg border border-border bg-card"
         >
           <Icon d={icons.plus} size={12} />
         </button>
-        <span className="font-display text-lg tabular-nums">
-          {toArabicDigits(String(value).padStart(2, "0"))}
-        </span>
+        <span className="font-display text-lg tabular-nums">{toArabicDigits(display)}</span>
         <button
-          onClick={() => onChange(value - step)}
+          onClick={onDec}
           aria-label={`إنقاص ${label}`}
           className="flex h-7 w-12 items-center justify-center rounded-lg border border-border bg-card"
         >
