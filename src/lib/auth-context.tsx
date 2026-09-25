@@ -20,6 +20,11 @@ type Profile = {
   created_at: string;
 };
 
+/** الحقول التي يعدّلها المستخدم بنفسه. plan لا يُكتب من التطبيق (صلاحيات العمود في الخادم). */
+export type EditableProfile = Partial<
+  Pick<Profile, "full_name" | "avatar_url" | "country" | "city" | "preferred_language">
+>;
+
 type AuthCtx = {
   user: User | null;
   session: Session | null;
@@ -36,13 +41,17 @@ type AuthCtx = {
   deleteAccount: () => Promise<{ error?: string }>;
   enableGuest: () => void;
   refreshProfile: () => Promise<void>;
-  updateProfile: (patch: Partial<Profile>) => Promise<{ error?: string }>;
+  updateProfile: (patch: EditableProfile) => Promise<{ error?: string }>;
 };
 
 const Ctx = createContext<AuthCtx | null>(null);
 
 const GUEST_KEY = "manar-guest-mode";
-const LOG = (...a: unknown[]) => console.log("[منار/auth]", ...a);
+/* سجلّ التشخيص في وضع التطوير فقط: في الإصدار لا يُطبع البريد ولا معرّف المستخدم
+   في سجلّ النظام (logcat) الذي تقرؤه تطبيقات التصحيح وتقارير الأعطال. */
+const LOG = (...a: unknown[]) => {
+  if (import.meta.env.DEV) console.log("[منار/auth]", ...a);
+};
 
 function arabicAuthError(msg: string | undefined): string {
   if (!msg) return "حدث خطأ غير متوقع";

@@ -4,8 +4,10 @@
     <!-- Manar needs only what the feature set actually uses. No storage,
          camera, microphone, contacts, background location or phone state. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- المنبّهات الدقيقة: SCHEDULE_EXACT_ALARM وحدها، يمنحها المستخدم من شاشة
+         «المنبّهات والتذكيرات». لا نعلن USE_EXACT_ALARM: سياسة Google Play تقصرها
+         على تطبيقات المنبّه والمؤقّت والتقويم، وإعلانها يعرّض التطبيق للرفض. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
@@ -13,7 +15,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- لا نعلن REQUEST_IGNORE_BATTERY_OPTIMIZATIONS (مقيّدة في Google Play):
+         نفتح شاشة البطارية في النظام ويختار المستخدم «غير مقيّد» بنفسه. -->
     <!-- «سكينة»: الآلة الرسمية الوحيدة لإسكات الهاتف أثناء الصلاة. يمنحها
          المستخدم من شاشة النظام (الوصول إلى عدم الإزعاج)، ولا تُمنح تلقائياً. -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
@@ -83,6 +86,8 @@
                 <!-- بعض الشركات (HTC وشاومي وغيرهما) تُطلق «الإقلاع السريع» بدل BOOT_COMPLETED. -->
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+                <!-- منح إذن المنبّهات الدقيقة أو سحبه: نعيد الجدولة فوراً بالنوع الصحيح. -->
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
 

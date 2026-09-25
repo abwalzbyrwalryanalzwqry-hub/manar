@@ -15,6 +15,13 @@
  *
  * المطابقة تُثبَّت على `Storage.prototype`، لذلك تعمل مع كل الوحدات الموجودة
  * (بما فيها عميل Supabase) دون تعديل أي منها.
+ *
+ * الجلسة منفصلة عن الحالة: رمز دخول Supabase يُحفظ في مجموعة Preferences خاصة
+ * (`ManarSession` ← `ManarSession.xml`) مستثناة من النسخ الاحتياطي لأندرويد، بينما
+ * تبقى الإعدادات والتقدّم في المجموعة الافتراضية (`CapacitorStorage`) وتُنسخ. هكذا
+ * ينتقل تقدّم المستخدم إلى هاتفه الجديد، ولا ينتقل معه رمز الدخول — فلا تُفتح
+ * الجلسة على جهاز آخر بمجرّد استعادة نسخة احتياطية. تخزين الـ WebView نفسه مستثنى
+ * من النسخ أيضاً (راجع `android/app/src/main/res/xml/backup_rules.xml`).
  */
 
 /** المفاتيح التي نطابقها: حالة منار + رمز جلسة Supabase. */
@@ -25,11 +32,25 @@ export function isMirroredKey(key: string): boolean {
   return MANAR_PREFIX.test(key) || SUPABASE_AUTH.test(key);
 }
 
+/** مجموعة الحالة: تُنسخ احتياطياً (الاسم الافتراضي لإضافة Preferences). */
+export const STATE_GROUP = "CapacitorStorage";
+/** مجموعة الجلسة: مستثناة من النسخ الاحتياطي في قواعد أندرويد. */
+export const SESSION_GROUP = "ManarSession";
+
+export function isSessionKey(key: string): boolean {
+  return SUPABASE_AUTH.test(key);
+}
+
+export function groupFor(key: string): string {
+  return isSessionKey(key) ? SESSION_GROUP : STATE_GROUP;
+}
+
 /* ------------------------------------------------------------------ */
 /*  الوصول إلى الطبقة الأصلية                                          */
 /* ------------------------------------------------------------------ */
 
 type PreferencesApi = {
+  configure(o: { group: string }): Promise<void>;
   get(o: { key: string }): Promise<{ value: string | null }>;
   set(o: { key: string; value: string }): Promise<void>;
   remove(o: { key: string }): Promise<void>;
@@ -57,6 +78,7 @@ function nativePreferences(): Promise<PreferencesApi | null> {
          * بصمت ويسقط التخزين إلى localStorage بدل SharedPreferences.
          * الحل: تغليف الدوال في كائن عادي. */
         return {
+          configure: (o: { group: string }) => p.configure(o),
           get: (o: { key: string }) => p.get(o),
           set: (o: { key: string; value: string }) => p.set(o),
           remove: (o: { key: string }) => p.remove(o),
@@ -69,6 +91,24 @@ function nativePreferences(): Promise<PreferencesApi | null> {
       });
   }
   return prefsPromise;
+}
+
+/**
+ * إضافة Preferences تحمل مجموعة واحدة نشطة (إعداد عام). كل عملية أصلية تمرّ
+ * من هنا عبر الطابور المتسلسل، فتضبط المجموعة ثم تعمل دون أن تتداخل مع غيرها.
+ */
+async function inGroup<T>(
+  prefs: PreferencesApi,
+  group: string,
+  op: (p: PreferencesApi) => Promise<T>,
+): Promise<T> {
+  await prefs.configure({ group });
+  try {
+    return await op(prefs);
+  } finally {
+    // نعيد المجموعة الافتراضية كما يتوقّعها أي كود آخر يستخدم الإضافة.
+    if (group !== STATE_GROUP) await prefs.configure({ group: STATE_GROUP });
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -92,14 +132,14 @@ export function flushPersistentWrites(): Promise<unknown> {
 function mirrorSet(key: string, value: string) {
   void enqueue(async () => {
     const prefs = await nativePreferences();
-    await prefs?.set({ key, value });
+    if (prefs) await inGroup(prefs, groupFor(key), (p) => p.set({ key, value }));
   });
 }
 
 function mirrorRemove(key: string) {
   void enqueue(async () => {
     const prefs = await nativePreferences();
-    await prefs?.remove({ key });
+    if (prefs) await inGroup(prefs, groupFor(key), (p) => p.remove({ key }));
   });
 }
 
@@ -108,6 +148,8 @@ function mirrorRemove(key: string) {
 /* ------------------------------------------------------------------ */
 
 let mirrorInstalled = false;
+/** دالة الكتابة الأصلية قبل المطابقة: للاستعادة، فلا يُعاد ما جاء من الطبقة الأصلية إليها. */
+let rawSetItem: ((this: Storage, key: string, value: string) => void) | null = null;
 
 /**
  * يلتقط كل `localStorage.setItem/removeItem/clear` على مفاتيح منار ويطابقها
@@ -123,6 +165,7 @@ export function installStorageMirror() {
 
   const proto = window.Storage.prototype;
   const origSet = proto.setItem;
+  rawSetItem = origSet;
   const origRemove = proto.removeItem;
   const origClear = proto.clear;
 
@@ -159,6 +202,69 @@ export function installStorageMirror() {
 
 let hydration: Promise<void> | null = null;
 
+/** يقرأ كل مفاتيحنا من مجموعة واحدة. */
+async function readGroup(prefs: PreferencesApi, group: string) {
+  return inGroup(prefs, group, async (p) => {
+    const { keys } = await p.keys();
+    const out = new Map<string, string>();
+    for (const key of keys.filter(isMirroredKey)) {
+      const { value } = await p.get({ key });
+      if (value != null) out.set(key, value);
+    }
+    return out;
+  });
+}
+
+async function restoreFromNative(prefs: PreferencesApi): Promise<void> {
+  try {
+    const state = await readGroup(prefs, STATE_GROUP);
+    const session = await readGroup(prefs, SESSION_GROUP);
+
+    // ٠. ترقية: النسخ السابقة حفظت رمز الجلسة في مجموعة الحالة (فكان يُنسخ
+    //    احتياطياً). ننقله إلى مجموعة الجلسة ونحذفه من مجموعة الحالة.
+    const legacy = [...state.keys()].filter(isSessionKey);
+    if (legacy.length) {
+      await inGroup(prefs, SESSION_GROUP, async (p) => {
+        for (const key of legacy) {
+          if (!session.has(key)) {
+            const value = state.get(key)!;
+            await p.set({ key, value });
+            session.set(key, value);
+          }
+        }
+      });
+      await inGroup(prefs, STATE_GROUP, async (p) => {
+        for (const key of legacy) await p.remove({ key });
+      });
+      for (const key of legacy) state.delete(key);
+    }
+
+    const native = new Map<string, string>([...state, ...session]);
+
+    // ١. الطبقة الأصلية → localStorage
+    for (const [key, value] of native) {
+      if (window.localStorage.getItem(key) !== value) {
+        // بالدالة الأصلية: لا داعي لإعادة المطابقة لما جاء منها.
+        (rawSetItem ?? window.localStorage.setItem).call(window.localStorage, key, value);
+      }
+    }
+
+    // ٢. المفاتيح المحلية غير الموجودة أصلياً → ترفع للطبقة الأصلية (ترقية).
+    const pending: Array<[string, string]> = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (!key || native.has(key) || !isMirroredKey(key)) continue;
+      const value = window.localStorage.getItem(key);
+      if (value != null) pending.push([key, value]);
+    }
+    for (const [key, value] of pending) {
+      await inGroup(prefs, groupFor(key), (p) => p.set({ key, value }));
+    }
+  } catch {
+    /* الاستعادة أفضل-جهد: أي فشل يترك التطبيق يعمل على localStorage وحده. */
+  }
+}
+
 /**
  * يستعيد حالة منار من الطبقة الأصلية إلى `localStorage`.
  *
@@ -176,33 +282,8 @@ export function hydratePersistentStorage(): Promise<void> {
     const prefs = await nativePreferences();
     if (!prefs) return;
 
-    try {
-      const { keys } = await prefs.keys();
-      const nativeKeys = keys.filter(isMirroredKey);
-
-      // ١. الطبقة الأصلية → localStorage
-      for (const key of nativeKeys) {
-        const { value } = await prefs.get({ key });
-        if (value == null) continue;
-        if (window.localStorage.getItem(key) !== value) {
-          // نكتب عبر الدالة الأصلية: لا داعي لإعادة المطابقة لما جاء منها.
-          window.localStorage.setItem(key, value);
-        }
-      }
-
-      // ٢. المفاتيح المحلية غير الموجودة أصلياً → ترفع للطبقة الأصلية (ترقية).
-      const known = new Set(nativeKeys);
-      const pending: Array<[string, string]> = [];
-      for (let i = 0; i < window.localStorage.length; i += 1) {
-        const key = window.localStorage.key(i);
-        if (!key || known.has(key) || !isMirroredKey(key)) continue;
-        const value = window.localStorage.getItem(key);
-        if (value != null) pending.push([key, value]);
-      }
-      for (const [key, value] of pending) await prefs.set({ key, value });
-    } catch {
-      /* الاستعادة أفضل-جهد: أي فشل يترك التطبيق يعمل على localStorage وحده. */
-    }
+    // الاستعادة كلها داخل الطابور: لا تتبدّل المجموعة النشطة تحت كتابة جارية.
+    await enqueue(() => restoreFromNative(prefs));
   })();
 
   return hydration;
