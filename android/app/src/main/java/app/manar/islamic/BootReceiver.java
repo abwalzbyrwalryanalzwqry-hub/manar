@@ -29,6 +29,10 @@ public class BootReceiver extends BroadcastReceiver {
             case Intent.ACTION_TIME_CHANGED:
             case "android.intent.action.QUICKBOOT_POWERON":
             case "com.htc.intent.action.QUICKBOOT_POWERON":
+            // Android 12+: المستخدم منح «المنبّهات والتذكيرات» أو سحبه. المنبّهات
+            // المضبوطة قبل المنح كانت غير دقيقة، فنعيد ضبطها دقيقةً الآن دون
+            // انتظار فتح التطبيق.
+            case "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED":
                 ManarChannels.ensure(context);
                 android.util.Log.i("ManarSchedule", "re-arm after " + action);
                 AdhanScheduler.rearm(context);

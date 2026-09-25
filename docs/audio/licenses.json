@@ -1,7 +1,7 @@
 {
-  "policy": "Rights for every adhan and iqamah recording bundled in Manar have been verified and documented by the project owner (2026-09-24). Cleared for use and publication inside the Manar app.",
+  "policy": "Every recording bundled in Manar is cleared for use and publication inside the Manar app. Adhan and iqamah rights were verified and documented by the project owner (2026-09-24). The voice reminders (azkar / wird) and the prayer-approach announcements were recorded by the project owner personally; they are the owner's own work and property (2026-09-25). The short tones are synthesised inside Manar by scripts/build-tones.py.",
   "rights_status": "VERIFIED",
-  "verified_on": "2026-09-24",
+  "verified_on": "2026-09-25",
   "verified_adhan_files": [
     "مكي_علي_أحمد_الملا_كامل.m4a",
     "مكي_علي_ملا_كامل.m4a",
@@ -37,6 +37,36 @@
     "iqamah_17.m4a",
     "iqamah_18.m4a",
     "iqamah_19.m4a"
+  ],
+  "verified_reminder_files": [
+    "azkar-morning-03.mp3",
+    "azkar-evening-02.mp3",
+    "azkar-sleep-02.mp3",
+    "azkar-wake-01.mp3",
+    "wird-daily-01.mp3",
+    "wird-quran-01.mp3",
+    "azkar-general-01.mp3"
+  ],
+  "verified_prayer_approach_files": [
+    "approach-asr.mp3",
+    "approach-dhuhr.mp3",
+    "approach-fajr.mp3",
+    "approach-isha.mp3",
+    "approach-maghrib.mp3"
+  ],
+  "owner_recordings": {
+    "recorded_by": "Project owner (developer of Manar)",
+    "ownership": "Recorded personally by the project owner; the owner holds all rights.",
+    "declared_on": "2026-09-25",
+    "covers": ["verified_reminder_files", "verified_prayer_approach_files"]
+  },
+  "generated_tone_files": [
+    "azkar-morning.mp3",
+    "azkar-evening.mp3",
+    "wird.mp3",
+    "reminder-bell.mp3",
+    "reminder-default.mp3",
+    "reminder-chime.mp3"
   ],
   "exact_duplicates": [
     {
