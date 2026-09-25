@@ -85,6 +85,8 @@ jobs:
           MANAR_STORE_PASSWORD: ${{ secrets.MANAR_STORE_PASSWORD }}
           MANAR_KEY_ALIAS: ${{ secrets.MANAR_KEY_ALIAS }}
           MANAR_KEY_PASSWORD: ${{ secrets.MANAR_KEY_PASSWORD }}
+          # أي خلل في المفتاح يوقف البناء بدل توقيع الإصدار بمفتاح التصحيح.
+          MANAR_REQUIRE_RELEASE_SIGNING: "true"
         run: ./gradlew --no-daemon assembleRelease bundleRelease
 
       - name: بناء APK تصحيح

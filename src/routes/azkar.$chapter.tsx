@@ -41,7 +41,7 @@ function AzkarSession() {
   const { progress, tap, resetMany, toggleBookmark, setLast } = useAzkarProgress();
 
   const chapter = useMemo(() => book?.chapters.find((c) => c.id === id), [book, id]);
-  const azkar = chapter?.azkar ?? [];
+  const azkar = useMemo(() => chapter?.azkar ?? [], [chapter]);
 
   const [index, setIndex] = useState(0);
   const [initialized, setInitialized] = useState(false);

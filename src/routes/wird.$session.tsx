@@ -40,7 +40,7 @@ function WirdSessionPage() {
   const startX = useRef<number | null>(null);
   const restored = useRef(false);
 
-  const items = wird?.items ?? [];
+  const items = useMemo(() => wird?.items ?? [], [wird]);
   const item = items[index];
   const count = item ? Math.min(item.repeat, progress.counts[item.order] ?? 0) : 0;
   const remaining = item ? item.repeat - count : 0;
