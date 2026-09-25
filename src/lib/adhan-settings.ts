@@ -89,6 +89,8 @@ export type IqamaCategory = {
   id: IqamaVariant;
   name: string;
   hint: string;
+  shortName: string;
+  shortHint: string;
   duration: string;
   group: IqamahGroup;
 };
@@ -98,6 +100,8 @@ export const IQAMA_CATEGORIES: IqamaCategory[] = IQAMAH_SOUNDS.map((s) => ({
   id: s.id,
   name: s.name,
   hint: s.hint,
+  shortName: s.shortName,
+  shortHint: s.shortHint,
   duration: iqamahDurationLabel(s),
   group: s.group,
 }));

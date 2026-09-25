@@ -5,12 +5,17 @@
  * ملفّ أذان، ولا يوجد أيّ ربطٍ احتياطي من إقامةٍ إلى أذان. اختبار
  * `tests/unit/iqamah-library.test.ts` يُسقط البناء لو تسرّب مسار أذان إلى هنا.
  *
- * الملفات تسجيلاتٌ حقيقية مرفقة من المستخدم (حزمتان)، محفوظة محلياً في
+ * الملفات تسجيلاتٌ حقيقية مرفقة من المستخدم، محفوظة محلياً في
  * `public/audio/iqamah/` وتُنسخ إلى `res/raw` عند بناء أندرويد
  * (scripts/sync-android-raw-audio.mjs) — فلا يمرّ تشغيلها بالشبكة أبداً.
  *
- *   iqamah_01 … iqamah_07  إقامة كاملة (Ogg Opus، أحادي، ‎~24–30 ك.ب/ث)
- *   iqamah_08 … iqamah_19  «قد قامت الصلاة» من الحرمين (AAC-LC في M4A، أحادي)
+ *   iqamah_08 … iqamah_13  «قد قامت الصلاة» من الحرم المكي (AAC-LC في M4A، أحادي)
+ *   iqamah_14 … iqamah_19  «قد قامت الصلاة» من الحرم النبوي
+ *
+ * حُذفت الإقامات الكاملة السبع (iqamah_01…07): طويلة (٣٢–٦٤ ث) بلا مؤذنٍ ولا
+ * مسجدٍ موثّق، ولا تضيف شيئاً على مقاطع الحرمين. المعرّفات الباقية لم تُرقَّم من
+ * جديد لأنها أسماء موارد أندرويد وقيمٌ محفوظة عند المستخدمين؛ والمحفوظ من
+ * المحذوفة يُنقل تلقائياً (`LEGACY_IQAMA_MIGRATION`).
  *
  * لم يُعَد ترميز أيّ تسجيل: نُقلت التدفّقات الصوتية كما هي (stream copy)
  * وحُذفت منها البيانات الوصفية فقط، والصوت المفكوك مطابقٌ للأصل بتّاً ببتّ.
@@ -21,7 +26,7 @@
 
 const DIR = "/audio/iqamah";
 
-export type IqamahGroup = "full" | "qad";
+export type IqamahGroup = "makkah" | "madinah";
 
 export type IqamahSound = {
   /** المعرّف البرمجي الثابت — وهو نفسه اسم الملف واسم مورد أندرويد. */
@@ -30,22 +35,18 @@ export type IqamahSound = {
   /** الاسم الظاهر للمستخدم. */
   name: string;
   hint: string;
+  /** الاسم داخل قائمة الاختيار، تحت عنوان الحرم — فلا يتكرّر اسم الحرم. */
+  shortName: string;
+  shortHint: string;
   group: IqamahGroup;
   durationSec: number;
-  format: "ogg" | "m4a";
+  format: "m4a";
   bytes: number;
-  /** اسم المؤذن أو المسجد إن كان موثّقاً — يظهر في الاسم بدل رقم الصوت. */
-  reciter?: string;
+  prayer: "الفجر" | "المغرب" | "العشاء";
+  year: number;
 };
 
 export const IQAMAH_IDS = [
-  "iqamah_01",
-  "iqamah_02",
-  "iqamah_03",
-  "iqamah_04",
-  "iqamah_05",
-  "iqamah_06",
-  "iqamah_07",
   "iqamah_08",
   "iqamah_09",
   "iqamah_10",
@@ -62,27 +63,10 @@ export const IQAMAH_IDS = [
 
 export type IqamahId = (typeof IQAMAH_IDS)[number];
 
-export const DEFAULT_IQAMAH: IqamahId = "iqamah_01";
+/** الحرم المكي · الفجر ٢٠٢٦ — أوضح المقاطع وأحدثها. */
+export const DEFAULT_IQAMAH: IqamahId = "iqamah_09";
 
 const AR = (n: number | string) => String(n).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
-
-/* الإقامات الكاملة السبع لا يوثّق المستودع اسم مؤذنها ولا مسجدها (الحزمة وصلت
- * بلا بيانات وصفية)، فتبقى بأرقامها. متى عُرف الاسم يُمرَّر `reciter` فيظهر في
- * الواجهة بدل الرقم، ويظهر في الوصف مع المدّة. */
-const full = (n: number, durationSec: number, bytes: number, reciter?: string): IqamahSound => {
-  const id = `iqamah_0${n}` as IqamahId;
-  return {
-    id,
-    url: `${DIR}/${id}.ogg`,
-    name: reciter ? `إقامة الصلاة — ${reciter}` : `إقامة الصلاة — الصوت ${AR(n)}`,
-    hint: reciter ? `إقامة كاملة · ${reciter}` : "إقامة كاملة",
-    ...(reciter ? { reciter } : {}),
-    group: "full",
-    durationSec,
-    format: "ogg",
-    bytes,
-  };
-};
 
 const qad = (
   n: number,
@@ -93,12 +77,18 @@ const qad = (
   bytes: number,
 ): IqamahSound => {
   const id = `iqamah_${String(n).padStart(2, "0")}` as IqamahId;
+  const haram = place === "مكة المكرمة" ? "الحرم المكي" : "الحرم النبوي";
   return {
     id,
     url: `${DIR}/${id}.m4a`,
-    name: `إقامة الصلاة — الصوت ${AR(n)}`,
-    hint: `${place === "مكة المكرمة" ? "الحرم المكي" : "الحرم النبوي"} · ${prayer} ${AR(year)}`,
-    group: "qad",
+    /* الاسم يصف التسجيل نفسه، لا رقماً لا يعني شيئاً للمستخدم. */
+    name: `${haram} · ${prayer} ${AR(year)}`,
+    hint: "قد قامت الصلاة",
+    shortName: `صلاة ${prayer}`,
+    shortHint: `تسجيل ${AR(year)}`,
+    group: place === "مكة المكرمة" ? "makkah" : "madinah",
+    prayer,
+    year,
     durationSec,
     format: "m4a",
     bytes,
@@ -106,13 +96,6 @@ const qad = (
 };
 
 export const IQAMAH_SOUNDS: IqamahSound[] = [
-  full(1, 43.54, 148217),
-  full(2, 46.46, 169942),
-  full(3, 45.35, 159194),
-  full(4, 32.36, 110889),
-  full(5, 39.55, 144157),
-  full(6, 64.32, 247894),
-  full(7, 36.6, 136823),
   qad(8, "مكة المكرمة", "الفجر", 2024, 7.11, 59329),
   qad(9, "مكة المكرمة", "الفجر", 2026, 10.22, 84954),
   qad(10, "مكة المكرمة", "المغرب", 2024, 6.03, 50783),
@@ -128,8 +111,8 @@ export const IQAMAH_SOUNDS: IqamahSound[] = [
 ];
 
 export const IQAMAH_GROUP_LABELS: Record<IqamahGroup, { title: string; hint: string }> = {
-  full: { title: "الإقامة كاملة", hint: "التسجيل الكامل للإقامة" },
-  qad: { title: "قد قامت الصلاة", hint: "مقاطع قصيرة من الحرمين" },
+  makkah: { title: "الحرم المكي", hint: "«قد قامت الصلاة» من المسجد الحرام" },
+  madinah: { title: "الحرم النبوي", hint: "«قد قامت الصلاة» من المسجد النبوي" },
 };
 
 const BY_ID = new Map<string, IqamahSound>(IQAMAH_SOUNDS.map((s) => [s.id, s]));
@@ -148,8 +131,17 @@ export function getIqamahSound(id: string | null | undefined): IqamahSound | nul
  * شيء، فكل اختيارٍ محفوظ يُنقل إلى تسجيل إقامةٍ حقيقي حتى لا يصمت أحد.
  */
 export const LEGACY_IQAMA_MIGRATION: Record<string, IqamahId> = {
-  iqama_full: "iqamah_01",
-  iqama_masjid: "iqamah_02",
+  /* الإقامات الكاملة المحذوفة ← مقطع الحرمين المقابل (مكة للفردي، المدينة للزوجي)
+   * حتى لا يتحوّل اختيار أحدٍ إلى صمت ولا يتوحّد الجميع على صوت واحد. */
+  iqamah_01: "iqamah_09",
+  iqamah_02: "iqamah_15",
+  iqamah_03: "iqamah_12",
+  iqamah_04: "iqamah_17",
+  iqamah_05: "iqamah_13",
+  iqamah_06: "iqamah_19",
+  iqamah_07: "iqamah_10",
+  iqama_full: "iqamah_09",
+  iqama_masjid: "iqamah_15",
   iqama_qad: "iqamah_09",
   iqama_short: "iqamah_15",
   tone_iqama: "iqamah_09",

@@ -1,4 +1,12 @@
-import { existsSync, openSync, readSync, closeSync, readdirSync, statSync } from "node:fs";
+import {
+  existsSync,
+  openSync,
+  readSync,
+  closeSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+} from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -25,12 +33,36 @@ function magic(file: string, n = 12): Buffer {
 }
 
 describe("مكتبة الإقامة", () => {
-  it("تسعة عشر تسجيلاً بمعرّفات ثابتة متسلسلة", () => {
-    expect(IQAMAH_SOUNDS).toHaveLength(19);
+  it("اثنا عشر مقطعاً من الحرمين (٠٨–١٩) بمعرّفات ثابتة، ولا إقامة كاملة", () => {
+    expect(IQAMAH_SOUNDS).toHaveLength(12);
     expect(IQAMAH_SOUNDS.map((s) => s.id)).toEqual([...IQAMAH_IDS]);
-    expect(IQAMAH_SOUNDS.filter((s) => s.group === "full")).toHaveLength(7);
-    expect(IQAMAH_SOUNDS.filter((s) => s.group === "qad")).toHaveLength(12);
+    expect(IQAMAH_IDS[0]).toBe("iqamah_08");
+    expect(IQAMAH_IDS.at(-1)).toBe("iqamah_19");
+    expect(IQAMAH_SOUNDS.filter((s) => s.group === "makkah")).toHaveLength(6);
+    expect(IQAMAH_SOUNDS.filter((s) => s.group === "madinah")).toHaveLength(6);
     expect(getIqamahSound(DEFAULT_IQAMAH)).not.toBeNull();
+    for (let n = 1; n <= 7; n++) expect(getIqamahSound(`iqamah_0${n}`)).toBeNull();
+  });
+
+  it("أسماء الأصوات تصف التسجيل ولا تتكرّر", () => {
+    const names = IQAMAH_SOUNDS.map((s) => s.name);
+    expect(new Set(names).size).toBe(names.length);
+    for (const s of IQAMAH_SOUNDS)
+      expect(s.name).toMatch(/^الحرم (المكي|النبوي) · (الفجر|المغرب|العشاء) /);
+  });
+
+  it("الإقامات الكاملة المحذوفة تُنقل إلى مقطع إقامة باقٍ — والمطابقة نفسها في أندرويد", () => {
+    const java = readFileSync(
+      resolve(ROOT, "android/app/src/main/java/app/manar/islamic/AdhanService.java"),
+      "utf8",
+    );
+    for (let n = 1; n <= 7; n++) {
+      const old = `iqamah_0${n}`;
+      const id = migrateIqamahId(old);
+      expect(id, old).not.toBeNull();
+      expect(getIqamahSound(id)).not.toBeNull();
+      expect(java).toContain(`case "${old}": return "${id}";`);
+    }
   });
 
   it("كل ملف موجود محلياً بحجمه المُعلَن وصيغته الحقيقية", () => {
@@ -39,18 +71,14 @@ describe("مكتبة الإقامة", () => {
       expect(existsSync(file), s.url).toBe(true);
       expect(statSync(file).size, s.url).toBe(s.bytes);
       const head = magic(file);
-      if (s.format === "ogg") {
-        expect(head.subarray(0, 4).toString("latin1"), s.url).toBe("OggS");
-      } else {
-        expect(head.subarray(4, 8).toString("latin1"), s.url).toBe("ftyp");
-      }
+      expect(head.subarray(4, 8).toString("latin1"), s.url).toBe("ftyp");
     }
   });
 
   it("أسماء الملفات صالحة لأندرويد: ASCII صغيرة بلا مسافات، واسم المورد هو المعرّف", () => {
     for (const s of IQAMAH_SOUNDS) {
       const file = s.url.split("/").pop()!;
-      expect(file).toMatch(/^iqamah_\d{2}\.(ogg|m4a)$/);
+      expect(file).toMatch(/^iqamah_\d{2}\.m4a$/);
       expect(rawResourceName(s.url)).toBe(s.id);
     }
   });

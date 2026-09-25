@@ -537,12 +537,33 @@ public class AdhanService extends Service
     }
 
     /**
+     * الإقامات الكاملة (iqamah_01…07) حُذفت من التطبيق. منبّهٌ جُدوِل قبل التحديث
+     * ولم يُفتح التطبيق بعده قد يحمل أحد أسمائها؛ فيُشغَّل بدلها مقطع «قد قامت
+     * الصلاة» المقابل — إقامةٌ بإقامة، لا أذان. المطابقة نفسها في
+     * {@code LEGACY_IQAMA_MIGRATION} (src/lib/iqamah-library.ts).
+     */
+    static String removedIqamahReplacement(String sound) {
+        if (sound == null) return null;
+        switch (sound) {
+            case "iqamah_01": return "iqamah_09";
+            case "iqamah_02": return "iqamah_15";
+            case "iqamah_03": return "iqamah_12";
+            case "iqamah_04": return "iqamah_17";
+            case "iqamah_05": return "iqamah_13";
+            case "iqamah_06": return "iqamah_19";
+            case "iqamah_07": return "iqamah_10";
+            default: return sound;
+        }
+    }
+
+    /**
      * يبدأ تشغيل مورد من {@code res/raw}. عند أيّ فشل (مورد مفقود، فكّ ترميز،
      * حالة مشغّل) لا انهيار: يُسجَّل الخطأ، ويُنشر التنبيه المكتوب إن كان حدثاً
      * مُجدوَلاً، ثم تتوقّف الخدمة بأمان. ولا يُستبدل الصوت بصوتٍ آخر — فالإقامة
      * لا تُعوَّض بأذانٍ أبداً.
      */
     private boolean startPlayback(String sound, float volume, boolean notificationUsage) {
+        sound = removedIqamahReplacement(sound);
         int resId = getResources().getIdentifier(sound, "raw", getPackageName());
         if (resId == 0) {
             android.util.Log.e("ManarAudio", "missing raw resource: " + sound + " key=" + currentKey);

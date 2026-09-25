@@ -168,8 +168,8 @@ function IqamaSettings() {
   // الفواصل تخدم الإقامة وتنبيهها معاً؛ لا معنى لها إن أُطفئ الاثنان.
   const offsetsDisabled = !settings.iqamaEnabled && !settings.iqamaReminderEnabled;
 
-  const fullCount = IQAMAH_SOUNDS.filter((s) => s.group === "full").length;
-  const qadCount = IQAMAH_SOUNDS.length - fullCount;
+  const makkahCount = IQAMAH_SOUNDS.filter((s) => s.group === "makkah").length;
+  const madinahCount = IQAMAH_SOUNDS.length - makkahCount;
 
   return (
     <Screen>
@@ -192,8 +192,8 @@ function IqamaSettings() {
                 {toArabicDigits(IQAMAH_SOUNDS.length)} تسجيلاً للإقامة
               </div>
               <div className="mt-0.5 text-[11px] text-white/70">
-                {toArabicDigits(fullCount)} إقامة كاملة · {toArabicDigits(qadCount)} «قد قامت
-                الصلاة»
+                {toArabicDigits(makkahCount)} من الحرم المكي · {toArabicDigits(madinahCount)} من
+                الحرم النبوي
               </div>
               <div className="text-[11px] text-white/60">مضمّنة في التطبيق · تعمل دون إنترنت</div>
             </div>
@@ -301,7 +301,7 @@ function IqamaSettings() {
         </div>
 
         {pickerOpen &&
-          (["full", "qad"] as const).map((group) => (
+          (["makkah", "madinah"] as const).map((group) => (
             <div key={group}>
               <SectionLabel hint={IQAMAH_GROUP_LABELS[group].hint}>
                 {IQAMAH_GROUP_LABELS[group].title}
@@ -335,11 +335,11 @@ function IqamaSettings() {
                           <Icon d={isPlaying ? icons.pause : icons.play} size={16} />
                         </button>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">{c.name}</div>
+                          <div className="text-sm font-medium truncate">{c.shortName}</div>
                           <div
                             className={`text-[11px] truncate ${isSel ? "text-white/70" : "text-muted-foreground"}`}
                           >
-                            {c.hint}
+                            {c.shortHint}
                           </div>
                         </div>
                         <span
@@ -497,7 +497,7 @@ function IqamaSettings() {
                   <option value="">كالصوت العام — {iqamahLabel(settings.iqamaVariant)}</option>
                   {IQAMA_CATEGORIES.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name} · {c.hint} · {c.duration}
+                      {c.name} · {c.duration}
                     </option>
                   ))}
                 </select>

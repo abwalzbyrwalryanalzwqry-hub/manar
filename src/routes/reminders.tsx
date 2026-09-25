@@ -29,6 +29,7 @@ import {
   type Weekday,
   COMPLETION_HINTS,
   completionKeyFor,
+  toneOptionsFor,
 } from "@/lib/daily-reminders";
 import {
   PRAYER_LABELS,
@@ -208,9 +209,7 @@ function Reminders() {
           const warning = warningFor(r);
           const suggested = suggestedToneFor(r);
           const tab: ToneKind = toneTab[r.id] ?? toneKind(r.tone);
-          const tones = REMINDER_TONES.filter((t) => t.kind === tab)
-            .slice()
-            .sort((a, b) => Number(b.id === suggested) - Number(a.id === suggested));
+          const tones = toneOptionsFor(r, tab);
           return (
             <div
               key={r.id}
