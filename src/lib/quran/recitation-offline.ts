@@ -11,11 +11,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Capacitor } from "@capacitor/core";
-import { ayahAudioUrl, ayahFileName, type Reciter } from "./recitations";
+import { ayahAudioUrl, ayahFileName, needsBasmalaIntro, type Reciter } from "./recitations";
 
 const KEY = "manar.quran.recitation.downloads.v1";
 const EVENT = "manar:recitation-downloads";
 const ROOT = "manar-recitations";
+/** عدد الملفات التي تُحمَّل في الوقت نفسه. */
+export const DOWNLOAD_CONCURRENCY = 4;
+/** نسخة البسملة المحفوظة داخل مجلد كل سورة. */
+const BASMALA_FILE = "basmala.mp3";
 
 export interface DownloadedSurah {
   /** Reciter folder — the audio identity of the files. */
@@ -27,6 +31,8 @@ export interface DownloadedSurah {
   /** Native directory URI, ready for `convertFileSrc`. */
   dirUri: string;
   at: number;
+  /** هل يحوي المجلد نسخة البسملة (basmala.mp3)؟ */
+  hasBasmala?: boolean;
 }
 
 type Manifest = Record<string, DownloadedSurah>;
@@ -79,6 +85,18 @@ export function localAyahSrc(folder: string, surah: number, ayah: number): strin
   return Capacitor.convertFileSrc(`${entry.dirUri}/${ayahFileName(surah, ayah)}`);
 }
 
+/**
+ * مصدر محلي للبسملة التمهيدية: من الفاتحة المحمّلة، أو من نسخة مجلد السورة.
+ * (التحميلات القديمة قبل هذه النسخة لا تحوي نسخة البسملة، فيُرجع null.)
+ */
+export function localBasmalaSrc(folder: string, surah: number): string | null {
+  const fatiha = localAyahSrc(folder, 1, 1);
+  if (fatiha) return fatiha;
+  const entry = getDownload(folder, surah);
+  if (!entry || entry.hasBasmala !== true) return null;
+  return Capacitor.convertFileSrc(`${entry.dirUri}/${BASMALA_FILE}`);
+}
+
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -128,28 +146,61 @@ export function downloadSurah(
         },
       );
 
-      let bytes = getDownload(reciter.folder, surah)?.bytes ?? 0;
+      // الملفات: آيات السورة، ومعها البسملة (001001) لسور تبدأ بها،
+      // لتعمل البسملة التمهيدية بدون إنترنت أيضاً.
+      const files: { name: string; url: string }[] = [];
       for (let ayah = 1; ayah <= ayahCount; ayah++) {
-        if (cancelled) return;
-        const name = ayahFileName(surah, ayah);
-        const path = `${dir}/${name}`;
-
-        const existing = await Filesystem.stat({ path, directory: Directory.Data }).catch(
-          () => null,
-        );
-        if (existing && existing.size > 1024) {
-          cb.onProgress?.(ayah, ayahCount, bytes);
-          continue;
-        }
-
-        const res = await fetch(ayahAudioUrl(reciter, surah, ayah));
-        if (!res.ok) throw new Error(`تعذّر تحميل الآية ${ayah} (${res.status})`);
-        const blob = await res.blob();
-        const data = await blobToBase64(blob);
-        await Filesystem.writeFile({ path, directory: Directory.Data, data, recursive: true });
-        bytes += blob.size;
-        cb.onProgress?.(ayah, ayahCount, bytes);
+        files.push({ name: ayahFileName(surah, ayah), url: ayahAudioUrl(reciter, surah, ayah) });
       }
+      if (needsBasmalaIntro(surah, 1)) {
+        files.push({ name: BASMALA_FILE, url: ayahAudioUrl(reciter, 1, 1) });
+      }
+
+      // تُحسب أحجام الملفات الموجودة مسبقاً أيضاً، فيبقى الحجم صحيحاً عند الاستئناف.
+      let bytes = 0;
+      let done = 0;
+      let failure: Error | null = null;
+      let next = 0;
+
+      const run = async () => {
+        while (!cancelled && !failure && next < files.length) {
+          const file = files[next++];
+          const path = `${dir}/${file.name}`;
+          const existing = await Filesystem.stat({ path, directory: Directory.Data }).catch(
+            () => null,
+          );
+          if (existing && existing.size > 1024) {
+            bytes += existing.size;
+          } else {
+            const res = await fetch(file.url);
+            if (!res.ok) {
+              failure = new Error(`تعذّر تحميل ${file.name} (${res.status})`);
+              return;
+            }
+            const blob = await res.blob();
+            const data = await blobToBase64(blob);
+            await Filesystem.writeFile({ path, directory: Directory.Data, data, recursive: true });
+            bytes += blob.size;
+          }
+          done += 1;
+          if (!cancelled) cb.onProgress?.(Math.min(done, ayahCount), ayahCount, bytes);
+        }
+      };
+
+      const worker = async () => {
+        try {
+          await run();
+        } catch (e) {
+          // خطأ شبكة: يوقف بقية العمّال فوراً.
+          failure ??= e instanceof Error ? e : new Error(String(e));
+        }
+      };
+
+      // تحميل متوازٍ محدود: أسرع بكثير من ملف واحد في كل مرة دون إغراق الشبكة.
+      await Promise.all(
+        Array.from({ length: Math.min(DOWNLOAD_CONCURRENCY, files.length) }, worker),
+      );
+      if (failure) throw failure;
 
       if (cancelled) return;
       const { uri } = await Filesystem.getUri({ path: dir, directory: Directory.Data });
@@ -160,6 +211,7 @@ export function downloadSurah(
         bytes,
         dirUri: uri,
         at: Date.now(),
+        hasBasmala: needsBasmalaIntro(surah, 1),
       };
       writeManifest({ ...readManifest(), [downloadKey(reciter.folder, surah)]: entry });
       cb.onDone?.(entry);

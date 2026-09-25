@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SURAH_META } from "@/lib/quran/metadata";
-import { ayahAudioUrl, useRecitationPrefs, type Reciter } from "@/lib/quran/recitations";
-import { localAyahSrc } from "@/lib/quran/recitation-offline";
+import {
+  ayahAudioUrl,
+  needsBasmalaIntro,
+  useRecitationPrefs,
+  type Reciter,
+} from "@/lib/quran/recitations";
+import { localAyahSrc, localBasmalaSrc } from "@/lib/quran/recitation-offline";
 import { toArabicDigits } from "@/lib/quran/format";
 
 export interface PlayerTrack {
@@ -13,6 +18,11 @@ export type PlayerStatus = "idle" | "loading" | "playing" | "paused" | "error";
 
 function ayahCount(surah: number): number {
   return SURAH_META[Math.min(114, Math.max(1, surah)) - 1].ayatCount;
+}
+
+/** مقاطعة التشغيل بتحميل مصدر جديد ليست خطأً حقيقياً. */
+function isAbort(e: unknown): boolean {
+  return e instanceof DOMException && e.name === "AbortError";
 }
 
 function resolveSrc(
@@ -35,6 +45,10 @@ export function useRecitationPlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const repeatsRef = useRef(0);
   const trackRef = useRef<PlayerTrack | null>(null);
+  /** مصدر الآية المنتظرة بعد انتهاء البسملة التمهيدية. */
+  const pendingRef = useRef<{ src: string; offline: boolean } | null>(null);
+  /** يزداد مع كل تحميل مصدر؛ الوعود القديمة تتجاهل نتيجتها. */
+  const loadIdRef = useRef(0);
 
   const [track, setTrack] = useState<PlayerTrack | null>(null);
   const [status, setStatus] = useState<PlayerStatus>("idle");
@@ -46,6 +60,28 @@ export function useRecitationPlayer() {
   useEffect(() => {
     trackRef.current = track;
   }, [track]);
+
+  /** ينتقل من البسملة إلى الآية المنتظرة. يُعيد false إن لم تكن هناك آية منتظرة. */
+  const playPending = useCallback((): boolean => {
+    const audio = audioRef.current;
+    const pending = pendingRef.current;
+    if (!audio || !pending) return false;
+    pendingRef.current = null;
+    const id = ++loadIdRef.current;
+    setOffline(pending.offline);
+    audio.src = pending.src;
+    audio.playbackRate = prefs.rate;
+    void audio.play().catch((e: unknown) => {
+      if (id !== loadIdRef.current || isAbort(e)) return;
+      setStatus("error");
+      setError(
+        pending.offline
+          ? "تعذّر تشغيل الملف المحمّل — أعد تحميل السورة"
+          : "تعذّر تشغيل التلاوة — تأكّد من اتصال الإنترنت أو حمّل السورة للاستماع بدون إنترنت",
+      );
+    });
+    return true;
+  }, [prefs.rate]);
 
   const startTrack = useCallback(
     (next: PlayerTrack) => {
@@ -59,9 +95,22 @@ export function useRecitationPlayer() {
       setOffline(isOffline);
       setError(null);
       setStatus("loading");
-      audio.src = src;
+      // البسملة قبل الآية الأولى، ثم تُشغَّل الآية عند انتهائها.
+      if (needsBasmalaIntro(target.surah, target.ayah)) {
+        pendingRef.current = { src, offline: isOffline };
+        audio.src = localBasmalaSrc(reciter.folder, target.surah) ?? ayahAudioUrl(reciter, 1, 1);
+      } else {
+        pendingRef.current = null;
+        audio.src = src;
+      }
+      const id = ++loadIdRef.current;
       audio.playbackRate = prefs.rate;
-      void audio.play().catch(() => {
+      void audio.play().catch((e: unknown) => {
+        if (id !== loadIdRef.current || isAbort(e)) return;
+        if (pendingRef.current) {
+          playPending();
+          return;
+        }
         setStatus("error");
         setError(
           isOffline
@@ -70,7 +119,7 @@ export function useRecitationPlayer() {
         );
       });
     },
-    [prefs.rate, reciter],
+    [playPending, prefs.rate, reciter],
   );
 
   const advance = useCallback(
@@ -101,6 +150,11 @@ export function useRecitationPlayer() {
     [prefs.continuous, startTrack],
   );
 
+  const playPendingRef = useRef(playPending);
+  useEffect(() => {
+    playPendingRef.current = playPending;
+  }, [playPending]);
+
   // One audio element for the whole session.
   useEffect(() => {
     const audio = new Audio();
@@ -113,6 +167,8 @@ export function useRecitationPlayer() {
     const onTime = () =>
       setPosition({ current: audio.currentTime || 0, duration: audio.duration || 0 });
     const onError = () => {
+      // تعذّرت البسملة (مثلاً بدون إنترنت والفاتحة غير محمّلة): تُتجاوز إلى الآية.
+      if (playPendingRef.current()) return;
       setStatus("error");
       setError("تعذّر تحميل الملف الصوتي — تحقّق من الاتصال أو اختر قارئًا آخر");
     };
@@ -142,6 +198,7 @@ export function useRecitationPlayer() {
     const onEnded = () => {
       const cur = trackRef.current;
       if (!cur) return;
+      if (playPending()) return;
       if (prefs.repeat === "ayah" && repeatsRef.current < Math.max(1, prefs.repeatCount) - 1) {
         repeatsRef.current += 1;
         audio.currentTime = 0;
@@ -157,7 +214,7 @@ export function useRecitationPlayer() {
     };
     audio.addEventListener("ended", onEnded);
     return () => audio.removeEventListener("ended", onEnded);
-  }, [advance, prefs.repeat, prefs.repeatCount, startTrack]);
+  }, [advance, playPending, prefs.repeat, prefs.repeatCount, startTrack]);
 
   // Live playback-rate changes.
   useEffect(() => {
@@ -212,6 +269,7 @@ export function useRecitationPlayer() {
       audio.currentTime = 0;
     }
     repeatsRef.current = 0;
+    pendingRef.current = null;
     setStatus("idle");
     setTrack(null);
     trackRef.current = null;
