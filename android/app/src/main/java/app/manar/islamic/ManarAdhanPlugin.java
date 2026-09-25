@@ -193,6 +193,19 @@ public class ManarAdhanPlugin extends Plugin {
         call.resolve(result);
     }
 
+    /**
+     * يفتح شاشة «الوصول إلى عدم الإزعاج» دائماً — حتى لو كان الإذن ممنوحاً —
+     * ليسحبه المستخدم أو يراجعه بنفسه. الإذن اختياري بالكامل وبيده وحده.
+     */
+    @PluginMethod
+    public void sakinahOpenPolicyAccessSettings(PluginCall call) {
+        Context context = getContext();
+        JSObject result = new JSObject();
+        result.put("opened", SakinahManager.openPolicyAccessSettings(context));
+        result.put("granted", SakinahManager.hasPolicyAccess(context));
+        call.resolve(result);
+    }
+
     private static JSObject windowJson(SakinahStore.Window w) {
         JSObject o = new JSObject();
         o.put("id", w.id);

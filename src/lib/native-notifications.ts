@@ -205,6 +205,7 @@ type ManarAdhanPlugin = {
   sakinahLog: () => Promise<{ events: SakinahLogEvent[] }>;
   sakinahClearSkips: () => Promise<void>;
   sakinahRequestPolicyAccess: () => Promise<{ granted: boolean; opened?: boolean }>;
+  sakinahOpenPolicyAccessSettings: () => Promise<{ granted: boolean; opened: boolean }>;
   addListener: (
     event: string,
     cb: (e: unknown) => void,

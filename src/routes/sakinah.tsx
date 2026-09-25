@@ -34,6 +34,7 @@ import {
 } from "@/lib/sakinah";
 import {
   clearSakinahSkips,
+  openSakinahPolicyAccessSettings,
   readSakinahLog,
   readSakinahStatus,
   requestSakinahPolicyAccess,
@@ -107,12 +108,35 @@ function Sakinah() {
     };
   }, [settings, location, calc, refresh]);
 
+  /* إذن «عدم الإزعاج» اختيارٌ للمستخدم وحده: لا يُطلب تلقائياً ولا تُفتح شاشة
+     النظام دون نقرة منه. نعرض حالته ونترك له المنح أو السحب في أي وقت. */
+  const openDndAccess = useCallback(async () => {
+    await openSakinahPolicyAccessSettings();
+    toast("في «الوصول إلى عدم الإزعاج» فعّل «منار» أو أوقفه كما تشاء، ثم ارجع إلى التطبيق", {
+      duration: 5000,
+    });
+  }, []);
+
+  /* بعد العودة من شاشة النظام تتحدّث حالة الإذن فوراً، منحاً كان أو سحباً. */
+  useEffect(() => {
+    if (!isNativeShell()) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refresh]);
+
   const enable = async (next: boolean) => {
     update({ enabled: next });
     if (!next || !isNativeShell()) return;
     const s = await readSakinahStatus();
+    setStatus(s);
     if (s && !s.dndAccess) {
-      toast("يحتاج منار إذن «عدم الإزعاج» ليُسكت الهاتف أثناء الصلاة", { duration: 4000 });
+      toast("لتُسكت سكينة الهاتف أثناء الصلاة تحتاج إذن «عدم الإزعاج»", {
+        duration: 6000,
+        action: { label: "منح الإذن", onClick: () => void openDndAccess() },
+      });
     }
   };
 
@@ -186,6 +210,41 @@ function Sakinah() {
           <Switch on={settings.enabled} />
         </button>
       </div>
+
+      {/* إذن «عدم الإزعاج» — بيد المستخدم */}
+      {isNativeShell() && settings.enabled && status && (
+        <div className="mt-3 px-5">
+          <div
+            className={`flex items-start gap-3 rounded-2xl border p-4 shadow-soft ${
+              status.dndAccess ? "border-border bg-card" : "border-primary/40 bg-primary/5"
+            }`}
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
+              <Icon d={status.dndAccess ? icons.moon : icons.bellOff} size={16} />
+            </span>
+            <div className="flex-1">
+              <div className="text-sm font-medium">
+                {status.dndAccess ? "إذن «عدم الإزعاج»: ممنوح" : "إذن «عدم الإزعاج»: غير ممنوح"}
+              </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                {status.dndAccess
+                  ? "تُسكت سكينة الهاتف في أوقات الصلاة ثم تعيده كما كان. يمكنك سحب الإذن متى شئت من إعدادات النظام."
+                  : "بدونه لا تستطيع سكينة إسكات الهاتف. الإذن اختياري، تمنحه من شاشة النظام ويمكنك سحبه متى شئت."}
+              </p>
+              <button
+                onClick={() => void openDndAccess()}
+                className={`mt-3 w-full rounded-xl py-2.5 text-xs font-medium ${
+                  status.dndAccess
+                    ? "border border-border bg-card"
+                    : "bg-primary text-primary-foreground"
+                }`}
+              >
+                {status.dndAccess ? "إدارة الإذن" : "منح الإذن"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* الحالة الآن */}
       <div className="mt-3 px-5">
