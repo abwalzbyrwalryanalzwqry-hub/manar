@@ -119,8 +119,8 @@ function AzkarSession() {
   const doneCount = azkar.filter((z) => countOf(z) >= z.repeat).length;
 
   useEffect(() => {
-    if (chapter && current) setLast(chapter.id, current.id);
-  }, [chapter, current, setLast]);
+    if (chapter && current) setLast(chapter.id, current.id, activeTime);
+  }, [chapter, current, activeTime, setLast]);
 
   /** Reset vertical scroll when the active zikr changes. */
   useEffect(() => {

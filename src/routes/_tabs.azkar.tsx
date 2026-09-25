@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAzkarBook } from "@/hooks/use-azkar";
+import { useMemo } from "react";
+import { chapterProgress, QUICK_LINKS, resumeTarget } from "@/lib/azkar/hub";
 import { useAzkarProgress } from "@/lib/azkar/progress";
 import {
   Arabesque,
@@ -56,6 +58,19 @@ function AzkarHub() {
   const { book, loading } = useAzkarBook();
   const { progress } = useAzkarProgress();
   const total = book ? book.chapters.reduce((n, c) => n + c.azkar.length, 0) : 0;
+  const resume = useMemo(() => (book ? resumeTarget(book, progress) : null), [book, progress]);
+  const quick = useMemo(
+    () =>
+      book
+        ? QUICK_LINKS.flatMap((q) => {
+            const chapter = book.chapters.find((c) => c.id === q.chapter);
+            return chapter
+              ? [{ ...q, ...chapterProgress(chapter, progress.counters, q.time ?? null) }]
+              : [];
+          })
+        : [],
+    [book, progress.counters],
+  );
 
   return (
     <Screen>
@@ -102,6 +117,63 @@ function AzkarHub() {
         </div>
       </div>
 
+      {/* تابع من حيث توقفت */}
+      {resume && (
+        <div className="mt-5 px-5">
+          <Link
+            to="/azkar/$chapter"
+            params={{ chapter: String(resume.chapter.id) }}
+            search={{ zikr: resume.zikr, ...(resume.time ? { time: resume.time } : {}) }}
+            className="gradient-primary flex items-center gap-3 rounded-2xl p-4 text-right text-primary-foreground shadow-glow transition hover:-translate-y-0.5"
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15">
+              <Icon d={icons.play} size={18} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">تابع من حيث توقفت</div>
+              <p className="mt-0.5 truncate text-[11px] opacity-85">
+                {resume.chapter.title}
+                {resume.time ? ` · ${resume.time === "morning" ? "الصباح" : "المساء"}` : ""} · الذكر{" "}
+                {toArabicDigits(resume.position)} من {toArabicDigits(resume.total)}
+              </p>
+            </div>
+            <Icon d={icons.back} size={16} />
+          </Link>
+        </div>
+      )}
+
+      {/* الوصول السريع */}
+      <SectionLabel>الوصول السريع</SectionLabel>
+      <div className="grid grid-cols-4 gap-2 px-5">
+        {loading &&
+          Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-2xl" />
+          ))}
+        {quick.map((q) => (
+          <Link
+            key={q.id}
+            to="/azkar/$chapter"
+            params={{ chapter: String(q.chapter) }}
+            search={{ zikr: undefined, ...(q.time ? { time: q.time } : {}) }}
+            className="relative flex flex-col items-center gap-1.5 rounded-2xl border border-border/60 bg-card/70 px-1 py-3 text-center shadow-soft backdrop-blur-xl transition hover:-translate-y-0.5"
+          >
+            <span
+              className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
+                q.complete ? "bg-gold/20 text-gold" : "bg-secondary text-primary"
+              }`}
+            >
+              <Icon d={icons[q.complete ? "check" : q.icon]} size={18} />
+            </span>
+            <span className="text-[11px] font-medium leading-tight">{q.label}</span>
+            <span className="text-[9px] tabular-nums text-muted-foreground">
+              {q.complete
+                ? "مكتمل اليوم"
+                : `${toArabicDigits(q.done)} من ${toArabicDigits(q.total)}`}
+            </span>
+          </Link>
+        ))}
+      </div>
+
       {/* قسم الوِرد — مستقل عن الأذكار */}
       <div className="mt-5 px-5">
         <Link
@@ -134,7 +206,28 @@ function AzkarHub() {
           <div className="flex-1">
             <div className="text-sm font-medium">البحث الذكي في الأذكار</div>
             <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-              ابحث بدون تشكيل أو همزات — يفهم صيغ الكلمة تلقائيًا.
+              ابحث بدون تشكيل أو همزات.
+            </p>
+          </div>
+          <Icon d={icons.back} size={16} />
+        </Link>
+      </div>
+
+      {/* المحفوظات */}
+      <div className="mt-3 px-5">
+        <Link
+          to="/azkar/bookmarks"
+          className="glass flex items-center gap-3 rounded-2xl border border-border/60 p-4 text-right transition hover:-translate-y-0.5 hover:shadow-elegant"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gold/15 text-gold">
+            <Icon d={icons.bookmark} size={18} />
+          </span>
+          <div className="flex-1">
+            <div className="text-sm font-medium">المحفوظات</div>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+              {progress.bookmarks.length
+                ? `${toArabicDigits(progress.bookmarks.length)} ذكرًا محفوظًا`
+                : "احفظ الأذكار التي تكرّرها لتجدها هنا"}
             </p>
           </div>
           <Icon d={icons.back} size={16} />
