@@ -132,7 +132,7 @@ export function SurahRenderer({
                     : undefined
                 }
                 aria-label={`آية ${a.n}`}
-                className={`inline transition-colors duration-300 ${highlight} ${
+                className={`inline scroll-mt-28 transition-colors duration-300 ${highlight} ${
                   onAyahTap ? "cursor-pointer" : ""
                 }`}
               >

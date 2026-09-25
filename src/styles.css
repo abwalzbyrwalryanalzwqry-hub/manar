@@ -402,3 +402,51 @@
 .stagger > *:nth-child(8) {
   animation-delay: 420ms;
 }
+
+/* ------------------------------------------------------------
+ * ورق القراءة (إعدادات القراءة ← لون الورق). يعيد تعريف ألوان
+ * السمة داخل القارئ وحده، فيبقى بقية التطبيق على سمته.
+ * ------------------------------------------------------------ */
+.reading-paper-sepia {
+  --background: #f3e7cf;
+  --card: #f8eed9;
+  --foreground: #3b2c17;
+  --muted-foreground: #7a6446;
+  --muted: #eadbbd;
+  --border: rgb(122 90 40 / 0.22);
+  --gold: #9a6a12;
+  --primary: #6f5a2a;
+  --primary-foreground: #fbf5e8;
+  --gradient-primary: linear-gradient(135deg, #6f5a2a, #947636);
+  --gradient-glass: linear-gradient(135deg, rgb(255 250 238 / 0.7), rgb(255 250 238 / 0.4));
+  color-scheme: light;
+}
+
+.reading-paper-night {
+  --background: #0d0f12;
+  --card: #15181c;
+  --foreground: #e6dcc3;
+  --muted-foreground: #9c937f;
+  --muted: #22262b;
+  --border: rgb(230 220 195 / 0.1);
+  --gold: #c9a14a;
+  --primary: #b9a26a;
+  --primary-foreground: #15181c;
+  --gradient-primary: linear-gradient(135deg, #8f7c4d, #b9a26a);
+  --gradient-glass: linear-gradient(135deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.02));
+  color-scheme: dark;
+}
+
+/* الألوان المشتقة تُحسب حيث تُعرَّف، فتُعاد هنا ليرثها القارئ بألوان الورق. */
+.reading-paper-sepia,
+.reading-paper-night {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-gold: var(--gold);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+}
