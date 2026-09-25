@@ -54,6 +54,7 @@ import { PRAYER_APPROACH_CLIPS, approachClipFor } from "@/lib/prayer-approach-au
 import { getHijriAdjust } from "@/lib/hijri";
 import { seasonNotificationsBetween } from "@/lib/seasons/engine";
 import { readSeasonNotifyPrefs } from "@/lib/seasons/store";
+import { seasonIdFromNotificationTap } from "@/lib/seasons/notification-route";
 
 type LocalNotificationsPlugin = {
   requestPermissions: () => Promise<{ display: string }>;
@@ -870,5 +871,26 @@ export async function attachNativeActionListener(onStop: () => void) {
     });
   } catch {
     /* ignore */
+  }
+}
+
+/* النقر على تنبيه موسم يفتح صفحة الموسم. مستمع واحد طوال عمر التطبيق؛ وحدث
+ * النقر الذي فتح التطبيق من الإغلاق تحتفظ به الإضافة الأصلية حتى يُسجَّل
+ * المستمع فيُسلَّم له. لا يمسّ بقية أنواع التنبيهات. */
+let seasonTapAttached = false;
+let seasonTapHandler: ((seasonId: string) => void) | null = null;
+
+export async function attachSeasonTapListener(onOpen: (seasonId: string) => void) {
+  seasonTapHandler = onOpen;
+  const p = plugin();
+  if (!p || seasonTapAttached) return;
+  seasonTapAttached = true;
+  try {
+    await p.addListener("localNotificationActionPerformed", (e) => {
+      const id = seasonIdFromNotificationTap(e);
+      if (id) seasonTapHandler?.(id);
+    });
+  } catch {
+    seasonTapAttached = false;
   }
 }

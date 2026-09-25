@@ -287,3 +287,16 @@ describe("نصوص الحالة", () => {
     expect(statusLine(getSeasonState(r, H(1447, 10, 3))!)).toBe("انتهى الموسم.");
   });
 });
+
+describe("فتح تنبيه الموسم", () => {
+  it("النقر على تنبيه موسم معروف يعيد معرّفه فقط", async () => {
+    const { seasonIdFromNotificationTap: f } = await import("@/lib/seasons/notification-route");
+    const n = (extra: unknown, actionId = "tap") => ({ actionId, notification: { extra } });
+    expect(f(n({ kind: "season", season: "ramadan", route: "/seasons/ramadan" }))).toBe("ramadan");
+    expect(f(n({ kind: "season", season: "ramadan" }, "stop"))).toBeNull();
+    expect(f(n({ kind: "season", season: "unknown" }))).toBeNull();
+    expect(f(n({ kind: "daily-reminder", reminder: "x" }))).toBeNull();
+    expect(f(n(undefined))).toBeNull();
+    expect(f(null)).toBeNull();
+  });
+});
