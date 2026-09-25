@@ -58,6 +58,37 @@ const ROOT_PATHS = new Set([
 
 let backHandlerAttached = false;
 
+/** معترضات زر الرجوع (الأحدث أولاً): تعيد true إن استهلكت الضغطة، كالخروج من ملء الشاشة. */
+const backInterceptors: (() => boolean)[] = [];
+
+export function addBackInterceptor(fn: () => boolean): () => void {
+  backInterceptors.push(fn);
+  return () => {
+    const i = backInterceptors.lastIndexOf(fn);
+    if (i >= 0) backInterceptors.splice(i, 1);
+  };
+}
+
+/** وضع القراءة الغامر: إخفاء شريط الحالة في أندرويد، وملء الشاشة في المتصفح. */
+export async function setImmersiveChrome(on: boolean): Promise<void> {
+  try {
+    if (isNativeApp()) {
+      if (on) await StatusBar.hide();
+      else await StatusBar.show();
+      return;
+    }
+    if (typeof document === "undefined") return;
+    if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) {
+      await document.documentElement.requestFullscreen({ navigationUI: "hide" });
+    } else if (!on && document.fullscreenElement && document.exitFullscreen) {
+      await document.exitFullscreen();
+    }
+  } catch (error) {
+    // تجميلي: قد يرفضه المتصفح (بلا تفاعل مستخدم مثلاً) ويبقى العرض الغامر داخل الصفحة.
+    console.warn("[manar] immersive chrome unavailable", error);
+  }
+}
+
 /**
  * Hardware back button.
  *
@@ -76,6 +107,9 @@ export function setupBackButton(onHint: (message: string) => void): () => void {
   let cancelled = false;
 
   const onBack = (event: BackButtonListenerEvent) => {
+    for (let i = backInterceptors.length - 1; i >= 0; i--) {
+      if (backInterceptors[i]()) return;
+    }
     const path = window.location.pathname.replace(/\/+$/, "") || "/";
     const atRoot = ROOT_PATHS.has(path) || !event.canGoBack;
 

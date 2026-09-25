@@ -59,22 +59,9 @@ export function AdhanProvider() {
     if (typeof window === "undefined") return;
     let cancelled = false;
 
-    let wake: WakeLockSentinel | null = null;
-    const askWake = async () => {
-      try {
-        const nav = navigator as Navigator & {
-          wakeLock?: { request: (t: string) => Promise<WakeLockSentinel> };
-        };
-        if (nav.wakeLock?.request) wake = await nav.wakeLock.request("screen");
-      } catch {
-        /* ignore */
-      }
-    };
-    void askWake();
-    const onVis = () => {
-      if (document.visibilityState === "visible") void askWake();
-    };
-    document.addEventListener("visibilitychange", onVis);
+    /* لا قفل لإضاءة الشاشة هنا: كان يُطلب لجلسة التطبيق كلها فيستنزف البطارية.
+     * في أندرويد تتولى المنبّهات الأصلية الأذان والشاشة مطفأة، وإبقاء الشاشة
+     * مضاءة صار محصوراً في القراءة والتلاوة (useKeepAwake). */
 
     const tick = () => {
       if (cancelled) return;
@@ -178,13 +165,7 @@ export function AdhanProvider() {
     return () => {
       cancelled = true;
       window.clearInterval(id);
-      document.removeEventListener("visibilitychange", onVis);
       stopAdhan();
-      try {
-        wake?.release();
-      } catch {
-        /* ignore */
-      }
     };
   }, [location, calc]);
 

@@ -3,6 +3,8 @@ import { Arabesque, Icon, icons, Screen, ScreenHeader } from "@/components/manar
 import { toArabicDigits } from "@/lib/quran";
 import {
   FONT_SIZE_OPTIONS,
+  PAPER_OPTIONS,
+  paperClass,
   LINE_HEIGHT_OPTIONS,
   QURAN_FONT_OPTIONS,
   WIDTH_OPTIONS,
@@ -24,7 +26,9 @@ function ReaderSettingsScreen() {
 
       <div className="space-y-5 px-5 pb-6 stagger">
         {/* Live preview */}
-        <section className="relative overflow-hidden rounded-[28px] border border-border/60 bg-card/60 shadow-elegant backdrop-blur-2xl">
+        <section
+          className={`relative overflow-hidden rounded-[28px] border border-border/60 bg-card/60 text-foreground shadow-elegant backdrop-blur-2xl ${paperClass(prefs.paper)}`}
+        >
           <Arabesque className="pointer-events-none absolute -top-14 -left-14 h-52 w-52 text-primary/10" />
           <div className="relative px-5 py-6">
             <div className="mb-4 flex items-center justify-between">
@@ -89,6 +93,14 @@ function ReaderSettingsScreen() {
           }))}
           value={prefs.font}
           onSelect={(k) => update({ font: k as typeof prefs.font })}
+        />
+
+        <OptionGroup
+          title="لون الورق"
+          icon={icons.sun}
+          options={PAPER_OPTIONS.map((o) => ({ key: o.key, label: o.label }))}
+          value={prefs.paper}
+          onSelect={(k) => update({ paper: k as typeof prefs.paper })}
         />
 
         <OptionGroup
