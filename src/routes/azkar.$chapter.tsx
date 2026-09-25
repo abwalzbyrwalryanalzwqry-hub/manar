@@ -4,7 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Arabesque, Icon, icons, Screen, ScreenHeader, Skeleton } from "@/components/manar/shell";
 import { useAzkarBook } from "@/hooks/use-azkar";
 import { useAzkarProgress } from "@/lib/azkar/progress";
-import type { AzkarChapter, Zikr } from "@/lib/azkar/types";
+import type { Zikr, ZikrTime } from "@/lib/azkar/types";
+import {
+  azkarForTime,
+  defaultTime,
+  hasTimeVariants,
+  segmentState,
+  zikrText,
+} from "@/lib/azkar/variant";
 import { formatArTime, toArabicDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/azkar/$chapter")({
@@ -41,7 +48,14 @@ function AzkarSession() {
   const { progress, tap, resetMany, toggleBookmark, setLast } = useAzkarProgress();
 
   const chapter = useMemo(() => book?.chapters.find((c) => c.id === id), [book, id]);
-  const azkar = chapter?.azkar ?? [];
+  /** صباح/مساء — فقط للأبواب التي تختلف أذكارها بالوقت (باب ٢٧). */
+  const timed = chapter ? hasTimeVariants(chapter) : false;
+  const [time, setTime] = useState<ZikrTime>(() => defaultTime());
+  const activeTime: ZikrTime | null = timed ? time : null;
+  const azkar = useMemo(
+    () => (chapter ? azkarForTime(chapter, activeTime) : []),
+    [chapter, activeTime],
+  );
 
   const [index, setIndex] = useState(0);
   const [initialized, setInitialized] = useState(false);
@@ -83,6 +97,8 @@ function AzkarSession() {
 
   const current: Zikr | undefined = azkar[index];
   const count = current ? Math.min(progress.counters[current.id] ?? 0, current.repeat) : 0;
+  const currentText = current ? zikrText(current, activeTime) : "";
+  const seg = current ? segmentState(current, count) : null;
   const doneCount = azkar.filter((z) => (progress.counters[z.id] ?? 0) >= z.repeat).length;
 
   useEffect(() => {
@@ -181,6 +197,14 @@ function AzkarSession() {
     setIndex(0);
   };
 
+  const switchTime = (next: ZikrTime) => {
+    if (next === time) return;
+    setTime(next);
+    setFinished(false);
+    setIndex(0);
+    setInitialized(false);
+  };
+
   const share = async () => {
     if (!current || !chapter) return;
     const text =
@@ -189,7 +213,8 @@ function AzkarSession() {
       `المُنجَز: ${toArabicDigits(count)} من ${toArabicDigits(current.repeat)}` +
       `${count >= current.repeat ? " ✓ مكتمل" : ""}\n` +
       `تقدّم الباب: ${toArabicDigits(doneCount)} من ${toArabicDigits(azkar.length)}\n\n` +
-      `${current.text}\n\n— حصن المسلم · تطبيق منار`;
+      `${current.lead ? `${current.lead}\n` : ""}${currentText}` +
+      `${current.note ? `\n${current.note}` : ""}\n\n— حصن المسلم · تطبيق منار`;
     try {
       if (navigator.share) await navigator.share({ text });
       else await navigator.clipboard.writeText(text);
@@ -221,6 +246,37 @@ function AzkarSession() {
         </div>
       )}
       {error && <DataError message={error} onRetry={retry} title="تعذّر تحميل الأذكار" />}
+
+      {chapter && timed && (
+        <div className="mb-3 px-4">
+          <div
+            role="tablist"
+            aria-label="وقت الأذكار"
+            className="flex rounded-full border border-border/60 bg-card/70 p-1 text-xs"
+          >
+            {(
+              [
+                ["morning", "أذكار الصباح"],
+                ["evening", "أذكار المساء"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                role="tab"
+                aria-selected={time === value}
+                onClick={() => switchTime(value)}
+                className={`flex-1 rounded-full py-2 transition ${
+                  time === value
+                    ? "gradient-primary font-medium text-primary-foreground"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* session status bar: last started zikr + last save time */}
       {chapter && (
@@ -363,12 +419,56 @@ function AzkarSession() {
               ref={scrollRef}
               className="relative mt-4 max-h-[46vh] overflow-y-auto pl-1 overscroll-contain"
             >
-              <p className="text-right font-display text-[22px] leading-[2.15]">{current.text}</p>
+              {current.lead && (
+                <p className="mb-2 text-right text-[13px] leading-relaxed text-muted-foreground">
+                  {current.lead}
+                </p>
+              )}
+
+              {current.segments && seg ? (
+                <ol className="space-y-2">
+                  {current.segments.map((s, i) => (
+                    <li
+                      key={i}
+                      className={`flex items-baseline justify-between gap-3 rounded-2xl px-3 py-1.5 transition ${
+                        i === seg.index
+                          ? "bg-secondary/70 text-foreground"
+                          : i < seg.index
+                            ? "text-muted-foreground line-through decoration-gold/50"
+                            : "text-muted-foreground"
+                      }`}
+                    >
+                      <span className="text-right font-display text-[21px] leading-[2]">
+                        {s.text}
+                      </span>
+                      <span className="shrink-0 text-[11px] tabular-nums">
+                        ×{toArabicDigits(s.repeat)}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p
+                  className={
+                    current.quran
+                      ? "text-right font-quran text-[1.35rem] leading-[2.4]"
+                      : "text-right font-display text-[22px] leading-[2.15]"
+                  }
+                >
+                  {currentText}
+                </p>
+              )}
+
+              {current.note && (
+                <p className="mt-2 text-right text-[13px] leading-relaxed text-muted-foreground">
+                  {current.note}
+                </p>
+              )}
 
               {chapter.references.length > 0 && (
                 <div className="mt-5 rounded-2xl border border-border/60 bg-background/50 p-3">
                   <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                    التخريج
+                    حواشي الكتاب القريبة من هذا الباب
                   </div>
                   <ul className="mt-1.5 space-y-1 text-[11px] leading-relaxed text-muted-foreground">
                     {chapter.references.map((r, i) => (
@@ -390,11 +490,20 @@ function AzkarSession() {
                   pulse ? "scale-105" : ""
                 }`}
               >
-                <span className="font-display text-2xl tabular-nums">{toArabicDigits(count)}</span>
+                <span className="font-display text-2xl tabular-nums">
+                  {toArabicDigits(seg ? seg.count : count)}
+                </span>
                 <span className="text-[11px] tabular-nums opacity-80">
-                  من {toArabicDigits(current.repeat)}
+                  من {toArabicDigits(seg ? seg.segment.repeat : current.repeat)}
                 </span>
               </button>
+              {seg && current.segments && (
+                <span className="mt-1.5 text-[10px] tabular-nums text-muted-foreground">
+                  المقطع {toArabicDigits(seg.index + 1)} من{" "}
+                  {toArabicDigits(current.segments.length)}
+                  {" · "}الإجمالي {toArabicDigits(count)} من {toArabicDigits(current.repeat)}
+                </span>
+              )}
               <span className="mt-2 text-[10px] text-muted-foreground">
                 اضغط للعدّ · ينتقل تلقائيًا عند الإتمام
               </span>

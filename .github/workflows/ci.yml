@@ -61,6 +61,11 @@ jobs:
       - name: التحليل الساكن
         run: npm run lint
 
+      # بيانات «حصن المسلم» ونصوص الوِرد مولّدة من scripts/azkar/patches.json؛
+      # يفشل إن عُدّل أحد الملفين يدويًا دون إعادة التوليد.
+      - name: سلامة بيانات الأذكار
+        run: python3 scripts/azkar/build-hisn.py --check
+
       - name: اختبارات الوحدة
         run: npm test
 
