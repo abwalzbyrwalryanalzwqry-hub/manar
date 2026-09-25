@@ -38,7 +38,8 @@ export const REMINDER_TONES = [
   },
   {
     id: "reminder-default",
-    name: "نداء",
+    /* كان اسمها «نداء» فتختلط بتبويب «النداءات الصوتية». */
+    name: "هادئ",
     hint: "ثلاث درجات هادئة",
     url: "/audio/reminders/reminder-default.mp3",
     kind: "tone",
@@ -50,34 +51,18 @@ export const REMINDER_TONES = [
     url: "/audio/reminders/reminder-chime.mp3",
     kind: "tone",
   },
-  /* حزمة «أصوات تذكيرات الأذكار والوِرد» — نداءات صوتية قصيرة. */
-  {
-    id: "azkar-morning-01",
-    name: "أذكار الصباح",
-    hint: "نداء صوتي",
-    url: "/audio/reminders/azkar-morning-01.mp3",
-    kind: "voice",
-  },
-  {
-    id: "azkar-morning-02",
-    name: "أذكارُ الصباح",
-    hint: "نداء صوتي بأداء آخر",
-    url: "/audio/reminders/azkar-morning-02.mp3",
-    kind: "voice",
-  },
+  /* حزمة «أصوات تذكيرات الأذكار والوِرد» — نداء صوتي واحد لكل موضوع. كانت
+   * الحزمة ١٢ نداءً، منها أداءان وثلاثة للموضوع نفسه («أذكار الصباح»،
+   * «أذكارُ الصباح»، «حان وقت أذكار الصباح»…) فتتكرّر في كل تذكير بلا فائدة.
+   * بقي أوضحها صيغةً («حان وقت…»، «لا تنسَ…») والمحذوف يُنقل تلقائياً
+   * (`REMOVED_TONE_MIGRATION`). */
   {
     id: "azkar-morning-03",
     name: "حان وقت أذكار الصباح",
     hint: "نداء صوتي",
     url: "/audio/reminders/azkar-morning-03.mp3",
     kind: "voice",
-  },
-  {
-    id: "azkar-evening-01",
-    name: "أذكار المساء",
-    hint: "نداء صوتي",
-    url: "/audio/reminders/azkar-evening-01.mp3",
-    kind: "voice",
+    topic: "morning",
   },
   {
     id: "azkar-evening-02",
@@ -85,13 +70,7 @@ export const REMINDER_TONES = [
     hint: "نداء صوتي",
     url: "/audio/reminders/azkar-evening-02.mp3",
     kind: "voice",
-  },
-  {
-    id: "azkar-sleep-01",
-    name: "أذكار النوم",
-    hint: "نداء صوتي",
-    url: "/audio/reminders/azkar-sleep-01.mp3",
-    kind: "voice",
+    topic: "evening",
   },
   {
     id: "azkar-sleep-02",
@@ -99,6 +78,7 @@ export const REMINDER_TONES = [
     hint: "نداء صوتي",
     url: "/audio/reminders/azkar-sleep-02.mp3",
     kind: "voice",
+    topic: "sleep",
   },
   {
     id: "azkar-wake-01",
@@ -106,6 +86,7 @@ export const REMINDER_TONES = [
     hint: "نداء صوتي",
     url: "/audio/reminders/azkar-wake-01.mp3",
     kind: "voice",
+    topic: "wake",
   },
   {
     id: "wird-daily-01",
@@ -113,6 +94,7 @@ export const REMINDER_TONES = [
     hint: "نداء صوتي",
     url: "/audio/reminders/wird-daily-01.mp3",
     kind: "voice",
+    topic: "wird",
   },
   {
     id: "wird-quran-01",
@@ -120,25 +102,43 @@ export const REMINDER_TONES = [
     hint: "نداء صوتي",
     url: "/audio/reminders/wird-quran-01.mp3",
     kind: "voice",
+    topic: "quran",
   },
   {
     id: "azkar-general-01",
     name: "لا تنسَ الأذكار",
-    hint: "نداء صوتي",
+    hint: "نداء صوتي عام",
     url: "/audio/reminders/azkar-general-01.mp3",
     kind: "voice",
-  },
-  {
-    id: "azkar-general-02",
-    name: "وقت الذكر",
-    hint: "نداء صوتي",
-    url: "/audio/reminders/azkar-general-02.mp3",
-    kind: "voice",
+    topic: "general",
   },
   { id: "silent", name: "صامت", hint: "إشعار بلا صوت", url: "", kind: "tone" },
 ] as const;
 
 export type ReminderToneId = (typeof REMINDER_TONES)[number]["id"];
+
+/** موضوع النداء الصوتي — يحدّد في أي تذكير يظهر. */
+export type VoiceTopic = "morning" | "evening" | "sleep" | "wake" | "wird" | "quran" | "general";
+
+/** النداءات المحذوفة ← النداء الباقي للموضوع نفسه، حتى لا يصمت اختيارٌ محفوظ. */
+export const REMOVED_TONE_MIGRATION: Record<string, ReminderToneId> = {
+  "azkar-morning-01": "azkar-morning-03",
+  "azkar-morning-02": "azkar-morning-03",
+  "azkar-evening-01": "azkar-evening-02",
+  "azkar-sleep-01": "azkar-sleep-02",
+  "azkar-general-02": "azkar-general-01",
+};
+
+export function isToneId(v: unknown): v is ReminderToneId {
+  return typeof v === "string" && REMINDER_TONES.some((t) => t.id === v);
+}
+
+/** يحوّل أي صوت محفوظ إلى معرّف صالح، أو null إن لم يكن معروفاً. */
+export function migrateToneId(v: unknown): ReminderToneId | null {
+  if (isToneId(v)) return v;
+  if (typeof v === "string" && REMOVED_TONE_MIGRATION[v]) return REMOVED_TONE_MIGRATION[v];
+  return null;
+}
 
 export function toneUrl(id: ReminderToneId): string {
   return REMINDER_TONES.find((t) => t.id === id)?.url ?? "";
@@ -165,9 +165,55 @@ export const SUGGESTED_TONE: Record<string, ReminderToneId> = {
   "azkar-morning": "azkar-morning-03",
   "azkar-evening": "azkar-evening-02",
   wird: "wird-daily-01",
-  "wird-night": "wird-quran-01",
   "sleep-azkar": "azkar-sleep-02",
+  "wake-azkar": "azkar-wake-01",
 };
+
+/* النداءات التي تناسب كل تذكير: نداء موضوعه أولاً، ثم ما يقاربه. «تذكير» العامّ
+ * المضاف يعرض الكل لأن موضوعه يختاره المستخدم. */
+const VOICE_TOPICS: Record<string, readonly VoiceTopic[]> = {
+  "azkar-morning": ["morning", "general"],
+  "azkar-evening": ["evening", "general"],
+  wird: ["wird", "quran"],
+  "sleep-azkar": ["sleep", "general"],
+  "wake-azkar": ["wake", "general"],
+};
+const TEMPLATE_VOICE_TOPICS: Record<CustomTemplateId, readonly VoiceTopic[] | null> = {
+  "after-prayer": ["general"],
+  duha: ["general", "wird"],
+  quran: ["quran", "wird"],
+  other: null,
+};
+
+type ToneEntry = (typeof REMINDER_TONES)[number];
+
+/**
+ * خيارات الصوت لتذكير في تبويب واحد. النغمات كلها عامة فتظهر كلها؛ النداءات
+ * الصوتية تظهر المناسبة لموضوع التذكير فقط، مع المقترح أولاً. والنداء المختار
+ * حالياً يبقى ظاهراً ولو لم يكن من موضوعه، حتى لا يختفي اختيار المستخدم.
+ */
+export function toneOptionsFor(
+  r: Pick<DailyReminder, "id" | "template" | "tone">,
+  kind: ToneKind,
+): ToneEntry[] {
+  const suggested = suggestedToneFor(r);
+  let list: ToneEntry[] = REMINDER_TONES.filter((t) => t.kind === kind);
+  if (kind === "voice") {
+    const topics =
+      VOICE_TOPICS[r.id] ?? (r.template ? TEMPLATE_VOICE_TOPICS[r.template] : null) ?? null;
+    if (topics) {
+      const rank = (t: ToneEntry) => {
+        const topic = "topic" in t ? t.topic : undefined;
+        const i = topic ? topics.indexOf(topic) : -1;
+        return i < 0 ? topics.length : i;
+      };
+      list = list
+        .filter((t) => rank(t) < topics.length || t.id === r.tone)
+        .sort((a, b) => rank(a) - rank(b));
+    }
+  }
+  return list.slice().sort((a, b) => Number(b.id === suggested) - Number(a.id === suggested));
+}
 
 export function suggestedToneFor(r: Pick<DailyReminder, "id" | "template">): ReminderToneId | null {
   return SUGGESTED_TONE[r.id] ?? (r.template ? (CUSTOM_TEMPLATES[r.template]?.tone ?? null) : null);
@@ -249,7 +295,7 @@ export const CUSTOM_TEMPLATES: Record<
     body: "حان وقت الضحى",
     route: "/wird",
     timing: { mode: "prayer", prayer: "sunrise", offset: 30 },
-    tone: "azkar-general-02",
+    tone: "azkar-general-01",
   },
   quran: {
     name: "وِرد القرآن",
@@ -316,18 +362,6 @@ export const DEFAULT_REMINDERS: DailyReminder[] = [
     skipIfDone: true,
   },
   {
-    id: "wird-night",
-    name: "وِرد قبل النوم",
-    enabled: false,
-    timing: { mode: "prayer", prayer: "isha", offset: 60 },
-    tone: "reminder-bell",
-    days: [...ALL_DAYS],
-    route: "/wird",
-    /* كان النصّ «أذكار النوم ووِرد الليل» فيتكرّر مع تذكير «أذكار النوم» المستقلّ
-     * أدناه؛ هذا التذكير للوِرد وحده. */
-    body: "وِردك من الليل قبل النوم",
-  },
-  {
     id: "sleep-azkar",
     name: "أذكار النوم",
     enabled: false,
@@ -336,6 +370,19 @@ export const DEFAULT_REMINDERS: DailyReminder[] = [
     days: [...ALL_DAYS],
     route: "/azkar",
     body: "لا تنم قبل أذكار النوم",
+    skipIfDone: true,
+  },
+  /* كان هنا «وِرد قبل النوم» فيتداخل مع «أذكار النوم»؛ حلّ محلّه تذكير
+   * «أذكار الاستيقاظ من النوم» (فصل ١ من حصن المسلم) قبيل الفجر. */
+  {
+    id: "wake-azkar",
+    name: "أذكار الاستيقاظ من النوم",
+    enabled: false,
+    timing: { mode: "prayer", prayer: "fajr", offset: -15 },
+    tone: "reminder-bell",
+    days: [...ALL_DAYS],
+    route: "/azkar",
+    body: "ابدأ يومك بأذكار الاستيقاظ من النوم",
     skipIfDone: true,
   },
 ];
@@ -386,7 +433,7 @@ function normalizeItem(raw: unknown, fb: DailyReminder): DailyReminder {
     enabled: typeof r.enabled === "boolean" ? r.enabled : fb.enabled,
     timing,
     ...(alt && alt.mode !== timing.mode ? { altTiming: alt } : {}),
-    tone: REMINDER_TONES.some((t) => t.id === r.tone) ? (r.tone as ReminderToneId) : fb.tone,
+    tone: migrateToneId(r.tone) ?? fb.tone,
     /* قائمة أيام فارغة تعني تذكيراً لا يعمل أبداً وهو غالباً خطأ حفظ، فنرجع
      * للأيام الافتراضية بدل إسكات التذكير بلا سبب ظاهر للمستخدم. */
     days: days.length ? days.sort((a, b) => a - b) : fb.days,
@@ -709,7 +756,7 @@ export function timingWarning(r: DailyReminder, at: Date, times: PrayerTimes): s
 /* ------------------------- تخطّي ما أُنجز ------------------------- */
 
 /** فصول «حصن المسلم» التي يُعدّ إكمالها إنجازاً لتذكير (أرقامها في الكتاب). */
-export const HISN_CHAPTERS = { morningEvening: 27, sleep: 28 } as const;
+export const HISN_CHAPTERS = { wake: 1, morningEvening: 27, sleep: 28 } as const;
 
 /** ما أُنجز اليوم، من السجل اليومي الموحّد (`activity-log.ts`). */
 export type DoneToday = {
@@ -720,13 +767,19 @@ export type DoneToday = {
 };
 
 /** ما يُعدّ إنجازاً لكل تذكير. */
-export type CompletionKey = "azkar-morning" | "azkar-evening" | "wird-morning" | "azkar-sleep";
+export type CompletionKey =
+  | "azkar-morning"
+  | "azkar-evening"
+  | "wird-morning"
+  | "azkar-sleep"
+  | "azkar-wake";
 
 export function completionKeyFor(r: DailyReminder): CompletionKey | null {
   if (r.id === "azkar-morning") return "azkar-morning";
   if (r.id === "azkar-evening") return "azkar-evening";
   if (r.id === "wird") return "wird-morning";
   if (r.id === "sleep-azkar") return "azkar-sleep";
+  if (r.id === "wake-azkar") return "azkar-wake";
   return null;
 }
 
@@ -736,6 +789,7 @@ export const COMPLETION_HINTS: Record<CompletionKey, string> = {
   "azkar-evening": "لا يصل تذكير اليوم إن أكملت ورد المساء أو أذكار الصباح والمساء بعد العصر",
   "wird-morning": "لا يصل تذكير اليوم إن أكملت ورد الصباح قبله",
   "azkar-sleep": "لا يصل تذكير اليوم إن أكملت أذكار النوم قبله",
+  "azkar-wake": "لا يصل تذكير اليوم إن أكملت أذكار الاستيقاظ قبله",
 };
 
 /**
@@ -761,6 +815,8 @@ export function isDoneToday(
       return done.wird.includes("evening") || (me !== undefined && asr !== undefined && me >= asr);
     case "azkar-sleep":
       return ch[String(HISN_CHAPTERS.sleep)] !== undefined;
+    case "azkar-wake":
+      return ch[String(HISN_CHAPTERS.wake)] !== undefined;
     default:
       return false;
   }

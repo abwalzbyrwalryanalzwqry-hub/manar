@@ -164,11 +164,11 @@ describe("فصل الأصوات: لا خلط بين الأذان والإقام�
 
   it("صوت إقامة خاص لصلاةٍ يغلب الاختيار العام لها وحدها", () => {
     const s = base();
-    s.iqamaVariant = "iqamah_01";
+    s.iqamaVariant = "iqamah_09";
     s.perPrayerIqama = { maghrib: "iqamah_12" };
     const iq = byRole(build(s), "iqamah");
     expect(iq.find((e) => e.prayer === "maghrib")!.sound).toBe("iqamah_12");
-    expect(iq.find((e) => e.prayer === "isha")!.sound).toBe("iqamah_01");
+    expect(iq.find((e) => e.prayer === "isha")!.sound).toBe("iqamah_09");
   });
 });
 

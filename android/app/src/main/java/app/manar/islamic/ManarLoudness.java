@@ -30,13 +30,6 @@ final class ManarLoudness {
         m.put("makkah_tathweeb", 300); // -15.0 LUFS — public/audio/library/makkah-tathweeb.mp3
         m.put("omar_hashim_full", 510); // -17.1 LUFS — public/audio/library/omar-hashim-full.mp3
         m.put("segment_takbir", 270); // -14.7 LUFS — public/audio/library/segment-takbir.mp3
-        m.put("iqamah_01", 410); // -16.1 LUFS — public/audio/iqamah/iqamah_01.ogg
-        m.put("iqamah_02", 430); // -16.3 LUFS — public/audio/iqamah/iqamah_02.ogg
-        m.put("iqamah_03", 410); // -16.1 LUFS — public/audio/iqamah/iqamah_03.ogg
-        m.put("iqamah_04", 450); // -16.5 LUFS — public/audio/iqamah/iqamah_04.ogg
-        m.put("iqamah_05", 410); // -16.1 LUFS — public/audio/iqamah/iqamah_05.ogg
-        m.put("iqamah_06", 400); // -16.0 LUFS — public/audio/iqamah/iqamah_06.ogg
-        m.put("iqamah_07", 390); // -15.9 LUFS — public/audio/iqamah/iqamah_07.ogg
         m.put("iqamah_08", 430); // -16.3 LUFS — public/audio/iqamah/iqamah_08.m4a
         m.put("iqamah_09", 400); // -16.0 LUFS — public/audio/iqamah/iqamah_09.m4a
         m.put("iqamah_10", 410); // -16.1 LUFS — public/audio/iqamah/iqamah_10.m4a
