@@ -34,7 +34,7 @@ function WirdListPage() {
   const key = wird?.key ?? "morning";
   const { progress, hydrated, increment, setCurrent, resetItem } = useWirdSessionProgress(key);
 
-  const items = wird?.items ?? [];
+  const items = useMemo(() => wird?.items ?? [], [wird]);
   const overall = useMemo(() => wirdCompletion(progress, items), [progress, items]);
   const current = items.find((i) => i.order === progress.current) ?? items[0];
   const currentCount = current ? Math.min(current.repeat, progress.counts[current.order] ?? 0) : 0;

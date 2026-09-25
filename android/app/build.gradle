@@ -7,7 +7,8 @@ apply plugin: 'com.android.application'
  * read from `android/keystore.properties` (git-ignored) or, in CI, from the
  * MANAR_KEYSTORE / MANAR_STORE_PASSWORD / MANAR_KEY_ALIAS / MANAR_KEY_PASSWORD
  * environment variables. When neither is present the release build falls back to
- * the debug signing config so `assembleRelease` still succeeds locally.
+ * the debug signing config so `assembleRelease` still succeeds locally — unless
+ * MANAR_REQUIRE_RELEASE_SIGNING=true, in which case the build fails instead.
  */
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
@@ -69,6 +70,25 @@ def resolvedStorePassword = keystoreProperties['storePassword'] ?: System.getenv
 def resolvedKeyAlias = keystoreProperties['keyAlias'] ?: System.getenv("MANAR_KEY_ALIAS")
 def resolvedKeyPassword = keystoreProperties['keyPassword'] ?: System.getenv("MANAR_KEY_PASSWORD")
 def hasReleaseSigning = resolvedStoreFile != null && rootProject.file(resolvedStoreFile).exists()
+
+/*
+ * حماية التوقيع: بلا مفتاح يُوقَّع «الإصدار» بمفتاح التصحيح — مقبول للتجربة المحلية
+ * واختبار المحاكي، لكنه حزمة لا يقبلها Google Play ولا تُثبَّت فوق النسخة المنشورة.
+ * - MANAR_REQUIRE_RELEASE_SIGNING=true (خطوة الإصدار في CI): غياب المفتاح أو كلمة
+ *   مروره خطأ يوقف البناء بدل أن يُخرج حزمة موقّعة بمفتاح التصحيح بصمت.
+ * - في غير ذلك: تحذير واضح في سجلّ البناء.
+ */
+def requireReleaseSigning = (System.getenv("MANAR_REQUIRE_RELEASE_SIGNING") ?: "").toBoolean()
+if (requireReleaseSigning) {
+    if (!hasReleaseSigning) {
+        throw new GradleException("Manar: MANAR_REQUIRE_RELEASE_SIGNING=true لكن ملف مفتاح التوقيع غير موجود (${resolvedStoreFile ?: 'غير محدَّد'}).")
+    }
+    if (!resolvedStorePassword || !resolvedKeyAlias || !resolvedKeyPassword) {
+        throw new GradleException("Manar: MANAR_REQUIRE_RELEASE_SIGNING=true لكن كلمة مرور المفتاح أو اسمه غير محدَّد.")
+    }
+} else if (!hasReleaseSigning) {
+    logger.warn("Manar: لا مفتاح توقيع — حزمة release ستوقَّع بمفتاح التصحيح (غير صالحة للرفع إلى Google Play).")
+}
 
 android {
     namespace "app.manar.islamic"
