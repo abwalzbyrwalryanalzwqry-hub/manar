@@ -59,6 +59,8 @@ describe("بنية حصن المسلم", () => {
     expect(byId.get(66)?.repeat).toBe(4); // أستغفر الله ×٣ + اللهم أنت السلام ×١
     expect(byId.get(69)?.repeat).toBe(34); // (التسبيح والتحميد والتكبير) ×٣٣ + التهليل ×١
     expect(byId.get(106)?.repeat).toBe(100); // ٣٣ + ٣٣ + ٣٤
+    expect(byId.get(70)?.note).toContain("الْفَجْرِ وَالْمَغْرِبِ");
+    expect(byId.get(104)?.repeat).toBe(1);
   });
 });
 

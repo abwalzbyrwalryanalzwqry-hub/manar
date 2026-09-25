@@ -38,7 +38,7 @@ function hisn(id: number, slot: Slot, name: string, repeat: number): WirdItem {
   return { order: 0, name, text, repeat, hisn: id };
 }
 
-/** أذكار ليست في «حصن المسلم» — أُبقيت كما كانت في التطبيق. */
+/** أذكار ليست في «حصن المسلم» — أُبقيت في الوِرد باعتماد صاحب التطبيق. */
 const EXTRA_TAHMID: WirdItem = {
   order: 0,
   name: "الحمد لله",
@@ -78,7 +78,7 @@ function common(slot: Slot): WirdItem[] {
     hisn(91, slot, "سبحان الله وبحمده", 100),
     EXTRA_TAHMID,
     EXTRA_TAKBIR,
-    // في الحصن «إذا أصبح»، وحديث البخاري «في يوم» — أُبقي في الوِردين كما كان.
+    // في الحصن «إذا أصبح»، وحديث البخاري «في يوم» — أُبقي في الوِردين باعتماد صاحب التطبيق.
     hisn(93, "m", "التهليل التام", 100),
     hisn(96, slot, "الاستغفار", 100),
     hisn(92, slot, "التهليل عشرًا", 10),
