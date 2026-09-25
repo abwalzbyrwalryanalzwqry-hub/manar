@@ -4,6 +4,8 @@ import { SurahRenderer } from "@/components/manar/surah-renderer";
 import { MushafPageRenderer } from "@/components/manar/mushaf-page-renderer";
 import { useSurahText } from "@/hooks/use-surah-text";
 import { useMushafPage } from "@/hooks/use-mushaf-page";
+import { useKeepAwake } from "@/hooks/use-keep-awake";
+import { useReadingPrefs } from "@/lib/quran/reading-prefs";
 import {
   clampPage,
   MUSHAF_PAGE_COUNT,
@@ -62,6 +64,8 @@ function MushafReader() {
   /** الآية الظاهرة الآن في وضع السورة (تتبع التمرير). */
   const [position, setPosition] = useState<{ surah: number; ayah: AyahText } | null>(null);
   useBookmarks(); // يعيد العرض عند تغيّر العلامات (زر الحفظ)
+  const { prefs: readingPrefs } = useReadingPrefs();
+  useKeepAwake(readingPrefs.keepAwake);
   const appliedRef = useRef(false);
 
   // Apply incoming deep-link parameters once.
@@ -755,7 +759,6 @@ function MushafReadingArea({
   onSettled?: (ayah: AyahText) => void;
 }) {
   const state = useSurahText(surahId);
-  const [reloadKey, setReloadKey] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const trackerRef = useRef(new PageDwellTracker());
   const ignoreUntilRef = useRef(0);
@@ -836,7 +839,7 @@ function MushafReadingArea({
     };
   }, [ayahs, surahId, onPosition, save]);
   return (
-    <section className="mt-5 px-4 animate-fade-up" aria-label="منطقة قراءة الآيات" key={reloadKey}>
+    <section className="mt-5 px-4 animate-fade-up" aria-label="منطقة قراءة الآيات">
       <div className="relative overflow-hidden rounded-[32px] border border-border/60 bg-card/60 shadow-elegant backdrop-blur-2xl">
         <div className="pointer-events-none absolute inset-3 rounded-[26px] border border-gold/25" />
         <div className="pointer-events-none absolute inset-5 rounded-[22px] border border-gold/10" />
@@ -857,7 +860,7 @@ function MushafReadingArea({
             surahId={surahId}
             surahNameAr={surahNameAr}
             state={state}
-            onRetry={() => setReloadKey((k) => k + 1)}
+            onRetry={state.retry}
             activeAyah={activeAyah}
             onAyahTap={onAyahTap}
           />
@@ -900,7 +903,6 @@ function MushafPagesMode({
     }, SETTLE_MS);
     return () => window.clearTimeout(t);
   }, [page]);
-  const [reloadKey, setReloadKey] = useState(0);
   const [jumpOpen, setJumpOpen] = useState(false);
   const [jumpValue, setJumpValue] = useState(String(page));
   const [drag, setDrag] = useState(0);
@@ -923,7 +925,6 @@ function MushafPagesMode({
       {/* Printed page surface — full screen, never scrolls, never clipped */}
       <div
         className="relative select-none overflow-hidden rounded-[26px] border border-border/60 bg-card/85 shadow-elegant backdrop-blur-2xl"
-        key={reloadKey}
         style={{ touchAction: "pan-y pinch-zoom" }}
         onTouchStart={(e) => {
           const t = e.touches[0];
@@ -964,7 +965,7 @@ function MushafPagesMode({
           <MushafPageRenderer
             page={page}
             state={state}
-            onRetry={() => setReloadKey((k) => k + 1)}
+            onRetry={state.retry}
             onAyahTap={onAyahTap}
           />
         </div>

@@ -184,19 +184,7 @@ function ReaderLoading({ nameAr }: { nameAr: string }) {
   );
 }
 
-function ReaderError({
-  error,
-  onRetry,
-}: {
-  error: Error;
-  onRetry: () => void;
-  /** Ayah to highlight and scroll into view. */
-  activeAyah?: number | null;
-  /** Tapping an ayah opens the actions sheet in the reader. */
-  onAyahTap?: (ayah: AyahText) => void;
-  /** Ayah currently being recited — highlighted in emerald. */
-  playingAyah?: number | null;
-}) {
+function ReaderError({ error, onRetry }: { error: Error; onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center gap-3 py-10 text-center">
       <span className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">

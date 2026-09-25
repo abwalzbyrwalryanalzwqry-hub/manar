@@ -91,6 +91,17 @@ function ReaderSettingsScreen() {
           onSelect={(k) => update({ font: k as typeof prefs.font })}
         />
 
+        <OptionGroup
+          title="إبقاء الشاشة مضاءة"
+          icon={icons.sparkle}
+          options={[
+            { key: "on", label: "أثناء القراءة والتلاوة" },
+            { key: "off", label: "حسب إعداد الجهاز" },
+          ]}
+          value={prefs.keepAwake ? "on" : "off"}
+          onSelect={(k) => update({ keepAwake: k === "on" })}
+        />
+
         <button
           onClick={reset}
           className="w-full rounded-2xl border border-border/60 bg-card/50 py-3.5 text-[13px] font-medium text-muted-foreground backdrop-blur-xl transition hover:text-foreground active:scale-[0.99]"

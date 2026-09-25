@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { quranTextService } from "@/lib/quran/text-service";
 import type { SurahText } from "@/lib/quran/text-types";
 
@@ -8,13 +8,16 @@ type State =
   | { status: "error"; data: undefined; error: Error };
 
 /** Load the Uthmani text for a Surah with cache + adjacency prefetch. */
-export function useSurahText(id: number): State {
+export function useSurahText(id: number): State & { retry: () => void } {
   const [state, setState] = useState<State>(() => {
     const cached = quranTextService.getCached(id);
     return cached
       ? { status: "ready", data: cached, error: undefined }
       : { status: "loading", data: undefined, error: undefined };
   });
+
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,7 +48,7 @@ export function useSurahText(id: number): State {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, attempt]);
 
-  return state;
+  return { ...state, retry };
 }

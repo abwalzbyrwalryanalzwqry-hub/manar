@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { clampPage, quranPageService, type MushafPage } from "@/lib/quran/page-service";
 
 export type MushafPageState =
@@ -7,7 +7,7 @@ export type MushafPageState =
   | { status: "error"; data: undefined; error: Error };
 
 /** Load a Mushaf page (1..604) with cache + neighbour prefetch. */
-export function useMushafPage(pageInput: number): MushafPageState {
+export function useMushafPage(pageInput: number): MushafPageState & { retry: () => void } {
   const page = clampPage(pageInput);
   const [state, setState] = useState<MushafPageState>(() => {
     const cached = quranPageService.getCached(page);
@@ -15,6 +15,9 @@ export function useMushafPage(pageInput: number): MushafPageState {
       ? { status: "ready", data: cached, error: undefined }
       : { status: "loading", data: undefined, error: undefined };
   });
+
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,7 +47,7 @@ export function useMushafPage(pageInput: number): MushafPageState {
     return () => {
       cancelled = true;
     };
-  }, [page]);
+  }, [page, attempt]);
 
-  return state;
+  return { ...state, retry };
 }
