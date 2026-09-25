@@ -12,6 +12,7 @@ import { hasBasmalaHeader } from "./basmala";
 import { SURAH_META } from "./metadata";
 import { HIZB_META } from "./juz-metadata";
 import { PAGE_STARTS } from "./structure-data";
+import { loadMushaf15Page, type Mushaf15Page } from "./mushaf15";
 import { quranTextService } from "./text-service";
 import type { AyahText } from "./text-types";
 
@@ -35,6 +36,8 @@ export interface MushafPage {
   juz: number;
   hizb: number | undefined;
   segments: MushafSegment[];
+  /** تخطيط الأسطر الخمسة عشر كما في المطبوع. */
+  layout: Mushaf15Page;
 }
 
 export function clampPage(page: number): number {
@@ -83,7 +86,10 @@ export class QuranPageService {
     const p = (async () => {
       try {
         const ids = surahIdsOnPage(page);
-        const texts = await Promise.all(ids.map((id) => quranTextService.loadSurah(id)));
+        const [layout, ...texts] = await Promise.all([
+          loadMushaf15Page(page),
+          ...ids.map((id) => quranTextService.loadSurah(id)),
+        ]);
 
         const segments: MushafSegment[] = [];
         for (const text of texts) {
@@ -112,6 +118,7 @@ export class QuranPageService {
           juz,
           hizb: hizbForPage(page),
           segments,
+          layout,
         };
         pageCache.set(page, result);
         return result;

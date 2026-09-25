@@ -388,6 +388,7 @@ function MushafReader() {
             page={pageNumber}
             onChange={(p) => update({ page: clampPage(p) })}
             onAyahTap={(surah, ayah) => setSheet({ surah, ayah })}
+            selectedKey={sheet ? `${sheet.surah}:${sheet.ayah.n}` : undefined}
           />
         )}
         {isSurahMode && (
@@ -876,12 +877,19 @@ function MushafPagesMode({
   page,
   onChange,
   onAyahTap,
+  selectedKey,
 }: {
   page: number;
   onChange: (page: number) => void;
   onAyahTap: (surah: number, ayah: AyahText) => void;
+  selectedKey?: string;
 }) {
   const state = useMushafPage(page);
+  const { items: bookmarks } = useBookmarks();
+  const markedKeys = useMemo(
+    () => new Set(bookmarks.map((b) => `${b.surah}:${b.ayah}`)),
+    [bookmarks],
+  );
   const trackerRef = useRef(new PageDwellTracker());
 
   // الصفحة المقروءة: الانتقال إلى التالية بعد مكوث كافٍ، أو المكوث على الأخيرة.
@@ -921,8 +929,8 @@ function MushafPagesMode({
   }, [page]);
 
   return (
-    <section className="mt-3 px-3" aria-label="وضع المصحف">
-      {/* Printed page surface — full screen, never scrolls, never clipped */}
+    <section className="mt-3 px-2" aria-label="وضع المصحف">
+      {/* سطح الصفحة المطبوعة: ١٥ سطراً بعرض الشاشة */}
       <div
         className="relative select-none overflow-hidden rounded-[26px] border border-border/60 bg-card/85 shadow-elegant backdrop-blur-2xl"
         style={{ touchAction: "pan-y pinch-zoom" }}
@@ -955,7 +963,7 @@ function MushafPagesMode({
         <div className="pointer-events-none absolute inset-2.5 rounded-[20px] border border-gold/25" />
 
         <div
-          className="relative h-[calc(100dvh-172px)] min-h-[420px] overflow-hidden px-5 pt-4 pb-3"
+          className="relative px-4 pt-4 pb-3"
           dir="rtl"
           style={{
             transform: `translateX(${drag}px)`,
@@ -967,6 +975,8 @@ function MushafPagesMode({
             state={state}
             onRetry={state.retry}
             onAyahTap={onAyahTap}
+            selectedKey={selectedKey}
+            markedKeys={markedKeys}
           />
         </div>
       </div>
