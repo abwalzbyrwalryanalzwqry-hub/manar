@@ -33,9 +33,21 @@ export default tseslint.config(
           ],
         },
       ],
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      "react-refresh/only-export-components": [
+        "warn",
+        {
+          allowConstantExport: true,
+          // خطّافات ودوال مساعدة تُصدَّر عمداً بجانب المزوّد/المكوّن.
+          allowExportNames: ["useAuth", "requestNotificationPermission", "icons", "prayerIcon"],
+        },
+      ],
       "@typescript-eslint/no-unused-vars": "off",
     },
+  },
+  {
+    // مكوّنات shadcn/ui المولّدة تصدّر متغيّرات الأنماط (buttonVariants…) بجانب المكوّن.
+    files: ["src/components/ui/**/*.{ts,tsx}"],
+    rules: { "react-refresh/only-export-components": "off" },
   },
   eslintPluginPrettier,
 );

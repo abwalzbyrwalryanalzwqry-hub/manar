@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
 const KEY = "manar.quran.reader.v1";
+/** يُطلَق بعد كل حفظ، وتُطلقه المزامنة السحابية بعد الاستعادة. */
+export const READER_STATE_EVENT = "manar:reader-state";
 
 export type ReaderMode = "surah" | "mushaf";
 
@@ -40,19 +42,27 @@ export function useReaderState() {
   const [state, setState] = useState<ReaderState>(DEFAULT);
 
   useEffect(() => {
-    setState(readReaderState());
+    const sync = () => setState(readReaderState());
+    sync();
+    window.addEventListener(READER_STATE_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(READER_STATE_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
   }, []);
 
   const update = useCallback((patch: Partial<ReaderState>) => {
-    setState((prev) => {
-      const next = { ...prev, ...patch, updatedAt: Date.now() };
-      try {
-        window.localStorage.setItem(KEY, JSON.stringify(next));
-      } catch {
-        /* ignore quota / privacy errors */
-      }
-      return next;
-    });
+    // نبني الحالة من المخزَّن (مصدر الحقيقة) ونحفظها قبل إطلاق الحدث، فلا
+    // يقرأ أي مستمع قيمة قديمة.
+    const next = { ...readReaderState(), ...patch, updatedAt: Date.now() };
+    try {
+      window.localStorage.setItem(KEY, JSON.stringify(next));
+    } catch {
+      /* ignore quota / privacy errors */
+    }
+    setState(next);
+    window.dispatchEvent(new Event(READER_STATE_EVENT));
   }, []);
 
   return [state, update] as const;
