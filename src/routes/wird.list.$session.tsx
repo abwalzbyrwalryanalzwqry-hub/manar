@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { useAnnouncer } from "@/components/manar/live-announcer";
+import { counterAnnouncement } from "@/lib/azkar/a11y";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Icon, icons, Screen, ScreenHeader } from "@/components/manar/shell";
@@ -59,10 +61,12 @@ function WirdListPage() {
     );
   }
 
+  const { announce, node: liveRegion } = useAnnouncer();
   const onTap = (order: number, repeat: number, name: string) => {
     const now = Math.min(repeat, progress.counts[order] ?? 0);
     if (now >= repeat) return;
     haptic(prefs, hapticFor(now, repeat));
+    announce(`${name}: ${counterAnnouncement(now, repeat)}`);
     increment(order, repeat);
     setCurrent(order);
     if (now + 1 >= repeat)
@@ -71,6 +75,7 @@ function WirdListPage() {
 
   return (
     <Screen>
+      {liveRegion}
       <ScreenHeader
         title={`${wird.title} — بالتفصيل`}
         subtitle="كل ذكر بترتيبه وعدد تكراره"
