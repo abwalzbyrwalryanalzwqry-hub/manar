@@ -341,7 +341,8 @@ export const DEFAULT_REMINDERS: DailyReminder[] = [
   {
     id: "azkar-morning",
     name: "أذكار الصباح",
-    enabled: true,
+    /* مطفأ افتراضيًا: «ورد الصباح» (الفجر + ٢٠) يغني عنه، فلا يصل تذكيران متتاليان. */
+    enabled: false,
     timing: { mode: "prayer", prayer: "fajr", offset: 45 },
     tone: "azkar-morning",
     days: [...ALL_DAYS],
