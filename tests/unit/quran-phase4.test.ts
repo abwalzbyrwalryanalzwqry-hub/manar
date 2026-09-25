@@ -10,8 +10,10 @@ import { markPagesRead, readHistory, recordRead } from "@/lib/quran/reading-hist
 
 const DATA = fileURLToPath(new URL("../../public/data/quran/uthmani/", import.meta.url));
 
-function okResponse(id: number) {
-  const body = readFileSync(`${DATA}${id}.json`, "utf8");
+const LAYOUT = fileURLToPath(new URL("../../public/data/quran/mushaf15/", import.meta.url));
+
+function okResponse(id: number, dir = DATA) {
+  const body = readFileSync(`${dir}${id}.json`, "utf8");
   return { ok: true, status: 200, json: async () => JSON.parse(body) } as unknown as Response;
 }
 
@@ -26,7 +28,7 @@ describe("خدمة الصفحات: الفشل لا يُحفظ", () => {
       vi.fn(async (url: string) => {
         if (fail) throw new TypeError("network down");
         const id = Number(/(\d+)\.json$/.exec(url)?.[1]);
-        return okResponse(id);
+        return okResponse(id, url.includes("/mushaf15/") ? LAYOUT : DATA);
       }),
     );
 
