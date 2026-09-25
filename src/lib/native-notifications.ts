@@ -49,7 +49,21 @@ import {
   SCHEDULE_DAYS_AHEAD,
   type ManarAlarmEvent,
 } from "@/lib/prayer-schedule";
-import { REMINDER_TONES, readReminders, reminderTimeOn, toneUrl } from "@/lib/daily-reminders";
+import {
+  REMINDER_TONES,
+  SNOOZE_MINUTES,
+  planDailyReminders,
+  readReminders,
+  reminderActionFromTap,
+  toneUrl,
+  type DailyReminder,
+  type ReminderRoute,
+} from "@/lib/daily-reminders";
+import { dayKey, readLog } from "@/lib/activity-log";
+import { getIqamahSound } from "@/lib/iqamah-library";
+import { resolveIqamaForPrayer } from "@/lib/adhan-settings";
+import { prayerLabelOn } from "@/lib/prayer-schedule";
+import type { PrayerKey } from "@/lib/prayer";
 import { PRAYER_APPROACH_CLIPS, approachClipFor } from "@/lib/prayer-approach-audio";
 
 type LocalNotificationsPlugin = {
@@ -350,6 +364,10 @@ export async function attachAudioStateListener(
 /* مدى معرّفات تذكيرات الأذكار والوِرد — منفصل تماماً عن مدى تنبيهات الصلاة
  * أعلاه، فلا يُلغي أحدهما جدولة الآخر عند إعادة المزامنة. */
 const DAILY_ID_BASE = ID_BASE + 100000;
+/* «ذكّرني لاحقاً» والتنبيه التجريبي: خارج مدى الإلغاء في كل مزامنة، وإلا
+ * ألغت المزامنةُ (التي تجري فور عودة التطبيق) التذكيرَ المؤجَّل نفسه. */
+const SNOOZE_ID_BASE = DAILY_ID_BASE + 100000;
+const TEST_ID = SNOOZE_ID_BASE + 99;
 
 function dailyIdFor(dayIndex: number, reminderIndex: number) {
   return DAILY_ID_BASE + dayIndex * 100 + reminderIndex;
@@ -592,6 +610,7 @@ function azkarWirdFallbackChannel(level: NotificationLevel): string {
 }
 
 let actionsRegistered = false;
+const DAILY_REMINDER_ACTIONS = "DAILY_REMINDER";
 
 async function registerActions(p: LocalNotificationsPlugin) {
   if (actionsRegistered) return;
@@ -602,6 +621,12 @@ async function registerActions(p: LocalNotificationsPlugin) {
         {
           id: "STOP_ADHAN",
           actions: [{ id: "stop", title: "إيقاف الأذان", destructive: true }],
+        },
+        {
+          id: DAILY_REMINDER_ACTIONS,
+          actions: [
+            { id: "snooze", title: `ذكّرني بعد ${toArabicDigitsLocal(SNOOZE_MINUTES)} دقائق` },
+          ],
         },
       ],
     });
@@ -712,37 +737,18 @@ async function syncNativePrayerScheduleNow(
   /* ---------- تذكيرات الأذكار والوِرد ---------- */
 
   const daily = readReminders();
-  if (daily.enabled) {
-    const active = daily.items.filter((r) => r.enabled);
-    for (let d = 0; d < DAYS_AHEAD; d++) {
-      const date = new Date();
-      date.setHours(12, 0, 0, 0);
-      date.setDate(date.getDate() + d);
-      const times = computePrayerTimes(location, calc, date);
-
-      active.forEach((r, ri) => {
-        const at = reminderTimeOn(r, date, (p) => times[p]);
-        if (!at || at.getTime() <= now) return;
-        const url = s.silentMode || !s.soundEnabled || level === 0 ? "" : toneUrl(r.tone);
-        reminders.push({
-          id: dailyIdFor(d, ri),
-          title: r.name,
-          body: r.body,
-          schedule: { at, allowWhileIdle: true },
-          smallIcon: "ic_stat_manar",
-          /* قناة الصوت المختار من فهرس الأذكار والوِرد. كانت كل التذكيرات تمرّ
-           * بقناة `manar_reminders` (صوت التكبير) فيضيع اختيار المستخدم على
-           * أندرويد ٨+، حيث القناة لا الإشعار هي من تُحدّد الصوت. */
-          channelId: url
-            ? channelOr(azkarWirdChannelFor(url, level), azkarWirdFallbackChannel(level))
-            : "manar_silent",
-          /* الصوت يُمرَّر باسم المورد الأصلي؛ نغمات التذكير القصيرة (٢–٦ ثوانٍ)
-           * تصلح لإشعار عادي، بخلاف الأذان الذي يحتاج خدمةً أمامية. */
-          sound: url ? leveledRaw(rawResourceName(url), level) : undefined,
-          extra: { kind: "daily-reminder", reminder: r.id, route: r.route },
-        });
-      });
-    }
+  /* تذكير اليوم يُتخطّى إن أُنجز عمله قبل موعده (سجل النشاط اليومي). */
+  const wirdDoneToday = readLog().days[dayKey(new Date(now))]?.wird ?? [];
+  const planned = planDailyReminders(daily, {
+    now,
+    days: DAYS_AHEAD,
+    timesFor: (date) => computePrayerTimes(location, calc, date),
+    wirdDoneToday,
+  });
+  const dailyUrl = (r: DailyReminder) =>
+    s.silentMode || !s.soundEnabled || level === 0 ? "" : toneUrl(r.tone);
+  for (const { reminder: r, index, dayIndex, at } of planned) {
+    reminders.push(dailyNotification(r, dailyIdFor(dayIndex, index), at, dailyUrl(r), level));
   }
 
   let scheduled = 0;
@@ -789,6 +795,162 @@ async function syncNativePrayerScheduleNow(
   return scheduled;
 }
 
+/** إشعار تذكير أذكار/وِرد واحد كما يُسلَّم لـ`LocalNotifications`. */
+function dailyNotification(
+  r: DailyReminder,
+  id: number,
+  at: Date,
+  url: string,
+  level: NotificationLevel,
+) {
+  return {
+    id,
+    title: r.name,
+    body: r.body,
+    schedule: { at, allowWhileIdle: true },
+    smallIcon: "ic_stat_manar",
+    /* قناة الصوت المختار من فهرس الأذكار والوِرد. كانت كل التذكيرات تمرّ
+     * بقناة `manar_reminders` (صوت التكبير) فيضيع اختيار المستخدم على
+     * أندرويد ٨+، حيث القناة لا الإشعار هي من تُحدّد الصوت. */
+    channelId: url
+      ? channelOr(azkarWirdChannelFor(url, level), azkarWirdFallbackChannel(level))
+      : "manar_silent",
+    /* الصوت يُمرَّر باسم المورد الأصلي؛ نغمات التذكير القصيرة (٢–٦ ثوانٍ)
+     * تصلح لإشعار عادي، بخلاف الأذان الذي يحتاج خدمةً أمامية. */
+    sound: url ? leveledRaw(rawResourceName(url), level) : undefined,
+    /* زرّ «ذكّرني لاحقاً» داخل الإشعار. */
+    actionTypeId: DAILY_REMINDER_ACTIONS,
+    extra: { kind: "daily-reminder", reminder: r.id, route: r.route },
+  };
+}
+
+/** نفس الصوت والقناة التي سيصل بها التذكير فعلاً. */
+async function dailyDelivery(r: DailyReminder) {
+  const s = getAdhanSettings();
+  const level = notificationLevel(s);
+  const p = plugin();
+  if (p) {
+    await registerActions(p);
+    await ensureSoundChannels(p, level);
+  }
+  const url = s.silentMode || !s.soundEnabled || level === 0 ? "" : toneUrl(r.tone);
+  return { p, url, level };
+}
+
+/** «ذكّرني لاحقاً»: التذكير نفسه بعد عشر دقائق. */
+export async function snoozeDailyReminder(reminderId: string): Promise<boolean> {
+  const r = readReminders().items.find((i) => i.id === reminderId);
+  if (!r) return false;
+  const { p, url, level } = await dailyDelivery(r);
+  if (!p) return false;
+  const idx = readReminders().items.findIndex((i) => i.id === reminderId);
+  try {
+    await p.schedule({
+      notifications: [
+        dailyNotification(
+          r,
+          SNOOZE_ID_BASE + Math.max(0, idx % 90),
+          new Date(Date.now() + SNOOZE_MINUTES * 60_000),
+          url,
+          level,
+        ),
+      ],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * «تجربة التنبيه الآن» لتذكير أذكار/وِرد: إشعار حقيقي بعد ثانيتين بالصوت
+ * والقناة الفعليين. `false` خارج أندرويد أو دون إذن الإشعارات.
+ */
+export async function testDailyReminderNow(r: DailyReminder): Promise<boolean> {
+  if (!isNativeShell() || !(await ensureNativePermission())) return false;
+  const { p, url, level } = await dailyDelivery(r);
+  if (!p) return false;
+  try {
+    await p.schedule({
+      notifications: [dailyNotification(r, TEST_ID, new Date(Date.now() + 2000), url, level)],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * «تجربة التنبيه الآن» للإقامة: التسجيل الفعلي لهذه الصلاة عبر خدمة الأذان
+ * الأصلية نفسها (قناة الإقامة ومستوى صوتها)، أو إشعار صامت إن كان صوتها مطفأً.
+ */
+export async function testIqamaNow(prayer: PrayerKey): Promise<boolean> {
+  if (!isNativeShell()) return false;
+  const s = getAdhanSettings();
+  const label = prayerLabelOn(prayer, new Date());
+  const title = `إقامة ${label} — تجربة`;
+  const body = "هكذا يصل تنبيه الإقامة";
+  const sound = getIqamahSound(resolveIqamaForPrayer(s, prayer));
+  const soundOn = s.soundEnabled && !s.silentMode && s.iqamaSoundEnabled && !!sound;
+  const adhan = adhanPlugin();
+  if (soundOn && adhan && sound) {
+    try {
+      await adhan.preview({
+        sound: rawResourceName(sound.url),
+        title,
+        body,
+        volume: effectiveVolume(s, "iqama"),
+        usage: "alarm",
+      });
+      return true;
+    } catch {
+      /* نسخة أصلية أقدم: إشعار صامت أدناه */
+    }
+  }
+  const p = plugin();
+  if (!p || !(await ensureNativePermission())) return false;
+  try {
+    await p.schedule({
+      notifications: [
+        {
+          id: TEST_ID,
+          title,
+          body,
+          schedule: { at: new Date(Date.now() + 2000), allowWhileIdle: true },
+          smallIcon: "ic_stat_manar",
+          channelId: "manar_iqama",
+        },
+      ],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/* النقر على تذكير أذكار/وِرد يفتح صفحته، وزرّ «ذكّرني لاحقاً» يؤجّله. مستمع
+ * واحد طوال عمر التطبيق؛ وحدث النقر الذي فتح التطبيق من الإغلاق تحتفظ به
+ * الإضافة الأصلية حتى يُسجَّل المستمع فيُسلَّم له. لا يمسّ بقية التنبيهات. */
+let reminderTapAttached = false;
+let reminderTapHandler: ((route: ReminderRoute) => void) | null = null;
+
+export async function attachReminderTapListener(onOpen: (route: ReminderRoute) => void) {
+  reminderTapHandler = onOpen;
+  const p = plugin();
+  if (!p || reminderTapAttached) return;
+  reminderTapAttached = true;
+  try {
+    await p.addListener("localNotificationActionPerformed", (e) => {
+      const action = reminderActionFromTap(e);
+      if (!action) return;
+      if (action.type === "open") reminderTapHandler?.(action.route);
+      else void snoozeDailyReminder(action.reminder);
+    });
+  } catch {
+    reminderTapAttached = false;
+  }
+}
+
 /** Cancels every native alarm and notification Manar owns. */
 export async function cancelNativeSchedule(): Promise<void> {
   const adhan = adhanPlugin();
@@ -804,7 +966,7 @@ export async function cancelNativeSchedule(): Promise<void> {
   try {
     const pending = await p.getPending();
     const ours = pending.notifications.filter(
-      (n) => n.id >= ID_BASE && n.id < DAILY_ID_BASE + 100000,
+      (n) => n.id >= ID_BASE && n.id < SNOOZE_ID_BASE + 100,
     );
     if (ours.length) await p.cancel({ notifications: ours.map((n) => ({ id: n.id })) });
   } catch {

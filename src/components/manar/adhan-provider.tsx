@@ -31,6 +31,7 @@ import {
 import { approachClipFor } from "@/lib/prayer-approach-audio";
 import { buildPrayerAlarms, type ManarAlarmEvent } from "@/lib/prayer-schedule";
 import { play as enginePlay } from "@/lib/audio-engine";
+import { dayKey as logDayKey, readLog } from "@/lib/activity-log";
 
 type FiredKey = string;
 
@@ -208,6 +209,17 @@ export function AdhanProvider() {
     };
     window.addEventListener("manar:daily-reminders", onSoundSettings);
     window.addEventListener("manar:adhan-settings", onSoundSettings);
+    /* إنجاز الوِرد يُلغي تذكير اليوم نفسه إن لم يحن بعد (تخطّي ما أُنجز).
+     * السجل يتغيّر مع كل نقرة ذكر، فلا نعيد الجدولة إلا إن تغيّرت جلسات الوِرد. */
+    const wirdToday = () => (readLog().days[logDayKey()]?.wird ?? []).slice().sort().join(",");
+    let lastWird = wirdToday();
+    const onActivity = () => {
+      const w = wirdToday();
+      if (w === lastWird) return;
+      lastWird = w;
+      onSoundSettings();
+    };
+    window.addEventListener("manar:activity", onActivity);
 
     /* تغيّر اليوم أو المنطقة الزمنية والتطبيق مفتوح: نافذة الأيام السبعة تتقدّم
      * يوماً، والأوقات المطلقة تُعاد حسابها. فحصٌ خفيف كل دقيقة لا يُنشئ منبّهاً. */
@@ -227,6 +239,7 @@ export function AdhanProvider() {
       document.removeEventListener("visibilitychange", onResume);
       window.removeEventListener("manar:daily-reminders", onSoundSettings);
       window.removeEventListener("manar:adhan-settings", onSoundSettings);
+      window.removeEventListener("manar:activity", onActivity);
       window.clearInterval(watch);
       clearTimeout(pending);
     };

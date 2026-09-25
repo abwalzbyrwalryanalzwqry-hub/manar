@@ -137,11 +137,59 @@ export type BuildOptions = {
   days?: number;
 };
 
-/** وقت الإقامة لصلاةٍ في يومٍ معيّن، أو null إن كانت الإقامة بلا فاصل. */
+/** صلاة الظهر يوم الجمعة (بالتوقيت المحلي لليوم نفسه) هي صلاة الجمعة. */
+export function isJumuah(prayer: PrayerKey, day: Date): boolean {
+  return prayer === "dhuhr" && day.getDay() === 5;
+}
+
+/** اسم الصلاة كما يظهر في الإشعار والواجهة — «الجمعة» بدل «الظهر» يوم الجمعة. */
+export function prayerLabelOn(prayer: PrayerKey, day: Date): string {
+  return isJumuah(prayer, day) ? "الجمعة" : PRAYER_LABELS[prayer].ar;
+}
+
+/**
+ * فاصل الإقامة بالدقائق لصلاةٍ في يومٍ معيّن، أو null إن لم تكن لها إقامة
+ * (الشروق، أو فاصل صفر، أو إقامة الجمعة مطفأة).
+ */
+export function iqamahOffsetFor(s: AdhanSettings, prayer: PrayerKey, day: Date): number | null {
+  if (prayer === "sunrise") return null;
+  if (isJumuah(prayer, day)) {
+    if (!s.jumuahIqamaEnabled) return null;
+    const j = Math.round(Number(s.jumuahIqamaOffset));
+    return Number.isFinite(j) && j > 0 ? j : null;
+  }
+  const offset = Math.round(Number(s.iqamaOffsets[prayer] ?? 0));
+  return Number.isFinite(offset) && offset > 0 ? offset : null;
+}
+
+/** وقت الإقامة لصلاةٍ في يومٍ معيّن، أو null إن لم تكن لها إقامة. اليوم يُؤخذ من وقت الأذان نفسه. */
 export function iqamahTimeFor(s: AdhanSettings, prayer: PrayerKey, adhanAt: Date): Date | null {
-  const offset = Math.round(s.iqamaOffsets[prayer] ?? 0);
-  if (prayer === "sunrise" || offset <= 0) return null;
+  const offset = iqamahOffsetFor(s, prayer, adhanAt);
+  if (offset === null || !Number.isFinite(adhanAt.getTime())) return null;
   return new Date(adhanAt.getTime() + offset * 60_000);
+}
+
+/**
+ * الصلوات التي لن يصلها «تنبيه قبل الإقامة» لأن مدّته تساوي فاصلها أو تزيد عليه
+ * (التنبيه يجب أن يقع بين الأذان والإقامة). تعرضها الواجهة حتى لا يُلغى التنبيه
+ * دون علم المستخدم. `day` يحدّد هل تُحسب الجمعة بفاصلها الخاص.
+ */
+export function iqamahReminderSkipped(
+  s: AdhanSettings,
+  day: Date = new Date(),
+): { prayer: PrayerKey; label: string; offset: number }[] {
+  if (!s.iqamaReminderEnabled) return [];
+  const m = Math.round(s.iqamaReminderMinutes);
+  const out: { prayer: PrayerKey; label: string; offset: number }[] = [];
+  for (const prayer of PRAYER_ORDER) {
+    if (prayer === "sunrise") continue;
+    if (s.perPrayer[prayer]?.iqama === false) continue;
+    const offset = iqamahOffsetFor(s, prayer, day);
+    if (offset !== null && m >= offset) {
+      out.push({ prayer, label: prayerLabelOn(prayer, day), offset });
+    }
+  }
+  return out;
 }
 
 export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
@@ -166,6 +214,8 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
       if (prayer === "sunrise") continue;
       const per = s.perPrayer[prayer] ?? { adhan: true, reminder: true, iqama: true };
       const label = PRAYER_LABELS[prayer].ar;
+      /* يوم الجمعة: الإقامة وتنبيهها باسم «الجمعة» وبفاصلها الخاص. */
+      const iqamaLabel = prayerLabelOn(prayer, day);
       const adhanAt = times[prayer];
       const base = (role: AlarmRole) => ({
         id: eventId(prayer, role, day),
@@ -214,7 +264,7 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
       /* ---------------- الإقامة وتنبيهها ---------------- */
       const iqamaAt = per.iqama ? iqamahTimeFor(s, prayer, adhanAt) : null;
       if (!iqamaAt) continue;
-      const offset = Math.round(s.iqamaOffsets[prayer]);
+      const offset = Math.round((iqamaAt.getTime() - adhanAt.getTime()) / 60_000);
 
       if (s.iqamaReminderEnabled) {
         const m = Math.round(s.iqamaReminderMinutes);
@@ -224,7 +274,7 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
             ...base("iqamah_reminder"),
             at: iqamaAt.getTime() - m * 60_000,
             sound: "",
-            title: `اقتربت إقامة ${label}`,
+            title: `اقتربت إقامة ${iqamaLabel}`,
             body: `تبقى ${minutesAr(m)} على إقامة الصلاة · ${hhmm(iqamaAt)}`,
             kind: "notice",
             channel: "iqama",
@@ -238,7 +288,7 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
           ...base("iqamah"),
           at: iqamaAt.getTime(),
           sound: soundOn && s.iqamaSoundEnabled && sound ? rawResourceName(sound.url) : "",
-          title: `إقامة ${label}`,
+          title: `إقامة ${iqamaLabel}`,
           body: "حان موعد إقامة الصلاة الآن",
           kind: "iqama",
         });

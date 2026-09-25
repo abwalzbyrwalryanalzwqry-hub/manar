@@ -34,6 +34,8 @@ export type IqamahSound = {
   durationSec: number;
   format: "ogg" | "m4a";
   bytes: number;
+  /** اسم المؤذن أو المسجد إن كان موثّقاً — يظهر في الاسم بدل رقم الصوت. */
+  reciter?: string;
 };
 
 export const IQAMAH_IDS = [
@@ -64,13 +66,17 @@ export const DEFAULT_IQAMAH: IqamahId = "iqamah_01";
 
 const AR = (n: number | string) => String(n).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
 
-const full = (n: number, durationSec: number, bytes: number): IqamahSound => {
+/* الإقامات الكاملة السبع لا يوثّق المستودع اسم مؤذنها ولا مسجدها (الحزمة وصلت
+ * بلا بيانات وصفية)، فتبقى بأرقامها. متى عُرف الاسم يُمرَّر `reciter` فيظهر في
+ * الواجهة بدل الرقم، ويظهر في الوصف مع المدّة. */
+const full = (n: number, durationSec: number, bytes: number, reciter?: string): IqamahSound => {
   const id = `iqamah_0${n}` as IqamahId;
   return {
     id,
     url: `${DIR}/${id}.ogg`,
-    name: `إقامة الصلاة — الصوت ${AR(n)}`,
-    hint: "إقامة كاملة",
+    name: reciter ? `إقامة الصلاة — ${reciter}` : `إقامة الصلاة — الصوت ${AR(n)}`,
+    hint: reciter ? `إقامة كاملة · ${reciter}` : "إقامة كاملة",
+    ...(reciter ? { reciter } : {}),
     group: "full",
     durationSec,
     format: "ogg",
