@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAnnouncer } from "@/components/manar/live-announcer";
+import { counterAnnouncement } from "@/lib/azkar/a11y";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Arabesque, Icon, icons, Screen, Skeleton } from "@/components/manar/shell";
 import { WirdProgressBar } from "@/components/manar/wird-progress";
@@ -86,6 +88,7 @@ function WirdSessionPage() {
     [],
   );
 
+  const { announce, node: liveRegion } = useAnnouncer();
   const onTap = useCallback(() => {
     if (!item) return;
     if (count >= item.repeat) {
@@ -93,6 +96,7 @@ function WirdSessionPage() {
       return;
     }
     haptic(prefs, hapticFor(count, item.repeat));
+    announce(counterAnnouncement(count, item.repeat));
     increment(item.order, item.repeat);
     setPulse((p) => p + 1);
     /* الإكمال يُحسب في وحدة التقدّم من اكتمال كل الأذكار، لا من آخرها. */
@@ -106,7 +110,7 @@ function WirdSessionPage() {
         if (at >= 0 && at + 1 < items.length) setIndex(at + 1);
       }, 320);
     }
-  }, [item, count, prefs, increment, index, items, goto]);
+  }, [item, count, prefs, announce, increment, index, items, goto]);
 
   /** الضغط على نص الذكر يعدّ (إن فُعّل)، إلا على الأزرار أو أثناء تحديد نص. */
   const onTextTap = (e: React.MouseEvent) => {
@@ -234,10 +238,11 @@ function WirdSessionPage() {
         <div className="px-5 pb-8 pt-6">
           {item && (
             <div className="flex flex-col items-center">
+              {liveRegion}
               <button
                 onClick={onTap}
                 className="relative flex h-40 w-40 items-center justify-center rounded-full border border-white/20 bg-gradient-to-br from-primary/25 via-card/70 to-gold/20 shadow-elegant backdrop-blur-2xl transition active:scale-95"
-                aria-label="زيادة العدّاد"
+                aria-label={`زيادة العدّاد، ${toArabicDigits(count)} من ${toArabicDigits(item.repeat)}`}
               >
                 <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
                   <circle

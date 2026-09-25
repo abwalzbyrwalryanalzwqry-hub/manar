@@ -1,4 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useAnnouncer } from "@/components/manar/live-announcer";
+import { counterAnnouncement } from "@/lib/azkar/a11y";
 import { DataError } from "@/components/manar/data-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Arabesque, Icon, icons, Screen, ScreenHeader, Skeleton } from "@/components/manar/shell";
@@ -169,10 +171,12 @@ function AzkarSession() {
     [],
   );
 
+  const { announce, node: liveRegion } = useAnnouncer();
   const onTap = useCallback(() => {
     if (!current || advancing.current) return;
     const next = Math.min(current.repeat, count + 1);
     haptic(prefs, hapticFor(count, current.repeat, current.segments));
+    announce(counterAnnouncement(count, current.repeat, current.segments));
     tap(progressKey(current.id, activeTime), current.repeat);
     flashSaved();
     setPulse(true);
@@ -192,7 +196,7 @@ function AzkarSession() {
         else finish();
       }, 900);
     }
-  }, [current, count, prefs, tap, activeTime, flashSaved, azkar, finish]);
+  }, [current, count, prefs, announce, tap, activeTime, flashSaved, azkar, finish]);
 
   /** الضغط على نص الذكر يعدّ (إن فُعّل)، إلا على الأزرار والحواشي أو أثناء تحديد نص. */
   const onTextTap = (e: React.MouseEvent) => {
@@ -533,6 +537,7 @@ function AzkarSession() {
 
             {/* counter */}
             <div className="relative mt-5 flex flex-col items-center">
+              {liveRegion}
               <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
                 التكرار
               </span>

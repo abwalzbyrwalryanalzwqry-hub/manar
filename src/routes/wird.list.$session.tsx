@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { useAnnouncer } from "@/components/manar/live-announcer";
+import { counterAnnouncement } from "@/lib/azkar/a11y";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Icon, icons, Screen, ScreenHeader } from "@/components/manar/shell";
@@ -35,6 +37,7 @@ function WirdListPage() {
   const key = wird?.key ?? "morning";
   const items = useMemo(() => wird?.items ?? [], [wird]);
   const { prefs } = useAzkarPrefs();
+  const { announce, node: liveRegion } = useAnnouncer();
   const { progress, hydrated, increment, setCurrent, resetItem } = useWirdSessionProgress(
     key,
     items,
@@ -63,6 +66,7 @@ function WirdListPage() {
     const now = Math.min(repeat, progress.counts[order] ?? 0);
     if (now >= repeat) return;
     haptic(prefs, hapticFor(now, repeat));
+    announce(`${name}: ${counterAnnouncement(now, repeat)}`);
     increment(order, repeat);
     setCurrent(order);
     if (now + 1 >= repeat)
@@ -71,6 +75,7 @@ function WirdListPage() {
 
   return (
     <Screen>
+      {liveRegion}
       <ScreenHeader
         title={`${wird.title} — بالتفصيل`}
         subtitle="كل ذكر بترتيبه وعدد تكراره"

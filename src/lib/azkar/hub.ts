@@ -98,3 +98,35 @@ export function bookmarkEntries(
     .map((id) => index.get(id))
     .filter((e): e is BookmarkEntry => !!e);
 }
+
+/**
+ * عدد الأذكار المكتملة اليوم بلا تكرار. في الباب ٢٧ يُسجَّل الذكر مرتين
+ * (`76` صباحًا و`76:e` مساءً)، فيُحسب مرة واحدة حتى لا يتجاوز الشريط المجموع.
+ */
+export function uniqueCompletedCount(completed: readonly string[]): number {
+  return new Set(completed.map((k) => k.split(":")[0])).size;
+}
+
+/**
+ * مصدر «ذكر اليوم»: بابا الاستغفار والتوبة (١٢٩)، وفضل التسبيح والتحميد والتهليل
+ * والتكبير (١٣٠). أحاديثهما عامة لا ترتبط بوقت أو مناسبة، ونصوصها من الكتاب نفسه.
+ */
+export const DAILY_CHAPTERS = [129, 130] as const;
+
+/** رقم اليوم من تاريخ `YYYY-MM-DD` محلي، ليتغيّر الذكر عند منتصف الليل. */
+function dayNumber(day: string): number {
+  const [y, m, d] = day.split("-").map(Number);
+  return Math.floor(Date.UTC(y, (m || 1) - 1, d || 1) / 86_400_000);
+}
+
+/** ذكر اليوم: واحد ثابت طوال اليوم يتبدّل يوميًا بالدور على أذكار المصدر. */
+export function zikrOfTheDay(book: Pick<AzkarBook, "chapters">, day: string): BookmarkEntry | null {
+  const pool: BookmarkEntry[] = [];
+  for (const id of DAILY_CHAPTERS) {
+    const chapter = book.chapters.find((c) => c.id === id);
+    for (const zikr of chapter?.azkar ?? []) pool.push({ zikr, chapter: chapter! });
+  }
+  if (!pool.length) return null;
+  const i = ((dayNumber(day) % pool.length) + pool.length) % pool.length;
+  return pool[i];
+}

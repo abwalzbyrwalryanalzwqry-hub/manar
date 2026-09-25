@@ -1,6 +1,15 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { bookmarkEntries, chapterProgress, QUICK_LINKS, resumeTarget } from "@/lib/azkar/hub";
+import {
+  bookmarkEntries,
+  chapterProgress,
+  DAILY_CHAPTERS,
+  QUICK_LINKS,
+  resumeTarget,
+  uniqueCompletedCount,
+  zikrOfTheDay,
+} from "@/lib/azkar/hub";
+import { counterAnnouncement } from "@/lib/azkar/a11y";
 import { normalizeArabic } from "@/lib/azkar/normalize";
 import { normalizeProgress } from "@/lib/azkar/progress";
 import type { AzkarBook } from "@/lib/azkar/types";
@@ -83,5 +92,64 @@ describe("المحفوظات", () => {
     const e = bookmarkEntries(book, [4, 99999, 106]);
     expect(e.map((x) => x.zikr.id)).toEqual([106, 4]);
     expect(e[0].chapter.id).toBe(28);
+  });
+});
+
+describe("عدّاد «ذكر اليوم»", () => {
+  it("ذكر الصباح والمساء نفسه يُحسب مرة واحدة", () => {
+    expect(uniqueCompletedCount(["76", "76:e", "77:e", "1"])).toBe(3);
+    expect(uniqueCompletedCount([])).toBe(0);
+  });
+
+  it("إتمام الصباح والمساء كاملين لا يتجاوز عدد أذكار الباب", () => {
+    const keys = [
+      ...azkarForTime(ch(27), "morning").map((z) => progressKey(z.id, "morning")),
+      ...azkarForTime(ch(27), "evening").map((z) => progressKey(z.id, "evening")),
+    ];
+    expect(uniqueCompletedCount(keys)).toBeLessThanOrEqual(ch(27).azkar.length);
+  });
+});
+
+describe("ذكر اليوم المتغيّر", () => {
+  it("ثابت طوال اليوم، ومن بابي الاستغفار وفضل الذكر", () => {
+    const a = zikrOfTheDay(book, "2026-09-26")!;
+    expect(zikrOfTheDay(book, "2026-09-26")!.zikr.id).toBe(a.zikr.id);
+    expect(DAILY_CHAPTERS).toContain(a.chapter.id as 129 | 130);
+  });
+
+  it("يتغيّر يوميًا ويمرّ على كل أذكار المصدر", () => {
+    const size = DAILY_CHAPTERS.reduce((n, id) => n + ch(id).azkar.length, 0);
+    const seen = new Set<number>();
+    for (let d = 1; d <= size; d++) {
+      const day = `2026-10-${String(d).padStart(2, "0")}`;
+      seen.add(zikrOfTheDay(book, day)!.zikr.id);
+    }
+    expect(seen.size).toBe(size);
+    expect(zikrOfTheDay(book, "2026-10-01")!.zikr.id).not.toBe(
+      zikrOfTheDay(book, "2026-10-02")!.zikr.id,
+    );
+    expect(zikrOfTheDay(book, "2026-12-31")!.zikr.id).not.toBe(
+      zikrOfTheDay(book, "2027-01-01")!.zikr.id,
+    );
+  });
+
+  it("لا شيء إن غاب المصدر", () => {
+    expect(zikrOfTheDay({ chapters: [] }, "2026-09-26")).toBeNull();
+  });
+});
+
+describe("إعلان العدّاد لقارئ الشاشة", () => {
+  it("العدد بعد الضغطة، ثم الإتمام", () => {
+    expect(counterAnnouncement(0, 3)).toBe("١ من ٣");
+    expect(counterAnnouncement(2, 3)).toBe("اكتمل الذكر، ٣ من ٣");
+    expect(counterAnnouncement(0, 1)).toBe("اكتمل الذكر، ١ من ١");
+  });
+
+  it("الذكر المركّب يُعلن المقطع ونهايته", () => {
+    const segs = [{ repeat: 33 }, { repeat: 33 }, { repeat: 34 }];
+    expect(counterAnnouncement(0, 100, segs)).toBe("١ من ٣٣، المقطع ١ من ٣");
+    expect(counterAnnouncement(32, 100, segs)).toBe("اكتمل المقطع ١ من ٣، الإجمالي ٣٣ من ١٠٠");
+    expect(counterAnnouncement(33, 100, segs)).toBe("١ من ٣٣، المقطع ٢ من ٣");
+    expect(counterAnnouncement(99, 100, segs)).toBe("اكتمل الذكر، ١٠٠ من ١٠٠");
   });
 });

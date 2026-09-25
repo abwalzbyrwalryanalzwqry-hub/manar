@@ -1,7 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAzkarBook } from "@/hooks/use-azkar";
 import { useMemo } from "react";
-import { chapterProgress, QUICK_LINKS, resumeTarget } from "@/lib/azkar/hub";
+import {
+  chapterProgress,
+  QUICK_LINKS,
+  resumeTarget,
+  uniqueCompletedCount,
+  zikrOfTheDay,
+} from "@/lib/azkar/hub";
+import { useDayKey } from "@/hooks/use-day-key";
 import { useAzkarProgress } from "@/lib/azkar/progress";
 import {
   Arabesque,
@@ -58,6 +65,9 @@ function AzkarHub() {
   const { book, loading } = useAzkarBook();
   const { progress } = useAzkarProgress();
   const total = book ? book.chapters.reduce((n, c) => n + c.azkar.length, 0) : 0;
+  const doneToday = uniqueCompletedCount(progress.completed);
+  const day = useDayKey();
+  const daily = useMemo(() => (book ? zikrOfTheDay(book, day) : null), [book, day]);
   const resume = useMemo(() => (book ? resumeTarget(book, progress) : null), [book, progress]);
   const quick = useMemo(
     () =>
@@ -106,12 +116,12 @@ function AzkarHub() {
               <div
                 className="gradient-gold h-full"
                 style={{
-                  width: `${Math.min(100, (progress.completed.length / (total || 1)) * 100)}%`,
+                  width: `${Math.min(100, (doneToday / (total || 1)) * 100)}%`,
                 }}
               />
             </div>
             <span className="text-[10px] tabular-nums text-white/70">
-              {toArabicDigits(progress.completed.length)} ذكر اليوم
+              {toArabicDigits(doneToday)} ذكر اليوم
             </span>
           </div>
         </div>
@@ -262,18 +272,26 @@ function AzkarHub() {
 
       <SectionLabel>ذكر اليوم</SectionLabel>
       <div className="px-5">
-        <div className="glass relative overflow-hidden rounded-3xl p-5">
-          <Arabesque className="pointer-events-none absolute -bottom-10 -left-10 h-36 w-36 text-primary/10" />
-          <p className="relative text-right font-display text-lg leading-loose">
-            «سبحان الله وبحمده، سبحان الله العظيم»
-          </p>
-          <p className="relative mt-3 text-[11px] text-muted-foreground">
-            كلمتان خفيفتان على اللسان، ثقيلتان في الميزان، حبيبتان إلى الرحمن.
-          </p>
-          <div className="relative mt-4 text-[10px] text-muted-foreground">
-            <span>صحيح البخاري · ٦٤٠٦</span>
-          </div>
-        </div>
+        {!daily && <Skeleton className="h-40 rounded-3xl" />}
+        {daily && (
+          <Link
+            to="/azkar/$chapter"
+            params={{ chapter: String(daily.chapter.id) }}
+            search={{ zikr: daily.zikr.id }}
+            className="glass relative block overflow-hidden rounded-3xl p-5 text-right transition hover:-translate-y-0.5 hover:shadow-elegant"
+          >
+            <Arabesque className="pointer-events-none absolute -bottom-10 -left-10 h-36 w-36 text-primary/10" />
+            <p className="relative line-clamp-6 font-display text-lg leading-loose">
+              {daily.zikr.text}
+            </p>
+            <div className="relative mt-4 flex items-center justify-between gap-3 text-[10px] text-muted-foreground">
+              <span className="min-w-0 truncate">
+                حصن المسلم · {daily.chapter.title} · الذكر {toArabicDigits(daily.zikr.id)}
+              </span>
+              <span className="shrink-0 text-primary">افتح الذكر</span>
+            </div>
+          </Link>
+        )}
       </div>
     </Screen>
   );
