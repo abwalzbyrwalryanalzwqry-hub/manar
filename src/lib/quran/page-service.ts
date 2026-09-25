@@ -81,40 +81,44 @@ export class QuranPageService {
     if (pending) return pending;
 
     const p = (async () => {
-      const ids = surahIdsOnPage(page);
-      const texts = await Promise.all(ids.map((id) => quranTextService.loadSurah(id)));
+      try {
+        const ids = surahIdsOnPage(page);
+        const texts = await Promise.all(ids.map((id) => quranTextService.loadSurah(id)));
 
-      const segments: MushafSegment[] = [];
-      for (const text of texts) {
-        const meta = SURAH_META[text.id - 1];
-        const ayahs = text.ayahs.filter((a) => a.p === page);
-        if (ayahs.length === 0) continue;
+        const segments: MushafSegment[] = [];
+        for (const text of texts) {
+          const meta = SURAH_META[text.id - 1];
+          const ayahs = text.ayahs.filter((a) => a.p === page);
+          if (ayahs.length === 0) continue;
 
-        const startsSurah = ayahs[0].n === 1;
-        let showBasmala = false;
-        // البسملة فُصلت عن الآية الأولى في خدمة النص.
-        if (startsSurah && hasBasmalaHeader(text.id)) showBasmala = true;
+          const startsSurah = ayahs[0].n === 1;
+          let showBasmala = false;
+          // البسملة فُصلت عن الآية الأولى في خدمة النص.
+          if (startsSurah && hasBasmalaHeader(text.id)) showBasmala = true;
 
-        segments.push({
-          surahId: text.id,
-          nameAr: meta.nameAr,
-          nameEn: meta.nameEn,
-          startsSurah,
-          showBasmala,
-          ayahs,
-        });
+          segments.push({
+            surahId: text.id,
+            nameAr: meta.nameAr,
+            nameEn: meta.nameEn,
+            startsSurah,
+            showBasmala,
+            ayahs,
+          });
+        }
+
+        const juz = segments[0]?.ayahs[0]?.j ?? 1;
+        const result: MushafPage = {
+          page,
+          juz,
+          hizb: hizbForPage(page),
+          segments,
+        };
+        pageCache.set(page, result);
+        return result;
+      } finally {
+        // يُحذف في كل الأحوال: الفشل لا يُحفظ، فتنجح إعادة المحاولة.
+        inflight.delete(page);
       }
-
-      const juz = segments[0]?.ayahs[0]?.j ?? 1;
-      const result: MushafPage = {
-        page,
-        juz,
-        hizb: hizbForPage(page),
-        segments,
-      };
-      pageCache.set(page, result);
-      inflight.delete(page);
-      return result;
     })();
 
     inflight.set(page, p);
