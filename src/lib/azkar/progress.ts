@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDayKey } from "@/hooks/use-day-key";
 import { dayKey, recordAzkarCount, syncAzkarChapters } from "@/lib/activity-log";
 import { azkarRepository } from "./repository";
-import type { AzkarBook } from "./types";
+import type { AzkarBook, ZikrTime } from "./types";
 import { azkarForTime, hasTimeVariants, progressKey } from "./variant";
 
 const KEY = "manar.azkar.progress.v1";
@@ -20,8 +20,8 @@ export interface AzkarProgress {
   completed: string[];
   /** bookmarked zikr ids */
   bookmarks: number[];
-  /** last opened chapter + zikr */
-  last: { chapter: number; zikr: number; at: number } | null;
+  /** آخر ذكر فُتح: الباب والذكر، ووقت الأذكار إن كان للباب صباح ومساء */
+  last: { chapter: number; zikr: number; at: number; time?: ZikrTime } | null;
   /** YYYY-MM-DD of the counters/completed day */
   day: string;
   /** timestamp of the last saved change */
@@ -87,11 +87,22 @@ export function normalizeProgress(raw: unknown, day = today()): AzkarProgress {
     counters,
     completed: Array.isArray(r.completed) ? [...new Set(r.completed.map(String))] : [],
     bookmarks: Array.isArray(r.bookmarks) ? r.bookmarks.filter((n) => typeof n === "number") : [],
-    last: r.last ?? null,
+    last: normalizeLast(r.last),
     day: typeof r.day === "string" ? r.day : day,
     updatedAt: typeof r.updatedAt === "number" ? r.updatedAt : null,
   };
   return rollDay(p, day);
+}
+
+function normalizeLast(raw: unknown): AzkarProgress["last"] {
+  const l = raw as Partial<NonNullable<AzkarProgress["last"]>> | null | undefined;
+  if (!l || typeof l.chapter !== "number" || typeof l.zikr !== "number") return null;
+  return {
+    chapter: l.chapter,
+    zikr: l.zikr,
+    at: typeof l.at === "number" ? l.at : 0,
+    ...(l.time === "morning" || l.time === "evening" ? { time: l.time } : {}),
+  };
 }
 
 /** عدّة ضغطة على ذكر (دالة نقية). */
@@ -189,12 +200,14 @@ export function useAzkarProgress() {
 
   /** Records the last opened zikr without touching the "progress saved" timestamp. */
   const setLast = useCallback(
-    (chapter: number, zikr: number) =>
+    (chapter: number, zikr: number, time?: ZikrTime | null) =>
       patch(
         (p) =>
-          p.last?.chapter === chapter && p.last?.zikr === zikr
+          p.last?.chapter === chapter &&
+          p.last?.zikr === zikr &&
+          p.last?.time === (time ?? undefined)
             ? p
-            : { ...p, last: { chapter, zikr, at: Date.now() } },
+            : { ...p, last: { chapter, zikr, at: Date.now(), ...(time ? { time } : {}) } },
         false,
       ),
     [patch],

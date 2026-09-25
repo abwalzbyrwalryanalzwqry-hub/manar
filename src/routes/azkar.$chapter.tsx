@@ -3,6 +3,8 @@ import { DataError } from "@/components/manar/data-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Arabesque, Icon, icons, Screen, ScreenHeader, Skeleton } from "@/components/manar/shell";
 import { useAzkarBook } from "@/hooks/use-azkar";
+import { AzkarDisplayPanel, DisplayToggleButton } from "@/components/manar/azkar-display-controls";
+import { haptic, hapticFor, isCountableTap, textSizePx, useAzkarPrefs } from "@/lib/azkar/prefs";
 import { useAzkarProgress } from "@/lib/azkar/progress";
 import type { Zikr, ZikrTime } from "@/lib/azkar/types";
 import {
@@ -70,6 +72,9 @@ function AzkarSession() {
   const [finished, setFinished] = useState(false);
   const [pulse, setPulse] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const { prefs, update: updatePrefs } = useAzkarPrefs();
+  const [showDisplay, setShowDisplay] = useState(false);
+  const fontPx = textSizePx(prefs);
   const [saved, setSaved] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const advancing = useRef(false);
@@ -114,8 +119,8 @@ function AzkarSession() {
   const doneCount = azkar.filter((z) => countOf(z) >= z.repeat).length;
 
   useEffect(() => {
-    if (chapter && current) setLast(chapter.id, current.id);
-  }, [chapter, current, setLast]);
+    if (chapter && current) setLast(chapter.id, current.id, activeTime);
+  }, [chapter, current, activeTime, setLast]);
 
   /** Reset vertical scroll when the active zikr changes. */
   useEffect(() => {
@@ -167,6 +172,7 @@ function AzkarSession() {
   const onTap = useCallback(() => {
     if (!current || advancing.current) return;
     const next = Math.min(current.repeat, count + 1);
+    haptic(prefs, hapticFor(count, current.repeat, current.segments));
     tap(progressKey(current.id, activeTime), current.repeat);
     flashSaved();
     setPulse(true);
@@ -186,7 +192,13 @@ function AzkarSession() {
         else finish();
       }, 900);
     }
-  }, [current, count, tap, activeTime, flashSaved, azkar, finish]);
+  }, [current, count, prefs, tap, activeTime, flashSaved, azkar, finish]);
+
+  /** الضغط على نص الذكر يعدّ (إن فُعّل)، إلا على الأزرار والحواشي أو أثناء تحديد نص. */
+  const onTextTap = (e: React.MouseEvent) => {
+    if (!prefs.tapAnywhere || !isCountableTap(e.target)) return;
+    onTap();
+  };
 
   // ---- intentional horizontal swipe with direction locking ----
   const touch = useRef<{ x: number; y: number; lock: "none" | "x" | "y" } | null>(null);
@@ -416,16 +428,21 @@ function AzkarSession() {
               <span className="tabular-nums">
                 الذكر {toArabicDigits(index + 1)} من {toArabicDigits(azkar.length)}
               </span>
-              <button
-                onClick={() => toggleBookmark(current.id)}
-                aria-label="حفظ الذكر"
-                className={`flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card ${
-                  progress.bookmarks.includes(current.id) ? "text-gold" : "text-muted-foreground"
-                }`}
-              >
-                <Icon d={icons.bookmark} size={15} />
-              </button>
+              <span className="flex items-center gap-2">
+                <DisplayToggleButton open={showDisplay} onClick={() => setShowDisplay((v) => !v)} />
+                <button
+                  onClick={() => toggleBookmark(current.id)}
+                  aria-label="حفظ الذكر"
+                  className={`flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card ${
+                    progress.bookmarks.includes(current.id) ? "text-gold" : "text-muted-foreground"
+                  }`}
+                >
+                  <Icon d={icons.bookmark} size={15} />
+                </button>
+              </span>
             </div>
+
+            {showDisplay && <AzkarDisplayPanel prefs={prefs} update={updatePrefs} />}
 
             {/* chapter progress */}
             <div className="relative mt-3 flex gap-1">
@@ -442,7 +459,10 @@ function AzkarSession() {
             {/* current zikr — the only scrollable area */}
             <div
               ref={scrollRef}
-              className="relative mt-4 max-h-[46vh] overflow-y-auto pl-1 overscroll-contain"
+              onClick={onTextTap}
+              className={`relative mt-4 max-h-[46vh] overflow-y-auto pl-1 overscroll-contain ${
+                prefs.tapAnywhere ? "cursor-pointer select-none" : ""
+              }`}
             >
               {current.lead && (
                 <p className="mb-2 text-right text-[13px] leading-relaxed text-muted-foreground">
@@ -463,7 +483,10 @@ function AzkarSession() {
                             : "text-muted-foreground"
                       }`}
                     >
-                      <span className="text-right font-display text-[21px] leading-[2]">
+                      <span
+                        className="text-right font-display leading-[2]"
+                        style={{ fontSize: fontPx - 1 }}
+                      >
                         {s.text}
                       </span>
                       <span className="shrink-0 text-[11px] tabular-nums">
@@ -476,9 +499,10 @@ function AzkarSession() {
                 <p
                   className={
                     current.quran
-                      ? "text-right font-quran text-[1.35rem] leading-[2.4]"
-                      : "text-right font-display text-[22px] leading-[2.15]"
+                      ? "text-right font-quran leading-[2.4]"
+                      : "text-right font-display leading-[2.15]"
                   }
+                  style={{ fontSize: current.quran ? fontPx - 0.4 : fontPx }}
                 >
                   {currentText}
                 </p>
@@ -491,7 +515,10 @@ function AzkarSession() {
               )}
 
               {chapter.references.length > 0 && (
-                <div className="mt-5 rounded-2xl border border-border/60 bg-background/50 p-3">
+                <div
+                  data-no-tap
+                  className="mt-5 cursor-auto select-text rounded-2xl border border-border/60 bg-background/50 p-3"
+                >
                   <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
                     حواشي الكتاب القريبة من هذا الباب
                   </div>
@@ -531,7 +558,8 @@ function AzkarSession() {
                 </span>
               )}
               <span className="mt-2 text-[10px] text-muted-foreground">
-                اضغط للعدّ · ينتقل تلقائيًا عند الإتمام
+                {prefs.tapAnywhere ? "اضغط على النص أو الزر للعدّ" : "اضغط للعدّ"} · ينتقل تلقائيًا
+                عند الإتمام
               </span>
             </div>
 

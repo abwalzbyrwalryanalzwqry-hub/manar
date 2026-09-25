@@ -47,6 +47,7 @@ import { Route as QuranLastReadRouteImport } from './routes/quran.last-read'
 import { Route as QuranKhatmahRouteImport } from './routes/quran.khatmah'
 import { Route as QuranBookmarksRouteImport } from './routes/quran.bookmarks'
 import { Route as AzkarSearchRouteImport } from './routes/azkar.search'
+import { Route as AzkarBookmarksRouteImport } from './routes/azkar.bookmarks'
 import { Route as AzkarChapterRouteImport } from './routes/azkar.$chapter'
 import { Route as TabsQuranRouteImport } from './routes/_tabs.quran'
 import { Route as TabsPrayerRouteImport } from './routes/_tabs.prayer'
@@ -245,6 +246,11 @@ const AzkarSearchRoute = AzkarSearchRouteImport.update({
   path: '/azkar/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AzkarBookmarksRoute = AzkarBookmarksRouteImport.update({
+  id: '/azkar/bookmarks',
+  path: '/azkar/bookmarks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AzkarChapterRoute = AzkarChapterRouteImport.update({
   id: '/azkar/$chapter',
   path: '/azkar/$chapter',
@@ -316,6 +322,7 @@ export interface FileRoutesByFullPath {
   '/prayer': typeof TabsPrayerRoute
   '/quran': typeof TabsQuranRoute
   '/azkar/$chapter': typeof AzkarChapterRoute
+  '/azkar/bookmarks': typeof AzkarBookmarksRoute
   '/azkar/search': typeof AzkarSearchRoute
   '/quran/bookmarks': typeof QuranBookmarksRoute
   '/quran/khatmah': typeof QuranKhatmahRoute
@@ -362,6 +369,7 @@ export interface FileRoutesByTo {
   '/prayer': typeof TabsPrayerRoute
   '/quran': typeof TabsQuranRoute
   '/azkar/$chapter': typeof AzkarChapterRoute
+  '/azkar/bookmarks': typeof AzkarBookmarksRoute
   '/azkar/search': typeof AzkarSearchRoute
   '/quran/bookmarks': typeof QuranBookmarksRoute
   '/quran/khatmah': typeof QuranKhatmahRoute
@@ -411,6 +419,7 @@ export interface FileRoutesById {
   '/_tabs/prayer': typeof TabsPrayerRoute
   '/_tabs/quran': typeof TabsQuranRoute
   '/azkar/$chapter': typeof AzkarChapterRoute
+  '/azkar/bookmarks': typeof AzkarBookmarksRoute
   '/azkar/search': typeof AzkarSearchRoute
   '/quran/bookmarks': typeof QuranBookmarksRoute
   '/quran/khatmah': typeof QuranKhatmahRoute
@@ -460,6 +469,7 @@ export interface FileRouteTypes {
     | '/prayer'
     | '/quran'
     | '/azkar/$chapter'
+    | '/azkar/bookmarks'
     | '/azkar/search'
     | '/quran/bookmarks'
     | '/quran/khatmah'
@@ -506,6 +516,7 @@ export interface FileRouteTypes {
     | '/prayer'
     | '/quran'
     | '/azkar/$chapter'
+    | '/azkar/bookmarks'
     | '/azkar/search'
     | '/quran/bookmarks'
     | '/quran/khatmah'
@@ -554,6 +565,7 @@ export interface FileRouteTypes {
     | '/_tabs/prayer'
     | '/_tabs/quran'
     | '/azkar/$chapter'
+    | '/azkar/bookmarks'
     | '/azkar/search'
     | '/quran/bookmarks'
     | '/quran/khatmah'
@@ -598,6 +610,7 @@ export interface RootRouteChildren {
   WidgetRoute: typeof WidgetRoute
   WirdRoute: typeof WirdRouteWithChildren
   AzkarChapterRoute: typeof AzkarChapterRoute
+  AzkarBookmarksRoute: typeof AzkarBookmarksRoute
   AzkarSearchRoute: typeof AzkarSearchRoute
   QuranBookmarksRoute: typeof QuranBookmarksRoute
   QuranKhatmahRoute: typeof QuranKhatmahRoute
@@ -881,6 +894,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AzkarSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/azkar/bookmarks': {
+      id: '/azkar/bookmarks'
+      path: '/azkar/bookmarks'
+      fullPath: '/azkar/bookmarks'
+      preLoaderRoute: typeof AzkarBookmarksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/azkar/$chapter': {
       id: '/azkar/$chapter'
       path: '/azkar/$chapter'
@@ -998,6 +1018,7 @@ const rootRouteChildren: RootRouteChildren = {
   WidgetRoute: WidgetRoute,
   WirdRoute: WirdRouteWithChildren,
   AzkarChapterRoute: AzkarChapterRoute,
+  AzkarBookmarksRoute: AzkarBookmarksRoute,
   AzkarSearchRoute: AzkarSearchRoute,
   QuranBookmarksRoute: QuranBookmarksRoute,
   QuranKhatmahRoute: QuranKhatmahRoute,
