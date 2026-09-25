@@ -37,6 +37,7 @@ function WirdListPage() {
   const key = wird?.key ?? "morning";
   const items = useMemo(() => wird?.items ?? [], [wird]);
   const { prefs } = useAzkarPrefs();
+  const { announce, node: liveRegion } = useAnnouncer();
   const { progress, hydrated, increment, setCurrent, resetItem } = useWirdSessionProgress(
     key,
     items,
@@ -61,7 +62,6 @@ function WirdListPage() {
     );
   }
 
-  const { announce, node: liveRegion } = useAnnouncer();
   const onTap = (order: number, repeat: number, name: string) => {
     const now = Math.min(repeat, progress.counts[order] ?? 0);
     if (now >= repeat) return;
