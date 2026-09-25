@@ -4,7 +4,8 @@
 // ============================================================
 
 import { useCallback, useEffect, useState } from "react";
-import { recordAzkarCount } from "@/lib/activity-log";
+import { dayKey, recordAzkarCount, syncAzkarChapters } from "@/lib/activity-log";
+import { azkarRepository } from "./repository";
 
 const KEY = "manar.azkar.progress.v1";
 const EVENT = "manar:azkar-progress";
@@ -33,8 +34,20 @@ const EMPTY: AzkarProgress = {
   updatedAt: null,
 };
 
+/* اليوم بالتوقيت المحلي. كان `toISOString` (UTC) فيتأخّر اليوم عن اليمن
+ * ثلاث ساعات: ما يُقرأ بين ١٢ و٣ فجراً يُحسب لليوم السابق ويُصفَّر متأخراً. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return dayKey();
+}
+
+/** فصول «حصن المسلم» التي اكتملت كل أذكارها (يحتاج الكتاب محمّلاً). */
+function completedChapters(completed: readonly number[]): number[] | null {
+  const book = azkarRepository.getCached();
+  if (!book) return null;
+  const done = new Set(completed);
+  return book.chapters
+    .filter((c) => c.azkar.length > 0 && c.azkar.every((z) => done.has(z.id)))
+    .map((c) => c.id);
 }
 
 function read(): AzkarProgress {
@@ -55,7 +68,11 @@ function write(p: AzkarProgress) {
   try {
     window.localStorage.setItem(KEY, JSON.stringify(p));
     /* السجل اليومي الموحّد يحتاج التاريخ، وهذه الوحدة تحفظ اليوم فقط. */
-    if (p.day === today()) recordAzkarCount(p.completed.length);
+    if (p.day === today()) {
+      recordAzkarCount(p.completed.length);
+      const chapters = completedChapters(p.completed);
+      if (chapters) syncAzkarChapters(chapters);
+    }
     window.dispatchEvent(new Event(EVENT));
   } catch {
     /* ignore */

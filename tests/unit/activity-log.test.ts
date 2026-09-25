@@ -68,3 +68,56 @@ describe("إحصاء المدى", () => {
     expect(s.prayerRatio).toBeCloseTo(6 / 35);
   });
 });
+
+describe("فصول الأذكار المكتملة اليوم", () => {
+  const store = new Map<string, string>();
+  const stubWindow = () =>
+    ({
+      localStorage: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+        removeItem: (k: string) => void store.delete(k),
+      },
+      dispatchEvent: () => true,
+    }) as unknown as Window & typeof globalThis;
+
+  it("يُسجَّل الإكمال بوقته، ويبقى الوقت الأول، ويُحذف عند التصفير", async () => {
+    const g = globalThis as { window?: unknown };
+    const prev = g.window;
+    g.window = stubWindow();
+    try {
+      const { readLog, syncAzkarChapters } = await import("@/lib/activity-log");
+      const t1 = new Date(2026, 8, 24, 6, 0).getTime();
+      const key = dayKey(new Date(t1));
+      syncAzkarChapters([27], t1);
+      expect(readLog().days[key].chapters).toEqual({ "27": t1 });
+      syncAzkarChapters([27, 28], t1 + 1000);
+      expect(readLog().days[key].chapters).toEqual({ "27": t1, "28": t1 + 1000 });
+      syncAzkarChapters([28], t1 + 2000);
+      expect(readLog().days[key].chapters).toEqual({ "28": t1 + 1000 });
+      syncAzkarChapters([], t1 + 3000);
+      expect(readLog().days[key].chapters).toBeUndefined();
+    } finally {
+      g.window = prev;
+    }
+  });
+
+  it("قيم الفصول الفاسدة في التخزين تُهمل", async () => {
+    const g = globalThis as { window?: unknown };
+    const prev = g.window;
+    g.window = stubWindow();
+    try {
+      store.set(
+        "manar.activity.v1",
+        JSON.stringify({
+          days: { "2026-09-24": { wird: [], chapters: { "27": "x", "28": 5, abc: 1, "29": -1 } } },
+          bestStreak: 0,
+        }),
+      );
+      const { readLog } = await import("@/lib/activity-log");
+      expect(readLog().days["2026-09-24"].chapters).toEqual({ "28": 5 });
+    } finally {
+      g.window = prev;
+    }
+  });
+});

@@ -27,6 +27,8 @@ import {
   type ReminderToneId,
   type ToneKind,
   type Weekday,
+  COMPLETION_HINTS,
+  completionKeyFor,
 } from "@/lib/daily-reminders";
 import {
   PRAYER_LABELS,
@@ -451,7 +453,7 @@ function Reminders() {
                   </div>
 
                   {/* ------------ تخطّي ما أُنجز ------------ */}
-                  {r.skipIfDone !== undefined && (
+                  {r.skipIfDone !== undefined && completionKeyFor(r) && (
                     <button
                       onClick={() => patch(r.id, { skipIfDone: !r.skipIfDone })}
                       role="switch"
@@ -461,9 +463,7 @@ function Reminders() {
                       <span className="min-w-0">
                         <span className="block text-[11px] font-medium">تخطّي إذا أُنجز</span>
                         <span className="block text-[9px] text-muted-foreground">
-                          {r.id === "azkar-evening"
-                            ? "لا يصل تذكير اليوم إن أكملت ورد المساء قبله"
-                            : "لا يصل تذكير اليوم إن أكملت ورد الصباح قبله"}
+                          {COMPLETION_HINTS[completionKeyFor(r)!]}
                         </span>
                       </span>
                       <Switch on={!!r.skipIfDone} />

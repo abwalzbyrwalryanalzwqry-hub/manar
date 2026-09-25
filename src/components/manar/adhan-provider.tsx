@@ -233,12 +233,20 @@ export function AdhanProvider() {
     };
   }, [location, calc]);
 
-  /* إنجاز الوِرد يُلغي تذكير اليوم نفسه إن لم يحن بعد (تخطّي ما أُنجز).
-   * السجل يتغيّر مع كل نقرة ذكر، فلا نعيد الجدولة إلا إن تغيّرت جلسات الوِرد.
+  /* إنجاز الوِرد أو فصل أذكار يُلغي تذكير اليوم نفسه إن لم يحن بعد (تخطّي ما أُنجز).
+   * السجل يتغيّر مع كل نقرة ذكر، فلا نعيد الجدولة إلا إن تغيّر ما أُنجز فعلاً.
    * أثرٌ مستقل عن مستمعي الإعدادات أعلاه، ومؤجَّل قليلاً مثلها. */
   useEffect(() => {
     if (!isNativeShell()) return;
-    const wirdToday = () => (readLog().days[logDayKey()]?.wird ?? []).slice().sort().join(",");
+    /* بصمة ما يُلغي تذكيراً: جلسات الوِرد وفصول الأذكار المكتملة اليوم. */
+    const wirdToday = () => {
+      const d = readLog().days[logDayKey()];
+      const wird = (d?.wird ?? []).slice().sort().join(",");
+      const chapters = Object.keys(d?.chapters ?? {})
+        .sort()
+        .join(",");
+      return `${wird}|${chapters}`;
+    };
     let lastWird = wirdToday();
     let pending: ReturnType<typeof setTimeout> | undefined;
     const onActivity = () => {

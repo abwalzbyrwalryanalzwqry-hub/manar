@@ -28,6 +28,9 @@ export type DayRecord = {
   azkar: number;
   /** جلسات الوِرد المكتملة: صباح و/أو مساء. */
   wird: ("morning" | "evening")[];
+  /** فصول «حصن المسلم» المكتملة اليوم: رقم الفصل ← وقت الإكمال (ms).
+   * اختياري حتى تبقى السجلات القديمة والمزامَنة صالحة. */
+  chapters?: Record<string, number>;
 };
 
 export type ActivityLog = {
@@ -70,7 +73,17 @@ function normalizeDay(raw: Partial<DayRecord> | undefined): DayRecord {
     wird: Array.isArray(raw?.wird)
       ? raw.wird.filter((w): w is "morning" | "evening" => w === "morning" || w === "evening")
       : [],
+    ...normalizeChapters(raw?.chapters),
   };
+}
+
+function normalizeChapters(raw: unknown): { chapters?: Record<string, number> } {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (/^\d{1,3}$/.test(k) && typeof v === "number" && Number.isFinite(v) && v > 0) out[k] = v;
+  }
+  return Object.keys(out).length ? { chapters: out } : {};
 }
 
 export function readLog(): ActivityLog {
@@ -157,6 +170,8 @@ function patchDay(key: string, fn: (d: DayRecord) => DayRecord) {
   const log = readLog();
   const before = log.days[key] ?? EMPTY_DAY;
   const after = fn(before);
+  // لا تغيير: لا كتابة ولا حدث (نقرات الذكر كثيرة، وكل حدث يوقظ مستمعين).
+  if (after === before && log.days[key]) return;
   const days = { ...log.days, [key]: after };
   const next: ActivityLog = { ...log, days };
   next.bestStreak = Math.max(log.bestStreak, computeBestStreak(next), currentStreak(next));
@@ -195,6 +210,27 @@ export function recordWird(session: "morning" | "evening", date = new Date()) {
     ...d,
     wird: d.wird.includes(session) ? d.wird : [...d.wird, session],
   }));
+}
+
+/**
+ * يزامن فصول الأذكار المكتملة اليوم: الفصل المكتمل حديثاً يُسجَّل بوقت إكماله،
+ * والفصل الذي أُعيد تصفيره يُحذف (فإن أُكمل ثانيةً سُجّل بالوقت الجديد).
+ * تستعمله «تخطّي إذا أُنجز» في تذكيرات الأذكار.
+ */
+export function syncAzkarChapters(completeIds: readonly number[], at = Date.now()) {
+  const date = new Date(at);
+  patchDay(dayKey(date), (d) => {
+    const prev = d.chapters ?? {};
+    const want = new Set(completeIds.map(String));
+    const next: Record<string, number> = {};
+    for (const k of want) next[k] = prev[k] ?? at;
+    const same =
+      Object.keys(prev).length === want.size && [...want].every((k) => prev[k] !== undefined);
+    if (same) return d;
+    const rest: DayRecord = { ...d };
+    delete rest.chapters;
+    return want.size ? { ...rest, chapters: next } : rest;
+  });
 }
 
 /* ------------------------------------------------------------------ */

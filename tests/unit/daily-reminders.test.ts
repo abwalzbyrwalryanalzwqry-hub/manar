@@ -177,7 +177,7 @@ describe("تخطّي تذكير اليوم إذا أُنجز", () => {
   // ٢٤ سبتمبر ٢٠٢٦ ٢:٠٠ فجراً بصنعاء — قبل كل تذكيرات اليوم.
   const now = new Date(2026, 8, 24, 2).getTime();
   const todayOf = (wird: string[]) =>
-    planDailyReminders(state, { now, days: 2, timesFor, wirdDoneToday: wird }).filter(
+    planDailyReminders(state, { now, days: 2, timesFor, done: { wird } }).filter(
       (p) => p.dayIndex === 0,
     );
 
@@ -195,7 +195,7 @@ describe("تخطّي تذكير اليوم إذا أُنجز", () => {
       now,
       days: 2,
       timesFor,
-      wirdDoneToday: ["morning"],
+      done: { wird: ["morning"] },
     }).filter((p) => p.dayIndex === 1);
     expect(tomorrow).toHaveLength(3);
   });
@@ -206,9 +206,47 @@ describe("تخطّي تذكير اليوم إذا أُنجز", () => {
 
   it("إطفاء «تخطّي إذا أُنجز» يُبقي التذكير", () => {
     const r = byId("azkar-morning");
-    expect(isDoneToday(r, ["morning"])).toBe(true);
-    expect(isDoneToday({ ...r, skipIfDone: false }, ["morning"])).toBe(false);
-    expect(isDoneToday(byId("sleep-azkar"), ["morning", "evening"])).toBe(false);
+    expect(isDoneToday(r, { wird: ["morning"] })).toBe(true);
+    expect(isDoneToday({ ...r, skipIfDone: false }, { wird: ["morning"] })).toBe(false);
+    expect(isDoneToday(byId("sleep-azkar"), { wird: ["morning", "evening"] })).toBe(false);
+  });
+
+  it("فصل «أذكار الصباح والمساء» يُفرَّق بوقت إكماله: قبل العصر صباح، ومن العصر مساء", () => {
+    const morning = byId("azkar-morning");
+    const evening = byId("azkar-evening");
+    const beforeAsr = { wird: [], chapters: { "27": TIMES.asr.getTime() - 3600_000 } };
+    const afterAsr = { wird: [], chapters: { "27": TIMES.asr.getTime() + 60_000 } };
+    expect(isDoneToday(morning, beforeAsr, TIMES)).toBe(true);
+    expect(isDoneToday(evening, beforeAsr, TIMES)).toBe(false);
+    expect(isDoneToday(morning, afterAsr, TIMES)).toBe(false);
+    expect(isDoneToday(evening, afterAsr, TIMES)).toBe(true);
+    // الوِرد اليومي (صفحة الوِرد) لا يُلغى بإكمال فصل من حصن المسلم.
+    expect(isDoneToday(byId("wird"), beforeAsr, TIMES)).toBe(false);
+  });
+
+  it("إكمال «أذكار النوم» يلغي تذكيرها اليوم", () => {
+    const sleep = byId("sleep-azkar");
+    expect(sleep.skipIfDone).toBe(true);
+    expect(isDoneToday(sleep, { wird: [], chapters: { "28": 1 } }, TIMES)).toBe(true);
+    expect(isDoneToday(sleep, { wird: [], chapters: { "27": 1 } }, TIMES)).toBe(false);
+    const st: DailyRemindersState = {
+      enabled: true,
+      items: DEFAULT_REMINDERS.map((r) => ({ ...r, enabled: r.id === "sleep-azkar" })),
+    };
+    const plan = (chapters: Record<string, number>) =>
+      planDailyReminders(st, { now, days: 1, timesFor, done: { wird: [], chapters } });
+    expect(plan({})).toHaveLength(1);
+    expect(plan({ "28": now })).toHaveLength(0);
+  });
+
+  it("إكمال فصل الصباح والمساء صباحاً يلغي تذكير الصباح ويُبقي المساء", () => {
+    const ids = planDailyReminders(state, {
+      now,
+      days: 1,
+      timesFor,
+      done: { wird: [], chapters: { "27": TIMES.fajr.getTime() + 60_000 } },
+    }).map((p) => p.reminder.id);
+    expect(ids).toEqual(["azkar-evening", "wird"]);
   });
 
   it("المفتاح العام المطفأ لا يُجدول شيئاً، والأيام المستثناة تُحترم", () => {

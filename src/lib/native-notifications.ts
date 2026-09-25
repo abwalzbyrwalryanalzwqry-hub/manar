@@ -738,12 +738,13 @@ async function syncNativePrayerScheduleNow(
 
   const daily = readReminders();
   /* تذكير اليوم يُتخطّى إن أُنجز عمله قبل موعده (سجل النشاط اليومي). */
-  const wirdDoneToday = readLog().days[dayKey(new Date(now))]?.wird ?? [];
+  const todayLog = readLog().days[dayKey(new Date(now))];
+  const done = { wird: todayLog?.wird ?? [], chapters: todayLog?.chapters };
   const planned = planDailyReminders(daily, {
     now,
     days: DAYS_AHEAD,
     timesFor: (date) => computePrayerTimes(location, calc, date),
-    wirdDoneToday,
+    done,
   });
   const dailyUrl = (r: DailyReminder) =>
     s.silentMode || !s.soundEnabled || level === 0 ? "" : toneUrl(r.tone);

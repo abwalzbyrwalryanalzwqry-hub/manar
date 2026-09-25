@@ -336,6 +336,7 @@ export const DEFAULT_REMINDERS: DailyReminder[] = [
     days: [...ALL_DAYS],
     route: "/azkar",
     body: "لا تنم قبل أذكار النوم",
+    skipIfDone: true,
   },
 ];
 
@@ -707,22 +708,62 @@ export function timingWarning(r: DailyReminder, at: Date, times: PrayerTimes): s
 
 /* ------------------------- تخطّي ما أُنجز ------------------------- */
 
-/** ما يُعدّ إنجازاً لكل تذكير — من السجل اليومي الموحّد (`activity-log.ts`). */
-export type CompletionKey = "wird-morning" | "wird-evening";
+/** فصول «حصن المسلم» التي يُعدّ إكمالها إنجازاً لتذكير (أرقامها في الكتاب). */
+export const HISN_CHAPTERS = { morningEvening: 27, sleep: 28 } as const;
+
+/** ما أُنجز اليوم، من السجل اليومي الموحّد (`activity-log.ts`). */
+export type DoneToday = {
+  /** جلسات الوِرد المكتملة اليوم. */
+  wird: readonly string[];
+  /** فصول الأذكار المكتملة اليوم: رقم الفصل ← وقت الإكمال. */
+  chapters?: Readonly<Record<string, number>>;
+};
+
+/** ما يُعدّ إنجازاً لكل تذكير. */
+export type CompletionKey = "azkar-morning" | "azkar-evening" | "wird-morning" | "azkar-sleep";
 
 export function completionKeyFor(r: DailyReminder): CompletionKey | null {
-  if (r.id === "azkar-morning" || r.id === "wird") return "wird-morning";
-  if (r.id === "azkar-evening") return "wird-evening";
+  if (r.id === "azkar-morning") return "azkar-morning";
+  if (r.id === "azkar-evening") return "azkar-evening";
+  if (r.id === "wird") return "wird-morning";
+  if (r.id === "sleep-azkar") return "azkar-sleep";
   return null;
 }
 
-/** هل أُنجز العمل اليوم؟ `wirdDone` هي جلسات الوِرد المكتملة اليوم في السجل. */
-export function isDoneToday(r: DailyReminder, wirdDone: readonly string[]): boolean {
+/** وصف «تخطّي إذا أُنجز» لكل تذكير — ما الذي يُلغي تذكير اليوم. */
+export const COMPLETION_HINTS: Record<CompletionKey, string> = {
+  "azkar-morning": "لا يصل تذكير اليوم إن أكملت ورد الصباح أو أذكار الصباح والمساء قبله",
+  "azkar-evening": "لا يصل تذكير اليوم إن أكملت ورد المساء أو أذكار الصباح والمساء بعد العصر",
+  "wird-morning": "لا يصل تذكير اليوم إن أكملت ورد الصباح قبله",
+  "azkar-sleep": "لا يصل تذكير اليوم إن أكملت أذكار النوم قبله",
+};
+
+/**
+ * هل أُنجز العمل اليوم؟ فصل «أذكار الصباح والمساء» في حصن المسلم واحد للوقتين،
+ * فيُفرَّق بوقت إكماله: قبل العصر صباحٌ، ومن العصر مساءٌ. بلا مواقيت يُعدّ صباحاً.
+ */
+export function isDoneToday(
+  r: DailyReminder,
+  done: DoneToday,
+  times?: Pick<PrayerTimes, "asr">,
+): boolean {
   if (!r.skipIfDone) return false;
   const key = completionKeyFor(r);
-  if (key === "wird-morning") return wirdDone.includes("morning");
-  if (key === "wird-evening") return wirdDone.includes("evening");
-  return false;
+  const ch = done.chapters ?? {};
+  const me = ch[String(HISN_CHAPTERS.morningEvening)];
+  const asr = times?.asr?.getTime();
+  switch (key) {
+    case "wird-morning":
+      return done.wird.includes("morning");
+    case "azkar-morning":
+      return done.wird.includes("morning") || (me !== undefined && (asr === undefined || me < asr));
+    case "azkar-evening":
+      return done.wird.includes("evening") || (me !== undefined && asr !== undefined && me >= asr);
+    case "azkar-sleep":
+      return ch[String(HISN_CHAPTERS.sleep)] !== undefined;
+    default:
+      return false;
+  }
 }
 
 /* ------------------------- خطة الجدولة ------------------------- */
@@ -737,7 +778,7 @@ export type PlannedReminder = {
 
 /**
  * مواعيد تذكيرات الأذكار والوِرد للأيام القادمة. دالّة نقيّة: تُمرَّر لها
- * المواقيت وجلسات الوِرد المكتملة اليوم، فتُختبر بلا متصفح ولا أندرويد.
+ * المواقيت وما أُنجز اليوم، فتُختبر بلا متصفح ولا أندرويد.
  * تذكير اليوم الذي أُنجز عمله قبل موعده لا يُجدول (إن كان `skipIfDone`).
  */
 export function planDailyReminders(
@@ -746,7 +787,7 @@ export function planDailyReminders(
     now: number;
     days: number;
     timesFor: (date: Date) => PrayerTimes;
-    wirdDoneToday?: readonly string[];
+    done?: DoneToday;
   },
 ): PlannedReminder[] {
   if (!state.enabled) return [];
@@ -760,7 +801,7 @@ export function planDailyReminders(
     active.forEach((r, index) => {
       const at = reminderTimeOn(r, date, (p) => times[p]);
       if (!at || !Number.isFinite(at.getTime()) || at.getTime() <= o.now) return;
-      if (d === 0 && isDoneToday(r, o.wirdDoneToday ?? [])) return;
+      if (d === 0 && isDoneToday(r, o.done ?? { wird: [] }, times)) return;
       out.push({ reminder: r, index, dayIndex: d, at });
     });
   }
