@@ -18,6 +18,7 @@ import { isBookmarked, toggleBookmark, useBookmarks } from "@/lib/quran/bookmark
 import { recordRead } from "@/lib/quran/reading-history";
 import { recordPageTurn } from "@/lib/quran/khatmah-plan";
 import { buildShareText, shareCardText } from "@/lib/quran/share-card";
+import { searchSurahNames } from "@/lib/quran/search-service";
 import type { AyahText } from "@/lib/quran/text-types";
 
 /** Deep links: /quran/mushaf?surah=2&ayah=255 or ?page=300&mode=mushaf */
@@ -98,12 +99,9 @@ function MushafReader() {
   const filteredSurahs = useMemo(() => {
     const q = query.trim();
     if (!q) return SURAH_LIST;
-    return SURAH_LIST.filter(
-      (s) =>
-        s.nameAr.includes(q) ||
-        s.nameEn.toLowerCase().includes(q.toLowerCase()) ||
-        String(s.id).includes(q),
-    );
+    // مطابقة مطبّعة: «الانعام» تجد «الأنعام»، و«٦» تجد السورة السادسة.
+    const ids = new Set(searchSurahNames(q, 114).map((s) => s.id));
+    return SURAH_LIST.filter((s) => ids.has(s.id));
   }, [query]);
 
   const revelationLabel = REVELATION_LABEL_AR[activeSurah.revelation];

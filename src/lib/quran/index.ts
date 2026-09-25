@@ -23,7 +23,9 @@ export { toArabicDigits, surahDisplayName, formatRangeAr } from "./format";
 
 export {
   normalizeArabic,
+  quranSkeleton,
   tokenizeArabic,
+  wordMatchesToken,
   splitWords,
   matchedWordIndices,
   containsAllTokens,
