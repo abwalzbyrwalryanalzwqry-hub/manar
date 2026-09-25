@@ -4,6 +4,7 @@ import { Icon, icons, Screen, ScreenHeader, Skeleton } from "@/components/manar/
 import { useSurahText } from "@/hooks/use-surah-text";
 import {
   parseTafsir,
+  tafsirGroup,
   TAFSIR_EDITIONS,
   toArabicDigits,
   useSurahTafsir,
@@ -11,6 +12,17 @@ import {
 } from "@/lib/quran";
 import { SURAH_META } from "@/lib/quran/metadata";
 import { addBookmark, isBookmarked, removeBookmark, useBookmarks } from "@/lib/quran/bookmarks";
+import { shareCardText } from "@/lib/quran/share-card";
+
+/** أحجام خط التفسير (بكسل)، ويُحفظ الاختيار على الجهاز. */
+const FONT_SIZES = [13.5, 15, 16.5, 18.5, 21];
+const FONT_KEY = "manar.quran.tafsir.font.v1";
+
+function readFontIndex(): number {
+  if (typeof window === "undefined") return 0;
+  const n = Number(window.localStorage.getItem(FONT_KEY));
+  return Number.isInteger(n) && n >= 0 && n < FONT_SIZES.length ? n : 0;
+}
 
 export const Route = createFileRoute("/quran/tafsir")({
   head: () => ({
@@ -63,10 +75,63 @@ function TafsirScreen() {
     return text.data.ayahs.find((a) => a.n === ayah) ?? null;
   }, [ayah, text]);
 
-  const blocks = useMemo(() => {
-    const raw = tafsir.status === "ready" ? tafsir.data[String(ayah)] : undefined;
-    return raw ? parseTafsir(raw) : [];
-  }, [ayah, tafsir]);
+  // الآيات التي يجمعها التفسير في نص واحد (الميسّر يفعل ذلك كثيراً).
+  const group = useMemo(
+    () => (tafsir.status === "ready" ? tafsirGroup(tafsir.data, ayah) : null),
+    [ayah, tafsir],
+  );
+  const from = group?.from ?? ayah;
+  const to = group?.to ?? ayah;
+  const grouped = to > from;
+
+  const blocks = useMemo(() => (group ? parseTafsir(group.text) : []), [group]);
+
+  const groupAyahs = useMemo(() => {
+    if (text.status !== "ready") return [];
+    return text.data.ayahs.filter((a) => a.n >= from && a.n <= to);
+  }, [from, to, text]);
+
+  const goNext = () => setAyah(Math.min(meta.ayatCount, to + 1));
+  const goPrev = () => {
+    const target = Math.max(1, from - 1);
+    const g = tafsir.status === "ready" ? tafsirGroup(tafsir.data, target) : null;
+    setAyah(g?.from ?? target);
+  };
+
+  const [fontIndex, setFontIndex] = useState(0);
+  useEffect(() => setFontIndex(readFontIndex()), []);
+  const setFont = (i: number) => {
+    const next = Math.min(FONT_SIZES.length - 1, Math.max(0, i));
+    setFontIndex(next);
+    try {
+      window.localStorage.setItem(FONT_KEY, String(next));
+    } catch {
+      /* ignore */
+    }
+  };
+  const fontPx = FONT_SIZES[fontIndex];
+
+  const rangeLabel = grouped
+    ? `الآيات ${toArabicDigits(from)}–${toArabicDigits(to)}`
+    : `الآية ${toArabicDigits(ayah)}`;
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => setNotice(null), [surah, ayah, slug]);
+  const tafsirPlain = () =>
+    `${blocks.map((b) => (b.kind === "bullet" ? `• ${b.text}` : b.text)).join("\n")}\n\n— ${
+      edition.nameAr
+    }، سورة ${meta.nameAr}، ${rangeLabel}`;
+  const copyTafsir = async () => {
+    try {
+      await navigator.clipboard.writeText(tafsirPlain());
+      setNotice("تم نسخ التفسير");
+    } catch {
+      setNotice("تعذّر النسخ على هذا الجهاز");
+    }
+  };
+  const shareTafsir = async () => {
+    const r = await shareCardText(tafsirPlain());
+    if (r === "copied") setNotice("تم نسخ التفسير");
+  };
 
   const saved = isBookmarked(surah, ayah);
 
@@ -144,19 +209,20 @@ function TafsirScreen() {
       {/* Ayah navigation */}
       <div className="mt-3 flex items-center justify-between px-5">
         <button
-          onClick={() => setAyah((a) => Math.max(1, a - 1))}
-          disabled={ayah <= 1}
+          onClick={goPrev}
+          disabled={from <= 1}
           className="flex items-center gap-1.5 rounded-full border border-border/60 bg-card/70 px-3 py-2 text-[11px] transition disabled:opacity-40 active:scale-95"
         >
           <Icon d={icons.chevron} size={14} />
           السابقة
         </button>
         <span className="text-[11px] tabular-nums text-muted-foreground">
-          {toArabicDigits(ayah)} / {toArabicDigits(meta.ayatCount)}
+          {grouped ? `${toArabicDigits(from)}–${toArabicDigits(to)}` : toArabicDigits(ayah)} /{" "}
+          {toArabicDigits(meta.ayatCount)}
         </span>
         <button
-          onClick={() => setAyah((a) => Math.min(meta.ayatCount, a + 1))}
-          disabled={ayah >= meta.ayatCount}
+          onClick={goNext}
+          disabled={to >= meta.ayatCount}
           className="flex items-center gap-1.5 rounded-full border border-border/60 bg-card/70 px-3 py-2 text-[11px] transition disabled:opacity-40 active:scale-95"
         >
           التالية
@@ -171,7 +237,7 @@ function TafsirScreen() {
         <div className="relative overflow-hidden rounded-[28px] border border-gold/25 bg-card/70 p-5 shadow-elegant backdrop-blur-xl">
           <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.25em] text-gold">
             <span>سورة {meta.nameAr}</span>
-            <span className="tabular-nums">الآية {toArabicDigits(ayah)}</span>
+            <span className="tabular-nums">{rangeLabel}</span>
           </div>
           {text.status === "loading" && <Skeleton className="mt-4 h-20 rounded-2xl" />}
           {text.status === "error" && (
@@ -179,7 +245,14 @@ function TafsirScreen() {
           )}
           {ayahText && (
             <p className="mt-4 text-center font-quran text-[19px] leading-[2.2] text-foreground">
-              {ayahText.t}
+              {(grouped && groupAyahs.length ? groupAyahs : [ayahText]).map((a) => (
+                <span key={a.n}>
+                  {a.t}{" "}
+                  <span className="mx-0.5 font-sans text-[12px] text-gold tabular-nums">
+                    ﴿{toArabicDigits(a.n)}﴾
+                  </span>{" "}
+                </span>
+              ))}
             </p>
           )}
           {ayahText && (
@@ -237,6 +310,37 @@ function TafsirScreen() {
             </div>
           )}
 
+          {tafsir.status === "ready" && blocks.length > 0 && (
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[12px] font-medium text-foreground">تفسير {rangeLabel}</div>
+                {grouped && (
+                  <div className="text-[10px] text-muted-foreground">
+                    يفسّر {edition.nameAr} هذه الآيات معاً في نص واحد
+                  </div>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-1" role="group" aria-label="حجم الخط">
+                <button
+                  onClick={() => setFont(fontIndex - 1)}
+                  disabled={fontIndex === 0}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-background/70 text-[11px] font-medium disabled:opacity-40"
+                  aria-label="تصغير الخط"
+                >
+                  أ-
+                </button>
+                <button
+                  onClick={() => setFont(fontIndex + 1)}
+                  disabled={fontIndex === FONT_SIZES.length - 1}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-background/70 text-[13px] font-medium disabled:opacity-40"
+                  aria-label="تكبير الخط"
+                >
+                  أ+
+                </button>
+              </div>
+            </div>
+          )}
+
           {tafsir.status === "ready" && blocks.length === 0 && (
             <p className="text-center text-[12px] text-muted-foreground">
               لا يوجد نص تفسير لهذه الآية في هذه النسخة — جرّب النسخة الأخرى.
@@ -252,15 +356,47 @@ function TafsirScreen() {
                 </h3>
               </div>
             ) : b.kind === "bullet" ? (
-              <div key={i} className="mt-2 flex gap-2 text-[13.5px] leading-[2] text-foreground/90">
+              <div
+                key={i}
+                className="mt-2 flex gap-2 leading-[2] text-foreground/90"
+                style={{ fontSize: fontPx }}
+              >
                 <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />
                 <p>{b.text}</p>
               </div>
             ) : (
-              <p key={i} className="mt-2.5 text-[13.5px] leading-[2] text-foreground/90">
+              <p
+                key={i}
+                className="mt-2.5 leading-[2] text-foreground/90"
+                style={{ fontSize: fontPx }}
+              >
                 {b.text}
               </p>
             ),
+          )}
+
+          {blocks.length > 0 && (
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                onClick={() => void copyTafsir()}
+                className="flex items-center justify-center gap-1.5 rounded-2xl border border-border/60 bg-background/70 py-2.5 text-[12px] font-medium transition active:scale-[0.98]"
+              >
+                <Icon d={icons.copy} size={14} />
+                نسخ التفسير
+              </button>
+              <button
+                onClick={() => void shareTafsir()}
+                className="flex items-center justify-center gap-1.5 rounded-2xl border border-border/60 bg-background/70 py-2.5 text-[12px] font-medium transition active:scale-[0.98]"
+              >
+                <Icon d={icons.share} size={14} />
+                مشاركة
+              </button>
+            </div>
+          )}
+          {notice && (
+            <p className="mt-2 text-center text-[11px] text-primary" role="status">
+              {notice}
+            </p>
           )}
 
           <div className="mt-5 border-t border-border/50 pt-3 text-[10px] leading-relaxed text-muted-foreground">

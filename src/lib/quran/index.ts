@@ -83,6 +83,8 @@ export {
   useTafsirEdition,
   useSurahTafsir,
   parseTafsir,
+  tafsirGroup,
+  type TafsirGroup,
   type TafsirEdition,
   type TafsirBlock,
 } from "./tafsir-service";

@@ -13,6 +13,7 @@ import { Route as WirdRouteImport } from './routes/wird'
 import { Route as WidgetRouteImport } from './routes/widget'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as StatisticsRouteImport } from './routes/statistics'
+import { Route as SourcesRouteImport } from './routes/sources'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SakinahRouteImport } from './routes/sakinah'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -73,6 +74,11 @@ const TermsRoute = TermsRouteImport.update({
 const StatisticsRoute = StatisticsRouteImport.update({
   id: '/statistics',
   path: '/statistics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SourcesRoute = SourcesRouteImport.update({
+  id: '/sources',
+  path: '/sources',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -299,6 +305,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/sakinah': typeof SakinahRoute
   '/settings': typeof SettingsRoute
+  '/sources': typeof SourcesRoute
   '/statistics': typeof StatisticsRoute
   '/terms': typeof TermsRoute
   '/widget': typeof WidgetRoute
@@ -345,6 +352,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/sakinah': typeof SakinahRoute
   '/settings': typeof SettingsRoute
+  '/sources': typeof SourcesRoute
   '/statistics': typeof StatisticsRoute
   '/terms': typeof TermsRoute
   '/widget': typeof WidgetRoute
@@ -392,6 +400,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/sakinah': typeof SakinahRoute
   '/settings': typeof SettingsRoute
+  '/sources': typeof SourcesRoute
   '/statistics': typeof StatisticsRoute
   '/terms': typeof TermsRoute
   '/widget': typeof WidgetRoute
@@ -440,6 +449,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sakinah'
     | '/settings'
+    | '/sources'
     | '/statistics'
     | '/terms'
     | '/widget'
@@ -486,6 +496,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sakinah'
     | '/settings'
+    | '/sources'
     | '/statistics'
     | '/terms'
     | '/widget'
@@ -532,6 +543,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sakinah'
     | '/settings'
+    | '/sources'
     | '/statistics'
     | '/terms'
     | '/widget'
@@ -580,6 +592,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SakinahRoute: typeof SakinahRoute
   SettingsRoute: typeof SettingsRoute
+  SourcesRoute: typeof SourcesRoute
   StatisticsRoute: typeof StatisticsRoute
   TermsRoute: typeof TermsRoute
   WidgetRoute: typeof WidgetRoute
@@ -628,6 +641,13 @@ declare module '@tanstack/react-router' {
       path: '/statistics'
       fullPath: '/statistics'
       preLoaderRoute: typeof StatisticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sources': {
+      id: '/sources'
+      path: '/sources'
+      fullPath: '/sources'
+      preLoaderRoute: typeof SourcesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -972,6 +992,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SakinahRoute: SakinahRoute,
   SettingsRoute: SettingsRoute,
+  SourcesRoute: SourcesRoute,
   StatisticsRoute: StatisticsRoute,
   TermsRoute: TermsRoute,
   WidgetRoute: WidgetRoute,
