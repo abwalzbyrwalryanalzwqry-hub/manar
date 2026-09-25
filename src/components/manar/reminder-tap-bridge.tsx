@@ -17,7 +17,8 @@ export function ReminderTapBridge() {
   useEffect(() => {
     if (!isNativeApp()) return;
     void attachReminderTapListener((route) => {
-      void router.navigate({ to: route });
+      /* بعض الوجهات فيها استعلام (`/azkar/27?time=evening`) فتُمرَّر كرابط كامل. */
+      void router.navigate({ href: route });
     });
   }, [router]);
   return null;

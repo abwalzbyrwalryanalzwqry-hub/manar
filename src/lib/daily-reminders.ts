@@ -268,7 +268,17 @@ export type DailyReminder = {
 };
 
 /** المسارات المسموح أن يفتحها إشعار تذكير — لا يُفتح مسار مجهول من بيانات محفوظة. */
-export const REMINDER_ROUTES = ["/azkar", "/wird", "/quran"] as const;
+export const REMINDER_ROUTES = [
+  "/azkar",
+  "/wird",
+  "/quran",
+  /* وجهات التذكيرات المبنيّة: الباب أو الوِرد المقصود مباشرة. */
+  "/azkar/1",
+  "/azkar/27?time=morning",
+  "/azkar/27?time=evening",
+  "/azkar/28",
+  "/wird/morning",
+] as const;
 export type ReminderRoute = (typeof REMINDER_ROUTES)[number];
 
 export function isReminderRoute(v: unknown): v is ReminderRoute {
@@ -335,7 +345,7 @@ export const DEFAULT_REMINDERS: DailyReminder[] = [
     timing: { mode: "prayer", prayer: "fajr", offset: 45 },
     tone: "azkar-morning",
     days: [...ALL_DAYS],
-    route: "/azkar",
+    route: "/azkar/27?time=morning",
     body: "حان وقت أذكار الصباح",
     skipIfDone: true,
   },
@@ -346,19 +356,19 @@ export const DEFAULT_REMINDERS: DailyReminder[] = [
     timing: { mode: "prayer", prayer: "asr", offset: 30 },
     tone: "azkar-evening",
     days: [...ALL_DAYS],
-    route: "/azkar",
+    route: "/azkar/27?time=evening",
     body: "حان وقت أذكار المساء",
     skipIfDone: true,
   },
   {
     id: "wird",
-    name: "الوِرد اليومي",
+    name: "ورد الصباح",
     enabled: true,
     timing: { mode: "prayer", prayer: "fajr", offset: 20 },
     tone: "wird",
     days: [...ALL_DAYS],
-    route: "/wird",
-    body: "وِردك من القرآن ينتظرك",
+    route: "/wird/morning",
+    body: "حان وقت وِرد الصباح",
     skipIfDone: true,
   },
   {
@@ -368,7 +378,7 @@ export const DEFAULT_REMINDERS: DailyReminder[] = [
     timing: { mode: "clock", hour: 22, minute: 30 },
     tone: "reminder-chime",
     days: [...ALL_DAYS],
-    route: "/azkar",
+    route: "/azkar/28",
     body: "لا تنم قبل أذكار النوم",
     skipIfDone: true,
   },
@@ -381,7 +391,7 @@ export const DEFAULT_REMINDERS: DailyReminder[] = [
     timing: { mode: "prayer", prayer: "fajr", offset: -15 },
     tone: "reminder-bell",
     days: [...ALL_DAYS],
-    route: "/azkar",
+    route: "/azkar/1",
     body: "ابدأ يومك بأذكار الاستيقاظ من النوم",
     skipIfDone: true,
   },
@@ -793,8 +803,9 @@ export const COMPLETION_HINTS: Record<CompletionKey, string> = {
 };
 
 /**
- * هل أُنجز العمل اليوم؟ فصل «أذكار الصباح والمساء» في حصن المسلم واحد للوقتين،
- * فيُفرَّق بوقت إكماله: قبل العصر صباحٌ، ومن العصر مساءٌ. بلا مواقيت يُعدّ صباحاً.
+ * هل أُنجز العمل اليوم؟ باب «أذكار الصباح والمساء» يُسجَّل بمفتاحين «27:m» و«27:e».
+ * السجلات القديمة فيها «27» وحده، فيُفرَّق بوقت إكماله: قبل العصر صباحٌ، ومن العصر
+ * مساءٌ، وبلا مواقيت يُعدّ صباحاً.
  */
 export function isDoneToday(
   r: DailyReminder,
@@ -805,14 +816,24 @@ export function isDoneToday(
   const key = completionKeyFor(r);
   const ch = done.chapters ?? {};
   const me = ch[String(HISN_CHAPTERS.morningEvening)];
+  const meMorning = ch[`${HISN_CHAPTERS.morningEvening}:m`];
+  const meEvening = ch[`${HISN_CHAPTERS.morningEvening}:e`];
   const asr = times?.asr?.getTime();
   switch (key) {
     case "wird-morning":
       return done.wird.includes("morning");
     case "azkar-morning":
-      return done.wird.includes("morning") || (me !== undefined && (asr === undefined || me < asr));
+      return (
+        done.wird.includes("morning") ||
+        meMorning !== undefined ||
+        (me !== undefined && (asr === undefined || me < asr))
+      );
     case "azkar-evening":
-      return done.wird.includes("evening") || (me !== undefined && asr !== undefined && me >= asr);
+      return (
+        done.wird.includes("evening") ||
+        meEvening !== undefined ||
+        (me !== undefined && asr !== undefined && me >= asr)
+      );
     case "azkar-sleep":
       return ch[String(HISN_CHAPTERS.sleep)] !== undefined;
     case "azkar-wake":

@@ -9,15 +9,18 @@ import {
   azkarForTime,
   defaultTime,
   hasTimeVariants,
+  progressKey,
   segmentState,
   zikrText,
 } from "@/lib/azkar/variant";
 import { formatArTime, toArabicDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/azkar/$chapter")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { zikr?: number; time?: ZikrTime } => ({
     zikr:
       search.zikr != null && !Number.isNaN(Number(search.zikr)) ? Number(search.zikr) : undefined,
+    /* تذكيرا الصباح والمساء يفتحان الباب على وقتهما مباشرة. */
+    time: search.time === "morning" || search.time === "evening" ? search.time : undefined,
   }),
   head: () => ({
     meta: [
@@ -41,7 +44,7 @@ export const Route = createFileRoute("/azkar/$chapter")({
 
 function AzkarSession() {
   const { chapter: chapterParam } = Route.useParams();
-  const { zikr: zikrParam } = Route.useSearch();
+  const { zikr: zikrParam, time: timeParam } = Route.useSearch();
   const id = Number(chapterParam);
   const navigate = useNavigate();
   const { book, loading, error, retry } = useAzkarBook();
@@ -50,23 +53,31 @@ function AzkarSession() {
   const chapter = useMemo(() => book?.chapters.find((c) => c.id === id), [book, id]);
   /** صباح/مساء — فقط للأبواب التي تختلف أذكارها بالوقت (باب ٢٧). */
   const timed = chapter ? hasTimeVariants(chapter) : false;
-  const [time, setTime] = useState<ZikrTime>(() => defaultTime());
+  const [time, setTime] = useState<ZikrTime>(() => timeParam ?? defaultTime());
   const activeTime: ZikrTime | null = timed ? time : null;
   const azkar = useMemo(
     () => (chapter ? azkarForTime(chapter, activeTime) : []),
     [chapter, activeTime],
+  );
+  /** عدّاد الذكر في الوقت المعروض — للمساء عدّاد مستقل عن الصباح. */
+  const countOf = useCallback(
+    (z: Zikr) => progress.counters[progressKey(z.id, activeTime)] ?? 0,
+    [progress.counters, activeTime],
   );
 
   const [index, setIndex] = useState(0);
   const [initialized, setInitialized] = useState(false);
   const [finished, setFinished] = useState(false);
   const [pulse, setPulse] = useState(false);
-  const [dir, setDir] = useState<1 | -1>(1);
   const [confirmReset, setConfirmReset] = useState(false);
   const [saved, setSaved] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const advancing = useRef(false);
   const savedTimer = useRef<number | null>(null);
+  const pulseTimer = useRef<number | null>(null);
+  const advanceTimer = useRef<number | null>(null);
+  /** الذكر المعروض الآن — يقرؤه مؤقت الانتقال التلقائي بدل فهرس قديم. */
+  const shownId = useRef<number | null>(null);
 
   const backTo = chapter ? `/azkar/group/${chapter.group}` : "/azkar";
 
@@ -82,24 +93,25 @@ function AzkarSession() {
       }
     }
     const partial = azkar.findIndex((z) => {
-      const c = progress.counters[z.id] ?? 0;
+      const c = countOf(z);
       return c > 0 && c < z.repeat;
     });
     if (partial >= 0) {
       setIndex(partial);
     } else {
-      const firstIncomplete = azkar.findIndex((z) => (progress.counters[z.id] ?? 0) < z.repeat);
+      const firstIncomplete = azkar.findIndex((z) => countOf(z) < z.repeat);
       if (firstIncomplete < 0) setFinished(true);
       setIndex(Math.max(0, firstIncomplete));
     }
     setInitialized(true);
-  }, [initialized, chapter, azkar, progress.counters, zikrParam]);
+  }, [initialized, chapter, azkar, countOf, zikrParam]);
 
   const current: Zikr | undefined = azkar[index];
-  const count = current ? Math.min(progress.counters[current.id] ?? 0, current.repeat) : 0;
+  const count = current ? Math.min(countOf(current), current.repeat) : 0;
+  shownId.current = current?.id ?? null;
   const currentText = current ? zikrText(current, activeTime) : "";
   const seg = current ? segmentState(current, count) : null;
-  const doneCount = azkar.filter((z) => (progress.counters[z.id] ?? 0) >= z.repeat).length;
+  const doneCount = azkar.filter((z) => countOf(z) >= z.repeat).length;
 
   useEffect(() => {
     if (chapter && current) setLast(chapter.id, current.id);
@@ -110,13 +122,20 @@ function AzkarSession() {
     scrollRef.current?.scrollTo({ top: 0 });
   }, [index]);
 
+  /** يلغي انتقالًا تلقائيًا معلّقًا (عند التنقل اليدوي أو تبديل الوقت أو المغادرة). */
+  const cancelAdvance = useCallback(() => {
+    if (advanceTimer.current) window.clearTimeout(advanceTimer.current);
+    advanceTimer.current = null;
+    advancing.current = false;
+  }, []);
+
   const goTo = useCallback(
-    (next: number, direction: 1 | -1) => {
+    (next: number) => {
       if (next < 0 || next >= azkar.length) return;
-      setDir(direction);
+      cancelAdvance();
       setIndex(next);
     },
-    [azkar.length],
+    [azkar.length, cancelAdvance],
   );
 
   /** Finish the chapter: show the completion state (progress stays saved). */
@@ -139,6 +158,8 @@ function AzkarSession() {
   useEffect(
     () => () => {
       if (savedTimer.current) window.clearTimeout(savedTimer.current);
+      if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
+      if (advanceTimer.current) window.clearTimeout(advanceTimer.current);
     },
     [],
   );
@@ -146,20 +167,26 @@ function AzkarSession() {
   const onTap = useCallback(() => {
     if (!current || advancing.current) return;
     const next = Math.min(current.repeat, count + 1);
-    tap(current.id, current.repeat);
+    tap(progressKey(current.id, activeTime), current.repeat);
     flashSaved();
     setPulse(true);
-    window.setTimeout(() => setPulse(false), 260);
+    if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
+    pulseTimer.current = window.setTimeout(() => setPulse(false), 260);
     if (next >= current.repeat) {
       advancing.current = true;
+      const doneId = current.id;
       // hold briefly so the user sees the saved confirmation before moving on
-      window.setTimeout(() => {
+      advanceTimer.current = window.setTimeout(() => {
+        advanceTimer.current = null;
         advancing.current = false;
-        if (index + 1 < azkar.length) goTo(index + 1, 1);
+        /* إن غادر المستخدم هذا الذكر خلال المهلة فلا ننقله من موضعه الجديد. */
+        if (shownId.current !== doneId) return;
+        const at = azkar.findIndex((z) => z.id === doneId);
+        if (at >= 0 && at + 1 < azkar.length) setIndex(at + 1);
         else finish();
       }, 900);
     }
-  }, [current, count, tap, flashSaved, index, azkar.length, goTo, finish]);
+  }, [current, count, tap, activeTime, flashSaved, azkar, finish]);
 
   // ---- intentional horizontal swipe with direction locking ----
   const touch = useRef<{ x: number; y: number; lock: "none" | "x" | "y" } | null>(null);
@@ -185,12 +212,13 @@ function AzkarSession() {
     const dx = t.clientX - s.x;
     if (Math.abs(dx) < 70) return; // accidental swipe — ignore
     // RTL: swipe left → next, swipe right → previous
-    if (dx < 0) goTo(index + 1, 1);
-    else goTo(index - 1, -1);
+    if (dx < 0) goTo(index + 1);
+    else goTo(index - 1);
   };
 
   const restart = () => {
-    resetMany(azkar.map((z) => z.id));
+    cancelAdvance();
+    resetMany(azkar.map((z) => progressKey(z.id, activeTime)));
     flashSaved();
     setConfirmReset(false);
     setFinished(false);
@@ -199,6 +227,7 @@ function AzkarSession() {
 
   const switchTime = (next: ZikrTime) => {
     if (next === time) return;
+    cancelAdvance();
     setTime(next);
     setFinished(false);
     setIndex(0);
@@ -379,7 +408,7 @@ function AzkarSession() {
         >
           <div
             key={current.id}
-            className={`glass relative overflow-hidden rounded-[32px] p-5 ${dir === 1 ? "animate-fade-up" : "animate-fade-up"}`}
+            className={`glass relative overflow-hidden rounded-[32px] p-5 animate-fade-up`}
           >
             <Arabesque className="pointer-events-none absolute -bottom-14 -left-14 h-40 w-40 text-primary/10" />
 
@@ -404,11 +433,7 @@ function AzkarSession() {
                 <span
                   key={z.id}
                   className={`h-1 flex-1 rounded-full ${
-                    (progress.counters[z.id] ?? 0) >= z.repeat
-                      ? "bg-gold"
-                      : i === index
-                        ? "bg-primary"
-                        : "bg-border/70"
+                    countOf(z) >= z.repeat ? "bg-gold" : i === index ? "bg-primary" : "bg-border/70"
                   }`}
                 />
               ))}
@@ -486,6 +511,7 @@ function AzkarSession() {
               </span>
               <button
                 onClick={onTap}
+                aria-label={`زيادة العدّاد، ${toArabicDigits(count)} من ${toArabicDigits(current.repeat)}`}
                 className={`mt-2 flex h-24 w-24 flex-col items-center justify-center rounded-full gradient-primary text-primary-foreground shadow-glow transition active:scale-95 ${
                   pulse ? "scale-105" : ""
                 }`}
@@ -512,7 +538,7 @@ function AzkarSession() {
             {/* manual navigation */}
             <div className="relative mt-5 flex items-center justify-between">
               <button
-                onClick={() => goTo(index - 1, -1)}
+                onClick={() => goTo(index - 1)}
                 disabled={index === 0}
                 className="flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs text-foreground disabled:opacity-40"
               >
@@ -529,7 +555,7 @@ function AzkarSession() {
                 <Icon d={icons.share} size={15} />
               </button>
               <button
-                onClick={() => (index + 1 < azkar.length ? goTo(index + 1, 1) : finish())}
+                onClick={() => (index + 1 < azkar.length ? goTo(index + 1) : finish())}
                 className="flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs text-foreground"
               >
                 التالي

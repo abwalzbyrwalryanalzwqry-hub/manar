@@ -18,7 +18,7 @@ export const Route = createFileRoute("/wird/")({
       { title: "الوِرد — منار" },
       {
         name: "description",
-        content: "ورد الصباح وورد المساء: ٢٨ ذكرًا لكل وِرد مع عدّاد مستقل وتقدّم يُحفظ تلقائيًا.",
+        content: "ورد الصباح وورد المساء من حصن المسلم مع عدّاد مستقل وتقدّم يُحفظ تلقائيًا.",
       },
       { property: "og:title", content: "الوِرد — منار" },
       {
@@ -64,7 +64,7 @@ function WirdHub() {
         </div>
       </div>
 
-      <SectionLabel hint={`${toArabicDigits(28)} ذكرًا لكل وِرد`}>اختر الوِرد</SectionLabel>
+      <SectionLabel hint="من حصن المسلم">اختر الوِرد</SectionLabel>
 
       <div className="space-y-4 px-5">
         {WIRD_SESSION_KEYS.map((key) => {

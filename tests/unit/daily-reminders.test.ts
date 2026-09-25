@@ -421,7 +421,7 @@ describe("التذكيرات التي يضيفها المستخدم", () => {
     const tampered: Partial<DailyReminder> = { id: "wird", route: "/login" as never, body: "x" };
     const st = normalizeRemindersState({ items: [tampered] });
     const w = st.items.find((i) => i.id === "wird")!;
-    expect(w.route).toBe("/wird");
+    expect(w.route).toBe("/wird/morning");
     expect(w.body).toBe(byId("wird").body);
     expect(w.custom).toBeUndefined();
   });

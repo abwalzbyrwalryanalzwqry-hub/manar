@@ -5,7 +5,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WirdSessionKey } from "./data";
-import { recordWird } from "@/lib/activity-log";
+import { dayKey, recordWird } from "@/lib/activity-log";
+import { useDayKey, useOnLeave } from "@/hooks/use-day-key";
 
 const KEY = "manar.wird.progress.v1";
 const EVENT = "manar:wird-progress";
@@ -16,54 +17,81 @@ const EVENT = "manar:wird-progress";
  */
 export const WIRD_LAYOUT = 2;
 
+/** مهلة تجميع الكتابة إلى التخزين أثناء العدّ السريع. */
+const WRITE_DELAY_MS = 180;
+
 export interface WirdSessionProgress {
   /** ترتيب الذكر → العدد الحالي */
   counts: Record<number, number>;
   /** الذكر النشط حاليًا (ترتيبه) */
   current: number;
-  /** هل تم إكمال الوِرد بالكامل */
+  /** هل اكتملت كل أذكار الوِرد اليوم */
   done: boolean;
   updatedAt: number | null;
   /** إصدار ترتيب الأذكار الذي كُتب به هذا التقدّم (انظر WIRD_LAYOUT). */
   layout?: number;
+  /** يوم هذا التقدّم (YYYY-MM-DD محليًا). الوِرد يومي فيبدأ من الصفر كل يوم. */
+  day?: string;
 }
 
 export type WirdStore = Record<WirdSessionKey, WirdSessionProgress>;
+export type WirdItemRef = { order: number; repeat: number };
 
-const emptySession = (): WirdSessionProgress => ({
+export const emptySession = (day = dayKey()): WirdSessionProgress => ({
   counts: {},
   current: 1,
   done: false,
   updatedAt: null,
   layout: WIRD_LAYOUT,
+  day,
 });
 
-/** يقبل تقدّم الجلسة فقط إن كُتب بترتيب الأذكار الحالي. */
-function readSession(raw: Partial<WirdSessionProgress> | undefined): WirdSessionProgress {
-  if (!raw || raw.layout !== WIRD_LAYOUT) return emptySession();
-  return { ...emptySession(), ...raw };
+/** يقبل تقدّم الجلسة فقط إن كُتب اليوم وبترتيب الأذكار الحالي. */
+export function readSession(
+  raw: Partial<WirdSessionProgress> | undefined,
+  day = dayKey(),
+): WirdSessionProgress {
+  if (!raw || raw.layout !== WIRD_LAYOUT || raw.day !== day) return emptySession(day);
+  return { ...emptySession(day), ...raw };
 }
 
-const EMPTY: WirdStore = { morning: emptySession(), evening: emptySession() };
+/** هل اكتملت كل أذكار الوِرد؟ */
+export function isWirdComplete(p: Pick<WirdSessionProgress, "counts">, items: WirdItemRef[]) {
+  return items.length > 0 && items.every((it) => (p.counts[it.order] ?? 0) >= it.repeat);
+}
 
-function readStore(): WirdStore {
-  if (typeof window === "undefined") return EMPTY;
+/** عدّة ضغطة (دالة نقية). `done` يُشتق من اكتمال **كل** العناصر، لا آخرها. */
+export function applyIncrement(
+  p: WirdSessionProgress,
+  order: number,
+  repeat: number,
+  items: WirdItemRef[],
+): WirdSessionProgress {
+  const n = Math.min(repeat, (p.counts[order] ?? 0) + 1);
+  const counts = { ...p.counts, [order]: n };
+  return { ...p, counts, done: isWirdComplete({ counts }, items) };
+}
+
+function readStore(day = dayKey()): WirdStore {
+  const blank = { morning: emptySession(day), evening: emptySession(day) };
+  if (typeof window === "undefined") return blank;
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (!raw) return EMPTY;
+    if (!raw) return blank;
     const parsed = JSON.parse(raw) as Partial<Record<WirdSessionKey, Partial<WirdSessionProgress>>>;
     return {
-      morning: readSession(parsed.morning),
-      evening: readSession(parsed.evening),
+      morning: readSession(parsed.morning, day),
+      evening: readSession(parsed.evening, day),
     };
   } catch {
-    return EMPTY;
+    return blank;
   }
 }
 
-function writeStore(store: WirdStore) {
+function writeSession(session: WirdSessionKey, next: WirdSessionProgress) {
   try {
-    window.localStorage.setItem(KEY, JSON.stringify(store));
+    const store = readStore(next.day);
+    window.localStorage.setItem(KEY, JSON.stringify({ ...store, [session]: next }));
     window.dispatchEvent(new Event(EVENT));
   } catch {
     /* ignore */
@@ -72,7 +100,12 @@ function writeStore(store: WirdStore) {
 
 /** قراءة تقدّم الوِردين (للبطاقات في الصفحة الرئيسية للوِرد). */
 export function useWirdOverview() {
-  const [store, setStore] = useState<WirdStore>(EMPTY);
+  const day = useDayKey();
+  /* يبدأ فارغًا ثم يُقرأ بعد التركيب، حتى يطابق ما رُسم على الخادم. */
+  const [store, setStore] = useState<WirdStore>(() => ({
+    morning: emptySession(),
+    evening: emptySession(),
+  }));
   useEffect(() => {
     const sync = () => setStore(readStore());
     sync();
@@ -82,61 +115,69 @@ export function useWirdOverview() {
       window.removeEventListener(EVENT, sync);
       window.removeEventListener("storage", sync);
     };
-  }, []);
+  }, [day]);
   return store;
 }
 
 /**
  * جلسة وِرد واحدة — عدّاد سريع:
  * الحالة تُحدّث فورًا في الذاكرة، والكتابة إلى التخزين مُجمّعة (debounce)
- * لتجنّب أي تقطيع عند الأعداد الكبيرة مثل ١٠٠.
+ * لتجنّب أي تقطيع عند الأعداد الكبيرة مثل ١٠٠. الكتابة المعلّقة تُنفَّذ فورًا عند
+ * مغادرة الشاشة أو إرسال التطبيق للخلفية، فلا تضيع آخر الضغطات.
  */
-export function useWirdSessionProgress(session: WirdSessionKey) {
-  const [state, setState] = useState<WirdSessionProgress>(emptySession);
+export function useWirdSessionProgress(session: WirdSessionKey, items: WirdItemRef[]) {
+  const [state, setState] = useState<WirdSessionProgress>(() => emptySession());
   const [hydrated, setHydrated] = useState(false);
+  const ref = useRef(state);
+  const pending = useRef<WirdSessionProgress | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const day = useDayKey();
 
-  useEffect(() => {
-    setState(readStore()[session]);
-    setHydrated(true);
+  /** يكتب أي تقدّم معلّق الآن. */
+  const flushNow = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    const next = pending.current;
+    pending.current = null;
+    if (next) writeSession(session, next);
   }, [session]);
 
-  const flush = useCallback(
-    (next: WirdSessionProgress) => {
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => {
-        const store = readStore();
-        writeStore({ ...store, [session]: next });
-      }, 180);
-    },
-    [session],
-  );
+  useEffect(() => {
+    flushNow();
+    ref.current = readStore(day)[session];
+    setState(ref.current);
+    setHydrated(true);
+  }, [session, day, flushNow]);
 
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
+  useEffect(() => flushNow, [flushNow]);
+  useOnLeave(flushNow);
 
   const commit = useCallback(
     (fn: (prev: WirdSessionProgress) => WirdSessionProgress) => {
-      setState((prev) => {
-        const next = { ...fn(prev), updatedAt: Date.now(), layout: WIRD_LAYOUT };
-        flush(next);
-        return next;
-      });
+      /* انتقل اليوم أثناء فتح الشاشة؟ ابدأ من وِرد جديد بدل البناء على الأمس. */
+      const today = dayKey();
+      const prev = ref.current.day === today ? ref.current : emptySession(today);
+      const changed = fn(prev);
+      if (changed === prev) return;
+      const next = { ...changed, updatedAt: Date.now(), layout: WIRD_LAYOUT, day: today };
+      ref.current = next;
+      setState(next);
+      /* الإكمال يُسجّل في السجل اليومي الموحّد ليُحتسب في السلسلة والإحصائيات —
+       * مرة واحدة عند انتقاله من ناقص إلى تام، خارج دالة setState. */
+      if (next.done && !prev.done) recordWird(session);
+      pending.current = next;
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(flushNow, WRITE_DELAY_MS);
     },
-    [flush],
+    [session, flushNow],
   );
 
   /** زيادة عدّاد ذكر بمقدار ١ (مع سقف العدد المطلوب). */
   const increment = useCallback(
     (order: number, repeat: number) =>
-      commit((p) => {
-        const n = Math.min(repeat, (p.counts[order] ?? 0) + 1);
-        return { ...p, counts: { ...p.counts, [order]: n } };
-      }),
+      commit((p) => applyIncrement(p, order, repeat, itemsRef.current)),
     [commit],
   );
 
@@ -145,26 +186,14 @@ export function useWirdSessionProgress(session: WirdSessionKey) {
     [commit],
   );
 
-  const markDone = useCallback(
-    (done: boolean) => {
-      /* الإكمال يُسجّل في السجل اليومي الموحّد ليُحتسب في السلسلة والإحصائيات. */
-      if (done && (session === "morning" || session === "evening")) recordWird(session);
-      commit((p) => ({ ...p, done }));
-    },
-    [commit, session],
-  );
-
-  const resetSession = useCallback(
-    () => commit(() => ({ ...emptySession(), current: 1 })),
-    [commit],
-  );
+  const resetSession = useCallback(() => commit(() => emptySession()), [commit]);
 
   const resetItem = useCallback(
     (order: number) => commit((p) => ({ ...p, counts: { ...p.counts, [order]: 0 }, done: false })),
     [commit],
   );
 
-  return { progress: state, hydrated, increment, setCurrent, markDone, resetSession, resetItem };
+  return { progress: state, hydrated, increment, setCurrent, resetSession, resetItem };
 }
 
 /** نسبة إنجاز الوِرد (٠..١) بالنسبة لمجموع التكرارات المطلوبة. */
