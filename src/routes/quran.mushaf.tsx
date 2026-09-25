@@ -13,10 +13,17 @@ import {
 import { Arabesque, Icon, icons } from "@/components/manar/shell";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { quranRepository, toArabicDigits, REVELATION_LABEL_AR, formatRangeAr } from "@/lib/quran";
-import { formatRelativeArabic, useReaderState } from "@/lib/quran-reader-state";
+import { formatRelativeArabic, readReaderState, useReaderState } from "@/lib/quran-reader-state";
 import { isBookmarked, toggleBookmark, useBookmarks } from "@/lib/quran/bookmarks";
 import { recordRead } from "@/lib/quran/reading-history";
-import { recordPageTurn } from "@/lib/quran/khatmah-plan";
+import {
+  juzOf,
+  MIN_PAGE_DWELL_MS,
+  notePagesRead,
+  PageDwellTracker,
+  pageStart,
+} from "@/lib/quran/reading-tracker";
+import { SURAH_META } from "@/lib/quran/metadata";
 import { buildShareText, shareCardText } from "@/lib/quran/share-card";
 import { searchSurahNames } from "@/lib/quran/search-service";
 import type { AyahText } from "@/lib/quran/text-types";
@@ -51,7 +58,10 @@ function MushafReader() {
   const params = Route.useSearch();
   const [state, update] = useReaderState();
   const [targetAyah, setTargetAyah] = useState<number | null>(params.ayah ?? null);
-  const [sheetAyah, setSheetAyah] = useState<AyahText | null>(null);
+  const [sheet, setSheet] = useState<{ surah: number; ayah: AyahText } | null>(null);
+  /** الآية الظاهرة الآن في وضع السورة (تتبع التمرير). */
+  const [position, setPosition] = useState<{ surah: number; ayah: AyahText } | null>(null);
+  useBookmarks(); // يعيد العرض عند تغيّر العلامات (زر الحفظ)
   const appliedRef = useRef(false);
 
   // Apply incoming deep-link parameters once.
@@ -70,6 +80,11 @@ function MushafReader() {
     if (params.mode) patch.mode = params.mode;
     if (Object.keys(patch).length) update(patch);
     if (params.ayah) setTargetAyah(params.ayah);
+    // بلا رابط مباشر: نستأنف من الآية التي وقف عندها القارئ.
+    else if (!params.surah && !params.page) {
+      const saved = readReaderState();
+      if (saved.mode !== "mushaf" && saved.ayah && saved.ayah > 1) setTargetAyah(saved.ayah);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [showMore, setShowMore] = useState(false);
@@ -105,9 +120,37 @@ function MushafReader() {
   }, [query]);
 
   const revelationLabel = REVELATION_LABEL_AR[activeSurah.revelation];
-  const progressPercent = Math.round((state.juz / 30) * 100);
   const isSurahMode = state.mode !== "mushaf";
   const pageNumber = clampPage(state.page || 1);
+  // الموضع الحقيقي داخل السورة (لا رقم الجزء ÷ ٣٠).
+  const here = position?.surah === activeSurah.id ? position.ayah : null;
+  const hereAyah = here?.n ?? 1;
+  const hereJuz = quranRepository.getJuz(here?.j ?? activeJuz.id) ?? activeJuz;
+  const progressPercent = Math.round((hereAyah / activeSurah.ayatCount) * 100);
+  const savedHere = here ? isBookmarked(activeSurah.id, here.n) : false;
+
+  /** تبديل الوضع مع الحفاظ على الموضع: الصفحة ↔ السورة والآية. */
+  const switchMode = (m: "surah" | "mushaf") => {
+    if (m === state.mode) return;
+    if (m === "mushaf") {
+      update({ mode: m, page: here?.p ?? activeSurah.pages.start });
+    } else {
+      const start = pageStart(pageNumber);
+      update({ mode: m, surah: start.surah, ayah: start.ayah });
+      setTargetAyah(start.ayah);
+    }
+  };
+
+  const onPosition = useCallback(
+    (a: AyahText) => setPosition({ surah: activeSurah.id, ayah: a }),
+    [activeSurah.id],
+  );
+  const onSettled = useCallback(
+    (a: AyahText) => {
+      update({ ayah: a.n, juz: a.j });
+    },
+    [update],
+  );
 
   return (
     <div dir="rtl" className="relative min-h-screen bg-background text-foreground">
@@ -186,7 +229,7 @@ function MushafReader() {
               return (
                 <button
                   key={m}
-                  onClick={() => update({ mode: m })}
+                  onClick={() => switchMode(m)}
                   className={`rounded-full py-2 text-[12px] font-medium transition active:scale-95 ${
                     active
                       ? "gradient-primary text-primary-foreground shadow-glow"
@@ -213,23 +256,20 @@ function MushafReader() {
               />
               <SelectorPill
                 label="الجزء"
-                value={toArabicDigits(activeJuz.id)}
+                value={toArabicDigits(hereJuz.id)}
                 iconKey="bookmark"
                 onClick={() => setJuzOpen(true)}
               />
             </div>
 
             {/* Dynamic reading progress card — driven by repository */}
-            <div
-              key={`progress-${activeSurah.id}-${activeJuz.id}`}
-              className="mt-4 px-4 animate-fade-up"
-            >
+            <div key={`progress-${activeSurah.id}`} className="mt-4 px-4 animate-fade-up">
               <div className="glass rounded-3xl border border-border/60 p-4">
                 <div className="flex items-center gap-4">
                   <div className="flex flex-col items-center rounded-2xl border border-gold/40 bg-gold/10 px-3 py-2">
                     <span className="text-[9px] uppercase tracking-[0.25em] text-gold">الجزء</span>
                     <span className="font-display text-xl font-medium tabular-nums text-foreground">
-                      {toArabicDigits(activeJuz.id)}
+                      {toArabicDigits(hereJuz.id)}
                     </span>
                   </div>
                   <div className="min-w-0 flex-1">
@@ -253,9 +293,9 @@ function MushafReader() {
                       />
                     </div>
                     <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
-                      <span>
-                        يبدأ عند: سورة {SURAH_LIST[activeJuz.start.surah - 1].nameAr} · آية{" "}
-                        {toArabicDigits(activeJuz.start.ayah)}
+                      <span className="tabular-nums">
+                        الآية {toArabicDigits(hereAyah)} من {toArabicDigits(activeSurah.ayatCount)}
+                        {here ? ` · صفحة ${toArabicDigits(here.p)}` : ""}
                       </span>
                       <span className="tabular-nums">{toArabicDigits(progressPercent)}٪</span>
                     </div>
@@ -332,7 +372,9 @@ function MushafReader() {
               surahId={activeSurah.id}
               surahNameAr={activeSurah.nameAr}
               activeAyah={targetAyah}
-              onAyahTap={setSheetAyah}
+              onAyahTap={(a) => setSheet({ surah: activeSurah.id, ayah: a })}
+              onPosition={onPosition}
+              onSettled={onSettled}
             />
           </>
         )}
@@ -340,11 +382,8 @@ function MushafReader() {
         {!isSurahMode && (
           <MushafPagesMode
             page={pageNumber}
-            onChange={(p) => {
-              const next = clampPage(p);
-              recordPageTurn(pageNumber, next);
-              update({ page: next });
-            }}
+            onChange={(p) => update({ page: clampPage(p) })}
+            onAyahTap={(surah, ayah) => setSheet({ surah, ayah })}
           />
         )}
         {isSurahMode && (
@@ -358,9 +397,25 @@ function MushafReader() {
                 <ReaderAction icon={icons.search} label="بحث" to="/quran/search" />
                 <ReaderAction
                   icon={icons.bookmark}
-                  label={state.bookmarked ? "محفوظ" : "حفظ"}
-                  active={state.bookmarked}
-                  onClick={() => update({ bookmarked: !state.bookmarked })}
+                  label={savedHere ? "محفوظة" : "حفظ"}
+                  active={savedHere}
+                  disabled={!here}
+                  ariaLabel={
+                    here
+                      ? `${savedHere ? "إزالة علامة" : "حفظ علامة على"} الآية ${here.n}`
+                      : "حفظ الآية الظاهرة"
+                  }
+                  onClick={() => {
+                    if (!here) return;
+                    toggleBookmark({
+                      surah: activeSurah.id,
+                      ayah: here.n,
+                      page: here.p,
+                      juz: here.j,
+                      text: here.t,
+                      tag: "tadabbur",
+                    });
+                  }}
                 />
               </div>
             </div>
@@ -382,7 +437,8 @@ function MushafReader() {
             </div>
 
             <p className="mt-6 px-6 text-center text-[11px] leading-relaxed text-muted-foreground">
-              اختر السورة والجزء لتخصيص تجربة قراءتك.
+              انقر أي آية لتفسيرها أو حفظها أو الاستماع إليها. زر «حفظ» يضع علامة على الآية الظاهرة
+              أعلى القراءة.
             </p>
           </>
         )}
@@ -420,7 +476,13 @@ function MushafReader() {
                   <li key={s.id}>
                     <button
                       onClick={() => {
-                        update({ surah: s.id });
+                        // في وضع المصحف ننتقل إلى صفحة بداية السورة.
+                        update(
+                          isSurahMode
+                            ? { surah: s.id, ayah: 1, juz: s.juz.start }
+                            : { surah: s.id, page: s.pages.start },
+                        );
+                        setTargetAyah(null);
                         setSurahOpen(false);
                         setQuery("");
                       }}
@@ -480,13 +542,15 @@ function MushafReader() {
           <div className="mt-3 max-h-[65vh] overflow-y-auto px-4 pb-5">
             <div className="grid grid-cols-3 gap-2">
               {JUZ_LIST_META.map((j) => {
-                const active = j.id === state.juz;
+                const active = j.id === hereJuz.id;
                 const startSurah = SURAH_LIST[j.start.surah - 1];
                 return (
                   <button
                     key={j.id}
                     onClick={() => {
-                      update({ juz: j.id });
+                      // ينقل فعلاً إلى بداية الجزء.
+                      update({ juz: j.id, surah: j.start.surah, ayah: j.start.ayah });
+                      setTargetAyah(j.start.ayah);
                       setJuzOpen(false);
                     }}
                     className={`flex flex-col items-center rounded-2xl border p-3 text-center transition active:scale-95 ${
@@ -518,21 +582,21 @@ function MushafReader() {
 
       {/* -------- Per-ayah actions -------- */}
       <AyahActionSheet
-        surah={activeSurah.id}
-        surahNameAr={activeSurah.nameAr}
-        ayah={sheetAyah}
-        onClose={() => setSheetAyah(null)}
-        onPlay={(ayah) => {
-          setSheetAyah(null);
-          navigate({ to: "/quran/recitations", search: { surah: activeSurah.id, ayah } });
+        surah={sheet?.surah ?? activeSurah.id}
+        surahNameAr={SURAH_META[(sheet?.surah ?? activeSurah.id) - 1].nameAr}
+        ayah={sheet?.ayah ?? null}
+        onClose={() => setSheet(null)}
+        onPlay={(surah, ayah) => {
+          setSheet(null);
+          navigate({ to: "/quran/recitations", search: { surah, ayah } });
         }}
-        onTafsir={(ayah) => {
-          setSheetAyah(null);
-          navigate({ to: "/quran/tafsir", search: { surah: activeSurah.id, ayah } });
+        onTafsir={(surah, ayah) => {
+          setSheet(null);
+          navigate({ to: "/quran/tafsir", search: { surah, ayah } });
         }}
-        onShare={(ayah) => {
-          setSheetAyah(null);
-          navigate({ to: "/quran/share", search: { surah: activeSurah.id, ayah } });
+        onShare={(surah, ayah) => {
+          setSheet(null);
+          navigate({ to: "/quran/share", search: { surah, ayah } });
         }}
       />
     </div>
@@ -554,9 +618,9 @@ function AyahActionSheet({
   surahNameAr: string;
   ayah: AyahText | null;
   onClose: () => void;
-  onPlay: (ayah: number) => void;
-  onTafsir: (ayah: number) => void;
-  onShare: (ayah: number) => void;
+  onPlay: (surah: number, ayah: number) => void;
+  onTafsir: (surah: number, ayah: number) => void;
+  onShare: (surah: number, ayah: number) => void;
 }) {
   useBookmarks(); // re-render when the bookmark set changes
   const [copied, setCopied] = useState(false);
@@ -564,7 +628,7 @@ function AyahActionSheet({
 
   useEffect(() => {
     setCopied(false);
-  }, [ayah?.n]);
+  }, [surah, ayah?.n]);
 
   return (
     <Dialog open={!!ayah} onOpenChange={(open) => !open && onClose()}>
@@ -600,9 +664,17 @@ function AyahActionSheet({
                   })
                 }
               />
-              <SheetAction icon={icons.info} label="التفسير" onClick={() => onTafsir(ayah.n)} />
-              <SheetAction icon={icons.share} label="مشاركة" onClick={() => onShare(ayah.n)} />
-              <SheetAction icon={icons.play} label="تلاوة" onClick={() => onPlay(ayah.n)} />
+              <SheetAction
+                icon={icons.info}
+                label="التفسير"
+                onClick={() => onTafsir(surah, ayah.n)}
+              />
+              <SheetAction
+                icon={icons.share}
+                label="مشاركة"
+                onClick={() => onShare(surah, ayah.n)}
+              />
+              <SheetAction icon={icons.play} label="تلاوة" onClick={() => onPlay(surah, ayah.n)} />
             </div>
 
             <button
@@ -660,29 +732,109 @@ function SheetAction({
 
 /* ---------- Reading area (loads Uthmani text via service) ---------- */
 
+/** مهلة استقرار التمرير قبل حفظ الموضع. */
+const SETTLE_MS = 1200;
+/** نتجاهل التمرير الآلي إلى الآية المستهدفة عند الفتح. */
+const AUTO_SCROLL_MS = 1500;
+
 function MushafReadingArea({
   surahId,
   surahNameAr,
   activeAyah,
   onAyahTap,
+  onPosition,
+  onSettled,
 }: {
   surahId: number;
   surahNameAr: string;
   activeAyah?: number | null;
   onAyahTap?: (ayah: AyahText) => void;
+  /** الآية الظاهرة أعلى منطقة القراءة، مع كل تمرير. */
+  onPosition?: (ayah: AyahText) => void;
+  /** الموضع بعد استقرار التمرير (يُحفظ). */
+  onSettled?: (ayah: AyahText) => void;
 }) {
   const state = useSurahText(surahId);
   const [reloadKey, setReloadKey] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const trackerRef = useRef(new PageDwellTracker());
+  const ignoreUntilRef = useRef(0);
 
   const ayahs = state.status === "ready" ? state.data.ayahs : null;
+
+  const save = useCallback(
+    (a: AyahText) => {
+      recordRead({ surah: surahId, ayah: a.n, page: a.p, juz: a.j, mode: "surah" });
+      onSettled?.(a);
+    },
+    [surahId, onSettled],
+  );
 
   // Record the reading session once the text is on screen.
   useEffect(() => {
     if (!ayahs) return;
     const target = ayahs.find((a) => a.n === (activeAyah ?? 1)) ?? ayahs[0];
     if (!target) return;
-    recordRead({ surah: surahId, ayah: target.n, page: target.p, juz: target.j });
-  }, [activeAyah, ayahs, surahId]);
+    ignoreUntilRef.current = Date.now() + AUTO_SCROLL_MS;
+    trackerRef.current.reset();
+    trackerRef.current.visit(target.p, Date.now());
+    onPosition?.(target);
+    save(target);
+  }, [activeAyah, ayahs, surahId, onPosition, save]);
+
+  // تتبع موضع القراءة الفعلي مع التمرير.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !ayahs) return;
+    let frame = 0;
+    let settle = 0;
+    let last: AyahText | null = null;
+    const byN = new Map(ayahs.map((a) => [a.n, a]));
+
+    const topAyah = (): AyahText | null => {
+      const top = el.getBoundingClientRect().top + 24;
+      const nodes = el.querySelectorAll<HTMLElement>("[data-ayah]");
+      for (const node of nodes) {
+        if (node.getBoundingClientRect().bottom > top) {
+          return byN.get(Number(node.dataset.ayah)) ?? null;
+        }
+      }
+      return null;
+    };
+
+    const measure = () => {
+      frame = 0;
+      if (Date.now() < ignoreUntilRef.current) return;
+      const a = topAyah();
+      if (!a) return;
+      const now = Date.now();
+      const tracker = trackerRef.current;
+      notePagesRead(tracker.visit(a.p, now));
+      // نهاية السورة: الصفحة الأخيرة تُعدّ مقروءة إن لم تتبعها سورة أخرى على الصفحة نفسها.
+      const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
+      if (atEnd) {
+        const lastAyah = ayahs[ayahs.length - 1];
+        const endsHere = lastAyah.p === 604 || pageStart(lastAyah.p + 1).surah > surahId;
+        if (endsHere) notePagesRead(tracker.finish(now));
+      }
+      if (a !== last) {
+        last = a;
+        onPosition?.(a);
+      }
+      window.clearTimeout(settle);
+      settle = window.setTimeout(() => last && save(last), SETTLE_MS);
+    };
+
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+      window.clearTimeout(settle);
+    };
+  }, [ayahs, surahId, onPosition, save]);
   return (
     <section className="mt-5 px-4 animate-fade-up" aria-label="منطقة قراءة الآيات" key={reloadKey}>
       <div className="relative overflow-hidden rounded-[32px] border border-border/60 bg-card/60 shadow-elegant backdrop-blur-2xl">
@@ -699,6 +851,7 @@ function MushafReadingArea({
           className="relative max-h-[68vh] min-h-[380px] overflow-y-auto overscroll-contain px-6 py-8 scroll-smooth"
           dir="rtl"
           data-quran-reader-scroll
+          ref={scrollRef}
         >
           <SurahRenderer
             surahId={surahId}
@@ -716,8 +869,37 @@ function MushafReadingArea({
 
 /* ---------- Mushaf pages mode (1..604) ---------- */
 
-function MushafPagesMode({ page, onChange }: { page: number; onChange: (page: number) => void }) {
+function MushafPagesMode({
+  page,
+  onChange,
+  onAyahTap,
+}: {
+  page: number;
+  onChange: (page: number) => void;
+  onAyahTap: (surah: number, ayah: AyahText) => void;
+}) {
   const state = useMushafPage(page);
+  const trackerRef = useRef(new PageDwellTracker());
+
+  // الصفحة المقروءة: الانتقال إلى التالية بعد مكوث كافٍ، أو المكوث على الأخيرة.
+  useEffect(() => {
+    notePagesRead(trackerRef.current.visit(page, Date.now()));
+    if (page !== MUSHAF_PAGE_COUNT) return;
+    const t = window.setTimeout(
+      () => notePagesRead(trackerRef.current.finish(Date.now())),
+      MIN_PAGE_DWELL_MS,
+    );
+    return () => window.clearTimeout(t);
+  }, [page]);
+
+  // موضع القارئ في وضع المصحف يُسجَّل بعد استقرار قصير على الصفحة.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      const start = pageStart(page);
+      recordRead({ ...start, page, juz: juzOf(start.surah, start.ayah), mode: "mushaf" });
+    }, SETTLE_MS);
+    return () => window.clearTimeout(t);
+  }, [page]);
   const [reloadKey, setReloadKey] = useState(0);
   const [jumpOpen, setJumpOpen] = useState(false);
   const [jumpValue, setJumpValue] = useState(String(page));
@@ -783,6 +965,7 @@ function MushafPagesMode({ page, onChange }: { page: number; onChange: (page: nu
             page={page}
             state={state}
             onRetry={() => setReloadKey((k) => k + 1)}
+            onAyahTap={onAyahTap}
           />
         </div>
       </div>
@@ -862,7 +1045,7 @@ function MushafPagesMode({ page, onChange }: { page: number; onChange: (page: nu
 
 const MORE_ACTIONS: { label: string; icon: string; to: string }[] = [
   { label: "مشاركة", icon: icons.share, to: "/quran/share" },
-  { label: "الليلي", icon: icons.moon, to: "/quran/reader-settings" },
+  { label: "العلامات", icon: icons.bookmark, to: "/quran/bookmarks" },
   { label: "إعدادات", icon: icons.settings, to: "/quran/reader-settings" },
 ];
 
@@ -902,14 +1085,18 @@ function ReaderAction({
   active,
   onClick,
   to,
+  disabled,
+  ariaLabel,
 }: {
   icon: string;
   label: string;
   active?: boolean;
   onClick?: () => void;
   to?: string;
+  disabled?: boolean;
+  ariaLabel?: string;
 }) {
-  const className = `flex flex-col items-center gap-1 rounded-full py-2 transition active:scale-95 ${
+  const className = `flex flex-col items-center gap-1 rounded-full py-2 transition active:scale-95 disabled:opacity-40 ${
     active
       ? "gradient-primary text-primary-foreground shadow-glow"
       : "text-muted-foreground hover:text-foreground hover:bg-background/60"
@@ -928,7 +1115,13 @@ function ReaderAction({
     );
   }
   return (
-    <button onClick={onClick} className={className}>
+    <button
+      onClick={onClick}
+      className={className}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      aria-pressed={active}
+    >
       {inner}
     </button>
   );

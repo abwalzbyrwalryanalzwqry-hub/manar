@@ -107,7 +107,12 @@ function mergeHistory(newer: string, older: string): string {
 
   const nDays = isObject(n.days) ? n.days : {};
   const nEntries = Array.isArray(n.entries) ? n.entries : [];
-  const cleared = nEntries.length === 0 && Object.keys(nDays).length === 0 && !Number(n.furthest);
+  const nPages = Array.isArray(n.pages) ? n.pages : [];
+  const cleared =
+    nEntries.length === 0 &&
+    Object.keys(nDays).length === 0 &&
+    !Number(n.furthest) &&
+    nPages.length === 0;
   if (cleared) return newer;
 
   const days: Record<string, number> = {};
@@ -119,7 +124,12 @@ function mergeHistory(newer: string, older: string): string {
     }
   }
   const furthest = Math.max(Number(n.furthest) || 0, Number(o.furthest) || 0);
-  return JSON.stringify({ ...o, ...n, entries: nEntries, days, furthest });
+  // الصفحات المقروءة تراكمية: اتحاد النسختين.
+  const oPages = Array.isArray(o.pages) ? o.pages : [];
+  const pages = [...new Set([...oPages, ...nPages].map(Number).filter((x) => x >= 1 && x <= 604))]
+    .map(Math.trunc)
+    .sort((a, b) => a - b);
+  return JSON.stringify({ ...o, ...n, entries: nEntries, days, furthest, pages });
 }
 
 const MERGERS: Record<string, (newer: string, older: string) => string> = {

@@ -238,7 +238,16 @@ export function completeToday(plan: KhatmahPlan, today: string): KhatmahPlan {
  * ما بعدها يعني أنها قُرئت. أي قفزة أخرى تنقّل لا قراءة فتُتجاهل.
  */
 export function notePageTurn(plan: KhatmahPlan, from: number, to: number): KhatmahPlan {
-  if (to === from + 1 && from === plan.reached + 1) return markThrough(plan, from);
+  if (to !== from + 1) return plan;
+  return notePageRead(plan, from);
+}
+
+/**
+ * صفحة قُرئت فعلاً (بالتقليب أو بالتمرير في وضع السورة أو بالمكوث على الأخيرة).
+ * تتقدّم الختمة فقط إن كانت الصفحة التالية لموضعها، حتى لا يقفز التنقّل الحر بها.
+ */
+export function notePageRead(plan: KhatmahPlan, page: number): KhatmahPlan {
+  if (page === plan.reached + 1) return markThrough(plan, page);
   return plan;
 }
 
@@ -288,6 +297,13 @@ function patchPlan(fn: (plan: KhatmahPlan) => KhatmahPlan) {
 /** تُستدعى من المصحف عند كل تقليب صفحة. */
 export function recordPageTurn(from: number, to: number) {
   patchPlan((p) => notePageTurn(p, from, to));
+}
+
+/** يسجّل صفحات مقروءة بالترتيب (قد تكون عدة صفحات عند التمرير السريع). */
+export function recordPagesRead(pages: number[]) {
+  const sorted = [...new Set(pages)].sort((a, b) => a - b);
+  if (!sorted.length) return;
+  patchPlan((p) => sorted.reduce((acc, page) => notePageRead(acc, page), p));
 }
 
 export function useKhatmah() {

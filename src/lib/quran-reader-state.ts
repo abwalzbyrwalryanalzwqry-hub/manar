@@ -10,6 +10,8 @@ export type ReaderState = {
   bookmarked: boolean;
   mode: ReaderMode;
   page: number; // 1..604 — last opened Mushaf page
+  /** آخر آية وقف عندها القارئ في وضع السورة. */
+  ayah?: number;
   updatedAt: number; // ms
 };
 
@@ -22,7 +24,7 @@ const DEFAULT: ReaderState = {
   updatedAt: Date.now(),
 };
 
-function read(): ReaderState {
+export function readReaderState(): ReaderState {
   if (typeof window === "undefined") return DEFAULT;
   try {
     const raw = window.localStorage.getItem(KEY);
@@ -38,7 +40,7 @@ export function useReaderState() {
   const [state, setState] = useState<ReaderState>(DEFAULT);
 
   useEffect(() => {
-    setState(read());
+    setState(readReaderState());
   }, []);
 
   const update = useCallback((patch: Partial<ReaderState>) => {

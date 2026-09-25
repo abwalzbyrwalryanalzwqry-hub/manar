@@ -45,8 +45,13 @@ export function SurahRenderer({
   useEffect(() => {
     if (!focusAyah || state.status !== "ready") return;
     const node = containerRef.current?.querySelector(`[data-ayah="${focusAyah}"]`);
-    node?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [focusAyah, state.status, surahId]);
+    // الاستئناف أو الانتقال: الآية في أعلى منطقة القراءة فوراً؛ أثناء التلاوة: في الوسط بسلاسة.
+    node?.scrollIntoView(
+      playingAyah
+        ? { behavior: "smooth", block: "center" }
+        : { behavior: "instant", block: "start" },
+    );
+  }, [focusAyah, playingAyah, state.status, surahId]);
 
   if (state.status === "loading") {
     return <ReaderLoading nameAr={surahNameAr} />;
