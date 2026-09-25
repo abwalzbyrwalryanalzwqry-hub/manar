@@ -12,12 +12,17 @@ export type FontSizeKey = "sm" | "md" | "lg" | "xl";
 export type LineHeightKey = "compact" | "normal" | "relaxed";
 export type WidthKey = "narrow" | "normal" | "wide";
 export type QuranFontKey = "amiri" | "scheherazade" | "naskh";
+/** لون ورق القراءة: كسمة التطبيق، أو سيبيا دافئ، أو ليلي مريح للعين. */
+export type PaperKey = "auto" | "sepia" | "night";
 
 export interface ReadingPrefs {
   fontSize: FontSizeKey;
   lineHeight: LineHeightKey;
   width: WidthKey;
   font: QuranFontKey;
+  /** إبقاء الشاشة مضاءة أثناء القراءة والتلاوة. */
+  keepAwake: boolean;
+  paper: PaperKey;
 }
 
 export const DEFAULT_PREFS: ReadingPrefs = {
@@ -25,7 +30,20 @@ export const DEFAULT_PREFS: ReadingPrefs = {
   lineHeight: "normal",
   width: "normal",
   font: "amiri",
+  keepAwake: true,
+  paper: "auto",
 };
+
+export const PAPER_OPTIONS: { key: PaperKey; label: string }[] = [
+  { key: "auto", label: "حسب سمة التطبيق" },
+  { key: "sepia", label: "سيبيا" },
+  { key: "night", label: "ليلي" },
+];
+
+/** صنف CSS يعيد تعريف ألوان القارئ (انظر `.reading-paper-*` في styles.css). */
+export function paperClass(paper: PaperKey): string {
+  return paper === "auto" ? "" : `reading-paper-${paper}`;
+}
 
 export const FONT_SIZE_OPTIONS: { key: FontSizeKey; label: string; px: number }[] = [
   { key: "sm", label: "صغير", px: 22 },

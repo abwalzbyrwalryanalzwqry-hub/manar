@@ -23,7 +23,9 @@ export { toArabicDigits, surahDisplayName, formatRangeAr } from "./format";
 
 export {
   normalizeArabic,
+  quranSkeleton,
   tokenizeArabic,
+  wordMatchesToken,
   splitWords,
   matchedWordIndices,
   containsAllTokens,
@@ -81,6 +83,8 @@ export {
   useTafsirEdition,
   useSurahTafsir,
   parseTafsir,
+  tafsirGroup,
+  type TafsirGroup,
   type TafsirEdition,
   type TafsirBlock,
 } from "./tafsir-service";
@@ -99,6 +103,12 @@ export {
 
 export {
   downloadSurah,
+  startDownload,
+  cancelDownload,
+  cancelAllDownloads,
+  useActiveDownload,
+  useActiveDownloads,
+  setDownloadManagerEvents,
   deleteDownload,
   deleteAllDownloads,
   localAyahSrc,
@@ -110,6 +120,7 @@ export {
   offlineSupported,
   type DownloadedSurah,
   type DownloadHandle,
+  type ActiveDownload,
 } from "./recitation-offline";
 
 export {

@@ -1,54 +1,74 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Icon, icons } from "@/components/manar/shell";
 import { toArabicDigits } from "@/lib/quran";
-import { useReadingPrefs } from "@/lib/quran/reading-prefs";
-import { BASMALA, type MushafSegment } from "@/lib/quran/page-service";
 import { bareSurahNameAr, juzLabelAr } from "@/lib/quran/page-labels";
+import {
+  isAyahLine,
+  isOpeningPage,
+  MUSHAF15_FONT,
+  QPC_BASMALA,
+  type Mushaf15Line,
+} from "@/lib/quran/mushaf15";
+import { SURAH_META } from "@/lib/quran/metadata";
 import type { MushafPageState } from "@/hooks/use-mushaf-page";
+import type { AyahText } from "@/lib/quran/text-types";
+
+type AyahTap = (surahId: number, ayah: AyahText) => void;
 
 interface Props {
   page: number;
   state: MushafPageState;
   onRetry: () => void;
+  /** نقر آية في الصفحة: تفسير، حفظ، تلاوة، مشاركة. */
+  onAyahTap?: AyahTap;
+  /** الآية المحددة حالياً ("سورة:آية") لتظليلها. */
+  selectedKey?: string;
+  /** الآيات المعلَّمة ("سورة:آية"). */
+  markedKeys?: ReadonlySet<string>;
 }
 
 /**
- * Renders one printed Madani-Mushaf page (1..604) exactly like a physical
- * Mushaf: running head (juz on one side, surah names on the other), ornate
- * surah banners, centred Basmala, justified Uthmani lines with ornamental
- * ayah markers, and a framed page number at the foot.
+ * صفحة من مصحف المدينة (١٥ سطراً) كما في المطبوع: كل سطر يحمل الكلمات نفسها
+ * التي في الطبعة الورقية، مضبوطاً على عرض الصفحة بخط مجمع الملك فهد (حفص).
  *
- * The whole page always fits its viewport — the text block is auto-fitted
- * (shrunk or grown) so no ayah is ever cut off and no scrolling is needed.
+ * حجم الخط يُشتق من عرض الصفحة (لا من إعداد حجم الخط) حتى تبقى الأسطر
+ * مطابقة للمطبوع؛ وقد تُصغَّر بعض الأسطر الطويلة قليلاً لتتسع.
  */
-export function MushafPageRenderer({ page, state, onRetry }: Props) {
-  const { style } = useReadingPrefs();
-
+export function MushafPageRenderer({
+  page,
+  state,
+  onRetry,
+  onAyahTap,
+  selectedKey,
+  markedKeys,
+}: Props) {
   if (state.status === "loading") return <PageLoading page={page} />;
   if (state.status === "error") return <PageError error={state.error} onRetry={onRetry} />;
 
-  const { segments, juz } = state.data;
+  const { segments, juz, hizb, layout } = state.data;
   const headSurahs = segments.map((s) => bareSurahNameAr(s.nameAr)).join("  ");
 
   return (
-    <div className="flex h-full w-full flex-col" dir="rtl">
-      {/* Running head */}
+    <div className="flex w-full flex-col" dir="rtl">
+      {/* الترويسة: السورة على جانب، والجزء والحزب على الآخر */}
       <div className="flex items-center justify-between gap-3 pb-2 text-[12px] text-muted-foreground">
         <span className="truncate font-display">{headSurahs}</span>
-        <span className="shrink-0 font-display">{juzLabelAr(juz)}</span>
+        <span className="shrink-0 font-display">
+          {juzLabelAr(juz)}
+          {hizb ? ` · الحزب ${toArabicDigits(hizb)}` : ""}
+        </span>
       </div>
 
-      {/* Page body — auto-fitted so the page is always complete */}
-      <FitToPage
+      <PageLines
         key={page}
-        deps={`${page}|${style.fontSizePx}|${style.lineHeight}|${style.fontFamily}`}
-      >
-        {segments.map((seg, i) => (
-          <Segment key={`${seg.surahId}-${i}`} seg={seg} style={style} first={i === 0} />
-        ))}
-      </FitToPage>
+        page={page}
+        lines={layout.l}
+        segments={segments}
+        onAyahTap={onAyahTap}
+        selectedKey={selectedKey}
+        markedKeys={markedKeys}
+      />
 
-      {/* Framed page number */}
       <div className="flex justify-center pt-2">
         <PageNumberPlate page={page} />
       </div>
@@ -56,133 +76,176 @@ export function MushafPageRenderer({ page, state, onRetry }: Props) {
   );
 }
 
-/* ---------------- Auto-fit engine ---------------- */
+/* ---------------- الأسطر ---------------- */
 
 /**
- * Fits the page body to the available height by scaling the typographic size
- * (CSS var `--fit`) through a short synchronous convergence loop, so a page is
- * always shown complete — no clipping, no scrolling.
+ * عرض الصفحة بوحدة em. أسطر V1 بخط الحفص تتراوح بين ١٢٫٦ و٢٢٫٧em (الوسيط ١٦٫٣)؛
+ * ١٨٫٤ يُدخل نحو ٩٠٪ منها كاملة، والباقي يضيق فراغه ثم يصغر خطه قليلاً.
  */
-function FitToPage({ children, deps }: { children: React.ReactNode; deps: string }) {
-  const outerRef = useRef<HTMLDivElement>(null);
-  const innerRef = useRef<HTMLDivElement>(null);
+const LINE_EM = 18.4;
+const ROW_EM = 1.95;
 
-  const scaleRef = useRef(1);
-  const framesRef = useRef(0);
+function PageLines({
+  page,
+  lines,
+  segments,
+  onAyahTap,
+  selectedKey,
+  markedKeys,
+}: {
+  page: number;
+  lines: Mushaf15Line[];
+  segments: MushafPageStateReady["segments"];
+  onAyahTap?: AyahTap;
+  selectedKey?: string;
+  markedKeys?: ReadonlySet<string>;
+}) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  const opening = isOpeningPage(page);
 
-  const step = () => {
-    const outer = outerRef.current;
-    const inner = innerRef.current;
-    if (!outer || !inner) return;
-    const available = outer.clientHeight;
-    const natural = inner.scrollHeight;
-    if (!available || !natural) return;
-    const ratio = available / natural;
-    if (ratio > 0.995 && ratio < 1.015) return;
-    if (framesRef.current > 32) return;
-    framesRef.current += 1;
-    const damped = ratio > 1 ? 1 + (ratio - 1) * 0.5 : ratio * 0.98;
-    const next = Math.min(1.6, Math.max(0.34, scaleRef.current * damped));
-    if (Math.abs(next - scaleRef.current) < 0.002) return;
-    scaleRef.current = next;
-    inner.style.setProperty("--fit", String(next));
-    requestAnimationFrame(step);
-  };
+  // عرض الصفحة يحدد حجم الخط.
+  useLayoutEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const measure = () => setWidth(el.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
-  const refit = () => {
-    framesRef.current = 0;
-    requestAnimationFrame(step);
-  };
+  const fontPx = width ? Math.max(12, Math.min(40, width / LINE_EM)) : 0;
+
+  // تصغير أي سطر أطول من العرض — بعد تحميل الخط، وعند تغير العرض.
+  const fitLines = useCallback(() => {
+    const box = boxRef.current;
+    if (!box || !fontPx) return;
+    box.querySelectorAll<HTMLElement>("[data-line]").forEach((line) => {
+      line.style.fontSize = "";
+      line.style.columnGap = "";
+      if (line.scrollWidth <= line.clientWidth + 0.5) return;
+      // أولاً: تضييق الفراغ بين الكلمات، ثم تصغير الخط إن لم يكفِ.
+      line.style.columnGap = "0.08em";
+      const natural = line.scrollWidth;
+      const avail = line.clientWidth;
+      if (natural > avail + 0.5) {
+        line.style.fontSize = `${(fontPx * avail) / natural - 0.05}px`;
+      }
+    });
+  }, [fontPx]);
 
   useLayoutEffect(() => {
-    scaleRef.current = 1;
-    innerRef.current?.style.setProperty("--fit", "1");
-    refit();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deps]);
-
-  useEffect(() => {
-    const timers = [220, 700, 1500].map((ms) => window.setTimeout(refit, ms));
-    window.addEventListener("resize", refit);
-    if (document.fonts?.ready) void document.fonts.ready.then(refit);
+    fitLines();
+    let alive = true;
+    const fonts = document.fonts;
+    if (fonts?.load) {
+      void fonts
+        .load(`${Math.round(fontPx) || 20}px "KFGQPC Hafs"`)
+        .then(() => alive && fitLines())
+        .catch(() => undefined);
+    }
     return () => {
-      timers.forEach((t) => window.clearTimeout(t));
-      window.removeEventListener("resize", refit);
+      alive = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deps]);
+  }, [fitLines, fontPx, lines]);
+
+  const ayahIndex = useMemo(() => {
+    const map = new Map<string, AyahText>();
+    for (const seg of segments) for (const a of seg.ayahs) map.set(`${seg.surahId}:${a.n}`, a);
+    return map;
+  }, [segments]);
+
+  const tap = (surah: number, ayah: number) => {
+    const a = ayahIndex.get(`${surah}:${ayah}`);
+    if (a && onAyahTap) onAyahTap(surah, a);
+  };
 
   return (
-    <div ref={outerRef} className="relative min-h-0 flex-1 overflow-hidden">
-      <div ref={innerRef} className="animate-fade-up">
-        {children}
-      </div>
+    <div
+      ref={boxRef}
+      className={opening ? "flex flex-col justify-center py-[6%]" : ""}
+      style={{
+        fontFamily: MUSHAF15_FONT,
+        fontSize: fontPx ? `${fontPx}px` : undefined,
+        visibility: fontPx ? "visible" : "hidden",
+      }}
+      lang="ar"
+    >
+      {lines.map((line, i) => (
+        <div key={i} style={{ height: `${ROW_EM}em` }} className="flex items-center">
+          {line.t === "h" ? (
+            <SurahBanner nameAr={bareSurahNameAr(SURAH_META[line.s - 1].nameAr)} />
+          ) : line.t === "b" ? (
+            <div className="w-full text-center leading-none text-foreground">{QPC_BASMALA}</div>
+          ) : isAyahLine(line) ? (
+            <div
+              data-line
+              className={`flex w-full whitespace-nowrap leading-none text-foreground ${
+                opening ? "justify-center gap-[0.28em]" : "justify-between gap-[0.2em]"
+              }`}
+            >
+              {line.w.map(([ayah, text], j) => {
+                const key = `${line.s}:${ayah}`;
+                const selected = key === selectedKey;
+                const marked = markedKeys?.has(key);
+                return (
+                  <span
+                    key={j}
+                    data-ayah={key}
+                    onClick={onAyahTap ? () => tap(line.s, ayah) : undefined}
+                    className={`rounded-[0.2em] px-[0.02em] py-[0.3em] transition-colors ${
+                      onAyahTap ? "cursor-pointer" : ""
+                    } ${
+                      selected
+                        ? "bg-primary/15"
+                        : marked
+                          ? "bg-gold/15"
+                          : onAyahTap
+                            ? "active:bg-primary/10"
+                            : ""
+                    } ${text ? "" : "text-gold"}`}
+                    role={text ? undefined : "button"}
+                    tabIndex={text || !onAyahTap ? undefined : 0}
+                    aria-label={text ? undefined : `خيارات الآية ${toArabicDigits(ayah)}`}
+                    onKeyDown={
+                      text || !onAyahTap
+                        ? undefined
+                        : (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              tap(line.s, ayah);
+                            }
+                          }
+                    }
+                  >
+                    {text ?? toArabicDigits(ayah)}
+                  </span>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      ))}
     </div>
   );
 }
+
+type MushafPageStateReady = Extract<MushafPageState, { status: "ready" }>["data"];
 
 /* ---------------- Page pieces ---------------- */
-
-function Segment({
-  seg,
-  style,
-  first,
-}: {
-  seg: MushafSegment;
-  style: ReturnType<typeof useReadingPrefs>["style"];
-  first: boolean;
-}) {
-  return (
-    <div className={first ? "" : "mt-[0.6em]"}>
-      {seg.startsSurah && <SurahBanner nameAr={bareSurahNameAr(seg.nameAr)} />}
-
-      {seg.showBasmala && (
-        <div
-          className="mb-[0.35em] text-center text-foreground"
-          style={{
-            fontFamily: style.fontFamily,
-            fontSize: `calc(${Math.round(style.fontSizePx * 0.86)}px * var(--fit, 1))`,
-            lineHeight: 1.9,
-          }}
-          lang="ar"
-        >
-          {BASMALA}
-        </div>
-      )}
-
-      <p
-        className="text-justify text-foreground"
-        style={{
-          fontFamily: style.fontFamily,
-          fontSize: `calc(${style.fontSizePx}px * var(--fit, 1))`,
-          lineHeight: style.lineHeight,
-          textAlignLast: "center",
-          wordSpacing: "0.04em",
-        }}
-        lang="ar"
-      >
-        {seg.ayahs.map((a) => (
-          <span key={a.n}>
-            {a.t}
-            <AyahMark n={a.n} />
-          </span>
-        ))}
-      </p>
-    </div>
-  );
-}
 
 /** Ornamental surah headband, as printed in the Madani Mushaf. */
 function SurahBanner({ nameAr }: { nameAr: string }) {
   return (
-    <div className="my-[0.5em] flex justify-center">
+    <div className="flex w-full justify-center">
       <div className="relative w-full overflow-hidden rounded-md border-2 border-primary/70 bg-primary/90 p-[3px] shadow-soft">
-        <div className="relative flex items-center justify-center overflow-hidden rounded-[3px] border border-gold/50 bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-card))] px-8 py-1.5">
-          <BannerFlourish className="absolute right-1 top-1/2 h-6 w-16 -translate-y-1/2 text-gold/70" />
-          <BannerFlourish className="absolute left-1 top-1/2 h-6 w-16 -translate-y-1/2 scale-x-[-1] text-gold/70" />
+        <div className="relative flex items-center justify-center overflow-hidden rounded-[3px] border border-gold/50 bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-card))] px-8 py-[0.22em]">
+          <BannerFlourish className="absolute right-1 top-1/2 h-[1.1em] w-[3em] -translate-y-1/2 text-gold/70" />
+          <BannerFlourish className="absolute left-1 top-1/2 h-[1.1em] w-[3em] -translate-y-1/2 scale-x-[-1] text-gold/70" />
           <span
             className="relative font-display font-medium leading-none text-foreground"
-            style={{ fontSize: "calc(15px * var(--fit, 1))" }}
+            style={{ fontSize: "0.72em" }}
           >
             سُورَةُ {nameAr}
           </span>
@@ -203,36 +266,6 @@ function BannerFlourish({ className }: { className?: string }) {
         <path d="M56 6c4 3 4 9 0 12" />
       </g>
     </svg>
-  );
-}
-
-/** Ornamental ayah end marker with the ayah number inside. */
-function AyahMark({ n }: { n: number }) {
-  return (
-    <span
-      className="relative mx-[0.15em] inline-flex select-none items-center justify-center align-middle"
-      style={{ width: "1.5em", height: "1.5em" }}
-      aria-label={`آية ${n}`}
-      title={`آية ${n}`}
-    >
-      <svg
-        viewBox="0 0 40 40"
-        className="absolute inset-0 h-full w-full text-gold"
-        aria-hidden="true"
-      >
-        <g fill="none" stroke="currentColor" strokeWidth="1.6">
-          <circle cx="20" cy="20" r="13" />
-          <circle cx="20" cy="20" r="16" strokeOpacity="0.45" />
-          <path d="M20 2.5 22.6 6.5 20 8.5 17.4 6.5Z" fill="currentColor" strokeWidth="0" />
-          <path d="M20 37.5 22.6 33.5 20 31.5 17.4 33.5Z" fill="currentColor" strokeWidth="0" />
-          <path d="M2.5 20 6.5 17.4 8.5 20 6.5 22.6Z" fill="currentColor" strokeWidth="0" />
-          <path d="M37.5 20 33.5 17.4 31.5 20 33.5 22.6Z" fill="currentColor" strokeWidth="0" />
-        </g>
-      </svg>
-      <span className="relative text-[0.42em] font-medium leading-none tabular-nums text-gold">
-        {toArabicDigits(n)}
-      </span>
-    </span>
   );
 }
 

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { EmptyState, Icon, icons, Screen, ScreenHeader, Skeleton } from "@/components/manar/shell";
 import {
   clearRecentSearches,
@@ -63,17 +63,14 @@ function QuranSearch() {
     return off;
   }, []);
 
-  const trimmed = q.trim();
+  // البحث يعمل على قيمة مؤجّلة حتى تبقى الكتابة سلسة على الأجهزة المتوسطة.
+  const deferredQ = useDeferredValue(q);
+  const trimmed = deferredQ.trim();
   const active = trimmed.length > 1;
 
-  const results = useMemo(() => {
-    if (!ready || !active) return [];
-    return quranSearchService.search(trimmed, { scope, surah, juz, limit: 100 });
-  }, [active, juz, ready, scope, surah, trimmed]);
-
-  const total = useMemo(() => {
-    if (!ready || !active) return 0;
-    return quranSearchService.count(trimmed, { scope, surah, juz });
+  const { hits: results, total } = useMemo(() => {
+    if (!ready || !active) return { hits: [], total: 0 };
+    return quranSearchService.query(trimmed, { scope, surah, juz, limit: 100 });
   }, [active, juz, ready, scope, surah, trimmed]);
 
   const nameHits = useMemo(() => (active ? searchSurahNames(trimmed, 6) : []), [active, trimmed]);

@@ -4,6 +4,7 @@
 // ============================================================
 
 import { useCallback, useEffect, useState } from "react";
+import { stripBasmala } from "./basmala";
 
 const KEY = "manar.quran.bookmarks.v1";
 const EVENT = "manar:quran-bookmarks";
@@ -70,6 +71,12 @@ export function bookmarkId(surah: number, ayah: number): string {
   return `${surah}:${ayah}`;
 }
 
+/** علامات قديمة حُفظت قبل فصل البسملة: نُزيلها من نص الآية الأولى. */
+function cleanSnapshot(b: Bookmark): Bookmark {
+  const text = stripBasmala(b.surah, 1, b.text);
+  return text === b.text ? b : { ...b, text };
+}
+
 function read(): Bookmark[] {
   if (typeof window === "undefined") return [];
   try {
@@ -77,13 +84,15 @@ function read(): Bookmark[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (b): b is Bookmark =>
-        !!b &&
-        typeof b === "object" &&
-        typeof (b as Bookmark).surah === "number" &&
-        typeof (b as Bookmark).ayah === "number",
-    );
+    return parsed
+      .filter(
+        (b): b is Bookmark =>
+          !!b &&
+          typeof b === "object" &&
+          typeof (b as Bookmark).surah === "number" &&
+          typeof (b as Bookmark).ayah === "number",
+      )
+      .map((b) => (b.ayah === 1 && typeof b.text === "string" ? cleanSnapshot(b) : b));
   } catch {
     return [];
   }
@@ -201,7 +210,7 @@ export function importBookmarks(json: string): number {
       ayah: b.ayah,
       page: typeof b.page === "number" ? b.page : 1,
       juz: typeof b.juz === "number" ? b.juz : 1,
-      text: typeof b.text === "string" ? b.text : "",
+      text: typeof b.text === "string" ? stripBasmala(b.surah, b.ayah, b.text) : "",
       note: typeof b.note === "string" ? b.note : undefined,
       tag: BOOKMARK_TAGS.some((t) => t.key === b.tag) ? b.tag : "tadabbur",
       createdAt: typeof b.createdAt === "number" ? b.createdAt : Date.now(),

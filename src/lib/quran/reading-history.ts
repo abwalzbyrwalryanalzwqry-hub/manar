@@ -33,9 +33,24 @@ export interface HistoryState {
   days: Record<string, number>;
   /** Furthest position ever reached, as a global ayah ordinal (1..6236). */
   furthest: number;
+  /** صفحات المصحف (١..٦٠٤) التي قُرئت فعلاً — مرتّبة بلا تكرار. أساس نسبة الختمة. */
+  pages: number[];
+  /** آخر مرة احتُسبت فيها جلسة قراءة (بقراءة صفحة فعلاً). */
+  sessionAt?: number;
 }
 
-const EMPTY: HistoryState = { entries: [], days: {}, furthest: 0 };
+const EMPTY: HistoryState = { entries: [], days: {}, furthest: 0, pages: [] };
+export const TOTAL_PAGES = 604;
+
+function cleanPages(v: unknown): number[] {
+  if (!Array.isArray(v)) return [];
+  const set = new Set<number>();
+  for (const x of v) {
+    const n = Math.trunc(Number(x));
+    if (n >= 1 && n <= TOTAL_PAGES) set.add(n);
+  }
+  return [...set].sort((a, b) => a - b);
+}
 
 /* ---------- Global ayah ordinals ---------- */
 
@@ -78,6 +93,8 @@ function read(): HistoryState {
       entries: Array.isArray(parsed.entries) ? parsed.entries.slice(0, MAX_ENTRIES) : [],
       days: parsed.days && typeof parsed.days === "object" ? parsed.days : {},
       furthest: typeof parsed.furthest === "number" ? parsed.furthest : 0,
+      pages: cleanPages(parsed.pages),
+      sessionAt: typeof parsed.sessionAt === "number" ? parsed.sessionAt : undefined,
     };
   } catch {
     return EMPTY;
@@ -106,17 +123,11 @@ export function recordRead(entry: Omit<ReadEntry, "at">): void {
   );
   const entries = [{ ...entry, at: now }, ...rest].slice(0, MAX_ENTRIES);
 
-  const key = dayKey(now);
-  const days = { ...state.days };
-  // Count one session per day per surah change.
-  const sameDayRecent = state.entries.some(
-    (e) => dayKey(e.at) === key && e.surah === entry.surah && now - e.at < MERGE_WINDOW_MS,
-  );
-  if (!sameDayRecent) days[key] = (days[key] ?? 0) + 1;
-
+  // لا يُحتسب يوم القراءة هنا: فتح المصحف وحده ليس قراءة.
+  // الجلسة تُحتسب في markPagesRead عند قراءة صفحة فعلاً.
   const nextGlobal = globalAyahIndex(entry.surah, entry.ayah);
   const furthest = Math.max(state.furthest, nextGlobal);
-  write({ entries, days, furthest });
+  write({ ...state, entries, furthest });
 
   /* السجل اليومي الموحّد: نحسب الآيات المقروءة فعلياً من التقدّم للأمام عن آخر
    * موضع مسجّل. نتجاهل القفزات الكبيرة لأنها تنقّل في المصحف لا قراءة. */
@@ -125,6 +136,27 @@ export function recordRead(entry: Omit<ReadEntry, "at">): void {
     const delta = nextGlobal - globalAyahIndex(prev.surah, prev.ayah);
     if (delta > 0 && delta <= MAX_READ_JUMP) recordAyahs(delta);
   }
+}
+
+/**
+ * يسجّل صفحات قُرئت فعلاً (تجاوزها القارئ للأمام في وضع السورة، أو قلبها إلى
+ * التالية في وضع المصحف). فتح صفحة وحده لا يُعدّ قراءة لها.
+ */
+export function markPagesRead(pages: number[], now: number = Date.now()): void {
+  const valid = cleanPages(pages);
+  if (valid.length === 0) return;
+  const state = read();
+  const merged = cleanPages([...state.pages, ...valid]);
+
+  // جلسة قراءة: أول صفحة مقروءة، ثم جلسة جديدة بعد انقطاع أطول من نافذة الدمج
+  // أو في يوم جديد. إعادة قراءة صفحات سابقة (ختمة ثانية) تُحتسب أيضاً.
+  const days = { ...state.days };
+  const key = dayKey(now);
+  const last = state.sessionAt;
+  const newSession = last === undefined || dayKey(last) !== key || now - last >= MERGE_WINDOW_MS;
+  if (newSession) days[key] = (days[key] ?? 0) + 1;
+
+  write({ ...state, pages: merged, days, sessionAt: now });
 }
 
 export function clearHistory(): void {
@@ -182,9 +214,11 @@ export interface HistorySummary {
   week: { key: string; label: string; count: number }[];
   sessionsToday: number;
   totalSessions: number;
-  /** 0..1 — furthest ayah reached over the whole Mushaf. */
+  /** 0..1 — نسبة صفحات المصحف المقروءة فعلاً. */
   progress: number;
   furthest: number;
+  /** عدد الصفحات المقروءة (٠..٦٠٤). */
+  pagesRead: number;
 }
 
 function summarize(state: HistoryState): HistorySummary {
@@ -197,8 +231,9 @@ function summarize(state: HistoryState): HistorySummary {
     week,
     sessionsToday: week[week.length - 1]?.count ?? 0,
     totalSessions: totals,
-    progress: Math.min(1, state.furthest / TOTAL_AYAHS),
+    progress: Math.min(1, state.pages.length / TOTAL_PAGES),
     furthest: state.furthest,
+    pagesRead: state.pages.length,
   };
 }
 

@@ -174,6 +174,14 @@ export function ayahAudioUrl(reciter: Reciter, surah: number, ayah: number): str
   return `${BASE}/${reciter.folder}/${ayahFileName(surah, ayah)}`;
 }
 
+/**
+ * ملفات everyayah للآية الأولى لا تتضمن البسملة (عدا الفاتحة حيث البسملة هي الآية ١).
+ * لذا تُشغَّل البسملة (001001) قبل الآية الأولى من كل سورة عدا الفاتحة والتوبة.
+ */
+export function needsBasmalaIntro(surah: number, ayah: number): boolean {
+  return ayah === 1 && surah !== 1 && surah !== 9 && surah >= 1 && surah <= 114;
+}
+
 /* ---------- Playback preferences ---------- */
 
 const KEY = "manar.quran.recitation.prefs.v1";

@@ -244,6 +244,7 @@ const MORE_PATHS = [
   "/profile",
   "/settings",
   "/about",
+  "/sources",
 ];
 
 export function TabBar() {

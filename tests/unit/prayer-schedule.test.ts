@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { getAdhanSettings, type AdhanSettings } from "@/lib/adhan-settings";
+import {
+  DEFAULT_IQAMA,
+  getAdhanSettings,
+  normalizeIqamaOffsets,
+  type AdhanSettings,
+} from "@/lib/adhan-settings";
 import { ADHAN_ASSETS } from "@/lib/adhan-library-assets";
 import { IQAMAH_IDS } from "@/lib/iqamah-library";
 import {
   buildPrayerAlarms,
+  iqamahReminderSkipped,
+  iqamahTimeFor,
+  isJumuah,
+  prayerLabelOn,
   rawResourceName,
   SCHEDULE_DAYS_AHEAD,
   type ManarAlarmEvent,
@@ -155,11 +164,11 @@ describe("فصل الأصوات: لا خلط بين الأذان والإقام�
 
   it("صوت إقامة خاص لصلاةٍ يغلب الاختيار العام لها وحدها", () => {
     const s = base();
-    s.iqamaVariant = "iqamah_01";
+    s.iqamaVariant = "iqamah_09";
     s.perPrayerIqama = { maghrib: "iqamah_12" };
     const iq = byRole(build(s), "iqamah");
     expect(iq.find((e) => e.prayer === "maghrib")!.sound).toBe("iqamah_12");
-    expect(iq.find((e) => e.prayer === "isha")!.sound).toBe("iqamah_01");
+    expect(iq.find((e) => e.prayer === "isha")!.sound).toBe("iqamah_09");
   });
 });
 
@@ -270,5 +279,137 @@ describe("المواعيد وإعادة الجدولة (الاختبارات ١�
     const first = ev.find((e) => e.role === "fajr_first_adhan")!;
     const second = ev.find((e) => e.key === "fajr_adhan_2026_09_23")!;
     expect(second.at - first.at).toBe(30 * 60_000);
+  });
+});
+
+describe("صلاة الجمعة", () => {
+  // ٢٥ سبتمبر ٢٠٢٦ جمعة؛ ٢٤ سبتمبر خميس للمقارنة.
+  const FRI = "_2026_09_25";
+  const THU = "_2026_09_24";
+  const onDay = (s: AdhanSettings, suffix: string) =>
+    buildPrayerAlarms({ settings: s, location: SANAA, calc: CALC, now: NOW, days: 4 }).filter((e) =>
+      e.key.endsWith(suffix),
+    );
+  const dhuhr = (ev: ManarAlarmEvent[], role: ManarAlarmEvent["role"]) =>
+    ev.find((e) => e.prayer === "dhuhr" && e.role === role);
+
+  it("الجمعة: فاصل خاص وعنوان «إقامة الجمعة» بدل فاصل الظهر", () => {
+    const s = base();
+    s.iqamaOffsets.dhuhr = 15;
+    s.jumuahIqamaOffset = 35;
+    const fri = onDay(s, FRI);
+    const a = dhuhr(fri, "adhan")!;
+    const i = dhuhr(fri, "iqamah")!;
+    expect(i.at - a.at).toBe(35 * 60_000);
+    expect(i.title).toBe("إقامة الجمعة");
+    // بقية الأيام بفاصل الظهر المعتاد وعنوانه.
+    const thu = onDay(s, THU);
+    const ti = dhuhr(thu, "iqamah")!;
+    expect(ti.at - dhuhr(thu, "adhan")!.at).toBe(15 * 60_000);
+    expect(ti.title).toBe("إقامة الظهر");
+  });
+
+  it("إيقاف إقامة الجمعة يلغي إقامتها وتنبيهها يوم الجمعة وحده", () => {
+    const s = base();
+    s.jumuahIqamaEnabled = false;
+    s.iqamaReminderEnabled = true;
+    s.iqamaReminderMinutes = 5;
+    const fri = onDay(s, FRI);
+    expect(dhuhr(fri, "iqamah")).toBeUndefined();
+    expect(dhuhr(fri, "iqamah_reminder")).toBeUndefined();
+    expect(dhuhr(fri, "adhan")).toBeDefined();
+    // الصلوات الأخرى يوم الجمعة لا تتأثر.
+    expect(byRole(fri, "iqamah")).toHaveLength(4);
+    expect(dhuhr(onDay(s, THU), "iqamah")).toBeDefined();
+  });
+
+  it("تنبيه ما قبل إقامة الجمعة يُحسب من فاصل الجمعة وباسمها", () => {
+    const s = base();
+    s.iqamaOffsets.dhuhr = 5;
+    s.jumuahIqamaOffset = 30;
+    s.iqamaReminderEnabled = true;
+    s.iqamaReminderMinutes = 10;
+    const fri = onDay(s, FRI);
+    const r = dhuhr(fri, "iqamah_reminder")!;
+    expect(r.title).toBe("اقتربت إقامة الجمعة");
+    expect(dhuhr(fri, "iqamah")!.at - r.at).toBe(10 * 60_000);
+    // الخميس: الفاصل ٥ دقائق أقصر من التنبيه فلا تنبيه.
+    expect(dhuhr(onDay(s, THU), "iqamah_reminder")).toBeUndefined();
+  });
+
+  it("isJumuah وprayerLabelOn بالتوقيت المحلي", () => {
+    expect(isJumuah("dhuhr", new Date(2026, 8, 25, 12))).toBe(true);
+    expect(isJumuah("asr", new Date(2026, 8, 25, 12))).toBe(false);
+    expect(isJumuah("dhuhr", new Date(2026, 8, 24, 12))).toBe(false);
+    expect(prayerLabelOn("dhuhr", new Date(2026, 8, 25, 12))).toBe("الجمعة");
+    expect(prayerLabelOn("dhuhr", new Date(2026, 8, 24, 12))).toBe("الظهر");
+  });
+});
+
+describe("تنبيه ما قبل الإقامة أطول من الفاصل", () => {
+  it("تنبيه مساوٍ للفاصل لا يُجدول، والإقامة نفسها تبقى", () => {
+    const s = base();
+    s.iqamaReminderEnabled = true;
+    s.iqamaReminderMinutes = 10; // المغرب فاصلها ١٠ افتراضياً
+    const ev = build(s);
+    expect(ev.some((e) => e.prayer === "maghrib" && e.role === "iqamah_reminder")).toBe(false);
+    expect(ev.some((e) => e.prayer === "maghrib" && e.role === "iqamah")).toBe(true);
+    // البقية (فواصلها ١٥ و٢٠) يصلها التنبيه.
+    expect(
+      byRole(ev, "iqamah_reminder")
+        .map((e) => e.prayer)
+        .sort(),
+    ).toEqual(["asr", "dhuhr", "fajr", "isha"].sort());
+  });
+
+  it("iqamahReminderSkipped تذكر الصلوات التي لن يصلها التنبيه", () => {
+    const s = base();
+    s.iqamaReminderEnabled = true;
+    s.iqamaReminderMinutes = 10;
+    const thu = new Date(2026, 8, 24, 12);
+    expect(iqamahReminderSkipped(s, thu)).toEqual([
+      { prayer: "maghrib", label: "المغرب", offset: 10 },
+    ]);
+    s.iqamaReminderMinutes = 5;
+    expect(iqamahReminderSkipped(s, thu)).toEqual([]);
+    s.iqamaReminderEnabled = false;
+    s.iqamaReminderMinutes = 30;
+    expect(iqamahReminderSkipped(s, thu)).toEqual([]);
+  });
+
+  it("الصلاة المعطّلة إقامتها لا تُذكر، والجمعة تُحسب بفاصلها", () => {
+    const s = base();
+    s.iqamaReminderEnabled = true;
+    s.iqamaReminderMinutes = 10;
+    s.perPrayer.maghrib = { ...s.perPrayer.maghrib, iqama: false };
+    s.jumuahIqamaOffset = 8;
+    const fri = new Date(2026, 8, 25, 12);
+    expect(iqamahReminderSkipped(s, fri)).toEqual([
+      { prayer: "dhuhr", label: "الجمعة", offset: 8 },
+    ]);
+  });
+});
+
+describe("فواصل الإقامة المحفوظة", () => {
+  it("القيم التالفة ترجع لافتراضيّها ولا تُنتج موعداً غير صالح", () => {
+    const o = normalizeIqamaOffsets({
+      fajr: "abc",
+      dhuhr: null,
+      asr: "25",
+      maghrib: 999,
+      isha: -4,
+      sunrise: 12,
+    });
+    expect(o).toEqual({ fajr: 20, sunrise: 0, dhuhr: 15, asr: 25, maghrib: 60, isha: 0 });
+    expect(normalizeIqamaOffsets(undefined)).toEqual(DEFAULT_IQAMA);
+    expect(normalizeIqamaOffsets("x")).toEqual(DEFAULT_IQAMA);
+  });
+
+  it("فاصل تالف في الإعدادات لا يُسلَّم للجدولة كموعد غير صالح", () => {
+    const s = base();
+    (s.iqamaOffsets as Record<string, unknown>).asr = "abc";
+    const ev = build(s);
+    for (const e of ev) expect(Number.isFinite(e.at), e.key).toBe(true);
+    expect(iqamahTimeFor(s, "asr", new Date(2026, 8, 24, 15))).toBeNull();
   });
 });

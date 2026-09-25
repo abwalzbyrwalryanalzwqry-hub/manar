@@ -9,13 +9,17 @@
 // streaming instead.
 // ============================================================
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Capacitor } from "@capacitor/core";
-import { ayahAudioUrl, ayahFileName, type Reciter } from "./recitations";
+import { ayahAudioUrl, ayahFileName, needsBasmalaIntro, type Reciter } from "./recitations";
 
 const KEY = "manar.quran.recitation.downloads.v1";
 const EVENT = "manar:recitation-downloads";
 const ROOT = "manar-recitations";
+/** عدد الملفات التي تُحمَّل في الوقت نفسه. */
+export const DOWNLOAD_CONCURRENCY = 4;
+/** نسخة البسملة المحفوظة داخل مجلد كل سورة. */
+const BASMALA_FILE = "basmala.mp3";
 
 export interface DownloadedSurah {
   /** Reciter folder — the audio identity of the files. */
@@ -27,6 +31,8 @@ export interface DownloadedSurah {
   /** Native directory URI, ready for `convertFileSrc`. */
   dirUri: string;
   at: number;
+  /** هل يحوي المجلد نسخة البسملة (basmala.mp3)؟ */
+  hasBasmala?: boolean;
 }
 
 type Manifest = Record<string, DownloadedSurah>;
@@ -79,6 +85,18 @@ export function localAyahSrc(folder: string, surah: number, ayah: number): strin
   return Capacitor.convertFileSrc(`${entry.dirUri}/${ayahFileName(surah, ayah)}`);
 }
 
+/**
+ * مصدر محلي للبسملة التمهيدية: من الفاتحة المحمّلة، أو من نسخة مجلد السورة.
+ * (التحميلات القديمة قبل هذه النسخة لا تحوي نسخة البسملة، فيُرجع null.)
+ */
+export function localBasmalaSrc(folder: string, surah: number): string | null {
+  const fatiha = localAyahSrc(folder, 1, 1);
+  if (fatiha) return fatiha;
+  const entry = getDownload(folder, surah);
+  if (!entry || entry.hasBasmala !== true) return null;
+  return Capacitor.convertFileSrc(`${entry.dirUri}/${BASMALA_FILE}`);
+}
+
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -113,6 +131,7 @@ export function downloadSurah(
   cb: DownloadCallbacks = {},
 ): DownloadHandle {
   let cancelled = false;
+  const abort = new AbortController();
 
   void (async () => {
     try {
@@ -128,28 +147,63 @@ export function downloadSurah(
         },
       );
 
-      let bytes = getDownload(reciter.folder, surah)?.bytes ?? 0;
-      for (let ayah = 1; ayah <= ayahCount; ayah++) {
-        if (cancelled) return;
-        const name = ayahFileName(surah, ayah);
-        const path = `${dir}/${name}`;
-
-        const existing = await Filesystem.stat({ path, directory: Directory.Data }).catch(
-          () => null,
-        );
-        if (existing && existing.size > 1024) {
-          cb.onProgress?.(ayah, ayahCount, bytes);
-          continue;
-        }
-
-        const res = await fetch(ayahAudioUrl(reciter, surah, ayah));
-        if (!res.ok) throw new Error(`تعذّر تحميل الآية ${ayah} (${res.status})`);
-        const blob = await res.blob();
-        const data = await blobToBase64(blob);
-        await Filesystem.writeFile({ path, directory: Directory.Data, data, recursive: true });
-        bytes += blob.size;
-        cb.onProgress?.(ayah, ayahCount, bytes);
+      // الملفات: آيات السورة، ومعها البسملة (001001) لسور تبدأ بها،
+      // لتعمل البسملة التمهيدية بدون إنترنت أيضاً.
+      // البسملة أولاً، فلا يبلغ العدّاد آخر آية والتحميل لم ينتهِ بعد.
+      const files: { name: string; url: string }[] = [];
+      if (needsBasmalaIntro(surah, 1)) {
+        files.push({ name: BASMALA_FILE, url: ayahAudioUrl(reciter, 1, 1) });
       }
+      const extra = files.length;
+      for (let ayah = 1; ayah <= ayahCount; ayah++) {
+        files.push({ name: ayahFileName(surah, ayah), url: ayahAudioUrl(reciter, surah, ayah) });
+      }
+
+      // تُحسب أحجام الملفات الموجودة مسبقاً أيضاً، فيبقى الحجم صحيحاً عند الاستئناف.
+      let bytes = 0;
+      let done = 0;
+      let failure: Error | null = null;
+      let next = 0;
+
+      const run = async () => {
+        while (!cancelled && !failure && next < files.length) {
+          const file = files[next++];
+          const path = `${dir}/${file.name}`;
+          const existing = await Filesystem.stat({ path, directory: Directory.Data }).catch(
+            () => null,
+          );
+          if (existing && existing.size > 1024) {
+            bytes += existing.size;
+          } else {
+            const res = await fetch(file.url, { signal: abort.signal });
+            if (!res.ok) {
+              failure = new Error(`تعذّر تحميل ${file.name} (${res.status})`);
+              return;
+            }
+            const blob = await res.blob();
+            const data = await blobToBase64(blob);
+            await Filesystem.writeFile({ path, directory: Directory.Data, data, recursive: true });
+            bytes += blob.size;
+          }
+          done += 1;
+          if (!cancelled) cb.onProgress?.(Math.max(0, done - extra), ayahCount, bytes);
+        }
+      };
+
+      const worker = async () => {
+        try {
+          await run();
+        } catch (e) {
+          // خطأ شبكة: يوقف بقية العمّال فوراً.
+          failure ??= e instanceof Error ? e : new Error(String(e));
+        }
+      };
+
+      // تحميل متوازٍ محدود: أسرع بكثير من ملف واحد في كل مرة دون إغراق الشبكة.
+      await Promise.all(
+        Array.from({ length: Math.min(DOWNLOAD_CONCURRENCY, files.length) }, worker),
+      );
+      if (failure) throw failure;
 
       if (cancelled) return;
       const { uri } = await Filesystem.getUri({ path: dir, directory: Directory.Data });
@@ -160,6 +214,7 @@ export function downloadSurah(
         bytes,
         dirUri: uri,
         at: Date.now(),
+        hasBasmala: needsBasmalaIntro(surah, 1),
       };
       writeManifest({ ...readManifest(), [downloadKey(reciter.folder, surah)]: entry });
       cb.onDone?.(entry);
@@ -173,8 +228,114 @@ export function downloadSurah(
   return {
     cancel: () => {
       cancelled = true;
+      abort.abort();
     },
   };
+}
+
+// ------------------------------------------------------------
+// مدير التحميلات: يعيش خارج الشاشات، فيستمر التحميل بعد مغادرة
+// شاشة التلاوات أو تمرير صف السورة خارج الشاشة، ويعود التقدم
+// إلى الصف عند الرجوع.
+// ------------------------------------------------------------
+
+export type ActiveDownload =
+  | {
+      status: "active";
+      folder: string;
+      surah: number;
+      done: number;
+      total: number;
+      bytes: number;
+    }
+  | { status: "error"; folder: string; surah: number; message: string };
+
+const active = new Map<string, { state: ActiveDownload; handle: DownloadHandle | null }>();
+const listeners = new Set<() => void>();
+let snapshot: ActiveDownload[] = [];
+
+function emit() {
+  snapshot = [...active.values()].map((v) => v.state);
+  for (const l of listeners) l();
+}
+
+function subscribe(l: () => void): () => void {
+  listeners.add(l);
+  return () => listeners.delete(l);
+}
+
+export interface DownloadManagerEvents {
+  onDone?: (entry: DownloadedSurah) => void;
+  onError?: (surah: number, message: string) => void;
+}
+
+/** يُضبط مرة من الواجهة لإشعار المستخدم بانتهاء التحميل أينما كان. */
+let managerEvents: DownloadManagerEvents = {};
+export function setDownloadManagerEvents(e: DownloadManagerEvents): void {
+  managerEvents = e;
+}
+
+/** يبدأ تحميل سورة إن لم يكن جارياً (ويستأنف من الملفات الموجودة). */
+export function startDownload(reciter: Reciter, surah: number, ayahCount: number): void {
+  const key = downloadKey(reciter.folder, surah);
+  if (active.get(key)?.state.status === "active") return;
+  const slot: { state: ActiveDownload; handle: DownloadHandle | null } = {
+    state: { status: "active", folder: reciter.folder, surah, done: 0, total: ayahCount, bytes: 0 },
+    handle: null,
+  };
+  active.set(key, slot);
+  emit();
+  slot.handle = downloadSurah(reciter, surah, ayahCount, {
+    onProgress: (done, total, bytes) => {
+      if (active.get(key) !== slot) return;
+      slot.state = { status: "active", folder: reciter.folder, surah, done, total, bytes };
+      emit();
+    },
+    onDone: (entry) => {
+      if (active.get(key) === slot) active.delete(key);
+      emit();
+      managerEvents.onDone?.(entry);
+    },
+    onError: (e) => {
+      if (active.get(key) !== slot) return;
+      slot.state = { status: "error", folder: reciter.folder, surah, message: e.message };
+      slot.handle = null;
+      emit();
+      managerEvents.onError?.(surah, e.message);
+    },
+  });
+}
+
+/** يلغي تحميلاً جارياً أو يمسح خطأه. الملفات المكتملة تبقى للاستئناف. */
+export function cancelDownload(folder: string, surah: number): void {
+  const key = downloadKey(folder, surah);
+  const slot = active.get(key);
+  if (!slot) return;
+  slot.handle?.cancel();
+  active.delete(key);
+  emit();
+}
+
+/** يلغي كل التحميلات الجارية (للاختبارات ولحذف الكل). */
+export function cancelAllDownloads(): void {
+  for (const slot of active.values()) slot.handle?.cancel();
+  active.clear();
+  emit();
+}
+
+/** قائمة التحميلات الجارية أو المتعثّرة، تفاعلية. */
+export function useActiveDownloads(): ActiveDownload[] {
+  return useSyncExternalStore(
+    subscribe,
+    () => snapshot,
+    () => snapshot,
+  );
+}
+
+/** حالة تحميل سورة واحدة لقارئ، أو undefined. */
+export function useActiveDownload(folder: string, surah: number): ActiveDownload | undefined {
+  const all = useActiveDownloads();
+  return all.find((d) => d.folder === folder && d.surah === surah);
 }
 
 /** Deletes a downloaded surah and its manifest entry. */
@@ -203,6 +364,7 @@ export async function deleteDownload(folder: string, surah: number): Promise<voi
 
 /** Deletes every downloaded recitation. */
 export async function deleteAllDownloads(): Promise<void> {
+  cancelAllDownloads();
   const all = listDownloads();
   for (const d of all) await deleteDownload(d.folder, d.surah);
   writeManifest({});

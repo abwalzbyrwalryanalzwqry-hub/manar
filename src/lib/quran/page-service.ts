@@ -8,15 +8,17 @@
 // No new dataset, no images.
 // ============================================================
 
+import { hasBasmalaHeader } from "./basmala";
 import { SURAH_META } from "./metadata";
 import { HIZB_META } from "./juz-metadata";
+import { PAGE_STARTS } from "./structure-data";
+import { loadMushaf15Page, type Mushaf15Page } from "./mushaf15";
 import { quranTextService } from "./text-service";
 import type { AyahText } from "./text-types";
 
 export const MUSHAF_PAGE_COUNT = 604;
 
-/** Canonical Basmala as authored in the Uthmani dataset. */
-export const BASMALA = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
+export { BASMALA } from "./basmala";
 
 export interface MushafSegment {
   surahId: number;
@@ -34,6 +36,8 @@ export interface MushafPage {
   juz: number;
   hizb: number | undefined;
   segments: MushafSegment[];
+  /** تخطيط الأسطر الخمسة عشر كما في المطبوع. */
+  layout: Mushaf15Page;
 }
 
 export function clampPage(page: number): number {
@@ -41,9 +45,21 @@ export function clampPage(page: number): number {
   return Math.min(MUSHAF_PAGE_COUNT, Math.max(1, Math.round(page)));
 }
 
-/** Surahs whose page range covers the given Mushaf page. */
-export function surahIdsOnPage(page: number): number[] {
-  return SURAH_META.filter((s) => page >= s.pages.start && page <= s.pages.end).map((s) => s.id);
+/**
+ * السور الظاهرة في الصفحة، مشتقّة من أول آية في الصفحة وأول آية في
+ * التي تليها (لا من نطاقات الصفحات المكتوبة يدوياً).
+ */
+export function surahIdsOnPage(pageInput: number): number[] {
+  const page = clampPage(pageInput);
+  const [first] = PAGE_STARTS[page - 1];
+  let last = 114;
+  if (page < MUSHAF_PAGE_COUNT) {
+    const [nextSurah, nextAyah] = PAGE_STARTS[page];
+    last = nextAyah === 1 ? nextSurah - 1 : nextSurah;
+  }
+  const ids: number[] = [];
+  for (let id = first; id <= Math.max(first, last); id++) ids.push(id);
+  return ids;
 }
 
 /** Hizb (1..60) that is in effect at the given page, when derivable. */
@@ -68,45 +84,48 @@ export class QuranPageService {
     if (pending) return pending;
 
     const p = (async () => {
-      const ids = surahIdsOnPage(page);
-      const texts = await Promise.all(ids.map((id) => quranTextService.loadSurah(id)));
+      try {
+        const ids = surahIdsOnPage(page);
+        const [layout, ...texts] = await Promise.all([
+          loadMushaf15Page(page),
+          ...ids.map((id) => quranTextService.loadSurah(id)),
+        ]);
 
-      const segments: MushafSegment[] = [];
-      for (const text of texts) {
-        const meta = SURAH_META[text.id - 1];
-        let ayahs = text.ayahs.filter((a) => a.p === page);
-        if (ayahs.length === 0) continue;
+        const segments: MushafSegment[] = [];
+        for (const text of texts) {
+          const meta = SURAH_META[text.id - 1];
+          const ayahs = text.ayahs.filter((a) => a.p === page);
+          if (ayahs.length === 0) continue;
 
-        const startsSurah = ayahs[0].n === 1;
-        let showBasmala = false;
-        if (startsSurah && text.id !== 1 && text.id !== 9) {
-          const first = ayahs[0];
-          if (first.t.startsWith(BASMALA)) {
-            showBasmala = true;
-            ayahs = [{ ...first, t: first.t.slice(BASMALA.length).trim() }, ...ayahs.slice(1)];
-          }
+          const startsSurah = ayahs[0].n === 1;
+          let showBasmala = false;
+          // البسملة فُصلت عن الآية الأولى في خدمة النص.
+          if (startsSurah && hasBasmalaHeader(text.id)) showBasmala = true;
+
+          segments.push({
+            surahId: text.id,
+            nameAr: meta.nameAr,
+            nameEn: meta.nameEn,
+            startsSurah,
+            showBasmala,
+            ayahs,
+          });
         }
 
-        segments.push({
-          surahId: text.id,
-          nameAr: meta.nameAr,
-          nameEn: meta.nameEn,
-          startsSurah,
-          showBasmala,
-          ayahs,
-        });
+        const juz = segments[0]?.ayahs[0]?.j ?? 1;
+        const result: MushafPage = {
+          page,
+          juz,
+          hizb: hizbForPage(page),
+          segments,
+          layout,
+        };
+        pageCache.set(page, result);
+        return result;
+      } finally {
+        // يُحذف في كل الأحوال: الفشل لا يُحفظ، فتنجح إعادة المحاولة.
+        inflight.delete(page);
       }
-
-      const juz = segments[0]?.ayahs[0]?.j ?? 1;
-      const result: MushafPage = {
-        page,
-        juz,
-        hizb: hizbForPage(page),
-        segments,
-      };
-      pageCache.set(page, result);
-      inflight.delete(page);
-      return result;
     })();
 
     inflight.set(page, p);

@@ -31,6 +31,7 @@ import {
 import { approachClipFor } from "@/lib/prayer-approach-audio";
 import { buildPrayerAlarms, type ManarAlarmEvent } from "@/lib/prayer-schedule";
 import { play as enginePlay } from "@/lib/audio-engine";
+import { dayKey as logDayKey, readLog } from "@/lib/activity-log";
 
 type FiredKey = string;
 
@@ -59,22 +60,9 @@ export function AdhanProvider() {
     if (typeof window === "undefined") return;
     let cancelled = false;
 
-    let wake: WakeLockSentinel | null = null;
-    const askWake = async () => {
-      try {
-        const nav = navigator as Navigator & {
-          wakeLock?: { request: (t: string) => Promise<WakeLockSentinel> };
-        };
-        if (nav.wakeLock?.request) wake = await nav.wakeLock.request("screen");
-      } catch {
-        /* ignore */
-      }
-    };
-    void askWake();
-    const onVis = () => {
-      if (document.visibilityState === "visible") void askWake();
-    };
-    document.addEventListener("visibilitychange", onVis);
+    /* لا قفل لإضاءة الشاشة هنا: كان يُطلب لجلسة التطبيق كلها فيستنزف البطارية.
+     * في أندرويد تتولى المنبّهات الأصلية الأذان والشاشة مطفأة، وإبقاء الشاشة
+     * مضاءة صار محصوراً في القراءة والتلاوة (useKeepAwake). */
 
     const tick = () => {
       if (cancelled) return;
@@ -178,13 +166,7 @@ export function AdhanProvider() {
     return () => {
       cancelled = true;
       window.clearInterval(id);
-      document.removeEventListener("visibilitychange", onVis);
       stopAdhan();
-      try {
-        wake?.release();
-      } catch {
-        /* ignore */
-      }
     };
   }, [location, calc]);
 
@@ -208,6 +190,9 @@ export function AdhanProvider() {
     };
     window.addEventListener("manar:daily-reminders", onSoundSettings);
     window.addEventListener("manar:adhan-settings", onSoundSettings);
+    // مواسم منار: تغيير تفضيلات التنبيه أو تعديل التاريخ الهجري يُعيد الجدولة.
+    window.addEventListener("manar:seasons", onSoundSettings);
+    window.addEventListener("manar:hijri-adjust", onSoundSettings);
 
     /* تغيّر اليوم أو المنطقة الزمنية والتطبيق مفتوح: نافذة الأيام السبعة تتقدّم
      * يوماً، والأوقات المطلقة تُعاد حسابها. فحصٌ خفيف كل دقيقة لا يُنشئ منبّهاً. */
@@ -227,7 +212,39 @@ export function AdhanProvider() {
       document.removeEventListener("visibilitychange", onResume);
       window.removeEventListener("manar:daily-reminders", onSoundSettings);
       window.removeEventListener("manar:adhan-settings", onSoundSettings);
+      window.removeEventListener("manar:seasons", onSoundSettings);
+      window.removeEventListener("manar:hijri-adjust", onSoundSettings);
       window.clearInterval(watch);
+      clearTimeout(pending);
+    };
+  }, [location, calc]);
+
+  /* إنجاز الوِرد أو فصل أذكار يُلغي تذكير اليوم نفسه إن لم يحن بعد (تخطّي ما أُنجز).
+   * السجل يتغيّر مع كل نقرة ذكر، فلا نعيد الجدولة إلا إن تغيّر ما أُنجز فعلاً.
+   * أثرٌ مستقل عن مستمعي الإعدادات أعلاه، ومؤجَّل قليلاً مثلها. */
+  useEffect(() => {
+    if (!isNativeShell()) return;
+    /* بصمة ما يُلغي تذكيراً: جلسات الوِرد وفصول الأذكار المكتملة اليوم. */
+    const wirdToday = () => {
+      const d = readLog().days[logDayKey()];
+      const wird = (d?.wird ?? []).slice().sort().join(",");
+      const chapters = Object.keys(d?.chapters ?? {})
+        .sort()
+        .join(",");
+      return `${wird}|${chapters}`;
+    };
+    let lastWird = wirdToday();
+    let pending: ReturnType<typeof setTimeout> | undefined;
+    const onActivity = () => {
+      const w = wirdToday();
+      if (w === lastWird) return;
+      lastWird = w;
+      clearTimeout(pending);
+      pending = setTimeout(() => void syncNativePrayerSchedule(location, calc), 800);
+    };
+    window.addEventListener("manar:activity", onActivity);
+    return () => {
+      window.removeEventListener("manar:activity", onActivity);
       clearTimeout(pending);
     };
   }, [location, calc]);

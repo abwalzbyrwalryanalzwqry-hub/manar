@@ -13,6 +13,7 @@ import {
 } from "@/components/manar/shell";
 import { LocationSheet } from "@/components/manar/location-sheet";
 import { SakinahCard } from "@/components/manar/sakinah-card";
+import { SeasonCard } from "@/components/manar/season-card";
 import { HadithSheet } from "@/components/manar/hadith-sheet";
 import { formatSecondsAr, useDailyHadith, useDailyVerse, useLocalDay } from "@/lib/daily-content";
 import { toggleBookmark, useBookmarks } from "@/lib/quran/bookmarks";
@@ -174,6 +175,11 @@ function Home() {
       {/* سكينة — اختصار الوضع الهادئ للصلاة */}
       <div className="px-4 pt-3 animate-fade-up" style={{ animationDelay: "120ms" }}>
         <SakinahCard nextPrayerLabel={nextLabel} />
+      </div>
+
+      {/* مواسم منار — تظهر فقط عند وجود موسم جارٍ أو قريب */}
+      <div className="px-4 pt-3 empty:hidden animate-fade-up" style={{ animationDelay: "160ms" }}>
+        <SeasonCard />
       </div>
 
       {/* QUICK ACTIONS */}

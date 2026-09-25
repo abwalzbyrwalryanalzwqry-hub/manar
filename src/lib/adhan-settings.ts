@@ -89,6 +89,8 @@ export type IqamaCategory = {
   id: IqamaVariant;
   name: string;
   hint: string;
+  shortName: string;
+  shortHint: string;
   duration: string;
   group: IqamahGroup;
 };
@@ -98,6 +100,8 @@ export const IQAMA_CATEGORIES: IqamaCategory[] = IQAMAH_SOUNDS.map((s) => ({
   id: s.id,
   name: s.name,
   hint: s.hint,
+  shortName: s.shortName,
+  shortHint: s.shortHint,
   duration: iqamahDurationLabel(s),
   group: s.group,
 }));
@@ -107,6 +111,12 @@ export const REMINDER_OPTIONS: ReminderMinutes[] = [5, 10, 15, 30];
 
 /** خيارات «تنبيه قبل الإقامة» بالدقائق. */
 export const IQAMA_REMINDER_OPTIONS = [2, 3, 5, 10] as const;
+
+/** أقصى فاصل بين الأذان والإقامة بالدقائق — حدّ واحد للشريط والزرّين والحفظ. */
+export const IQAMA_OFFSET_MAX = 60;
+
+/** أقصى فاصل لإقامة الجمعة — الخطبة قد تطول أكثر من فاصل الأيام العادية. */
+export const JUMUAH_OFFSET_MAX = 90;
 
 /* ------------------------------ Shape ------------------------------- */
 
@@ -147,6 +157,12 @@ export type AdhanSettings = {
   /** تنبيه نصّي قبل موعد الإقامة. */
   iqamaReminderEnabled: boolean;
   iqamaReminderMinutes: number;
+  /**
+   * صلاة الجمعة: الخطبة تبدأ مع الأذان، فلا يصلح فاصل الظهر العادي (١٥ دقيقة)
+   * لأنه يقع في منتصف الخطبة. للجمعة فاصلها الخاص، أو تُطفأ إقامتها كليّاً.
+   */
+  jumuahIqamaEnabled: boolean;
+  jumuahIqamaOffset: number;
 
   /* Notifications */
   soundEnabled: boolean;
@@ -205,6 +221,8 @@ const DEFAULTS: AdhanSettings = {
   perPrayerIqama: {},
   iqamaReminderEnabled: false,
   iqamaReminderMinutes: 5,
+  jumuahIqamaEnabled: true,
+  jumuahIqamaOffset: 30,
   soundEnabled: true,
   vibrationEnabled: true,
   silentMode: false,
@@ -250,7 +268,7 @@ function read(): AdhanSettings {
       fajrFirstAdhanAudio: mig(parsed.fajrFirstAdhanAudio, DEFAULTS.fajrFirstAdhanAudio),
       fajrSecondAdhanAudio: mig(parsed.fajrSecondAdhanAudio, DEFAULTS.fajrSecondAdhanAudio),
       fajrTathweebAudio: mig(parsed.fajrTathweebAudio, DEFAULTS.fajrTathweebAudio),
-      iqamaOffsets: { ...DEFAULT_IQAMA, ...(parsed.iqamaOffsets ?? {}) },
+      iqamaOffsets: normalizeIqamaOffsets(parsed.iqamaOffsets),
       perPrayer: { ...DEFAULTS.perPrayer, ...(parsed.perPrayer ?? {}) },
       perPrayerAudio,
       ...iqama,
@@ -280,7 +298,19 @@ function readIqama(parsed: Record<string, unknown>) {
     if (id) perPrayerIqama[k as PrayerKey] = id;
   }
   const minutes = Number(parsed.iqamaReminderMinutes);
+  const jumuah = Number(parsed.jumuahIqamaOffset);
   return {
+    jumuahIqamaEnabled:
+      typeof parsed.jumuahIqamaEnabled === "boolean"
+        ? parsed.jumuahIqamaEnabled
+        : DEFAULTS.jumuahIqamaEnabled,
+    jumuahIqamaOffset:
+      parsed.jumuahIqamaOffset !== null &&
+      parsed.jumuahIqamaOffset !== "" &&
+      Number.isFinite(jumuah) &&
+      jumuah >= 1
+        ? Math.min(JUMUAH_OFFSET_MAX, Math.round(jumuah))
+        : DEFAULTS.jumuahIqamaOffset,
     iqamaVariant: migrateIqamahId(parsed.iqamaVariant) ?? DEFAULTS.iqamaVariant,
     iqamaSoundEnabled: legacySilent
       ? false
@@ -293,6 +323,26 @@ function readIqama(parsed: Record<string, unknown>) {
         ? Math.round(minutes)
         : DEFAULTS.iqamaReminderMinutes,
   };
+}
+
+/**
+ * فواصل الإقامة المحفوظة بعد فحصها. قيمة تالفة (نصّ، null، NaN) كانت تمرّ كما
+ * هي فيُنتج `iqamahTimeFor` موعداً غير صالح (`Invalid Date`) يُسلَّم للجدولة.
+ * كل قيمة غير رقمية ترجع لافتراضيّها، والرقمية تُقرَّب وتُحصر في ٠..٦٠.
+ */
+export function normalizeIqamaOffsets(raw: unknown): Record<PrayerKey, number> {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const out = { ...DEFAULT_IQAMA };
+  for (const p of PRAYER_ORDER) {
+    const v = src[p];
+    // Number(null) و Number("") صفرٌ صالح في JS — نرفضهما صراحةً.
+    if (v === null || v === "" || typeof v === "boolean") continue;
+    const n = Number(v);
+    if (!Number.isFinite(n)) continue;
+    out[p] = Math.max(0, Math.min(IQAMA_OFFSET_MAX, Math.round(n)));
+  }
+  out.sunrise = 0;
+  return out;
 }
 
 const unit = (v: unknown, fb: number): number =>

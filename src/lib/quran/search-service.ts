@@ -13,9 +13,12 @@ import {
   containsAllTokens,
   matchedWordIndices,
   normalizeArabic,
+  quranSkeleton,
   splitWords,
   tokenizeArabic,
+  wordMatchesToken,
 } from "./normalize";
+import type { SurahText } from "./text-types";
 
 export type SearchScope = "all" | "surah" | "juz";
 
@@ -47,16 +50,44 @@ interface Entry {
   p: number;
   j: number;
   t: string;
-  /** Normalized, space-joined text. */
+  /** Skeleton, space-joined text. */
   hay: string;
+  /** Skeleton without spaces — phrase matching across fused words («يَٰٓأَيُّهَا»). */
+  flat: string;
   words: string[];
   norm: string[];
+  light: string[];
+}
+
+export interface SearchResult {
+  hits: AyahHit[];
+  /** All matching ayahs, ignoring the display limit. */
+  total: number;
 }
 
 export type BuildProgress = (loaded: number, total: number) => void;
 
 const RECENT_KEY = "manar.quran.search.recent.v1";
 const RECENT_MAX = 8;
+
+function toEntries(surah: SurahText): Entry[] {
+  return surah.ayahs.map((a) => {
+    const { words, norm, light } = splitWords(a.t);
+    const hay = norm.join(" ");
+    return {
+      s: surah.id,
+      n: a.n,
+      p: a.p,
+      j: a.j,
+      t: a.t,
+      hay,
+      flat: hay.replace(/ /g, ""),
+      words,
+      norm,
+      light,
+    };
+  });
+}
 
 class QuranSearchService {
   private entries: Entry[] = [];
@@ -98,19 +129,7 @@ class QuranSearchService {
         for (let id = start; id < start + BATCH && id <= SURAH_META.length; id++) ids.push(id);
         const surahs = await Promise.all(ids.map((id) => quranTextService.loadSurah(id)));
         for (const surah of surahs) {
-          for (const a of surah.ayahs) {
-            const { words, norm } = splitWords(a.t);
-            next.push({
-              s: surah.id,
-              n: a.n,
-              p: a.p,
-              j: a.j,
-              t: a.t,
-              hay: norm.join(" "),
-              words,
-              norm,
-            });
-          }
+          next.push(...toEntries(surah));
           this.loaded++;
         }
         this.emit();
@@ -128,40 +147,58 @@ class QuranSearchService {
     }
   }
 
+  /** Index already-loaded surahs synchronously (tests, warm caches). */
+  indexSurahs(surahs: SurahText[]): void {
+    this.entries = surahs.flatMap(toEntries);
+    this.loaded = surahs.length;
+  }
+
   /** Total indexed ayahs. */
   get size(): number {
     return this.entries.length;
   }
 
-  search(query: string, opts: SearchOptions = {}): AyahHit[] {
+  /** Matching ayahs (ranked, limited) plus the total count, in one pass. */
+  query(query: string, opts: SearchOptions = {}): SearchResult {
     const tokens = tokenizeArabic(query);
-    if (!tokens.length || !this.entries.length) return [];
+    if (!tokens.length || !this.entries.length) return { hits: [], total: 0 };
 
-    const phrase = normalizeArabic(query);
+    const phrase = quranSkeleton(query).replace(/ /g, "");
+    const lightTokens = normalizeArabic(query).split(" ").filter(Boolean);
     const limit = opts.limit ?? 120;
     const scope = opts.scope ?? "all";
     const hits: AyahHit[] = [];
+    const phraseHits: AyahHit[] = [];
 
     for (const e of this.entries) {
       if (scope === "surah" && opts.surah && e.s !== opts.surah) continue;
       if (scope === "juz" && opts.juz && e.j !== opts.juz) continue;
-
-      const isPhrase = tokens.length > 1 && e.hay.includes(phrase);
-      if (!isPhrase && !containsAllTokens(e.hay, tokens)) continue;
+      if (!containsAllTokens(e.hay, tokens)) continue;
 
       const matches = matchedWordIndices(e.norm, tokens);
-      if (!matches.length) continue;
+      // العبارة المتصلة تُقبل ولو اندمجت كلماتها في الرسم («يَٰٓأَيُّهَا» = «يا أيها»).
+      const isPhrase = tokens.length > 1 && e.flat.includes(phrase);
+      // وإلا فكل كلمة من البحث يجب أن تطابق كلمة كاملة (مع سوابقها) لا جزءاً من كلمة.
+      if (!isPhrase && !tokens.every((t) => matches.some((i) => wordMatchesToken(e.norm[i], t)))) {
+        continue;
+      }
 
-      // Exact-word matches and phrase hits rank above partial ones.
-      let score = isPhrase ? 120 : 0;
-      for (const i of matches) {
-        if (tokens.includes(e.norm[i])) score += 8;
-        else score += 3;
+      // لكل كلمة من البحث أفضل مطابقة لها في الآية (لا تتراكم بتكرارها في الآيات الطويلة):
+      // الإملاء المطابق تماماً («هؤلاء» لا «أهل») ثم الهيكل المطابق ثم الكلمة بسوابقها.
+      let score = isPhrase ? 200 : 0;
+      for (const t of tokens) {
+        let best = 0;
+        for (const i of matches) {
+          if (!wordMatchesToken(e.norm[i], t)) continue;
+          const w = lightTokens.includes(e.light[i]) ? 40 : e.norm[i] === t ? 20 : 8;
+          if (w > best) best = w;
+        }
+        score += best;
       }
       // Shorter ayahs with the same match are more likely to be the target.
       score += Math.max(0, 40 - e.norm.length) / 10;
 
-      hits.push({
+      (isPhrase ? phraseHits : hits).push({
         surah: e.s,
         nameAr: SURAH_META[e.s - 1].nameAr,
         ayah: e.n,
@@ -174,14 +211,19 @@ class QuranSearchService {
       });
     }
 
-    return hits
-      .sort((a, b) => b.score - a.score || a.surah - b.surah || a.ayah - b.ayah)
-      .slice(0, limit);
+    // العبارة المتصلة إن وُجدت هي المقصودة: «لا إله إلا الله» لا كل آية فيها «له» و«الله».
+    const pool = phraseHits.length ? phraseHits : hits;
+    pool.sort((a, b) => b.score - a.score || a.surah - b.surah || a.ayah - b.ayah);
+    return { hits: pool.slice(0, limit), total: pool.length };
+  }
+
+  search(query: string, opts: SearchOptions = {}): AyahHit[] {
+    return this.query(query, opts).hits;
   }
 
   /** How many ayahs match, ignoring the display limit. */
   count(query: string, opts: SearchOptions = {}): number {
-    return this.search(query, { ...opts, limit: Number.MAX_SAFE_INTEGER }).length;
+    return this.query(query, { ...opts, limit: 0 }).total;
   }
 }
 
@@ -190,7 +232,10 @@ export const quranSearchService = new QuranSearchService();
 /* ---------- Surah-name lookup (instant, needs no index) ---------- */
 
 export function searchSurahNames(query: string, limit = 8) {
-  const q = normalizeArabic(query);
+  // «سورة البقرة» تُعامل كـ«البقرة».
+  const q = normalizeArabic(query)
+    .replace(/^سوره\s+/, "")
+    .trim();
   if (!q) return [];
   const digits = q.replace(/\D/g, "");
   return SURAH_META.filter((s) => {

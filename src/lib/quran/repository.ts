@@ -12,6 +12,7 @@
 import type { SurahMeta, JuzMeta, HizbMeta, RevelationType } from "./types";
 import { SURAH_META } from "./metadata";
 import { JUZ_META, HIZB_META } from "./juz-metadata";
+import { normalizeArabic } from "./normalize";
 import { SURAH_DETAILS, MOCK_SURAH_IDS, type SurahDetail } from "./mock-data";
 
 /**
@@ -34,9 +35,10 @@ export class QuranRepository {
   findSurahByName(query: string): SurahMeta[] {
     const q = query.trim().toLowerCase();
     if (!q) return [];
+    const ar = normalizeArabic(q);
     return SURAH_META.filter(
       (s) =>
-        s.nameAr.includes(q) ||
+        (ar.length > 0 && normalizeArabic(s.nameAr).includes(ar)) ||
         s.nameEn.toLowerCase().includes(q) ||
         s.meaningEn.toLowerCase().includes(q),
     );

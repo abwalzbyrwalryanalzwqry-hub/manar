@@ -1,6 +1,7 @@
 import { Icon, icons } from "@/components/manar/shell";
 import { toArabicDigits } from "@/lib/quran";
 import { useReadingPrefs } from "@/lib/quran/reading-prefs";
+import { BASMALA, hasBasmalaHeader } from "@/lib/quran/basmala";
 import type { AyahText, SurahText } from "@/lib/quran/text-types";
 import { useEffect, useRef, useState } from "react";
 
@@ -19,9 +20,6 @@ interface Props {
   /** Ayah currently being recited — highlighted in emerald. */
   playingAyah?: number | null;
 }
-
-/** Canonical Basmala, as authored in the Uthmani dataset. */
-const BASMALA = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
 
 /**
  * Renders a Surah's Uthmani text inside the reading container.
@@ -47,8 +45,13 @@ export function SurahRenderer({
   useEffect(() => {
     if (!focusAyah || state.status !== "ready") return;
     const node = containerRef.current?.querySelector(`[data-ayah="${focusAyah}"]`);
-    node?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [focusAyah, state.status, surahId]);
+    // الاستئناف أو الانتقال: الآية في أعلى منطقة القراءة فوراً؛ أثناء التلاوة: في الوسط بسلاسة.
+    node?.scrollIntoView(
+      playingAyah
+        ? { behavior: "smooth", block: "center" }
+        : { behavior: "instant", block: "start" },
+    );
+  }, [focusAyah, playingAyah, state.status, surahId]);
 
   if (state.status === "loading") {
     return <ReaderLoading nameAr={surahNameAr} />;
@@ -58,24 +61,10 @@ export function SurahRenderer({
     return <ReaderError error={state.error} onRetry={onRetry} />;
   }
 
-  const isFatihah = surahId === 1;
-  // Al-Fatihah's first ayah IS the Basmala — keep it as a verse, no header.
-  // At-Tawbah (9) has no Basmala at all.
-  // Every other surah carries the Basmala prefixed onto ayah 1 in the dataset:
-  // lift it into the decorative header and strip it from the verse so it
-  // appears exactly once.
-  const rawAyahs = state.data.ayahs;
-  let ayahs = rawAyahs;
-  let showBasmalaHeader = false;
-
-  if (!isFatihah && rawAyahs.length > 0) {
-    const first = rawAyahs[0];
-    if (first.t.startsWith(BASMALA)) {
-      showBasmalaHeader = true;
-      const stripped = first.t.slice(BASMALA.length).trim();
-      ayahs = [{ ...first, t: stripped }, ...rawAyahs.slice(1)];
-    }
-  }
+  // الفاتحة: البسملة آيتها الأولى. التوبة: بلا بسملة. غيرهما: البسملة
+  // فُصلت عن الآية الأولى في خدمة النص وتُعرض هنا رأساً مزخرفاً.
+  const ayahs = state.data.ayahs;
+  const showBasmalaHeader = hasBasmalaHeader(surahId) && ayahs.length > 0;
 
   return (
     <div key={tick} ref={containerRef} className="animate-fade-up">
@@ -143,7 +132,7 @@ export function SurahRenderer({
                     : undefined
                 }
                 aria-label={`آية ${a.n}`}
-                className={`inline transition-colors duration-300 ${highlight} ${
+                className={`inline scroll-mt-28 transition-colors duration-300 ${highlight} ${
                   onAyahTap ? "cursor-pointer" : ""
                 }`}
               >
@@ -168,7 +157,7 @@ export function SurahRenderer({
           <span className="h-px w-8 bg-gold/40" />
         </div>
         <p className="text-[11px] text-muted-foreground">
-          صدق الله العظيم · {toArabicDigits(rawAyahs.length)} آية
+          صدق الله العظيم · {toArabicDigits(ayahs.length)} آية
         </p>
       </div>
     </div>
@@ -195,19 +184,7 @@ function ReaderLoading({ nameAr }: { nameAr: string }) {
   );
 }
 
-function ReaderError({
-  error,
-  onRetry,
-}: {
-  error: Error;
-  onRetry: () => void;
-  /** Ayah to highlight and scroll into view. */
-  activeAyah?: number | null;
-  /** Tapping an ayah opens the actions sheet in the reader. */
-  onAyahTap?: (ayah: AyahText) => void;
-  /** Ayah currently being recited — highlighted in emerald. */
-  playingAyah?: number | null;
-}) {
+function ReaderError({ error, onRetry }: { error: Error; onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center gap-3 py-10 text-center">
       <span className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
