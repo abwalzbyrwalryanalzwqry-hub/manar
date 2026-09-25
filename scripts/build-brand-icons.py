@@ -199,6 +199,14 @@ def launcher_round(size: int) -> Image.Image:
     return circled(interior().resize((size, size), Image.LANCZOS))
 
 
+
+def save_mipmap(img, path):
+    """WebP بلا فقد (بكسل مطابق للأصل، أصغر بنحو الثلث من PNG). يحذف PNG
+    القديم بالاسم نفسه، فلأندرويد مورد واحد لكل اسم."""
+    img.save(path.with_suffix(".webp"), "WEBP", lossless=True, quality=100, method=6, exact=True)
+    path.with_suffix(".png").unlink(missing_ok=True)
+
+
 def main() -> int:
     if not SRC.exists():
         print(f"المصدر غير موجود: {SRC}")
@@ -209,10 +217,10 @@ def main() -> int:
         d.mkdir(parents=True, exist_ok=True)
         legacy_px = round(48 * k)
         fg_px = round(108 * k)
-        launcher_legacy(legacy_px).save(d / "ic_launcher.png", optimize=True)
-        launcher_round(legacy_px).save(d / "ic_launcher_round.png", optimize=True)
-        adaptive_foreground(fg_px).save(d / "ic_launcher_foreground.png", optimize=True)
-        adaptive_background(fg_px).save(d / "ic_launcher_bg.png", optimize=True)
+        save_mipmap(launcher_legacy(legacy_px), d / "ic_launcher.png")
+        save_mipmap(launcher_round(legacy_px), d / "ic_launcher_round.png")
+        save_mipmap(adaptive_foreground(fg_px), d / "ic_launcher_foreground.png")
+        save_mipmap(adaptive_background(fg_px), d / "ic_launcher_bg.png")
 
     # الخلفية صارت صورة لا لوناً مسطّحاً، والأحادية صارت صورة لا متّجهاً.
     adaptive = (
