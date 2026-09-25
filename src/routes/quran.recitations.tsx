@@ -10,8 +10,6 @@ import {
 } from "@/components/manar/shell";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRecitationPlayer } from "@/hooks/use-recitation-player";
-import { useKeepAwake } from "@/hooks/use-keep-awake";
-import { useReadingPrefs } from "@/lib/quran/reading-prefs";
 import {
   deleteAllDownloads,
   downloadSurah,
@@ -53,9 +51,7 @@ function RecitationsScreen() {
   const params = Route.useSearch();
   const { prefs, update, reciter } = useRecitationPrefs();
   const player = useRecitationPlayer();
-  const { prefs: readingPrefs } = useReadingPrefs();
-  // أثناء التلاوة فقط: إطفاء الشاشة يوقف الصوت في WebView على كثير من الأجهزة.
-  useKeepAwake(readingPrefs.keepAwake && player.isBusy);
+  // إبقاء الشاشة مضاءة أثناء التلاوة يتولاه RecitationPlayerProvider في الجذر.
   const downloads = useDownloads();
 
   const [pickerOpen, setPickerOpen] = useState(false);

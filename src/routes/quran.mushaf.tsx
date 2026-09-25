@@ -6,6 +6,8 @@ import { useSurahText } from "@/hooks/use-surah-text";
 import { useMushafPage } from "@/hooks/use-mushaf-page";
 import { useKeepAwake } from "@/hooks/use-keep-awake";
 import { useImmersive } from "@/hooks/use-immersive";
+import { useRecitationPlayer } from "@/hooks/use-recitation-player";
+import { RecitationBar } from "@/components/manar/recitation-bar";
 import { PAPER_OPTIONS, paperClass, useReadingPrefs } from "@/lib/quran/reading-prefs";
 import {
   clampPage,
@@ -24,6 +26,7 @@ import {
   MIN_PAGE_DWELL_MS,
   notePagesRead,
   PageDwellTracker,
+  pageOfAyah,
   pageStart,
 } from "@/lib/quran/reading-tracker";
 import { SURAH_META } from "@/lib/quran/metadata";
@@ -78,6 +81,8 @@ function MushafReader() {
     const i = PAPER_OPTIONS.findIndex((o) => o.key === readingPrefs.paper);
     updatePrefs({ paper: PAPER_OPTIONS[(i + 1) % PAPER_OPTIONS.length].key });
   };
+  const player = useRecitationPlayer();
+  const [rangeFor, setRangeFor] = useState<{ surah: number; from: number } | null>(null);
   const appliedRef = useRef(false);
 
   // Apply incoming deep-link parameters once.
@@ -187,6 +192,34 @@ function MushafReader() {
     [update],
   );
 
+  // ---- التلاوة داخل القارئ: القارئ يتبع الآية المتلوّة ----
+  const track = player.track;
+  const playingAyah = track && track.surah === activeSurah.id ? track.ayah : null;
+  const playingKey = track ? `${track.surah}:${track.ayah}` : undefined;
+  const followRef = useRef({ isSurahMode, page: pageNumber, surah: activeSurah.id });
+  followRef.current = { isSurahMode, page: pageNumber, surah: activeSurah.id };
+  useEffect(() => {
+    if (!track) return;
+    const f = followRef.current;
+    if (f.isSurahMode) {
+      // التلاوة المتصلة انتقلت إلى السورة التالية: ينتقل القارئ معها.
+      if (track.surah !== f.surah) update({ surah: track.surah, ayah: track.ayah });
+    } else {
+      const p = pageOfAyah(track.surah, track.ayah);
+      if (p !== f.page) update({ page: p });
+    }
+  }, [track, update]);
+
+  /** زر «الصوت»: يتلو من الآية الظاهرة، أو يوقف/يستأنف التلاوة الجارية. */
+  const onAudio = () => {
+    if (track) player.toggle();
+    else if (isSurahMode) player.play(activeSurah.id, here?.n ?? 1);
+    else {
+      const start = pageStart(pageNumber);
+      player.play(start.surah, start.ayah);
+    }
+  };
+
   return (
     <div
       dir="rtl"
@@ -200,12 +233,22 @@ function MushafReader() {
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/80 to-background" />
       </div>
 
-      <div className={`relative mx-auto max-w-md ${isSurahMode && !immersive ? "pb-28" : "pb-10"}`}>
+      <div
+        className={`relative mx-auto max-w-md ${
+          track
+            ? isSurahMode && !immersive
+              ? "pb-44"
+              : "pb-28"
+            : isSurahMode && !immersive
+              ? "pb-28"
+              : "pb-10"
+        }`}
+      >
         {/* ملء الشاشة: زر خروج صغير فقط، والنص وحده */}
         {immersive && (
           <button
             onClick={exitImmersive}
-            className="fixed bottom-4 left-4 z-40 flex h-9 items-center gap-1.5 rounded-full border border-border/60 bg-card/70 px-3 text-[11px] font-medium text-muted-foreground shadow-soft backdrop-blur-xl transition active:scale-95"
+            className={`fixed left-4 z-40 flex h-9 ${track ? "top-4" : "bottom-4"} items-center gap-1.5 rounded-full border border-border/60 bg-card/70 px-3 text-[11px] font-medium text-muted-foreground shadow-soft backdrop-blur-xl transition active:scale-95`}
             aria-label="الخروج من ملء الشاشة"
           >
             <Icon d={ICON_EXIT_FULL} size={14} />
@@ -367,6 +410,7 @@ function MushafReader() {
               surahId={activeSurah.id}
               surahNameAr={activeSurah.nameAr}
               activeAyah={targetAyah}
+              playingAyah={playingAyah}
               onAyahTap={(a) => setSheet({ surah: activeSurah.id, ayah: a })}
               onPosition={onPosition}
               onSettled={onSettled}
@@ -463,8 +507,10 @@ function MushafReader() {
             page={pageNumber}
             onChange={(p) => update({ page: clampPage(p) })}
             onAyahTap={(surah, ayah) => setSheet({ surah, ayah })}
-            selectedKey={sheet ? `${sheet.surah}:${sheet.ayah.n}` : undefined}
+            selectedKey={sheet ? `${sheet.surah}:${sheet.ayah.n}` : playingKey}
             immersive={immersive}
+            audioState={track ? player.status : "idle"}
+            onAudio={onAudio}
           />
         )}
         {isSurahMode && !immersive && (
@@ -474,7 +520,19 @@ function MushafReader() {
               <div className="grid grid-cols-5 gap-1 rounded-full border border-border/60 bg-card/90 p-1.5 shadow-elegant backdrop-blur-2xl">
                 <ReaderAction icon={icons.bookmark} label="آخر قراءة" to="/quran/last-read" />
                 <ReaderAction icon={icons.info} label="التفسير" to="/quran/tafsir" />
-                <ReaderAction icon={icons.play} label="الصوت" to="/quran/recitations" />
+                <ReaderAction
+                  icon={player.status === "playing" ? icons.pause : icons.play}
+                  label={player.status === "playing" ? "إيقاف" : "تلاوة"}
+                  active={Boolean(track)}
+                  ariaLabel={
+                    player.status === "playing"
+                      ? "إيقاف التلاوة مؤقتاً"
+                      : track
+                        ? "استئناف التلاوة"
+                        : `تلاوة من الآية ${toArabicDigits(here?.n ?? 1)}`
+                  }
+                  onClick={onAudio}
+                />
                 <ReaderAction icon={icons.search} label="بحث" to="/quran/search" />
                 <ReaderAction
                   icon={icons.bookmark}
@@ -661,6 +719,32 @@ function MushafReader() {
         </DialogContent>
       </Dialog>
 
+      {/* -------- التلاوة داخل القارئ -------- */}
+      {track && (
+        <div
+          className={`fixed inset-x-0 z-30 mx-auto max-w-md px-4 ${
+            isSurahMode && !immersive ? "bottom-[4.6rem]" : "bottom-3"
+          }`}
+        >
+          <RecitationBar
+            variant="reader"
+            onRange={() =>
+              player.range
+                ? player.clearRange()
+                : setRangeFor({ surah: track.surah, from: track.ayah })
+            }
+          />
+        </div>
+      )}
+      <RangeDialog
+        target={rangeFor}
+        onClose={() => setRangeFor(null)}
+        onStart={(surah, from, to, times) => {
+          setRangeFor(null);
+          player.playRange(surah, from, to, times);
+        }}
+      />
+
       {/* -------- Per-ayah actions -------- */}
       <AyahActionSheet
         surah={sheet?.surah ?? activeSurah.id}
@@ -669,7 +753,11 @@ function MushafReader() {
         onClose={() => setSheet(null)}
         onPlay={(surah, ayah) => {
           setSheet(null);
-          navigate({ to: "/quran/recitations", search: { surah, ayah } });
+          player.play(surah, ayah);
+        }}
+        onRepeat={(surah, ayah) => {
+          setSheet(null);
+          setRangeFor({ surah, from: ayah });
         }}
         onTafsir={(surah, ayah) => {
           setSheet(null);
@@ -684,6 +772,100 @@ function MushafReader() {
   );
 }
 
+/* ---------- تكرار مقطع (للحفظ والمراجعة) ---------- */
+
+const RANGE_TIMES: { value: number; label: string }[] = [
+  { value: 1, label: "مرة" },
+  { value: 3, label: "٣" },
+  { value: 5, label: "٥" },
+  { value: 10, label: "١٠" },
+  { value: 0, label: "بلا حدّ" },
+];
+
+function RangeDialog({
+  target,
+  onClose,
+  onStart,
+}: {
+  target: { surah: number; from: number } | null;
+  onClose: () => void;
+  onStart: (surah: number, from: number, to: number, times: number) => void;
+}) {
+  const max = target ? SURAH_META[target.surah - 1].ayatCount : 1;
+  const [from, setFrom] = useState(1);
+  const [to, setTo] = useState(1);
+  const [times, setTimes] = useState(3);
+  useEffect(() => {
+    if (!target) return;
+    setFrom(target.from);
+    setTo(Math.min(max, target.from + 4));
+  }, [target, max]);
+  const clamp = (n: number) => Math.min(max, Math.max(1, Math.trunc(n) || 1));
+  const field = (label: string, value: number, set: (n: number) => void) => (
+    <label className="grid gap-1 text-[11px] text-muted-foreground">
+      {label}
+      <input
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={max}
+        value={value}
+        onChange={(e) => set(clamp(Number(e.target.value)))}
+        className="w-full rounded-2xl border border-border/60 bg-background/70 px-3 py-2.5 text-center text-base text-foreground tabular-nums outline-none focus:border-primary/50"
+        dir="ltr"
+      />
+    </label>
+  );
+  return (
+    <Dialog open={!!target} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className="max-w-sm rounded-3xl border-border/60 bg-card/95 backdrop-blur-2xl sm:rounded-3xl"
+        dir="rtl"
+      >
+        <DialogHeader className="text-right">
+          <DialogTitle className="font-display text-xl">تكرار مقطع</DialogTitle>
+          <p className="text-[11px] text-muted-foreground">
+            {target ? `سورة ${SURAH_META[target.surah - 1].nameAr} · ` : ""}
+            {toArabicDigits(max)} آية — للحفظ والمراجعة
+          </p>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3">
+          {field("من الآية", from, setFrom)}
+          {field("إلى الآية", to, setTo)}
+        </div>
+        <div className="grid gap-1.5">
+          <div className="text-[11px] text-muted-foreground">عدد مرات تكرار المقطع</div>
+          <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="عدد مرات التكرار">
+            {RANGE_TIMES.map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                role="radio"
+                aria-checked={times === t.value}
+                onClick={() => setTimes(t.value)}
+                className={`rounded-xl border py-2 text-[12px] font-medium transition active:scale-95 ${
+                  times === t.value
+                    ? "border-primary/50 bg-primary/15 text-primary"
+                    : "border-border/60 bg-background/60"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => target && onStart(target.surah, from, to, times)}
+          className="gradient-primary rounded-2xl py-3 text-sm font-medium text-primary-foreground shadow-glow transition active:scale-[0.98]"
+        >
+          ابدأ التكرار
+        </button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ---------- Per-ayah action sheet ---------- */
 
 function AyahActionSheet({
@@ -692,6 +874,7 @@ function AyahActionSheet({
   ayah,
   onClose,
   onPlay,
+  onRepeat,
   onTafsir,
   onShare,
 }: {
@@ -700,6 +883,7 @@ function AyahActionSheet({
   ayah: AyahText | null;
   onClose: () => void;
   onPlay: (surah: number, ayah: number) => void;
+  onRepeat: (surah: number, ayah: number) => void;
   onTafsir: (surah: number, ayah: number) => void;
   onShare: (surah: number, ayah: number) => void;
 }) {
@@ -729,7 +913,7 @@ function AyahActionSheet({
               {ayah.t}
             </p>
 
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-5 gap-2">
               <SheetAction
                 icon={icons.bookmark}
                 label={saved ? "محفوظة" : "حفظ"}
@@ -756,6 +940,11 @@ function AyahActionSheet({
                 onClick={() => onShare(surah, ayah.n)}
               />
               <SheetAction icon={icons.play} label="تلاوة" onClick={() => onPlay(surah, ayah.n)} />
+              <SheetAction
+                icon={icons.repeat}
+                label="تكرار"
+                onClick={() => onRepeat(surah, ayah.n)}
+              />
             </div>
 
             <button
@@ -822,6 +1011,7 @@ function MushafReadingArea({
   surahId,
   surahNameAr,
   activeAyah,
+  playingAyah,
   onAyahTap,
   onPosition,
   onSettled,
@@ -830,6 +1020,7 @@ function MushafReadingArea({
   surahId: number;
   surahNameAr: string;
   activeAyah?: number | null;
+  playingAyah?: number | null;
   immersive?: boolean;
   onAyahTap?: (ayah: AyahText) => void;
   /** الآية الظاهرة أعلى منطقة القراءة، مع كل تمرير. */
@@ -942,6 +1133,7 @@ function MushafReadingArea({
             state={state}
             onRetry={state.retry}
             activeAyah={activeAyah}
+            playingAyah={playingAyah}
             onAyahTap={onAyahTap}
           />
         </div>
@@ -958,12 +1150,17 @@ function MushafPagesMode({
   onAyahTap,
   selectedKey,
   immersive = false,
+  audioState = "idle",
+  onAudio,
 }: {
   page: number;
   onChange: (page: number) => void;
   onAyahTap: (surah: number, ayah: AyahText) => void;
   selectedKey?: string;
   immersive?: boolean;
+  /** حالة التلاوة لزر التشغيل في شريط التنقل. */
+  audioState?: string;
+  onAudio?: () => void;
 }) {
   const state = useMushafPage(page);
   const { items: bookmarks } = useBookmarks();
@@ -1064,7 +1261,7 @@ function MushafPagesMode({
 
       {/* Page navigation — previous is on the right, next on the left */}
       <div
-        className={`mt-3 ${immersive ? "hidden" : "grid"} grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3`}
+        className={`mt-3 ${immersive ? "hidden" : "grid"} grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2`}
       >
         <button
           onClick={() => go(-1)}
@@ -1082,6 +1279,23 @@ function MushafPagesMode({
           className="rounded-full border border-border/60 bg-card/70 py-2.5 text-[12px] font-medium tabular-nums shadow-soft transition active:scale-[0.98]"
         >
           صفحة {toArabicDigits(page)} من {toArabicDigits(MUSHAF_PAGE_COUNT)}
+        </button>
+        <button
+          onClick={onAudio}
+          className={`flex h-11 w-11 items-center justify-center rounded-full border shadow-soft transition active:scale-95 ${
+            audioState === "idle"
+              ? "border-border bg-card/70 text-foreground"
+              : "border-primary/40 bg-primary/15 text-primary"
+          }`}
+          aria-label={
+            audioState === "playing"
+              ? "إيقاف التلاوة مؤقتاً"
+              : audioState === "idle"
+                ? "تلاوة الصفحة"
+                : "استئناف التلاوة"
+          }
+        >
+          <Icon d={audioState === "playing" ? icons.pause : icons.play} size={17} />
         </button>
         <button
           onClick={() => go(1)}
