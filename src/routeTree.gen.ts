@@ -33,7 +33,9 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as TabsRouteImport } from './routes/_tabs'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WirdIndexRouteImport } from './routes/wird.index'
+import { Route as SeasonsIndexRouteImport } from './routes/seasons.index'
 import { Route as WirdSessionRouteImport } from './routes/wird.$session'
+import { Route as SeasonsSeasonRouteImport } from './routes/seasons.$season'
 import { Route as QuranTafsirRouteImport } from './routes/quran.tafsir'
 import { Route as QuranShareRouteImport } from './routes/quran.share'
 import { Route as QuranSearchRouteImport } from './routes/quran.search'
@@ -172,10 +174,20 @@ const WirdIndexRoute = WirdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => WirdRoute,
 } as any)
+const SeasonsIndexRoute = SeasonsIndexRouteImport.update({
+  id: '/seasons/',
+  path: '/seasons/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WirdSessionRoute = WirdSessionRouteImport.update({
   id: '/$session',
   path: '/$session',
   getParentRoute: () => WirdRoute,
+} as any)
+const SeasonsSeasonRoute = SeasonsSeasonRouteImport.update({
+  id: '/seasons/$season',
+  path: '/seasons/$season',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const QuranTafsirRoute = QuranTafsirRouteImport.update({
   id: '/quran/tafsir',
@@ -307,7 +319,9 @@ export interface FileRoutesByFullPath {
   '/quran/search': typeof QuranSearchRoute
   '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
+  '/seasons/$season': typeof SeasonsSeasonRoute
   '/wird/$session': typeof WirdSessionRoute
+  '/seasons/': typeof SeasonsIndexRoute
   '/wird/': typeof WirdIndexRoute
   '/azkar/group/$group': typeof AzkarGroupGroupRoute
   '/wird/list/$session': typeof WirdListSessionRoute
@@ -350,7 +364,9 @@ export interface FileRoutesByTo {
   '/quran/search': typeof QuranSearchRoute
   '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
+  '/seasons/$season': typeof SeasonsSeasonRoute
   '/wird/$session': typeof WirdSessionRoute
+  '/seasons': typeof SeasonsIndexRoute
   '/wird': typeof WirdIndexRoute
   '/azkar/group/$group': typeof AzkarGroupGroupRoute
   '/wird/list/$session': typeof WirdListSessionRoute
@@ -396,7 +412,9 @@ export interface FileRoutesById {
   '/quran/search': typeof QuranSearchRoute
   '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
+  '/seasons/$season': typeof SeasonsSeasonRoute
   '/wird/$session': typeof WirdSessionRoute
+  '/seasons/': typeof SeasonsIndexRoute
   '/wird/': typeof WirdIndexRoute
   '/azkar/group/$group': typeof AzkarGroupGroupRoute
   '/wird/list/$session': typeof WirdListSessionRoute
@@ -442,7 +460,9 @@ export interface FileRouteTypes {
     | '/quran/search'
     | '/quran/share'
     | '/quran/tafsir'
+    | '/seasons/$season'
     | '/wird/$session'
+    | '/seasons/'
     | '/wird/'
     | '/azkar/group/$group'
     | '/wird/list/$session'
@@ -485,7 +505,9 @@ export interface FileRouteTypes {
     | '/quran/search'
     | '/quran/share'
     | '/quran/tafsir'
+    | '/seasons/$season'
     | '/wird/$session'
+    | '/seasons'
     | '/wird'
     | '/azkar/group/$group'
     | '/wird/list/$session'
@@ -530,7 +552,9 @@ export interface FileRouteTypes {
     | '/quran/search'
     | '/quran/share'
     | '/quran/tafsir'
+    | '/seasons/$season'
     | '/wird/$session'
+    | '/seasons/'
     | '/wird/'
     | '/azkar/group/$group'
     | '/wird/list/$session'
@@ -571,6 +595,8 @@ export interface RootRouteChildren {
   QuranSearchRoute: typeof QuranSearchRoute
   QuranShareRoute: typeof QuranShareRoute
   QuranTafsirRoute: typeof QuranTafsirRoute
+  SeasonsSeasonRoute: typeof SeasonsSeasonRoute
+  SeasonsIndexRoute: typeof SeasonsIndexRoute
   AzkarGroupGroupRoute: typeof AzkarGroupGroupRoute
 }
 
@@ -744,12 +770,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WirdIndexRouteImport
       parentRoute: typeof WirdRoute
     }
+    '/seasons/': {
+      id: '/seasons/'
+      path: '/seasons'
+      fullPath: '/seasons/'
+      preLoaderRoute: typeof SeasonsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/wird/$session': {
       id: '/wird/$session'
       path: '/$session'
       fullPath: '/wird/$session'
       preLoaderRoute: typeof WirdSessionRouteImport
       parentRoute: typeof WirdRoute
+    }
+    '/seasons/$season': {
+      id: '/seasons/$season'
+      path: '/seasons/$season'
+      fullPath: '/seasons/$season'
+      preLoaderRoute: typeof SeasonsSeasonRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/quran/tafsir': {
       id: '/quran/tafsir'
@@ -947,6 +987,8 @@ const rootRouteChildren: RootRouteChildren = {
   QuranSearchRoute: QuranSearchRoute,
   QuranShareRoute: QuranShareRoute,
   QuranTafsirRoute: QuranTafsirRoute,
+  SeasonsSeasonRoute: SeasonsSeasonRoute,
+  SeasonsIndexRoute: SeasonsIndexRoute,
   AzkarGroupGroupRoute: AzkarGroupGroupRoute,
 }
 export const routeTree = rootRouteImport

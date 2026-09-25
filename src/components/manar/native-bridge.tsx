@@ -16,6 +16,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import {
@@ -26,6 +27,7 @@ import {
   setupBackButton,
 } from "@/lib/native-shell";
 import {
+  attachSeasonTapListener,
   nativeAdhanStatus,
   requestBatteryExemption,
   requestExactAlarms,
@@ -44,6 +46,15 @@ export function NativeBridge() {
   const { settings: calc } = useSettings();
   const [status, setStatus] = useState<NativeAdhanStatus | null>(null);
   const [dismissed, setDismissed] = useState(true);
+  const router = useRouter();
+
+  // النقر على تنبيه «مواسم منار» يفتح صفحة الموسم.
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    void attachSeasonTapListener((season) => {
+      void router.navigate({ to: "/seasons/$season", params: { season } });
+    });
+  }, [router]);
 
   // Back button + splash + status bar.
   //

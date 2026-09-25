@@ -29,6 +29,7 @@ const ITEMS = [
   },
   { to: "/qibla", l: "القِبلة", d: "البوصلة واتجاه الكعبة", i: icons.qibla },
   { to: "/calendar", l: "التقويم", d: "هجري وميلادي ومناسبات", i: icons.calendar },
+  { to: "/seasons", l: "مواسم منار", d: "رمضان وذو الحجة والجمعة وغيرها", i: icons.star },
   { to: "/statistics", l: "الإحصائيات", d: "تقدمك ورحلتك", i: icons.stats },
   { to: "/profile", l: "الملف الشخصي", d: "بياناتك وحسابك", i: icons.profile },
   { to: "/settings", l: "الإعدادات", d: "اللغة، الإشعارات، المظهر", i: icons.settings },

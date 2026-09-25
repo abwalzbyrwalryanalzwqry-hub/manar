@@ -65,6 +65,10 @@ import { resolveIqamaForPrayer } from "@/lib/adhan-settings";
 import { prayerLabelOn } from "@/lib/prayer-schedule";
 import type { PrayerKey } from "@/lib/prayer";
 import { PRAYER_APPROACH_CLIPS, approachClipFor } from "@/lib/prayer-approach-audio";
+import { getHijriAdjust } from "@/lib/hijri";
+import { seasonNotificationsBetween } from "@/lib/seasons/engine";
+import { readSeasonNotifyPrefs } from "@/lib/seasons/store";
+import { seasonIdFromNotificationTap } from "@/lib/seasons/notification-route";
 
 type LocalNotificationsPlugin = {
   requestPermissions: () => Promise<{ display: string }>;
@@ -371,6 +375,14 @@ const TEST_ID = SNOOZE_ID_BASE + 99;
 
 function dailyIdFor(dayIndex: number, reminderIndex: number) {
   return DAILY_ID_BASE + dayIndex * 100 + reminderIndex;
+}
+
+/* تنبيهات «مواسم منار» داخل مدى التذكيرات نفسه (فتُلغى وتُعاد جدولتها معه)،
+ * لكن بإزاحة لا تتقاطع مع معرّفات الأذكار والوِرد (dayIndex * 100 + ri). */
+const SEASON_ID_BASE = DAILY_ID_BASE + 50000;
+
+function seasonIdFor(dayIndex: number, slot: "morning" | "evening") {
+  return SEASON_ID_BASE + dayIndex * 10 + (slot === "morning" ? 0 : 1);
 }
 
 /** Stable, collision-free id per (day, prayer, kind). */
@@ -752,6 +764,39 @@ async function syncNativePrayerScheduleNow(
     reminders.push(dailyNotification(r, dailyIdFor(dayIndex, index), at, dailyUrl(r), level));
   }
 
+  /* ---------- تنبيهات مواسم منار (اختيارية، محلية بالكامل) ---------- */
+
+  try {
+    const start = new Date();
+    start.setHours(12, 0, 0, 0);
+    const planned = seasonNotificationsBetween(
+      start,
+      DAYS_AHEAD,
+      getHijriAdjust(),
+      readSeasonNotifyPrefs(),
+    );
+    const tone = REMINDER_TONES.find((t) => t.url);
+    const url = s.silentMode || !s.soundEnabled || level === 0 || !tone ? "" : toneUrl(tone.id);
+    for (const n of planned) {
+      if (n.at.getTime() <= now) continue;
+      reminders.push({
+        id: seasonIdFor(n.dayIndex, n.slot),
+        title: n.title,
+        body: n.body,
+        schedule: { at: n.at, allowWhileIdle: true },
+        smallIcon: "ic_stat_manar",
+        channelId: url
+          ? channelOr(azkarWirdChannelFor(url, level), azkarWirdFallbackChannel(level))
+          : "manar_silent",
+        sound: url ? leveledRaw(rawResourceName(url), level) : undefined,
+        extra: { kind: "season", season: n.seasonId, route: `/seasons/${n.seasonId}` },
+      });
+    }
+  } catch (e) {
+    /* خطأ في المواسم لا يمنع بقية التنبيهات */
+    console.error("[manar] تعذّر حساب تنبيهات المواسم", e);
+  }
+
   let scheduled = 0;
   let alarms = 0;
   let exactAlarms = false;
@@ -989,5 +1034,26 @@ export async function attachNativeActionListener(onStop: () => void) {
     });
   } catch {
     /* ignore */
+  }
+}
+
+/* النقر على تنبيه موسم يفتح صفحة الموسم. مستمع واحد طوال عمر التطبيق؛ وحدث
+ * النقر الذي فتح التطبيق من الإغلاق تحتفظ به الإضافة الأصلية حتى يُسجَّل
+ * المستمع فيُسلَّم له. لا يمسّ بقية أنواع التنبيهات. */
+let seasonTapAttached = false;
+let seasonTapHandler: ((seasonId: string) => void) | null = null;
+
+export async function attachSeasonTapListener(onOpen: (seasonId: string) => void) {
+  seasonTapHandler = onOpen;
+  const p = plugin();
+  if (!p || seasonTapAttached) return;
+  seasonTapAttached = true;
+  try {
+    await p.addListener("localNotificationActionPerformed", (e) => {
+      const id = seasonIdFromNotificationTap(e);
+      if (id) seasonTapHandler?.(id);
+    });
+  } catch {
+    seasonTapAttached = false;
   }
 }

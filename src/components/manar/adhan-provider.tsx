@@ -190,6 +190,9 @@ export function AdhanProvider() {
     };
     window.addEventListener("manar:daily-reminders", onSoundSettings);
     window.addEventListener("manar:adhan-settings", onSoundSettings);
+    // مواسم منار: تغيير تفضيلات التنبيه أو تعديل التاريخ الهجري يُعيد الجدولة.
+    window.addEventListener("manar:seasons", onSoundSettings);
+    window.addEventListener("manar:hijri-adjust", onSoundSettings);
 
     /* تغيّر اليوم أو المنطقة الزمنية والتطبيق مفتوح: نافذة الأيام السبعة تتقدّم
      * يوماً، والأوقات المطلقة تُعاد حسابها. فحصٌ خفيف كل دقيقة لا يُنشئ منبّهاً. */
@@ -209,6 +212,8 @@ export function AdhanProvider() {
       document.removeEventListener("visibilitychange", onResume);
       window.removeEventListener("manar:daily-reminders", onSoundSettings);
       window.removeEventListener("manar:adhan-settings", onSoundSettings);
+      window.removeEventListener("manar:seasons", onSoundSettings);
+      window.removeEventListener("manar:hijri-adjust", onSoundSettings);
       window.clearInterval(watch);
       clearTimeout(pending);
     };
