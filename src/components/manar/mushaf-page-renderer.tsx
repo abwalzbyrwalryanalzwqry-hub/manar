@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon, icons } from "@/components/manar/shell";
 import { toArabicDigits } from "@/lib/quran";
 import { useReadingPrefs } from "@/lib/quran/reading-prefs";
-import { BASMALA, type MushafSegment } from "@/lib/quran/page-service";
+import { BASMALA } from "@/lib/quran/basmala";
+import type { MushafSegment } from "@/lib/quran/page-service";
 import { bareSurahNameAr, juzLabelAr } from "@/lib/quran/page-labels";
 import type { MushafPageState } from "@/hooks/use-mushaf-page";
 

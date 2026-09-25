@@ -3,6 +3,7 @@
 // Phase 8.4 — Juz & Hizb metadata (Madani Mushaf standard).
 // ============================================================
 
+import { HIZB_QUARTER_STARTS, SAJDAH_AYAHS } from "./structure-data";
 import type { JuzMeta, HizbMeta } from "./types";
 
 const JUZ_STARTS: { surah: number; ayah: number; page: number }[] = [
@@ -79,18 +80,47 @@ export const JUZ_META: readonly JuzMeta[] = JUZ_STARTS.map((j, i) => ({
 }));
 
 /**
- * Hizb metadata — 60 hizbs, 2 per Juz.
- * Exact ayah/page starts require a full ayah index; here we
- * expose Juz-derived starts as a reasonable stub. A later phase
- * will replace this with precise data.
+ * الأحزاب الستون — بداية كل حزب هي الربع الأول منه في
+ * `HIZB_QUARTER_STARTS` (مولَّدة من بيانات المصحف المدني).
  */
 export const HIZB_META: readonly HizbMeta[] = Array.from({ length: 60 }, (_, i) => {
-  const juz = Math.floor(i / 2) + 1;
-  const juzInfo = JUZ_META[juz - 1];
+  const [surah, ayah, page] = HIZB_QUARTER_STARTS[i * 4];
   return {
     id: i + 1,
-    juz,
-    start: juzInfo.start,
-    startPage: juzInfo.startPage,
+    juz: Math.floor(i / 2) + 1,
+    start: { surah, ayah },
+    startPage: page,
   };
 });
+
+export interface RubMeta {
+  /** رقم الربع ١..٢٤٠. */
+  id: number;
+  hizb: number;
+  /** موضعه داخل الحزب: ١ بداية الحزب، ٢ ربع، ٣ نصف، ٤ ثلاثة أرباع. */
+  quarter: 1 | 2 | 3 | 4;
+  start: { surah: number; ayah: number };
+  startPage: number;
+}
+
+/** أرباع الأحزاب الـ ٢٤٠. */
+export const RUB_META: readonly RubMeta[] = HIZB_QUARTER_STARTS.map(([surah, ayah, page], i) => ({
+  id: i + 1,
+  hizb: Math.floor(i / 4) + 1,
+  quarter: ((i % 4) + 1) as RubMeta["quarter"],
+  start: { surah, ayah },
+  startPage: page,
+}));
+
+const rubStartKeys = new Map(RUB_META.map((r) => [`${r.start.surah}:${r.start.ayah}`, r]));
+const sajdahKeys = new Set(SAJDAH_AYAHS.map(([s, a]) => `${s}:${a}`));
+
+/** الربع الذي يبدأ عند هذه الآية، إن كانت بداية ربع. */
+export function rubStartingAt(surah: number, ayah: number): RubMeta | undefined {
+  return rubStartKeys.get(`${surah}:${ayah}`);
+}
+
+/** هل هذه الآية موضع سجدة تلاوة؟ */
+export function isSajdahAyah(surah: number, ayah: number): boolean {
+  return sajdahKeys.has(`${surah}:${ayah}`);
+}
