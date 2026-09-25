@@ -54,7 +54,7 @@ function About() {
       <div className="space-y-2 px-5">
         <LinkRow icon={icons.lock} l="سياسة الخصوصية" v="" to="/privacy" />
         <LinkRow icon={icons.info} l="شروط الاستخدام" v="" to="/terms" />
-        <LinkRow icon={icons.heart} l="المصادر والاعتمادات" v="" />
+        <LinkRow icon={icons.heart} l="المصادر والتراخيص" v="" to="/sources" />
       </div>
 
       <div className="mt-8 px-5 pb-4 text-center">

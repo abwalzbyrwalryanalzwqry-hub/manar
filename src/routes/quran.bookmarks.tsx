@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { exportTextFile } from "@/lib/export-file";
 import { useMemo, useRef, useState } from "react";
 import { EmptyState, Icon, icons, Screen, ScreenHeader } from "@/components/manar/shell";
 import {
@@ -49,15 +50,15 @@ function BookmarksScreen() {
     return map;
   }, [bookmarks]);
 
-  const download = () => {
-    const blob = new Blob([exportBookmarks()], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `manar-bookmarks-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-    setNotice("تم تصدير العلامات");
+  const download = async () => {
+    const name = `manar-bookmarks-${new Date().toISOString().slice(0, 10)}.json`;
+    try {
+      const r = await exportTextFile(name, exportBookmarks(), { title: "تصدير العلامات" });
+      if (r === "shared") setNotice("تم تجهيز ملف العلامات للحفظ أو المشاركة");
+      else if (r === "downloaded") setNotice("تم تنزيل ملف العلامات");
+    } catch {
+      setNotice("تعذّر تصدير العلامات على هذا الجهاز");
+    }
   };
 
   return (
@@ -69,7 +70,7 @@ function BookmarksScreen() {
         action={
           bookmarks.length === 0 ? undefined : (
             <button
-              onClick={download}
+              onClick={() => void download()}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-soft disabled:opacity-40"
               aria-label="تصدير"
             >

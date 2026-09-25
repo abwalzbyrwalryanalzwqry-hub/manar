@@ -32,6 +32,7 @@ import {
 import { SURAH_META } from "@/lib/quran/metadata";
 import { buildShareText, shareCardText } from "@/lib/quran/share-card";
 import { searchSurahNames } from "@/lib/quran/search-service";
+import { MAQASID_SOURCE, surahMaqasid } from "@/lib/quran/surah-maqasid";
 import type { AyahText } from "@/lib/quran/text-types";
 
 /** أيقونتا ملء الشاشة والخروج منه. */
@@ -122,7 +123,8 @@ function MushafReader() {
 
   const activeSurah = quranRepository.getSurah(state.surah) ?? quranRepository.getSurah(1)!;
   const activeJuz = quranRepository.getJuz(state.juz) ?? quranRepository.getJuz(1)!;
-  const detail = quranRepository.getSurahDetail(activeSurah.id);
+  // «من مقاصد السورة» لكل السور (كانت «النبذة» لثلاث سور فقط من بيانات تجريبية).
+  const maqasid = surahMaqasid(activeSurah.id);
 
   // In Mushaf mode the header follows the page being read, like a printed Mushaf.
   const headerSurah = useMemo(() => {
@@ -296,7 +298,7 @@ function MushafReader() {
               {/* More options popover */}
               {showMore && (
                 <div className="mx-4 mt-2 animate-scale-in rounded-2xl border border-border/60 bg-card/90 p-2 shadow-elegant backdrop-blur-2xl">
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {MORE_ACTIONS.map((a) => (
                       <button
                         key={a.label}
@@ -484,14 +486,22 @@ function MushafReader() {
                         />
                       </div>
 
-                      {detail?.summaryAr && (
+                      {maqasid && (
                         <div className="relative mt-4 rounded-2xl border border-border/40 bg-background/50 p-3.5">
                           <div className="text-[10px] font-medium uppercase tracking-[0.25em] text-gold">
-                            نبذة
+                            من مقاصد السورة
                           </div>
                           <p className="mt-1 text-[13px] leading-relaxed text-foreground/85">
-                            {detail.summaryAr}
+                            {maqasid}
                           </p>
+                          <a
+                            href={MAQASID_SOURCE.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-1.5 block text-[10px] text-muted-foreground underline decoration-dotted"
+                          >
+                            {MAQASID_SOURCE.nameAr} — {MAQASID_SOURCE.authorAr}
+                          </a>
                         </div>
                       )}
                     </div>
@@ -1355,6 +1365,7 @@ const MORE_ACTIONS: { label: string; icon: string; to: string }[] = [
   { label: "مشاركة", icon: icons.share, to: "/quran/share" },
   { label: "العلامات", icon: icons.bookmark, to: "/quran/bookmarks" },
   { label: "إعدادات", icon: icons.settings, to: "/quran/reader-settings" },
+  { label: "المصادر", icon: icons.info, to: "/sources" },
 ];
 
 function SelectorPill({

@@ -95,6 +95,29 @@ export class TafsirService {
 
 export const tafsirService = new TafsirService();
 
+/* ---------- الآيات المجمّعة ---------- */
+
+/**
+ * التفسير الميسّر يفسّر أحياناً آيات متتالية بنص واحد، فيتكرر النص نفسه لكل
+ * آية منها. هنا تُجمع هذه الآيات: «تفسير الآيات ٤٥–٤٦» بدل تكرار النص.
+ */
+export interface TafsirGroup {
+  from: number;
+  to: number;
+  text: string;
+}
+
+export function tafsirGroup(data: Record<string, string>, ayah: number): TafsirGroup | null {
+  const norm = (n: number) => data[String(n)]?.trim() ?? "";
+  const text = norm(ayah);
+  if (!text) return null;
+  let from = ayah;
+  let to = ayah;
+  while (from > 1 && norm(from - 1) === text) from -= 1;
+  while (norm(to + 1) === text) to += 1;
+  return { from, to, text: data[String(ayah)] };
+}
+
 /* ---------- Selected edition (persisted) ---------- */
 
 const KEY = "manar.quran.tafsir.edition.v1";
