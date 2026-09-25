@@ -5,6 +5,7 @@ import { Icon, icons, Screen, ScreenHeader } from "@/components/manar/shell";
 import { WirdProgressBar } from "@/components/manar/wird-progress";
 import { toArabicDigits } from "@/lib/format";
 import { getWirdSession } from "@/lib/wird/data";
+import { haptic, hapticFor, textSizePx, useAzkarPrefs } from "@/lib/azkar/prefs";
 import { useWirdSessionProgress, wirdCompletion } from "@/lib/wird/progress";
 
 export const Route = createFileRoute("/wird/list/$session")({
@@ -33,6 +34,7 @@ function WirdListPage() {
   const wird = getWirdSession(session);
   const key = wird?.key ?? "morning";
   const items = useMemo(() => wird?.items ?? [], [wird]);
+  const { prefs } = useAzkarPrefs();
   const { progress, hydrated, increment, setCurrent, resetItem } = useWirdSessionProgress(
     key,
     items,
@@ -60,6 +62,7 @@ function WirdListPage() {
   const onTap = (order: number, repeat: number, name: string) => {
     const now = Math.min(repeat, progress.counts[order] ?? 0);
     if (now >= repeat) return;
+    haptic(prefs, hapticFor(now, repeat));
     increment(order, repeat);
     setCurrent(order);
     if (now + 1 >= repeat)
@@ -118,7 +121,10 @@ function WirdListPage() {
                 </span>
               </div>
 
-              <p className="mt-3 text-right font-quran text-[1.15rem] leading-[2.2] text-foreground">
+              <p
+                className="mt-3 text-right font-quran leading-[2.2] text-foreground"
+                style={{ fontSize: textSizePx(prefs) * 0.85 }}
+              >
                 {it.text}
               </p>
 

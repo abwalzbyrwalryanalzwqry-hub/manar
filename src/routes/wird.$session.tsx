@@ -5,6 +5,8 @@ import { WirdProgressBar } from "@/components/manar/wird-progress";
 
 import { toArabicDigits } from "@/lib/format";
 import { getWirdSession } from "@/lib/wird/data";
+import { AzkarDisplayPanel, DisplayToggleButton } from "@/components/manar/azkar-display-controls";
+import { haptic, hapticFor, isCountableTap, textSizePx, useAzkarPrefs } from "@/lib/azkar/prefs";
 import { useWirdSessionProgress, wirdCompletion } from "@/lib/wird/progress";
 
 export const Route = createFileRoute("/wird/$session")({
@@ -40,6 +42,8 @@ function WirdSessionPage() {
   const [index, setIndex] = useState(0);
   const [confirmReset, setConfirmReset] = useState(false);
   const [pulse, setPulse] = useState(0);
+  const { prefs, update: updatePrefs } = useAzkarPrefs();
+  const [showDisplay, setShowDisplay] = useState(false);
   const startX = useRef<number | null>(null);
   const restored = useRef(false);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -88,6 +92,7 @@ function WirdSessionPage() {
       goto(index + 1);
       return;
     }
+    haptic(prefs, hapticFor(count, item.repeat));
     increment(item.order, item.repeat);
     setPulse((p) => p + 1);
     /* الإكمال يُحسب في وحدة التقدّم من اكتمال كل الأذكار، لا من آخرها. */
@@ -101,7 +106,13 @@ function WirdSessionPage() {
         if (at >= 0 && at + 1 < items.length) setIndex(at + 1);
       }, 320);
     }
-  }, [item, count, increment, index, items, goto]);
+  }, [item, count, prefs, increment, index, items, goto]);
+
+  /** الضغط على نص الذكر يعدّ (إن فُعّل)، إلا على الأزرار أو أثناء تحديد نص. */
+  const onTextTap = (e: React.MouseEvent) => {
+    if (!prefs.tapAnywhere || !isCountableTap(e.target)) return;
+    onTap();
+  };
 
   const onTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0]?.clientX ?? null;
@@ -197,13 +208,18 @@ function WirdSessionPage() {
               <Arabesque className="pointer-events-none absolute -left-10 -bottom-10 h-40 w-40 text-primary/10" />
               <div className="relative flex items-center gap-2">
                 <span className="h-px w-4 bg-gold" />
-                <span className="text-[11px] font-medium tracking-wide text-foreground/80">
+                <span className="flex-1 text-[11px] font-medium tracking-wide text-foreground/80">
                   {item.name}
                 </span>
+                <DisplayToggleButton open={showDisplay} onClick={() => setShowDisplay((v) => !v)} />
               </div>
+              {showDisplay && <AzkarDisplayPanel prefs={prefs} update={updatePrefs} />}
               <div
-                className="relative mt-4 max-h-[38vh] overflow-y-auto text-right font-quran text-[1.35rem] leading-[2.4] text-foreground"
-                style={{ WebkitOverflowScrolling: "touch" }}
+                onClick={onTextTap}
+                className={`relative mt-4 max-h-[38vh] overflow-y-auto text-right font-quran leading-[2.4] text-foreground ${
+                  prefs.tapAnywhere ? "cursor-pointer select-none" : ""
+                }`}
+                style={{ WebkitOverflowScrolling: "touch", fontSize: textSizePx(prefs) - 0.4 }}
               >
                 {item.text}
               </div>

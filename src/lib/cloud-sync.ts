@@ -21,7 +21,12 @@ import {
 
 /** الجدول السحابي ← مفاتيح localStorage التي يحملها. */
 export const SYNC_MAP: Record<string, string[]> = {
-  user_settings: ["manar.appearance.v1", "manar.hijri.adjust.v1", "manar.widget.v1"],
+  user_settings: [
+    "manar.appearance.v1",
+    "manar.hijri.adjust.v1",
+    "manar.widget.v1",
+    "manar.azkar.prefs.v1",
+  ],
   prayer_preferences: ["manar.settings.v1", "manar.location.v1"],
   notification_preferences: ["manar.adhan-settings.v2"],
   reading_progress: [
@@ -52,6 +57,7 @@ export const KEY_EVENTS: Record<string, string> = {
   "manar.khatmah.v1": "manar:khatmah",
   "manar.activity.v1": "manar:activity",
   "manar.widget.v1": "manar:widget-settings",
+  "manar.azkar.prefs.v1": "manar:azkar-prefs",
 };
 
 /* ------------------------------------------------------------------ */
