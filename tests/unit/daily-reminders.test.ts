@@ -129,12 +129,38 @@ describe("الساعة الثابتة", () => {
   });
 });
 
-describe("تذكيران غير متداخلين", () => {
-  it("«وِرد قبل النوم» لا يذكر أذكار النوم التي لها تذكيرها المستقل", () => {
-    const night = byId("wird-night");
-    const sleep = byId("sleep-azkar");
-    expect(night.body).not.toContain("أذكار النوم");
-    expect(sleep.name).toBe("أذكار النوم");
+describe("أذكار النوم والاستيقاظ", () => {
+  it("تذكيران متتاليان بلا تداخل: «أذكار النوم» ثم «أذكار الاستيقاظ من النوم»", () => {
+    const ids = DEFAULT_REMINDERS.map((r) => r.id);
+    expect(ids).not.toContain("wird-night");
+    expect(ids.slice(-2)).toEqual(["sleep-azkar", "wake-azkar"]);
+    expect(DEFAULT_REMINDERS.slice(-2).map((r) => r.name)).toEqual([
+      "أذكار النوم",
+      "أذكار الاستيقاظ من النوم",
+    ]);
+    expect(DEFAULT_REMINDERS.some((r) => r.name === "وِرد قبل النوم")).toBe(false);
+  });
+
+  it("الاستيقاظ: قبل الفجر بربع ساعة، ونداؤه المقترح «أذكار الاستيقاظ»، ويُتخطّى بإكمال فصله", () => {
+    const wake = byId("wake-azkar");
+    expect(wake.enabled).toBe(false);
+    expect(wake.timing).toEqual({ mode: "prayer", prayer: "fajr", offset: -15 });
+    expect(SUGGESTED_TONE["wake-azkar"]).toBe("azkar-wake-01");
+    expect(toneOptionsFor(wake, "voice").map((t) => t.id)).toEqual([
+      "azkar-wake-01",
+      "azkar-general-01",
+    ]);
+    expect(isDoneToday(wake, { wird: [], chapters: { "1": 1 } })).toBe(true);
+    expect(isDoneToday(wake, { wird: [], chapters: { "28": 1 } })).toBe(false);
+  });
+
+  it("إعداد «وِرد قبل النوم» المحفوظ لا يعود بعد التحديث", () => {
+    const st = normalizeRemindersState({
+      enabled: true,
+      items: [{ ...byId("sleep-azkar"), id: "wird-night", name: "وِرد قبل النوم" }],
+    });
+    expect(st.items.map((r) => r.id)).not.toContain("wird-night");
+    expect(st.items.map((r) => r.id)).toContain("wake-azkar");
   });
 });
 

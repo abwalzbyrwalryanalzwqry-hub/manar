@@ -165,8 +165,8 @@ export const SUGGESTED_TONE: Record<string, ReminderToneId> = {
   "azkar-morning": "azkar-morning-03",
   "azkar-evening": "azkar-evening-02",
   wird: "wird-daily-01",
-  "wird-night": "wird-quran-01",
   "sleep-azkar": "azkar-sleep-02",
+  "wake-azkar": "azkar-wake-01",
 };
 
 /* النداءات التي تناسب كل تذكير: نداء موضوعه أولاً، ثم ما يقاربه. «تذكير» العامّ
@@ -175,8 +175,8 @@ const VOICE_TOPICS: Record<string, readonly VoiceTopic[]> = {
   "azkar-morning": ["morning", "general"],
   "azkar-evening": ["evening", "general"],
   wird: ["wird", "quran"],
-  "wird-night": ["wird", "quran"],
   "sleep-azkar": ["sleep", "general"],
+  "wake-azkar": ["wake", "general"],
 };
 const TEMPLATE_VOICE_TOPICS: Record<CustomTemplateId, readonly VoiceTopic[] | null> = {
   "after-prayer": ["general"],
@@ -362,18 +362,6 @@ export const DEFAULT_REMINDERS: DailyReminder[] = [
     skipIfDone: true,
   },
   {
-    id: "wird-night",
-    name: "وِرد قبل النوم",
-    enabled: false,
-    timing: { mode: "prayer", prayer: "isha", offset: 60 },
-    tone: "reminder-bell",
-    days: [...ALL_DAYS],
-    route: "/wird",
-    /* كان النصّ «أذكار النوم ووِرد الليل» فيتكرّر مع تذكير «أذكار النوم» المستقلّ
-     * أدناه؛ هذا التذكير للوِرد وحده. */
-    body: "وِردك من الليل قبل النوم",
-  },
-  {
     id: "sleep-azkar",
     name: "أذكار النوم",
     enabled: false,
@@ -382,6 +370,19 @@ export const DEFAULT_REMINDERS: DailyReminder[] = [
     days: [...ALL_DAYS],
     route: "/azkar",
     body: "لا تنم قبل أذكار النوم",
+    skipIfDone: true,
+  },
+  /* كان هنا «وِرد قبل النوم» فيتداخل مع «أذكار النوم»؛ حلّ محلّه تذكير
+   * «أذكار الاستيقاظ من النوم» (فصل ١ من حصن المسلم) قبيل الفجر. */
+  {
+    id: "wake-azkar",
+    name: "أذكار الاستيقاظ من النوم",
+    enabled: false,
+    timing: { mode: "prayer", prayer: "fajr", offset: -15 },
+    tone: "reminder-bell",
+    days: [...ALL_DAYS],
+    route: "/azkar",
+    body: "ابدأ يومك بأذكار الاستيقاظ من النوم",
     skipIfDone: true,
   },
 ];
@@ -755,7 +756,7 @@ export function timingWarning(r: DailyReminder, at: Date, times: PrayerTimes): s
 /* ------------------------- تخطّي ما أُنجز ------------------------- */
 
 /** فصول «حصن المسلم» التي يُعدّ إكمالها إنجازاً لتذكير (أرقامها في الكتاب). */
-export const HISN_CHAPTERS = { morningEvening: 27, sleep: 28 } as const;
+export const HISN_CHAPTERS = { wake: 1, morningEvening: 27, sleep: 28 } as const;
 
 /** ما أُنجز اليوم، من السجل اليومي الموحّد (`activity-log.ts`). */
 export type DoneToday = {
@@ -766,13 +767,19 @@ export type DoneToday = {
 };
 
 /** ما يُعدّ إنجازاً لكل تذكير. */
-export type CompletionKey = "azkar-morning" | "azkar-evening" | "wird-morning" | "azkar-sleep";
+export type CompletionKey =
+  | "azkar-morning"
+  | "azkar-evening"
+  | "wird-morning"
+  | "azkar-sleep"
+  | "azkar-wake";
 
 export function completionKeyFor(r: DailyReminder): CompletionKey | null {
   if (r.id === "azkar-morning") return "azkar-morning";
   if (r.id === "azkar-evening") return "azkar-evening";
   if (r.id === "wird") return "wird-morning";
   if (r.id === "sleep-azkar") return "azkar-sleep";
+  if (r.id === "wake-azkar") return "azkar-wake";
   return null;
 }
 
@@ -782,6 +789,7 @@ export const COMPLETION_HINTS: Record<CompletionKey, string> = {
   "azkar-evening": "لا يصل تذكير اليوم إن أكملت ورد المساء أو أذكار الصباح والمساء بعد العصر",
   "wird-morning": "لا يصل تذكير اليوم إن أكملت ورد الصباح قبله",
   "azkar-sleep": "لا يصل تذكير اليوم إن أكملت أذكار النوم قبله",
+  "azkar-wake": "لا يصل تذكير اليوم إن أكملت أذكار الاستيقاظ قبله",
 };
 
 /**
@@ -807,6 +815,8 @@ export function isDoneToday(
       return done.wird.includes("evening") || (me !== undefined && asr !== undefined && me >= asr);
     case "azkar-sleep":
       return ch[String(HISN_CHAPTERS.sleep)] !== undefined;
+    case "azkar-wake":
+      return ch[String(HISN_CHAPTERS.wake)] !== undefined;
     default:
       return false;
   }
