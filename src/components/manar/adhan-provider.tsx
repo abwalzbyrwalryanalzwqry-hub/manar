@@ -209,17 +209,6 @@ export function AdhanProvider() {
     };
     window.addEventListener("manar:daily-reminders", onSoundSettings);
     window.addEventListener("manar:adhan-settings", onSoundSettings);
-    /* إنجاز الوِرد يُلغي تذكير اليوم نفسه إن لم يحن بعد (تخطّي ما أُنجز).
-     * السجل يتغيّر مع كل نقرة ذكر، فلا نعيد الجدولة إلا إن تغيّرت جلسات الوِرد. */
-    const wirdToday = () => (readLog().days[logDayKey()]?.wird ?? []).slice().sort().join(",");
-    let lastWird = wirdToday();
-    const onActivity = () => {
-      const w = wirdToday();
-      if (w === lastWird) return;
-      lastWird = w;
-      onSoundSettings();
-    };
-    window.addEventListener("manar:activity", onActivity);
 
     /* تغيّر اليوم أو المنطقة الزمنية والتطبيق مفتوح: نافذة الأيام السبعة تتقدّم
      * يوماً، والأوقات المطلقة تُعاد حسابها. فحصٌ خفيف كل دقيقة لا يُنشئ منبّهاً. */
@@ -239,8 +228,29 @@ export function AdhanProvider() {
       document.removeEventListener("visibilitychange", onResume);
       window.removeEventListener("manar:daily-reminders", onSoundSettings);
       window.removeEventListener("manar:adhan-settings", onSoundSettings);
-      window.removeEventListener("manar:activity", onActivity);
       window.clearInterval(watch);
+      clearTimeout(pending);
+    };
+  }, [location, calc]);
+
+  /* إنجاز الوِرد يُلغي تذكير اليوم نفسه إن لم يحن بعد (تخطّي ما أُنجز).
+   * السجل يتغيّر مع كل نقرة ذكر، فلا نعيد الجدولة إلا إن تغيّرت جلسات الوِرد.
+   * أثرٌ مستقل عن مستمعي الإعدادات أعلاه، ومؤجَّل قليلاً مثلها. */
+  useEffect(() => {
+    if (!isNativeShell()) return;
+    const wirdToday = () => (readLog().days[logDayKey()]?.wird ?? []).slice().sort().join(",");
+    let lastWird = wirdToday();
+    let pending: ReturnType<typeof setTimeout> | undefined;
+    const onActivity = () => {
+      const w = wirdToday();
+      if (w === lastWird) return;
+      lastWird = w;
+      clearTimeout(pending);
+      pending = setTimeout(() => void syncNativePrayerSchedule(location, calc), 800);
+    };
+    window.addEventListener("manar:activity", onActivity);
+    return () => {
+      window.removeEventListener("manar:activity", onActivity);
       clearTimeout(pending);
     };
   }, [location, calc]);
