@@ -18,6 +18,8 @@ export interface ReadingPrefs {
   lineHeight: LineHeightKey;
   width: WidthKey;
   font: QuranFontKey;
+  /** إبقاء الشاشة مضاءة أثناء القراءة والتلاوة. */
+  keepAwake: boolean;
 }
 
 export const DEFAULT_PREFS: ReadingPrefs = {
@@ -25,6 +27,7 @@ export const DEFAULT_PREFS: ReadingPrefs = {
   lineHeight: "normal",
   width: "normal",
   font: "amiri",
+  keepAwake: true,
 };
 
 export const FONT_SIZE_OPTIONS: { key: FontSizeKey; label: string; px: number }[] = [

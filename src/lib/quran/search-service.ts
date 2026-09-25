@@ -232,7 +232,10 @@ export const quranSearchService = new QuranSearchService();
 /* ---------- Surah-name lookup (instant, needs no index) ---------- */
 
 export function searchSurahNames(query: string, limit = 8) {
-  const q = normalizeArabic(query);
+  // «سورة البقرة» تُعامل كـ«البقرة».
+  const q = normalizeArabic(query)
+    .replace(/^سوره\s+/, "")
+    .trim();
   if (!q) return [];
   const digits = q.replace(/\D/g, "");
   return SURAH_META.filter((s) => {

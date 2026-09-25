@@ -10,6 +10,8 @@ import {
 } from "@/components/manar/shell";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRecitationPlayer } from "@/hooks/use-recitation-player";
+import { useKeepAwake } from "@/hooks/use-keep-awake";
+import { useReadingPrefs } from "@/lib/quran/reading-prefs";
 import {
   deleteAllDownloads,
   downloadSurah,
@@ -23,6 +25,7 @@ import {
   type DownloadHandle,
 } from "@/lib/quran";
 import { SURAH_META } from "@/lib/quran/metadata";
+import { searchSurahNames } from "@/lib/quran/search-service";
 
 export const Route = createFileRoute("/quran/recitations")({
   head: () => ({
@@ -50,6 +53,9 @@ function RecitationsScreen() {
   const params = Route.useSearch();
   const { prefs, update, reciter } = useRecitationPrefs();
   const player = useRecitationPlayer();
+  const { prefs: readingPrefs } = useReadingPrefs();
+  // أثناء التلاوة فقط: إطفاء الشاشة يوقف الصوت في WebView على كثير من الأجهزة.
+  useKeepAwake(readingPrefs.keepAwake && player.isBusy);
   const downloads = useDownloads();
 
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -70,12 +76,8 @@ function RecitationsScreen() {
   const filtered = useMemo(() => {
     const q = query.trim();
     if (!q) return SURAH_META;
-    return SURAH_META.filter(
-      (s) =>
-        s.nameAr.includes(q) ||
-        s.nameEn.toLowerCase().includes(q.toLowerCase()) ||
-        String(s.id).includes(q),
-    );
+    // البحث المطبَّع نفسه المستعمل في منتقي المصحف («الانعام» تجد «الأنعام»).
+    return searchSurahNames(q, SURAH_META.length);
   }, [query]);
 
   const currentMeta = player.track ? SURAH_META[player.track.surah - 1] : SURAH_META[surah - 1];
