@@ -11,8 +11,8 @@ export function hasTimeVariants(chapter: AzkarChapter): boolean {
 }
 
 /**
- * الوقت الافتراضي حسب الساعة المحلية: المساء من العصر تقريبًا (١٥:٠٠) حتى الفجر (٠٤:٠٠).
- * تقدير عملي فقط؛ المستخدم يبدّل بنفسه.
+ * تقدير احتياطي بالساعة المحلية: المساء من العصر تقريبًا (١٥:٠٠) حتى الفجر (٠٤:٠٠).
+ * الأصل `azkarTimeNow` (من مواقيت الصلاة)؛ هذا حين لا يُعرف موقع المستخدم.
  */
 export function defaultTime(now: Date = new Date()): ZikrTime {
   const h = now.getHours();
@@ -63,7 +63,18 @@ export function segmentState(zikr: Zikr, total: number): SegmentState | null {
  * وحده، فيبقى التقدّم المحفوظ قبل هذا التغيير صالحًا.
  */
 export function progressKey(zikrId: number, time: ZikrTime | null): string {
-  return time === "evening" ? `${zikrId}:e` : String(zikrId);
+  return time === "evening" && !isDailyOnce(zikrId) ? `${zikrId}:e` : String(zikrId);
+}
+
+/**
+ * أذكار عددها «في اليوم» لا «في الصباح/المساء»: عدّاد يومي واحد يظهر في
+ * الجلستين، فما قيل صباحًا يُحتسب مساءً ولا يُطلب مرتين.
+ * #96 «أستغفر الله وأتوب إليه» (مائة مرة في اليوم).
+ */
+export const DAILY_ONCE: ReadonlySet<number> = new Set([96]);
+
+export function isDailyOnce(zikrId: number | undefined | null): boolean {
+  return zikrId != null && DAILY_ONCE.has(zikrId);
 }
 
 /** هل أُتمّ هذا الذكر اليوم في أي وقت (صباحًا أو مساءً)؟ */

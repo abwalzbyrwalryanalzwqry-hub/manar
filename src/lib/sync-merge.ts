@@ -13,6 +13,8 @@
  * القيم تُحفظ نصّاً خاماً كما هي في localStorage — لا تحويل ولا فقد.
  */
 
+import { mergeAzkarProgress } from "./azkar/merge";
+
 export const SYNC_FORMAT = 2;
 
 /** قيمة مفتاح واحد: النص الخام أو `null` إن حُذف، مع ختم آخر تعديل. */
@@ -22,6 +24,7 @@ export type SyncPayload = { __sync: typeof SYNC_FORMAT; entries: SyncEntries };
 
 const ACTIVITY_KEY = "manar.activity.v1";
 const HISTORY_KEY = "manar.quran.history.v1";
+const AZKAR_KEY = "manar.azkar.progress.v1";
 const MAX_ACTIVITY_DAYS = 730;
 
 /* ------------------------------------------------------------------ */
@@ -135,6 +138,8 @@ function mergeHistory(newer: string, older: string): string {
 const MERGERS: Record<string, (newer: string, older: string) => string> = {
   [ACTIVITY_KEY]: mergeActivity,
   [HISTORY_KEY]: mergeHistory,
+  /* المحفوظات دائمة والعدّادات يومية في المفتاح نفسه — انظر azkar/merge. */
+  [AZKAR_KEY]: mergeAzkarProgress,
 };
 
 export function hasStructuralMerge(key: string): boolean {

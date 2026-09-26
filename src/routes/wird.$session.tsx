@@ -9,6 +9,7 @@ import { useKeepAwake } from "@/hooks/use-keep-awake";
 import { toArabicDigits } from "@/lib/format";
 import { getWirdSession } from "@/lib/wird/data";
 import { AzkarDisplayPanel, DisplayToggleButton } from "@/components/manar/azkar-display-controls";
+import { isDailyOnce } from "@/lib/azkar/variant";
 import { haptic, hapticFor, isCountableTap, textSizePx, useAzkarPrefs } from "@/lib/azkar/prefs";
 import { useWirdSessionProgress, wirdCompletion } from "@/lib/wird/progress";
 
@@ -242,6 +243,11 @@ function WirdSessionPage() {
               <div className="relative mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] text-muted-foreground">
                 {toArabicDigits(item.repeat)} مرة
               </div>
+              {isDailyOnce(item.hisn) && (
+                <p className="relative mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                  عدّاد يومي واحد: يُحتسب في وِرد الصباح والمساء وفي الأذكار معًا.
+                </p>
+              )}
             </div>
           )}
         </div>
