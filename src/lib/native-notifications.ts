@@ -130,7 +130,7 @@ export type SakinahNativeWindow = {
   end: number;
   prayer: string;
   label: string;
-  filter: "priority" | "alarms" | "none";
+  filter: "manar" | "priority" | "alarms" | "none";
   muteAdhan: boolean;
 };
 
@@ -499,6 +499,10 @@ export async function previewNativeAdhan(
  */
 
 const AZKAR_CHANNEL_PREFIX = "manar_azkar_";
+
+/* تنبيهات المواسم كانت تأخذ «أول نغمة» في فهرس التذكيرات (إشراق). بعد حذف
+ * النغمات من التذكيرات بقي صوتها نفسه ثابتاً هنا فلا يتغيّر على المستخدم. */
+const SEASON_TONE = { name: "المواسم", url: "/audio/reminders/azkar-morning.mp3" } as const;
 const APPROACH_CHANNEL_PREFIX = "manar_approach_";
 
 /* ------------------- مستوى صوت الإشعارات -------------------
@@ -542,7 +546,7 @@ async function ensureSoundChannels(p: LocalNotificationsPlugin, level: Notificat
   const pct = (l: NotificationLevel) => (l === 100 ? "" : ` · ${toArabicDigitsLocal(l)}٪`);
   const channels: Parameters<LocalNotificationsPlugin["createChannel"]>[0][] = [];
   for (const l of levels) {
-    for (const t of REMINDER_TONES) {
+    for (const t of [...REMINDER_TONES, SEASON_TONE]) {
       if (!t.url) continue;
       channels.push({
         id: azkarWirdChannelFor(t.url, l),
@@ -591,11 +595,17 @@ async function ensureSoundChannels(p: LocalNotificationsPlugin, level: Notificat
     }
   }
   /* قنوات الدرجات السابقة لا حاجة لها بعد تغيير المستوى، فنحذفها حتى لا
-   * تتراكم في إعدادات النظام. القنوات الأصلية (بلا لاحقة) لا تُحذف أبداً. */
+   * تتراكم في إعدادات النظام. القنوات الأصلية (بلا لاحقة) لا تُحذف أبداً.
+   * وقنوات النغمات المحذوفة من التذكيرات (manar_azkar_*) تُحذف كذلك. */
   if (p.listChannels && p.deleteChannel) {
     try {
       const { channels: existing } = await p.listChannels();
+      const wanted = new Set(channels.map((c) => c.id));
       for (const c of existing) {
+        if (c.id.startsWith(AZKAR_CHANNEL_PREFIX) && !wanted.has(c.id)) {
+          await p.deleteChannel({ id: c.id }).catch(() => {});
+          continue;
+        }
         const m = LEVEL_CHANNEL.exec(c.id);
         if (m && Number(m[1]) !== level) await p.deleteChannel({ id: c.id }).catch(() => {});
       }
@@ -778,8 +788,7 @@ async function syncNativePrayerScheduleNow(
       getHijriAdjust(),
       readSeasonNotifyPrefs(),
     );
-    const tone = REMINDER_TONES.find((t) => t.url);
-    const url = s.silentMode || !s.soundEnabled || level === 0 || !tone ? "" : toneUrl(tone.id);
+    const url = s.silentMode || !s.soundEnabled || level === 0 ? "" : SEASON_TONE.url;
     for (const n of planned) {
       if (n.at.getTime() <= now) continue;
       reminders.push({

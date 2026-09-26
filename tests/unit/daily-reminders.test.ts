@@ -24,6 +24,7 @@ import {
   to12h,
   migrateToneId,
   toneKind,
+  REMOVED_TONES,
   toneOptionsFor,
   type DailyReminder,
   type DailyRemindersState,
@@ -146,9 +147,10 @@ describe("أذكار النوم والاستيقاظ", () => {
     expect(wake.enabled).toBe(false);
     expect(wake.timing).toEqual({ mode: "prayer", prayer: "fajr", offset: -15 });
     expect(SUGGESTED_TONE["wake-azkar"]).toBe("azkar-wake-01");
-    expect(toneOptionsFor(wake, "voice").map((t) => t.id)).toEqual([
+    expect(toneOptionsFor(wake).map((t) => t.id)).toEqual([
       "azkar-wake-01",
       "azkar-general-01",
+      "silent",
     ]);
     expect(isDoneToday(wake, { wird: [], chapters: { "1": 1 } })).toBe(true);
     expect(isDoneToday(wake, { wird: [], chapters: { "28": 1 } })).toBe(false);
@@ -165,18 +167,16 @@ describe("أذكار النوم والاستيقاظ", () => {
 });
 
 describe("الأصوات", () => {
-  it("كل صوت مصنّف نغمةً أو نداءً صوتياً، ونداء واحد فقط لكل موضوع", () => {
+  it("لا نغمات في القسم: نداءات صوتية فقط و«صامت»، ونداء واحد لكل موضوع", () => {
     const voices = REMINDER_TONES.filter((t) => t.kind === "voice");
     expect(voices).toHaveLength(7);
     const topics = voices.map((t) => ("topic" in t ? t.topic : null));
     expect(new Set(topics).size).toBe(voices.length);
     expect(topics).not.toContain(null);
-    for (const t of REMINDER_TONES) expect(["tone", "voice"]).toContain(t.kind);
-    expect(toneKind("silent")).toBe("tone");
-    // لا اسم نغمة يختلط بتبويب «النداءات الصوتية».
-    expect(REMINDER_TONES.filter((t) => t.kind === "tone").map((t) => t.name)).not.toContain(
-      "نداء",
-    );
+    for (const t of REMINDER_TONES) expect(["voice", "silent"]).toContain(t.kind);
+    expect(toneKind("silent")).toBe("silent");
+    const ids = REMINDER_TONES.map((t) => t.id as string);
+    for (const old of REMOVED_TONES) expect(ids).not.toContain(old);
   });
 
   it("ملفات الأصوات موجودة، ولا ملف زائد في مجلد التذكيرات ولا نسخ مخفّضة يتيمة", () => {
@@ -186,9 +186,11 @@ describe("الأصوات", () => {
     const files = readdirSync(resolve(root, "public/audio/reminders"))
       .filter((f) => f.endsWith(".mp3"))
       .sort();
-    expect(files).toEqual(urls.map((u) => u.split("/").pop()).sort());
+    // ملفات النغمات المحذوفة من القسم باقية لأن الأذان والمواسم يستعملانها.
+    const kept = [...REMOVED_TONES].map((id) => `${id}.mp3`);
+    expect(files).toEqual([...urls.map((u) => u.split("/").pop()), ...kept].sort());
     const raws = new Set(
-      urls.map((u) =>
+      [...urls, ...[...REMOVED_TONES].map((id) => `/${id}.mp3`)].map((u) =>
         u
           .split("/")
           .pop()!
@@ -215,8 +217,40 @@ describe("الأصوات", () => {
     expect(migrateToneId("nope")).toBeNull();
   });
 
-  it("تبويب النداءات يعرض المناسب للتذكير فقط، والمقترح أولاً", () => {
-    const ids = (r: DailyReminder) => toneOptionsFor(r, "voice").map((t) => t.id);
+  it("النغمات المحذوفة المحفوظة تنتقل إلى النداء المقترح لتذكيرها", () => {
+    for (const old of REMOVED_TONES) {
+      expect(migrateToneId(old)).toBeNull();
+      const st = normalizeRemindersState({
+        enabled: true,
+        items: DEFAULT_REMINDERS.map((r) => ({ ...r, tone: old as never })),
+      });
+      for (const r of st.items) expect(r.tone, `${old}→${r.id}`).toBe(SUGGESTED_TONE[r.id]);
+    }
+    const custom = newCustomReminder("other", undefined, "custom-x");
+    const st = normalizeRemindersState({
+      enabled: true,
+      items: [...DEFAULT_REMINDERS, { ...custom, tone: "reminder-chime" as never }],
+    });
+    expect(st.items.find((r) => r.id === "custom-x")?.tone).toBe("azkar-general-01");
+    // «صامت» اختيار مقصود يبقى كما هو.
+    const quiet = normalizeRemindersState({
+      enabled: true,
+      items: [{ ...DEFAULT_REMINDERS[0], tone: "silent" }],
+    });
+    expect(quiet.items[0].tone).toBe("silent");
+  });
+
+  it("الصوت الافتراضي لكل تذكير هو النداء المقترح", () => {
+    for (const r of DEFAULT_REMINDERS) expect(r.tone, r.id).toBe(SUGGESTED_TONE[r.id]);
+    expect(newCustomReminder("other", undefined, "custom-y").tone).toBe("azkar-general-01");
+  });
+
+  it("خيارات الصوت: المناسب للتذكير فقط، والمقترح أولاً، و«صامت» أخيراً", () => {
+    const ids = (r: DailyReminder) =>
+      toneOptionsFor(r)
+        .map((t) => t.id)
+        .filter((id) => id !== "silent");
+    expect(toneOptionsFor(byId("wird")).at(-1)?.id).toBe("silent");
     expect(ids(byId("azkar-morning"))).toEqual(["azkar-morning-03", "azkar-general-01"]);
     expect(ids(byId("azkar-evening"))).toEqual(["azkar-evening-02", "azkar-general-01"]);
     expect(ids(byId("sleep-azkar"))).toEqual(["azkar-sleep-02", "azkar-general-01"]);
@@ -226,10 +260,6 @@ describe("الأصوات", () => {
     // نداء مختار من خارج الموضوع يبقى ظاهراً (في آخر القائمة) ولا يختفي.
     const odd = { ...byId("azkar-morning"), tone: "azkar-sleep-02" as const };
     expect(ids(odd)).toEqual(["azkar-morning-03", "azkar-general-01", "azkar-sleep-02"]);
-    // النغمات عامة: تظهر كلها في كل تذكير.
-    expect(toneOptionsFor(byId("wird"), "tone")).toHaveLength(
-      REMINDER_TONES.filter((t) => t.kind === "tone").length,
-    );
   });
 
   it("النداء المقترح لكل تذكير مبنيّ نداء صوتي موجود", () => {
