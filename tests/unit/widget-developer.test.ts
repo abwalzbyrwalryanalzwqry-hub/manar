@@ -28,7 +28,9 @@ describe("إعدادات الويدجت", () => {
 
 describe("عن المطور", () => {
   it("البيانات الرسمية كما زُوِّدت", () => {
-    expect(DEVELOPER.name).toBe("أ. إدريس الزوقري");
+    expect(DEVELOPER.name).toBe("م. إدريس الزوقري");
+    expect(DEVELOPER.siteEmail).toBe("zbyrzwqr@gmail.com");
+    expect(DEVELOPER.contactEmail).toBe("old-contact@example.invalid");
     expect(DEVELOPER.phone).toBe("776343551");
     expect(DEVELOPER.address).toBe("اليمن _ إب _ جوبلة");
     expect(DEVELOPER.email).toBe("zoqriidris@gmail.com");

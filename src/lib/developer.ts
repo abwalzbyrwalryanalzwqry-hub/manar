@@ -8,7 +8,7 @@
 import { openExternalNative } from "./native-notifications";
 
 export const DEVELOPER = {
-  name: "أ. إدريس الزوقري",
+  name: "م. إدريس الزوقري",
   /** الرقم كما زُوِّدنا به (يمني محلي). */
   phone: "776343551",
   /** الصيغة الدولية للاتصال وواتساب — رمز اليمن ٩٦٧ مع الرقم نفسه. */
@@ -16,6 +16,10 @@ export const DEVELOPER = {
   address: "اليمن _ إب _ جوبلة",
   email: "zoqriidris@gmail.com",
   emailAlt: "old-contact@example.invalid",
+  /** «موقعنا» في صفحة «عن التطبيق». */
+  siteEmail: "zbyrzwqr@gmail.com",
+  /** «تواصل معنا» في صفحة «عن التطبيق». */
+  contactEmail: "old-contact@example.invalid",
   whatsapp: "@rzleelzr",
   telegram: "rzleelzr",
   facebookName: "إدريس الزوقري",
