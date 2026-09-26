@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { exportTextFile } from "@/lib/export-file";
+import { dayKey } from "@/lib/activity-log";
 import { useMemo, useRef, useState } from "react";
 import { EmptyState, Icon, icons, Screen, ScreenHeader } from "@/components/manar/shell";
 import {
@@ -51,7 +52,7 @@ function BookmarksScreen() {
   }, [bookmarks]);
 
   const download = async () => {
-    const name = `manar-bookmarks-${new Date().toISOString().slice(0, 10)}.json`;
+    const name = `manar-bookmarks-${dayKey()}.json`;
     try {
       const r = await exportTextFile(name, exportBookmarks(), { title: "تصدير العلامات" });
       if (r === "shared") setNotice("تم تجهيز ملف العلامات للحفظ أو المشاركة");

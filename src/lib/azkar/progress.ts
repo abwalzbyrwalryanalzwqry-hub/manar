@@ -4,7 +4,7 @@
 // ============================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useDayKey } from "@/hooks/use-day-key";
+import { useDayKey, useOnLeave } from "@/hooks/use-day-key";
 import { dayKey, recordAzkarCount, syncAzkarChapters } from "@/lib/activity-log";
 import { uniqueCompletedCount } from "./hub";
 import { azkarRepository } from "./repository";
@@ -13,6 +13,11 @@ import { azkarForTime, hasTimeVariants, progressKey } from "./variant";
 
 const KEY = "manar.azkar.progress.v1";
 const EVENT = "manar:azkar-progress";
+/**
+ * مهلة تجميع الكتابة أثناء العدّ السريع. الحالة تتحدّث في الذاكرة فورًا، أما
+ * التخزين والسجل اليومي (قراءة وكتابة JSON كبير) فمرة واحدة بعد توقّف النقر.
+ */
+export const WRITE_DELAY_MS = 220;
 
 export interface AzkarProgress {
   /** مفتاح العدّاد (`progressKey`: «id» أو «id:e» للمساء) → العدد الحالي */
@@ -167,9 +172,20 @@ function read(): AzkarProgress {
   }
 }
 
+/** آخر نص كتبته هذه الوحدة — لتتجاهل الشاشةُ حدثَ كتابتها هي فلا تعيد القراءة. */
+let lastWritten: string | null = null;
+
+/** كتابات معلّقة لكل خطاف مركّب؛ `markAzkarComplete` ينفّذها قبل أن يقرأ. */
+const flushers = new Set<() => void>();
+function flushAll() {
+  for (const f of flushers) f();
+}
+
 function write(p: AzkarProgress, log = true) {
   try {
-    window.localStorage.setItem(KEY, JSON.stringify(p));
+    const raw = JSON.stringify(p);
+    lastWritten = raw;
+    window.localStorage.setItem(KEY, raw);
     /* السجل اليومي الموحّد يحتاج التاريخ، وهذه الوحدة تحفظ اليوم فقط.
      * التصفّح وحده (`setLast`) لا يمسّ السجل. */
     if (log && p.day === today()) {
@@ -190,9 +206,42 @@ export function useAzkarProgress() {
    * الكتابة داخل دالة setState (تُستدعى مرتين في StrictMode). */
   const ref = useRef(state);
   const day = useDayKey();
+  /** كتابة معلّقة: الحالة، وهل تُسجَّل في السجل اليومي. */
+  const pending = useRef<{ p: AzkarProgress; log: boolean } | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushNow = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    const job = pending.current;
+    pending.current = null;
+    if (job) write(job.p, job.log);
+  }, []);
+
+  /* تُنفَّذ الكتابة المعلّقة عند المغادرة أو إرسال التطبيق للخلفية أو فكّ التركيب. */
+  useOnLeave(flushNow);
+  useEffect(() => {
+    flushers.add(flushNow);
+    return () => {
+      flushers.delete(flushNow);
+      flushNow();
+    };
+  }, [flushNow]);
 
   useEffect(() => {
     const sync = () => {
+      /* تغييراتنا غير المكتوبة أحدث من التخزين؛ وحدثُ كتابتنا لا جديد فيه. */
+      if (pending.current) return;
+      let raw: string | null = null;
+      try {
+        raw = window.localStorage.getItem(KEY);
+      } catch {
+        /* ignore */
+      }
+      if (raw != null && raw === lastWritten && ref.current.updatedAt != null) {
+        const same = JSON.stringify(ref.current) === raw;
+        if (same) return;
+      }
       ref.current = read();
       setState(ref.current);
     };
@@ -205,15 +254,21 @@ export function useAzkarProgress() {
     };
   }, [day]);
 
-  const patch = useCallback((fn: (prev: AzkarProgress) => AzkarProgress, touch = true) => {
-    const prev = rollDay(ref.current);
-    const changed = fn(prev);
-    if (changed === prev && prev === ref.current) return;
-    const next = touch ? { ...changed, updatedAt: Date.now() } : changed;
-    ref.current = next;
-    setState(next);
-    write(next, touch);
-  }, []);
+  const patch = useCallback(
+    (fn: (prev: AzkarProgress) => AzkarProgress, touch = true) => {
+      const prev = rollDay(ref.current);
+      const changed = fn(prev);
+      if (changed === prev && prev === ref.current) return;
+      const next = touch ? { ...changed, updatedAt: Date.now() } : changed;
+      ref.current = next;
+      setState(next);
+      /* تُجمَّع الكتابة: ضغطات متتالية سريعة = كتابة واحدة بعد التوقف. */
+      pending.current = { p: next, log: touch || (pending.current?.log ?? false) };
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(flushNow, WRITE_DELAY_MS);
+    },
+    [flushNow],
+  );
 
   /** `key` من `progressKey(id, time)`. */
   const tap = useCallback(
@@ -264,6 +319,7 @@ export function useAzkarProgress() {
  */
 export function markAzkarComplete(entries: readonly CompleteEntry[]) {
   if (typeof window === "undefined" || !entries.length) return;
+  flushAll();
   const prev = read();
   const next = applyComplete(prev, entries);
   if (next === prev) return;

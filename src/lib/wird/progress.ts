@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { WirdSessionKey } from "./data";
 import { dayKey, recordWird } from "@/lib/activity-log";
 import { useDayKey, useOnLeave } from "@/hooks/use-day-key";
-import { markAzkarComplete } from "@/lib/azkar/progress";
+import { markAzkarComplete, type CompleteEntry } from "@/lib/azkar/progress";
 import { linkedAzkarEntries, type LinkableItem } from "./link";
 
 const KEY = "manar.wird.progress.v1";
@@ -145,6 +145,10 @@ export function useWirdSessionProgress(session: WirdSessionKey, items: WirdItemR
   const ref = useRef(state);
   const pending = useRef<WirdSessionProgress | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* أعمال السجل اليومي (JSON كبير لدى المستخدم القديم) تُؤجَّل للحفظ المجمّع
+   * حتى لا تثقل نقرة الإتمام ولا الانتقال للذكر التالي. */
+  const pendingLinks = useRef<CompleteEntry[]>([]);
+  const pendingDone = useRef(false);
   const itemsRef = useRef(items);
   itemsRef.current = items;
   const day = useDayKey();
@@ -156,6 +160,13 @@ export function useWirdSessionProgress(session: WirdSessionKey, items: WirdItemR
     const next = pending.current;
     pending.current = null;
     if (next) writeSession(session, next);
+    if (pendingDone.current) {
+      pendingDone.current = false;
+      recordWird(session);
+    }
+    const links = pendingLinks.current;
+    pendingLinks.current = [];
+    if (links.length) markAzkarComplete(links);
   }, [session]);
 
   useEffect(() => {
@@ -182,9 +193,10 @@ export function useWirdSessionProgress(session: WirdSessionKey, items: WirdItemR
       setState(next);
       /* الإكمال يُسجّل في السجل اليومي الموحّد ليُحتسب في السلسلة والإحصائيات —
        * مرة واحدة عند انتقاله من ناقص إلى تام، خارج دالة setState. */
-      if (next.done && !prev.done) recordWird(session);
+      if (next.done && !prev.done) pendingDone.current = true;
       /* كل ذكر اكتمل الآن في الوِرد يُعلَّم مكتملًا في أذكار الوقت نفسه. */
-      markAzkarComplete(linkedAzkarEntries(session, itemsRef.current, next.counts, prev.counts));
+      const links = linkedAzkarEntries(session, itemsRef.current, next.counts, prev.counts);
+      if (links.length) pendingLinks.current.push(...links);
       pending.current = next;
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(flushNow, WRITE_DELAY_MS);

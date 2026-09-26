@@ -4,7 +4,7 @@
 // ============================================================
 
 import { useCallback, useEffect, useState } from "react";
-import { vibrate } from "@/lib/audio-engine";
+import { pulse } from "@/lib/haptics";
 
 const KEY = "manar.azkar.prefs.v1";
 const EVENT = "manar:azkar-prefs";
@@ -16,15 +16,18 @@ export const DEFAULT_TEXT_SIZE = 2;
 export interface AzkarPrefs {
   /** فهرس في TEXT_SIZES. */
   textSize: number;
-  /** اهتزاز خفيف مع كل عدّة، وأقوى عند إتمام الذكر. */
-  haptics: boolean;
+  /** اهتزاز خفيف مع كل نقرة عدّ. */
+  hapticTap: boolean;
+  /** اهتزاز أقوى قليلًا عند إتمام الذكر (أو مقطع منه) والانتقال لما بعده. */
+  hapticDone: boolean;
   /** الضغط على نص الذكر يعدّ كالضغط على زر العدّاد. */
   tapAnywhere: boolean;
 }
 
 export const DEFAULT_AZKAR_PREFS: AzkarPrefs = {
   textSize: DEFAULT_TEXT_SIZE,
-  haptics: true,
+  hapticTap: true,
+  hapticDone: true,
   tapAnywhere: true,
 };
 
@@ -35,10 +38,16 @@ export function clampTextSize(n: unknown): number {
 }
 
 export function normalizeAzkarPrefs(raw: unknown): AzkarPrefs {
-  const r = (raw && typeof raw === "object" ? raw : {}) as Partial<AzkarPrefs>;
+  const r = (raw && typeof raw === "object" ? raw : {}) as Partial<AzkarPrefs> & {
+    /** الإصدار السابق: مفتاح واحد للاهتزاز — إطفاؤه يطفئ النوعين. */
+    haptics?: unknown;
+  };
+  const legacy = typeof r.haptics === "boolean" ? r.haptics : undefined;
+  const bool = (v: unknown, d: boolean) => (typeof v === "boolean" ? v : (legacy ?? d));
   return {
     textSize: r.textSize === undefined ? DEFAULT_TEXT_SIZE : clampTextSize(r.textSize),
-    haptics: typeof r.haptics === "boolean" ? r.haptics : DEFAULT_AZKAR_PREFS.haptics,
+    hapticTap: bool(r.hapticTap, DEFAULT_AZKAR_PREFS.hapticTap),
+    hapticDone: bool(r.hapticDone, DEFAULT_AZKAR_PREFS.hapticDone),
     tapAnywhere:
       typeof r.tapAnywhere === "boolean" ? r.tapAnywhere : DEFAULT_AZKAR_PREFS.tapAnywhere,
   };
@@ -95,16 +104,20 @@ export function useAzkarPrefs() {
 
 export type HapticKind = "tap" | "step" | "done";
 
-/** أنماط الاهتزاز (ms): عدّة خفيفة، ونهاية مقطع، وإتمام الذكر. */
-export const HAPTIC_PATTERNS: Record<HapticKind, number | number[]> = {
-  tap: 12,
-  step: 30,
-  done: [25, 60, 45],
-};
+/** قوة كل نوع: العدّة خفيفة، ونهاية المقطع وإتمام الذكر أقوى قليلًا. */
+export const HAPTIC_STRENGTH = { tap: "light", step: "medium", done: "medium" } as const;
 
-/** يهتز إن كان الاهتزاز مفعّلًا. على أندرويد يستعمل Vibration API في WebView. */
-export function haptic(prefs: Pick<AzkarPrefs, "haptics">, kind: HapticKind) {
-  if (prefs.haptics) vibrate(HAPTIC_PATTERNS[kind]);
+/** هل يهتز هذا النوع بحسب إعدادات المستخدم؟ */
+export function hapticEnabled(
+  prefs: Pick<AzkarPrefs, "hapticTap" | "hapticDone">,
+  kind: HapticKind,
+): boolean {
+  return kind === "tap" ? prefs.hapticTap : prefs.hapticDone;
+}
+
+/** يهتز إن كان النوع مفعّلًا. على أندرويد عبر @capacitor/haptics (انظر lib/haptics). */
+export function haptic(prefs: Pick<AzkarPrefs, "hapticTap" | "hapticDone">, kind: HapticKind) {
+  if (hapticEnabled(prefs, kind)) pulse(HAPTIC_STRENGTH[kind]);
 }
 
 /** نوع الاهتزاز لعدّة تنقل العدّاد من `before` إلى `before + 1`. */

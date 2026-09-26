@@ -146,7 +146,7 @@ function WirdListPage() {
                 <button
                   onClick={() => onTap(it.order, it.repeat, it.name)}
                   disabled={!hydrated || done}
-                  className={`flex-1 rounded-2xl py-3 text-sm font-medium transition active:scale-95 ${
+                  className={`counter-tap flex-1 rounded-2xl py-3 text-sm font-medium transition active:scale-95 ${
                     done
                       ? "border border-primary/30 bg-primary/10 text-primary"
                       : "gradient-primary text-primary-foreground shadow-glow"

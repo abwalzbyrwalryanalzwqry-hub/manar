@@ -20,6 +20,7 @@ import {
   type PrayerKey,
 } from "@/lib/prayer";
 import { useAdhanSettings } from "@/lib/adhan-settings";
+import { haptic, useAzkarPrefs } from "@/lib/azkar/prefs";
 import { useAuth } from "@/lib/auth-context";
 import { ampmAr, formatHHMM, toArabicDigits } from "@/lib/format";
 
@@ -57,6 +58,7 @@ function Settings() {
   const { settings, patchSettings, setOffset, resetOffsets } = useSettings();
   const { settings: adhan, updateDeep } = useAdhanSettings();
   const { user, signOut } = useAuth();
+  const { prefs: azkarPrefs, update: updateAzkarPrefs } = useAzkarPrefs();
   const router = useRouter();
 
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -119,6 +121,37 @@ function Settings() {
           label="تعديل أوقات الصلاة"
           value={offsetSummary}
           onClick={() => setSheet("offsets")}
+        />
+      </div>
+
+      <SectionLabel>الأذكار والوِرد</SectionLabel>
+      <div className="space-y-2 px-5">
+        <SwitchRow
+          icon={icons.azkar}
+          label="اهتزاز خفيف مع كل نقرة"
+          sub="عند كل عدّة في الأذكار والوِرد"
+          on={azkarPrefs.hapticTap}
+          onChange={(next) => {
+            updateAzkarPrefs({ hapticTap: next });
+            if (next) haptic({ hapticTap: true, hapticDone: false }, "tap");
+          }}
+        />
+        <SwitchRow
+          icon={icons.check}
+          label="اهتزاز أقوى عند إتمام الذكر"
+          sub="أقوى قليلًا عند إتمام كل ذكر والانتقال لما بعده"
+          on={azkarPrefs.hapticDone}
+          onChange={(next) => {
+            updateAzkarPrefs({ hapticDone: next });
+            if (next) haptic({ hapticTap: false, hapticDone: true }, "done");
+          }}
+        />
+        <SwitchRow
+          icon={icons.sparkle}
+          label="العدّ بالضغط على النص"
+          sub="الضغط على نص الذكر يعدّ كزر العدّاد"
+          on={azkarPrefs.tapAnywhere}
+          onChange={(next) => updateAzkarPrefs({ tapAnywhere: next })}
         />
       </div>
 
@@ -446,7 +479,7 @@ function SwitchRow({
         <span className="block text-[10px] text-muted-foreground">{sub}</span>
       </span>
       <span
-        className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? "gradient-primary" : "bg-muted"}`}
+        className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? "gradient-primary" : "bg-muted-foreground/30"}`}
       >
         <span
           className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-soft transition-all ${

@@ -64,9 +64,14 @@ export function AzkarDisplayPanel({
         </div>
       </div>
       <Toggle
-        label="الاهتزاز عند العدّ"
-        checked={prefs.haptics}
-        onChange={(v) => update({ haptics: v })}
+        label="اهتزاز خفيف مع كل نقرة"
+        checked={prefs.hapticTap}
+        onChange={(v) => update({ hapticTap: v })}
+      />
+      <Toggle
+        label="اهتزاز أقوى عند إتمام الذكر"
+        checked={prefs.hapticDone}
+        onChange={(v) => update({ hapticDone: v })}
       />
       <Toggle
         label="العدّ بالضغط على النص"
