@@ -15,7 +15,7 @@ const EVENT = "manar:wird-progress";
  * (كما في توحيدها مع «حصن المسلم») صار التقدّم القديم يشير إلى أذكار أخرى،
  * فيُهمل عند القراءة بدل عرضه على ذكر خاطئ.
  */
-export const WIRD_LAYOUT = 2;
+export const WIRD_LAYOUT = 3;
 
 /** مهلة تجميع الكتابة إلى التخزين أثناء العدّ السريع. */
 const WRITE_DELAY_MS = 180;

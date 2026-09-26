@@ -276,15 +276,23 @@ DENSITIES = [
 ]
 
 
+
+def save_mipmap(img, path):
+    """WebP بلا فقد (بكسل مطابق للأصل، أصغر بنحو الثلث من PNG). يحذف PNG
+    القديم بالاسم نفسه، فلأندرويد مورد واحد لكل اسم."""
+    img.save(path.with_suffix(".webp"), "WEBP", lossless=True, quality=100, method=6, exact=True)
+    path.with_suffix(".png").unlink(missing_ok=True)
+
+
 def main() -> int:
     fg, legacy, rnd = svg_foreground(), svg_legacy(), svg_round()
 
     for name, legacy_px, fg_px in DENSITIES:
         d = RES / f"mipmap-{name}"
         d.mkdir(parents=True, exist_ok=True)
-        render(legacy, legacy_px).save(d / "ic_launcher.png", optimize=True)
-        render(rnd, legacy_px).save(d / "ic_launcher_round.png", optimize=True)
-        render(fg, fg_px).save(d / "ic_launcher_foreground.png", optimize=True)
+        save_mipmap(render(legacy, legacy_px), d / "ic_launcher.png")
+        save_mipmap(render(rnd, legacy_px), d / "ic_launcher_round.png")
+        save_mipmap(render(fg, fg_px), d / "ic_launcher_foreground.png")
         print(f"  ✓ mipmap-{name:<9} مربّعة ودائرية {legacy_px}px · أمامية {fg_px}px")
 
     # المتجهات: أيقونة شريط الإشعارات، والقناع الأحادي لأندرويد ١٣، ومعلم

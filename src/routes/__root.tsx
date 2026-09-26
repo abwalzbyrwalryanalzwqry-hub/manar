@@ -108,6 +108,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
+const NATIVE_SHELL_BUILD = import.meta.env.VITE_NATIVE_SHELL === "1";
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
@@ -149,9 +150,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
        * المتّجه أولاً ليستعمله المتصفح القادر عليه بأي دقّة، والنقطية تليه
        * للمتصفحات التي لا تقرأ SVG في هذا الموضع. */
       { rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
-      { rel: "icon", href: "/favicon.png", type: "image/png", sizes: "64x64" },
-      { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
-      { rel: "manifest", href: "/manifest.webmanifest" },
+      /* أيقونات التثبيت على الويب (PWA وiOS) لا معنى لها داخل تطبيق أندرويد:
+       * الويب فيو لا يقرأ ملف الـ manifest ولا apple-touch-icon، وأيقونة التطبيق
+       * هي أيقونة النظام. تُحذف ملفاتها من حزمة أندرويد
+       * (scripts/prepare-android-webdir.mjs) فلا تُذكر هنا كذلك. */
+      ...(NATIVE_SHELL_BUILD
+        ? []
+        : [
+            { rel: "icon", href: "/favicon.png", type: "image/png", sizes: "64x64" },
+            { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
+            { rel: "manifest", href: "/manifest.webmanifest" },
+          ]),
     ],
   }),
   shellComponent: RootShell,

@@ -258,7 +258,9 @@ function AzkarSession() {
       `المُنجَز: ${toArabicDigits(count)} من ${toArabicDigits(current.repeat)}` +
       `${count >= current.repeat ? " ✓ مكتمل" : ""}\n` +
       `تقدّم الباب: ${toArabicDigits(doneCount)} من ${toArabicDigits(azkar.length)}\n\n` +
-      `${current.lead ? `${current.lead}\n` : ""}${currentText}` +
+      `${current.title ? `${current.title}\n` : ""}` +
+      `${current.lead ? `${current.lead}\n` : ""}` +
+      `${current.opening ? `${current.opening}\n` : ""}${currentText}` +
       `${current.note ? `\n${current.note}` : ""}\n\n— حصن المسلم · تطبيق منار`;
     try {
       if (navigator.share) await navigator.share({ text });
@@ -468,9 +470,27 @@ function AzkarSession() {
                 prefs.tapAnywhere ? "cursor-pointer select-none" : ""
               }`}
             >
+              {current.title && (
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="h-px w-4 bg-gold" />
+                  <span className="text-[12px] font-medium tracking-wide text-foreground/80">
+                    {current.title}
+                  </span>
+                </div>
+              )}
+
               {current.lead && (
                 <p className="mb-2 text-right text-[13px] leading-relaxed text-muted-foreground">
                   {current.lead}
+                </p>
+              )}
+
+              {current.opening && (
+                <p
+                  className="mb-1 text-center font-quran leading-[2.2] text-primary"
+                  style={{ fontSize: fontPx - 0.4 }}
+                >
+                  {current.opening}
                 </p>
               )}
 

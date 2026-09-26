@@ -79,7 +79,8 @@
             android:directBootAware="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <!-- لا نعلن LOCKED_BOOT_COMPLETED: المستقبِل directBootAware=false فلا
+                     يصله هذا البثّ أصلاً، والجدولة تحتاج التخزين المشفّر بعد فتح القفل. -->
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="android.intent.action.TIME_SET" />

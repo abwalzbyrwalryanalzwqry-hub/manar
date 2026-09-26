@@ -2,10 +2,9 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import {
   CLOUD_UNAVAILABLE_MESSAGE,
-  getCloud,
+  loadCloud,
   isCloudConfigured,
 } from "@/integrations/supabase/optional-client";
-import { lovable } from "@/integrations/lovable";
 import { META_KEY as SYNC_META_KEY } from "@/lib/cloud-sync";
 
 type Profile = {
@@ -80,31 +79,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const loadProfile = async (uid: string) => {
-    const cloud = getCloud();
+    const cloud = await loadCloud();
     if (!cloud) return;
     const { data } = await cloud.from("profiles").select("*").eq("id", uid).maybeSingle();
     if (data) setProfile(data as Profile);
   };
 
   useEffect(() => {
-    const cloud = getCloud();
-    if (!cloud) {
-      // لا سحابة في هذا البناء: نُكمل الإقلاع في الوضع المحلي بدل إسقاط الواجهة.
-      setLoading(false);
-      return;
-    }
-    const { data: sub } = cloud.auth.onAuthStateChange((event, s) => {
-      LOG("event", event, "user:", s?.user?.email ?? null);
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) {
-        localStorage.removeItem(GUEST_KEY);
-        setIsGuest(false);
-        setTimeout(() => loadProfile(s.user.id), 0);
-      } else {
-        setProfile(null);
-      }
-    });
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
     /* `loading` يجب أن ينتهي دائماً.
      *
      * كان `setLoading(false)` داخل `.then` وحده، بلا `.catch` وبلا مهلة. فإن
@@ -112,11 +95,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      * هاتفٍ بلا إنترنت — بقيت الحالة «قيد التحميل» إلى الأبد، وكل شاشة
      * تنتظرها تجمّدت معها.
      *
-     * الآن: `.catch` للرفض، ومهلة ستّ ثوانٍ للتعلّق. وضعُ «لا جلسة» هو
-     * الافتراض الصحيح عند الفشل — التطبيق يعمل بكامله دون حساب. */
+     * الآن: `.catch` للرفض، ومهلة ستّ ثوانٍ للتعلّق (تشمل تحميل مكتبة السحابة
+     * نفسها). وضعُ «لا جلسة» هو الافتراض الصحيح عند الفشل — التطبيق يعمل
+     * بكامله دون حساب. */
     let settled = false;
     const settle = () => {
-      if (settled) return;
+      if (settled || cancelled) return;
       settled = true;
       setLoading(false);
     };
@@ -125,28 +109,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       settle();
     }, 6000);
 
-    cloud.auth
-      .getSession()
-      .then(({ data, error }) => {
-        LOG("initial session", { hasSession: !!data.session, error: error?.message });
-        setSession(data.session);
-        setUser(data.session?.user ?? null);
-        if (data.session?.user) loadProfile(data.session.user.id);
-      })
-      .catch((e: unknown) => {
-        LOG("getSession failed", e instanceof Error ? e.message : String(e));
-      })
-      .finally(settle);
+    void loadCloud().then((cloud) => {
+      if (cancelled) return;
+      if (!cloud) {
+        // لا سحابة في هذا البناء: نُكمل الإقلاع في الوضع المحلي بدل إسقاط الواجهة.
+        settle();
+        return;
+      }
+      const { data: sub } = cloud.auth.onAuthStateChange((event, s) => {
+        LOG("event", event, "user:", s?.user?.email ?? null);
+        setSession(s);
+        setUser(s?.user ?? null);
+        if (s?.user) {
+          localStorage.removeItem(GUEST_KEY);
+          setIsGuest(false);
+          setTimeout(() => loadProfile(s.user.id), 0);
+        } else {
+          setProfile(null);
+        }
+      });
+      unsubscribe = () => sub.subscription.unsubscribe();
+
+      cloud.auth
+        .getSession()
+        .then(({ data, error }) => {
+          LOG("initial session", { hasSession: !!data.session, error: error?.message });
+          if (cancelled) return;
+          setSession(data.session);
+          setUser(data.session?.user ?? null);
+          if (data.session?.user) loadProfile(data.session.user.id);
+        })
+        .catch((e: unknown) => {
+          LOG("getSession failed", e instanceof Error ? e.message : String(e));
+        })
+        .finally(settle);
+    });
 
     return () => {
+      cancelled = true;
       clearTimeout(timeout);
-      sub.subscription.unsubscribe();
+      unsubscribe?.();
     };
   }, []);
 
   const signInEmail: AuthCtx["signInEmail"] = async (email, password) => {
     LOG("signInEmail →", email);
-    const cloud = getCloud();
+    const cloud = await loadCloud();
     if (!cloud) return { error: CLOUD_UNAVAILABLE_MESSAGE };
     const { data, error } = await cloud.auth.signInWithPassword({ email, password });
     if (error) {
@@ -170,7 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUpEmail: AuthCtx["signUpEmail"] = async (email, password, fullName) => {
     LOG("signUpEmail →", email);
-    const cloud = getCloud();
+    const cloud = await loadCloud();
     if (!cloud) return { error: CLOUD_UNAVAILABLE_MESSAGE };
     const { data, error } = await cloud.auth.signUp({
       email,
@@ -192,6 +200,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     LOG("signInGoogle → origin", window.location.origin);
     if (!isCloudConfigured()) return { error: CLOUD_UNAVAILABLE_MESSAGE };
     try {
+      // يُحمَّل عند الطلب فقط: يجرّ معه عميل Supabase ومكتبة Lovable للمصادقة.
+      const { lovable } = await import("@/integrations/lovable");
       const r = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: window.location.origin,
       });
@@ -206,7 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword: AuthCtx["resetPassword"] = async (email) => {
-    const cloud = getCloud();
+    const cloud = await loadCloud();
     if (!cloud) return { error: CLOUD_UNAVAILABLE_MESSAGE };
     const { error } = await cloud.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
@@ -215,20 +225,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePassword: AuthCtx["updatePassword"] = async (password) => {
-    const cloud = getCloud();
+    const cloud = await loadCloud();
     if (!cloud) return { error: CLOUD_UNAVAILABLE_MESSAGE };
     const { error } = await cloud.auth.updateUser({ password });
     return error ? { error: arabicAuthError(error.message) } : {};
   };
 
   const signOut = async () => {
-    await getCloud()?.auth.signOut();
+    await (await loadCloud())?.auth.signOut();
     localStorage.removeItem(GUEST_KEY);
     setIsGuest(false);
   };
 
   const deleteAccount: AuthCtx["deleteAccount"] = async () => {
-    const cloud = getCloud();
+    const cloud = await loadCloud();
     if (!cloud) return { error: CLOUD_UNAVAILABLE_MESSAGE };
     if (!user) return { error: "يجب تسجيل الدخول لحذف الحساب" };
     const { error } = await cloud.rpc("delete_my_account");
@@ -264,7 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateProfile: AuthCtx["updateProfile"] = async (patch) => {
     if (!user) return { error: "يجب تسجيل الدخول" };
-    const cloud = getCloud();
+    const cloud = await loadCloud();
     if (!cloud) return { error: CLOUD_UNAVAILABLE_MESSAGE };
     const { error } = await cloud.from("profiles").update(patch).eq("id", user.id);
     if (error) return { error: arabicAuthError(error.message) };

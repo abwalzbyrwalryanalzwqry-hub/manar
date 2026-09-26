@@ -130,6 +130,7 @@ function WirdListPage() {
                 className="mt-3 text-right font-quran leading-[2.2] text-foreground"
                 style={{ fontSize: textSizePx(prefs) * 0.85 }}
               >
+                {it.opening && <span className="block text-center text-primary">{it.opening}</span>}
                 {it.text}
               </p>
 

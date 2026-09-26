@@ -19,7 +19,8 @@ function buildIndex(book: AzkarBook) {
     const title = normalizeArabic(chapter.title);
     for (const zikr of chapter.azkar) {
       // صيغة المساء تُفهرس مع الصباح ليجدها البحث بأيّ اللفظين.
-      const body = zikr.evening ? `${zikr.text} ${zikr.evening}` : zikr.text;
+      const text = zikr.title ? `${zikr.title} ${zikr.text}` : zikr.text;
+      const body = zikr.evening ? `${text} ${zikr.evening}` : text;
       index.push({ chapter, zikr, hay: normalizeArabic(body), title });
     }
   }
