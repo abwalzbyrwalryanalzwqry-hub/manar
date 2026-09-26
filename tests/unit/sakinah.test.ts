@@ -59,16 +59,9 @@ describe("سكينة: بداية الهدوء قبل الأذان أو معه أ
   });
 
   it("فترة الظهر تبدأ بعد الأذان بالدقائق المختارة", () => {
-    const [w] = computeSakinahWindows(onlyDhuhr(10, 40), SANAA, CALC, 1, FROM);
-    const dhuhr = computePrayerTimes(
-      SANAA,
-      CALC,
-      (() => {
-        const d = new Date(FROM);
-        d.setHours(12, 0, 0, 0);
-        return d;
-      })(),
-    ).dhuhr.getTime();
+    const [w] = computeSakinahWindows(onlyDhuhr(10, 40), SANAA, CALC, 2, FROM);
+    // ظهر يوم الفترة نفسه (لا يوم FROM المحلي، فقد يختلف بحسب منطقة الجهاز).
+    const dhuhr = computePrayerTimes(SANAA, CALC, new Date(w.start)).dhuhr.getTime();
     expect(w.start - dhuhr).toBe(10 * 60_000);
     expect(w.end - dhuhr).toBe(40 * 60_000);
   });
