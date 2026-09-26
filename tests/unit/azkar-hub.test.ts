@@ -38,7 +38,8 @@ describe("الوصول السريع", () => {
     for (const z of azkarForTime(ch(27), "morning"))
       counters[progressKey(z.id, "morning")] = z.repeat;
     expect(chapterProgress(ch(27), counters, "morning").complete).toBe(true);
-    expect(chapterProgress(ch(27), counters, "evening").done).toBe(0);
+    /* إلا الاستغفار «مائة مرة في اليوم» (#96): عدّاد يومي واحد للوقتين. */
+    expect(chapterProgress(ch(27), counters, "evening").done).toBe(1);
   });
 });
 

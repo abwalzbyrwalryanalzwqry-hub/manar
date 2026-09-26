@@ -4,11 +4,11 @@
 // ============================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { WirdSessionKey } from "./data";
+import { WIRD_SESSIONS, type WirdSessionKey } from "./data";
 import { dayKey, recordWird } from "@/lib/activity-log";
 import { useDayKey, useOnLeave } from "@/hooks/use-day-key";
-import { markAzkarComplete, type CompleteEntry } from "@/lib/azkar/progress";
-import { linkedAzkarEntries, type LinkableItem } from "./link";
+import { markAzkarComplete, readAzkarCompleted, type CompleteEntry } from "@/lib/azkar/progress";
+import { dailyCarryOver, linkedAzkarEntries, type LinkableItem } from "./link";
 
 const KEY = "manar.wird.progress.v1";
 const EVENT = "manar:wird-progress";
@@ -86,17 +86,40 @@ export function applyIncrement(
   return { ...p, counts, done: isWirdComplete({ counts }, items) };
 }
 
+/** الأذكار اليومية المقولة في الوِرد الآخر أو في الأذكار تُحتسب في الوِردين. */
+export function withDailyCarry(
+  store: WirdStore,
+  azkarCompleted: ReadonlySet<string> = readAzkarCompleted(),
+): WirdStore {
+  const next = { ...store };
+  for (const [s, other] of [
+    ["morning", "evening"],
+    ["evening", "morning"],
+  ] as const) {
+    const items = WIRD_SESSIONS[s].items;
+    const counts = dailyCarryOver(
+      items,
+      store[s].counts,
+      WIRD_SESSIONS[other].items,
+      store[other].counts,
+      azkarCompleted,
+    );
+    if (counts) next[s] = { ...store[s], counts, done: isWirdComplete({ counts }, items) };
+  }
+  return next;
+}
+
 function readStore(day = dayKey()): WirdStore {
   const blank = { morning: emptySession(day), evening: emptySession(day) };
   if (typeof window === "undefined") return blank;
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (!raw) return blank;
+    if (!raw) return withDailyCarry(blank);
     const parsed = JSON.parse(raw) as Partial<Record<WirdSessionKey, Partial<WirdSessionProgress>>>;
-    return {
+    return withDailyCarry({
       morning: readSession(parsed.morning, day),
       evening: readSession(parsed.evening, day),
-    };
+    });
   } catch {
     return blank;
   }

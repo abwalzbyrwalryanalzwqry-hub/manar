@@ -18,11 +18,12 @@ import { nextIndexAfter } from "@/lib/azkar/hub";
 import { AzkarDisplayPanel, DisplayToggleButton } from "@/components/manar/azkar-display-controls";
 import { haptic, hapticFor, isCountableTap, textSizePx, useAzkarPrefs } from "@/lib/azkar/prefs";
 import { useAzkarProgress } from "@/lib/azkar/progress";
+import { azkarTimeNow } from "@/lib/azkar/time";
 import type { Zikr, ZikrTime } from "@/lib/azkar/types";
 import {
   azkarForTime,
-  defaultTime,
   hasTimeVariants,
+  isDailyOnce,
   progressKey,
   segmentState,
   zikrText,
@@ -80,7 +81,8 @@ function AzkarSession() {
   const chapter = useMemo(() => book?.chapters.find((c) => c.id === id), [book, id]);
   /** صباح/مساء — فقط للأبواب التي تختلف أذكارها بالوقت (باب ٢٧). */
   const timed = chapter ? hasTimeVariants(chapter) : false;
-  const [time, setTime] = useState<ZikrTime>(() => timeParam ?? defaultTime());
+  /* بلا وقت في الرابط: الصباح من الفجر إلى العصر، والمساء بعده (بمواقيت الموقع). */
+  const [time, setTime] = useState<ZikrTime>(() => timeParam ?? azkarTimeNow());
   const activeTime: ZikrTime | null = timed ? time : null;
   const azkar = useMemo(
     () => (chapter ? azkarForTime(chapter, activeTime) : []),
@@ -617,6 +619,11 @@ function AzkarSession() {
               {current.note && (
                 <p className="mt-2 text-right text-[13px] leading-relaxed text-muted-foreground">
                   {current.note}
+                </p>
+              )}
+              {timed && isDailyOnce(current.id) && (
+                <p className="mt-1 text-right text-[11px] leading-relaxed text-muted-foreground">
+                  عدّاد يومي واحد: ما تقوله صباحًا يُحتسب مساءً.
                 </p>
               )}
 

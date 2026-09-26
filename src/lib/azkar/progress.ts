@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDayKey, useOnLeave } from "@/hooks/use-day-key";
 import { dayKey, recordAzkarCount, syncAzkarChapters } from "@/lib/activity-log";
 import { uniqueCompletedCount } from "./hub";
+import { normalizeBookmarkLog, pruneBookmarkLog, type BookmarkLog } from "./merge";
 import { azkarRepository } from "./repository";
 import type { AzkarBook, ZikrTime } from "./types";
 import { azkarForTime, hasTimeVariants, progressKey } from "./variant";
@@ -26,6 +27,9 @@ export interface AzkarProgress {
   completed: string[];
   /** bookmarked zikr ids */
   bookmarks: number[];
+  /** آخر فعل لكل ذكر (حفظ/حذف) ووقته — ليُدمج الحفظ والحذف بين الأجهزة
+   * ذكرًا ذكرًا بدل أن تمسح نسخةٌ نسخة (انظر azkar/merge). */
+  bookmarkLog: BookmarkLog;
   /** آخر ذكر فُتح: الباب والذكر، ووقت الأذكار إن كان للباب صباح ومساء */
   last: { chapter: number; zikr: number; at: number; time?: ZikrTime } | null;
   /** YYYY-MM-DD of the counters/completed day */
@@ -38,6 +42,7 @@ const empty = (day = today()): AzkarProgress => ({
   counters: {},
   completed: [],
   bookmarks: [],
+  bookmarkLog: {},
   last: null,
   day,
   updatedAt: null,
@@ -93,6 +98,7 @@ export function normalizeProgress(raw: unknown, day = today()): AzkarProgress {
     counters,
     completed: Array.isArray(r.completed) ? [...new Set(r.completed.map(String))] : [],
     bookmarks: Array.isArray(r.bookmarks) ? r.bookmarks.filter((n) => typeof n === "number") : [],
+    bookmarkLog: normalizeBookmarkLog(r.bookmarkLog),
     last: normalizeLast(r.last),
     day: typeof r.day === "string" ? r.day : day,
     updatedAt: typeof r.updatedAt === "number" ? r.updatedAt : null,
@@ -160,6 +166,27 @@ export function applyReset(p: AzkarProgress, keys: readonly string[]): AzkarProg
   for (const k of keys) delete counters[k];
   const drop = new Set(keys);
   return { ...p, counters, completed: p.completed.filter((k) => !drop.has(k)) };
+}
+
+/** حفظ الذكر أو حذفه من المحفوظات، مع تسجيل الفعل ووقته للمزامنة. */
+export function applyToggleBookmark(
+  p: AzkarProgress,
+  zikrId: number,
+  now = Date.now(),
+): AzkarProgress {
+  const on = !p.bookmarks.includes(zikrId);
+  return {
+    ...p,
+    bookmarks: on ? [...p.bookmarks, zikrId] : p.bookmarks.filter((id) => id !== zikrId),
+    bookmarkLog: pruneBookmarkLog({ ...p.bookmarkLog, [String(zikrId)]: { on, at: now } }),
+  };
+}
+
+/** مفاتيح الأذكار المكتملة اليوم (بعد تنفيذ أي كتابة معلّقة). */
+export function readAzkarCompleted(): ReadonlySet<string> {
+  if (typeof window === "undefined") return new Set();
+  flushAll();
+  return new Set(read().completed);
 }
 
 function read(): AzkarProgress {
@@ -282,13 +309,7 @@ export function useAzkarProgress() {
   const undo = useCallback((key: string) => patch((p) => applyUndo(p, key)), [patch]);
 
   const toggleBookmark = useCallback(
-    (zikrId: number) =>
-      patch((p) => ({
-        ...p,
-        bookmarks: p.bookmarks.includes(zikrId)
-          ? p.bookmarks.filter((id) => id !== zikrId)
-          : [...p.bookmarks, zikrId],
-      })),
+    (zikrId: number) => patch((p) => applyToggleBookmark(p, zikrId)),
     [patch],
   );
 

@@ -8,7 +8,7 @@
 // ============================================================
 
 import type { CompleteEntry } from "@/lib/azkar/progress";
-import { progressKey } from "@/lib/azkar/variant";
+import { isDailyOnce, progressKey } from "@/lib/azkar/variant";
 import type { WirdSessionKey } from "./data";
 
 export interface LinkableItem {
@@ -46,6 +46,33 @@ export function linkedAzkarEntries(
     if ((counts[it.order] ?? 0) < it.repeat) continue;
     if (before && (before[it.order] ?? 0) >= it.repeat) continue;
     out.push({ key: progressKey(it.hisn, session), repeat: it.repeat });
+  }
+  return out;
+}
+
+/**
+ * الأذكار اليومية (`DAILY_ONCE`، كالاستغفار مائة مرة «في اليوم»): إن قيلت اليوم
+ * في الوِرد الآخر أو في أذكار الصباح/المساء تُحتسب هنا تامّة ولا تُطلب مرتين.
+ * يعيد عدّادات جديدة، أو `null` إن لم يتغيّر شيء.
+ */
+export function dailyCarryOver(
+  items: readonly LinkableItem[],
+  counts: Readonly<Record<number, number>>,
+  otherItems: readonly LinkableItem[],
+  otherCounts: Readonly<Record<number, number>>,
+  azkarCompleted: ReadonlySet<string>,
+): Record<number, number> | null {
+  let out: Record<number, number> | null = null;
+  for (const it of items) {
+    if (!isDailyOnce(it.hisn) || (counts[it.order] ?? 0) >= it.repeat) continue;
+    const hisn = it.hisn as number;
+    const inOther = otherItems.some(
+      (o) => o.hisn === hisn && (otherCounts[o.order] ?? 0) >= o.repeat,
+    );
+    if (inOther || azkarCompleted.has(progressKey(hisn, null))) {
+      out ??= { ...counts };
+      out[it.order] = it.repeat;
+    }
   }
   return out;
 }
