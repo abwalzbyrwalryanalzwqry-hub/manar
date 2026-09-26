@@ -4,6 +4,7 @@ import { counterAnnouncement } from "@/lib/azkar/a11y";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Arabesque, Icon, icons, Screen, Skeleton } from "@/components/manar/shell";
 import { WirdProgressBar } from "@/components/manar/wird-progress";
+import { useKeepAwake } from "@/hooks/use-keep-awake";
 
 import { toArabicDigits } from "@/lib/format";
 import { getWirdSession } from "@/lib/wird/data";
@@ -37,10 +38,8 @@ function WirdSessionPage() {
   const wird = getWirdSession(session);
   const key = wird?.key ?? "morning";
   const items = useMemo(() => wird?.items ?? [], [wird]);
-  const { progress, hydrated, increment, setCurrent, resetSession } = useWirdSessionProgress(
-    key,
-    items,
-  );
+  const { progress, hydrated, increment, decrement, setCurrent, resetSession } =
+    useWirdSessionProgress(key, items);
   const [index, setIndex] = useState(0);
   const [confirmReset, setConfirmReset] = useState(false);
   const [pulse, setPulse] = useState(0);
@@ -57,6 +56,8 @@ function WirdSessionPage() {
   shownOrder.current = item?.order ?? null;
   const remaining = item ? item.repeat - count : 0;
   const overall = useMemo(() => wirdCompletion(progress, items), [progress, items]);
+  /* الشاشة تبقى مضاءة أثناء الجلسة (العدّ مئة مرة يتجاوز مهلة إطفائها). */
+  useKeepAwake(Boolean(wird));
 
   // استئناف: أول ذكر غير مكتمل (أو المحفوظ)
   useEffect(() => {
@@ -111,6 +112,14 @@ function WirdSessionPage() {
       }, 320);
     }
   }, [item, count, prefs, announce, increment, index, items, goto]);
+
+  const onUndo = useCallback(() => {
+    if (!item || count <= 0) return;
+    if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    advanceTimer.current = null;
+    decrement(item.order);
+    announce(`تراجع، ${toArabicDigits(count - 1)} من ${toArabicDigits(item.repeat)}`);
+  }, [item, count, decrement, announce]);
 
   /** الضغط على نص الذكر يعدّ (إن فُعّل)، إلا على الأزرار أو أثناء تحديد نص. */
   const onTextTap = (e: React.MouseEvent) => {
@@ -173,7 +182,7 @@ function WirdSessionPage() {
             className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-soft"
             aria-label="إعادة الوِرد"
           >
-            <Icon d={icons.trend} size={16} />
+            <Icon d={icons.refresh} size={16} />
           </button>
         </div>
 
@@ -220,10 +229,14 @@ function WirdSessionPage() {
               {showDisplay && <AzkarDisplayPanel prefs={prefs} update={updatePrefs} />}
               <div
                 onClick={onTextTap}
-                className={`relative mt-4 max-h-[38vh] overflow-y-auto text-right font-quran leading-[2.4] text-foreground ${
-                  prefs.tapAnywhere ? "cursor-pointer select-none" : ""
-                }`}
-                style={{ WebkitOverflowScrolling: "touch", fontSize: textSizePx(prefs) - 0.4 }}
+                className={`relative mt-4 max-h-[38vh] overflow-y-auto text-right text-foreground ${
+                  item.quran ? "font-quran leading-[2.4]" : "font-display leading-[2.15]"
+                } ${prefs.tapAnywhere ? "cursor-pointer select-none" : ""}`}
+                style={{
+                  WebkitOverflowScrolling: "touch",
+                  /* خط المصحف للقرآن وحده؛ الأحاديث بخط الأذكار كما في قسم الأذكار. */
+                  fontSize: item.quran ? textSizePx(prefs) - 0.4 : textSizePx(prefs),
+                }}
               >
                 {item.text}
               </div>
@@ -281,24 +294,34 @@ function WirdSessionPage() {
                   </span>
                 </span>
               </button>
-              <div className="mt-3 text-xs text-muted-foreground">
-                متبقي {toArabicDigits(remaining)}
+              <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+                <span>متبقي {toArabicDigits(remaining)}</span>
+                <button
+                  onClick={onUndo}
+                  disabled={count <= 0}
+                  aria-label="تراجع عن آخر عدّة"
+                  className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] disabled:opacity-40"
+                >
+                  <Icon d={icons.minus} size={12} />
+                  تراجع
+                </button>
               </div>
 
+              {/* الترتيب كجلسة الأذكار: «السابق» يمينًا و«التالي» يسارًا. */}
               <div className="mt-5 flex w-full items-center gap-2">
-                <button
-                  onClick={() => goto(index + 1)}
-                  disabled={index + 1 >= items.length}
-                  className="flex-1 rounded-2xl border border-border bg-card py-3 text-xs disabled:opacity-40"
-                >
-                  التالي
-                </button>
                 <button
                   onClick={() => goto(index - 1)}
                   disabled={index === 0}
                   className="flex-1 rounded-2xl border border-border bg-card py-3 text-xs disabled:opacity-40"
                 >
                   السابق
+                </button>
+                <button
+                  onClick={() => goto(index + 1)}
+                  disabled={index + 1 >= items.length}
+                  className="flex-1 rounded-2xl border border-border bg-card py-3 text-xs disabled:opacity-40"
+                >
+                  التالي
                 </button>
               </div>
 

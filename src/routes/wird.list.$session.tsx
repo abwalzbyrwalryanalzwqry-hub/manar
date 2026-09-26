@@ -127,7 +127,9 @@ function WirdListPage() {
               </div>
 
               <p
-                className="mt-3 text-right font-quran leading-[2.2] text-foreground"
+                className={`mt-3 text-right text-foreground ${
+                  it.quran ? "font-quran leading-[2.2]" : "font-display leading-[2]"
+                }`}
                 style={{ fontSize: textSizePx(prefs) * 0.85 }}
               >
                 {it.text}

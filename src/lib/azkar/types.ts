@@ -80,4 +80,9 @@ export interface ZikrHit {
   score: number;
   /** Short excerpt around the first match. */
   excerpt: string;
+  /**
+   * وقت الذكر الذي تُفتح عليه النتيجة في باب الصباح والمساء: وقته إن كان خاصًا
+   * بوقت، أو المساء إن طابق البحثُ لفظَ المساء وحده.
+   */
+  time?: ZikrTime;
 }
