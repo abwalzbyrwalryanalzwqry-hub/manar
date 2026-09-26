@@ -7,6 +7,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { WirdSessionKey } from "./data";
 import { dayKey, recordWird } from "@/lib/activity-log";
 import { useDayKey, useOnLeave } from "@/hooks/use-day-key";
+import { markAzkarComplete } from "@/lib/azkar/progress";
+import { linkedAzkarEntries, type LinkableItem } from "./link";
 
 const KEY = "manar.wird.progress.v1";
 const EVENT = "manar:wird-progress";
@@ -35,7 +37,7 @@ export interface WirdSessionProgress {
 }
 
 export type WirdStore = Record<WirdSessionKey, WirdSessionProgress>;
-export type WirdItemRef = { order: number; repeat: number };
+export type WirdItemRef = LinkableItem;
 
 export const emptySession = (day = dayKey()): WirdSessionProgress => ({
   counts: {},
@@ -58,6 +60,18 @@ export function readSession(
 /** هل اكتملت كل أذكار الوِرد؟ */
 export function isWirdComplete(p: Pick<WirdSessionProgress, "counts">, items: WirdItemRef[]) {
   return items.length > 0 && items.every((it) => (p.counts[it.order] ?? 0) >= it.repeat);
+}
+
+/** تراجع عن آخر عدّة (دالة نقية). */
+export function applyDecrement(
+  p: WirdSessionProgress,
+  order: number,
+  items: WirdItemRef[],
+): WirdSessionProgress {
+  const now = p.counts[order] ?? 0;
+  if (now <= 0) return p;
+  const counts = { ...p.counts, [order]: now - 1 };
+  return { ...p, counts, done: isWirdComplete({ counts }, items) };
 }
 
 /** عدّة ضغطة (دالة نقية). `done` يُشتق من اكتمال **كل** العناصر، لا آخرها. */
@@ -149,6 +163,8 @@ export function useWirdSessionProgress(session: WirdSessionKey, items: WirdItemR
     ref.current = readStore(day)[session];
     setState(ref.current);
     setHydrated(true);
+    /* ما أُتمّ من الوِرد اليوم قبل الربط (أو على جهاز آخر) يُحتسب في الأذكار أيضًا. */
+    markAzkarComplete(linkedAzkarEntries(session, itemsRef.current, ref.current.counts));
   }, [session, day, flushNow]);
 
   useEffect(() => flushNow, [flushNow]);
@@ -167,6 +183,8 @@ export function useWirdSessionProgress(session: WirdSessionKey, items: WirdItemR
       /* الإكمال يُسجّل في السجل اليومي الموحّد ليُحتسب في السلسلة والإحصائيات —
        * مرة واحدة عند انتقاله من ناقص إلى تام، خارج دالة setState. */
       if (next.done && !prev.done) recordWird(session);
+      /* كل ذكر اكتمل الآن في الوِرد يُعلَّم مكتملًا في أذكار الوقت نفسه. */
+      markAzkarComplete(linkedAzkarEntries(session, itemsRef.current, next.counts, prev.counts));
       pending.current = next;
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(flushNow, WRITE_DELAY_MS);
@@ -178,6 +196,12 @@ export function useWirdSessionProgress(session: WirdSessionKey, items: WirdItemR
   const increment = useCallback(
     (order: number, repeat: number) =>
       commit((p) => applyIncrement(p, order, repeat, itemsRef.current)),
+    [commit],
+  );
+
+  /** تراجع عن آخر عدّة في ذكر. */
+  const decrement = useCallback(
+    (order: number) => commit((p) => applyDecrement(p, order, itemsRef.current)),
     [commit],
   );
 
@@ -193,7 +217,7 @@ export function useWirdSessionProgress(session: WirdSessionKey, items: WirdItemR
     [commit],
   );
 
-  return { progress: state, hydrated, increment, setCurrent, resetSession, resetItem };
+  return { progress: state, hydrated, increment, decrement, setCurrent, resetSession, resetItem };
 }
 
 /** نسبة إنجاز الوِرد (٠..١) بالنسبة لمجموع التكرارات المطلوبة. */

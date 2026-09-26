@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAzkarBook } from "@/hooks/use-azkar";
+import { DataError } from "@/components/manar/data-error";
 import { useMemo } from "react";
 import {
   chapterProgress,
@@ -63,7 +64,7 @@ const GROUP_ICON: Record<string, keyof typeof icons> = {
 const ACCENTS = ["primary", "gold", "night"] as const;
 
 function AzkarHub() {
-  const { book, loading } = useAzkarBook();
+  const { book, loading, error, retry } = useAzkarBook();
   const { progress } = useAzkarProgress();
   const total = book ? book.chapters.reduce((n, c) => n + c.azkar.length, 0) : 0;
   const doneToday = uniqueCompletedCount(progress.completed);
@@ -127,6 +128,8 @@ function AzkarHub() {
           </div>
         </div>
       </div>
+
+      {error && <DataError message={error} onRetry={retry} title="تعذّر تحميل الأذكار" />}
 
       {/* تابع من حيث توقفت */}
       {resume && (
@@ -273,7 +276,7 @@ function AzkarHub() {
 
       <SectionLabel>ذكر اليوم</SectionLabel>
       <div className="px-5">
-        {!daily && <Skeleton className="h-40 rounded-3xl" />}
+        {!daily && loading && <Skeleton className="h-40 rounded-3xl" />}
         {daily && (
           <Link
             to="/azkar/$chapter"

@@ -1,10 +1,20 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAnnouncer } from "@/components/manar/live-announcer";
 import { counterAnnouncement } from "@/lib/azkar/a11y";
 import { DataError } from "@/components/manar/data-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Arabesque, Icon, icons, Screen, ScreenHeader, Skeleton } from "@/components/manar/shell";
+import {
+  Arabesque,
+  EmptyState,
+  Icon,
+  icons,
+  Screen,
+  ScreenHeader,
+  Skeleton,
+} from "@/components/manar/shell";
 import { useAzkarBook } from "@/hooks/use-azkar";
+import { useKeepAwake } from "@/hooks/use-keep-awake";
+import { nextIndexAfter } from "@/lib/azkar/hub";
 import { AzkarDisplayPanel, DisplayToggleButton } from "@/components/manar/azkar-display-controls";
 import { haptic, hapticFor, isCountableTap, textSizePx, useAzkarPrefs } from "@/lib/azkar/prefs";
 import { useAzkarProgress } from "@/lib/azkar/progress";
@@ -43,8 +53,18 @@ export const Route = createFileRoute("/azkar/$chapter")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: AzkarSession,
+  component: AzkarSessionRoute,
 });
+
+/**
+ * يعيد تركيب الجلسة عند تغيّر الباب أو الذكر أو الوقت في الرابط — مثل فتح
+ * إشعار «أذكار المساء» والجلسة مفتوحة على الصباح — فتُطبَّق المعاملات الجديدة.
+ */
+function AzkarSessionRoute() {
+  const { chapter } = Route.useParams();
+  const { zikr, time } = Route.useSearch();
+  return <AzkarSession key={`${chapter}|${zikr ?? ""}|${time ?? ""}`} />;
+}
 
 function AzkarSession() {
   const { chapter: chapterParam } = Route.useParams();
@@ -52,7 +72,7 @@ function AzkarSession() {
   const id = Number(chapterParam);
   const navigate = useNavigate();
   const { book, loading, error, retry } = useAzkarBook();
-  const { progress, tap, resetMany, toggleBookmark, setLast } = useAzkarProgress();
+  const { progress, tap, undo, resetMany, toggleBookmark, setLast } = useAzkarProgress();
 
   const chapter = useMemo(() => book?.chapters.find((c) => c.id === id), [book, id]);
   /** صباح/مساء — فقط للأبواب التي تختلف أذكارها بالوقت (باب ٢٧). */
@@ -85,6 +105,8 @@ function AzkarSession() {
   const advanceTimer = useRef<number | null>(null);
   /** الذكر المعروض الآن — يقرؤه مؤقت الانتقال التلقائي بدل فهرس قديم. */
   const shownId = useRef<number | null>(null);
+  /** أحدث دالة انتقال — المؤقت يقرؤها فيرى العدّادات بعد الضغطة لا قبلها. */
+  const advanceRef = useRef<(from: number) => void>(() => {});
 
   const backTo = chapter ? `/azkar/group/${chapter.group}` : "/azkar";
 
@@ -119,6 +141,10 @@ function AzkarSession() {
   const currentText = current ? zikrText(current, activeTime) : "";
   const seg = current ? segmentState(current, count) : null;
   const doneCount = azkar.filter((z) => countOf(z) >= z.repeat).length;
+  const started = azkar.some((z) => countOf(z) > 0);
+
+  /* الشاشة تبقى مضاءة ما دامت الجلسة جارية. */
+  useKeepAwake(Boolean(chapter && current && !finished));
 
   useEffect(() => {
     if (chapter && current) setLast(chapter.id, current.id, activeTime);
@@ -150,6 +176,21 @@ function AzkarSession() {
     setFinished(true);
   }, []);
 
+  /**
+   * الانتقال بعد الذكر `from`: التالي، أو في آخر الباب أول ذكر ناقص. شاشة
+   * الإتمام لا تظهر إلا إن اكتمل الباب فعلًا.
+   */
+  const advanceFrom = useCallback(
+    (from: number) => {
+      const next = nextIndexAfter(azkar, (z) => countOf(z as Zikr), from);
+      /* لا ذكر آخر ناقص (أو الناقص هو المعروض نفسه): شاشة النهاية بالعدد الفعلي. */
+      if (next < 0 || next === from) finish();
+      else setIndex(next);
+    },
+    [azkar, countOf, finish],
+  );
+  advanceRef.current = advanceFrom;
+
   /** Leaves the session immediately, keeping every counter untouched. */
   const exitSession = useCallback(() => {
     navigate({ to: "/azkar/group/$group", params: { group: chapter?.group ?? "" } });
@@ -174,6 +215,12 @@ function AzkarSession() {
   const { announce, node: liveRegion } = useAnnouncer();
   const onTap = useCallback(() => {
     if (!current || advancing.current) return;
+    /* ذكر مكتمل: الضغط ينقل إلى ما بعده دون إعادة إعلان الإتمام أو الحفظ. */
+    if (count >= current.repeat) {
+      cancelAdvance();
+      advanceFrom(index);
+      return;
+    }
     const next = Math.min(current.repeat, count + 1);
     haptic(prefs, hapticFor(count, current.repeat, current.segments));
     announce(counterAnnouncement(count, current.repeat, current.segments));
@@ -192,11 +239,31 @@ function AzkarSession() {
         /* إن غادر المستخدم هذا الذكر خلال المهلة فلا ننقله من موضعه الجديد. */
         if (shownId.current !== doneId) return;
         const at = azkar.findIndex((z) => z.id === doneId);
-        if (at >= 0 && at + 1 < azkar.length) setIndex(at + 1);
-        else finish();
+        if (at >= 0) advanceRef.current(at);
       }, 900);
     }
-  }, [current, count, prefs, announce, tap, activeTime, flashSaved, azkar, finish]);
+  }, [
+    current,
+    count,
+    index,
+    prefs,
+    announce,
+    tap,
+    activeTime,
+    flashSaved,
+    azkar,
+    advanceFrom,
+    cancelAdvance,
+  ]);
+
+  /** تراجع عن آخر عدّة في الذكر المعروض (ويلغي انتقالًا تلقائيًا معلّقًا). */
+  const onUndo = useCallback(() => {
+    if (!current || count <= 0) return;
+    cancelAdvance();
+    undo(progressKey(current.id, activeTime));
+    announce(`تراجع، ${toArabicDigits(count - 1)} من ${toArabicDigits(current.repeat)}`);
+    flashSaved();
+  }, [current, count, cancelAdvance, undo, activeTime, announce, flashSaved]);
 
   /** الضغط على نص الذكر يعدّ (إن فُعّل)، إلا على الأزرار والحواشي أو أثناء تحديد نص. */
   const onTextTap = (e: React.MouseEvent) => {
@@ -252,16 +319,13 @@ function AzkarSession() {
 
   const share = async () => {
     if (!current || !chapter) return;
+    /* نص الذكر وإرشاده ومصدره فقط — بلا إحصائيات تقدّم لا تعني من يستلمه. */
     const text =
-      `${chapter.title} — الباب ${toArabicDigits(chapter.id)}\n` +
-      `الذكر ${toArabicDigits(index + 1)} من ${toArabicDigits(azkar.length)} · التكرار المطلوب: ${toArabicDigits(current.repeat)}\n` +
-      `المُنجَز: ${toArabicDigits(count)} من ${toArabicDigits(current.repeat)}` +
-      `${count >= current.repeat ? " ✓ مكتمل" : ""}\n` +
-      `تقدّم الباب: ${toArabicDigits(doneCount)} من ${toArabicDigits(azkar.length)}\n\n` +
       `${current.title ? `${current.title}\n` : ""}` +
       `${current.lead ? `${current.lead}\n` : ""}` +
       `${current.opening ? `${current.opening}\n` : ""}${currentText}` +
-      `${current.note ? `\n${current.note}` : ""}\n\n— حصن المسلم · تطبيق منار`;
+      `${current.note ? `\n${current.note}` : current.repeat > 1 ? `\n(${toArabicDigits(current.repeat)} مرات)` : ""}` +
+      `\n\n— ${chapter.title} · حصن المسلم · تطبيق منار`;
     try {
       if (navigator.share) await navigator.share({ text });
       else await navigator.clipboard.writeText(text);
@@ -270,9 +334,7 @@ function AzkarSession() {
     }
   };
 
-  /** Last started zikr inside this chapter + last save time. */
-  const lastHere = progress.last?.chapter === chapter?.id ? progress.last : null;
-  const lastStartedNo = lastHere ? azkar.findIndex((z) => z.id === lastHere.zikr) + 1 : 0;
+  const remainingCount = azkar.length - doneCount;
   const updatedLabel = progress.updatedAt ? formatArTime(new Date(progress.updatedAt)) : null;
 
   return (
@@ -293,6 +355,21 @@ function AzkarSession() {
         </div>
       )}
       {error && <DataError message={error} onRetry={retry} title="تعذّر تحميل الأذكار" />}
+      {book && !chapter && (
+        <div className="px-5">
+          <EmptyState
+            icon={icons.azkar}
+            title="الباب غير موجود"
+            hint="ربما تغيّر الرابط. ارجع إلى الأذكار واختر الباب من القائمة."
+          />
+          <Link
+            to="/azkar"
+            className="gradient-primary block rounded-2xl py-3 text-center text-sm text-primary-foreground"
+          >
+            الرجوع إلى الأذكار
+          </Link>
+        </div>
+      )}
 
       {chapter && timed && (
         <div className="mb-3 px-4">
@@ -331,12 +408,14 @@ function AzkarSession() {
           <div className="flex items-center justify-between gap-2 rounded-2xl border border-border/60 bg-card/70 px-3.5 py-2.5 text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <Icon d={icons.bookmark} size={13} />
-              {lastStartedNo > 0 ? (
+              {!started ? (
+                <span>لم تبدأ هذا الباب بعد</span>
+              ) : remainingCount > 0 ? (
                 <span>
-                  بدأت بالذكر {toArabicDigits(lastStartedNo)} من {toArabicDigits(azkar.length)}
+                  بقي {toArabicDigits(remainingCount)} من {toArabicDigits(azkar.length)}
                 </span>
               ) : (
-                <span>لم تبدأ هذا الباب بعد</span>
+                <span>اكتمل الباب اليوم</span>
               )}
             </span>
             <span
@@ -362,14 +441,34 @@ function AzkarSession() {
             <span className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-secondary text-primary">
               <Icon d={icons.check} size={26} />
             </span>
-            <div className="relative mt-4 font-display text-xl">تمّت أذكار هذا الباب</div>
+            <div className="relative mt-4 font-display text-xl">
+              {remainingCount > 0 ? "وصلت إلى آخر الباب" : "تمّت أذكار هذا الباب"}
+            </div>
             <p className="relative mt-2 text-xs leading-relaxed text-muted-foreground">
-              أتممت {toArabicDigits(azkar.length)} ذكرًا · تقبّل الله منك. تم حفظ تقدّمك تلقائيًا.
+              {remainingCount > 0
+                ? `أتممت ${toArabicDigits(doneCount)} من ${toArabicDigits(azkar.length)} ذكرًا، وبقي ${toArabicDigits(remainingCount)}. تقدّمك محفوظ.`
+                : `أتممت ${toArabicDigits(azkar.length)} ذكرًا · تقبّل الله منك. تم حفظ تقدّمك تلقائيًا.`}
             </p>
             <div className="relative mt-6 flex flex-col gap-2">
+              {remainingCount > 0 && (
+                <button
+                  onClick={() => {
+                    const i = azkar.findIndex((z) => countOf(z) < z.repeat);
+                    setFinished(false);
+                    setIndex(Math.max(0, i));
+                  }}
+                  className="rounded-full gradient-primary py-2.5 text-xs font-medium text-primary-foreground"
+                >
+                  أكمل الأذكار الناقصة
+                </button>
+              )}
               <button
                 onClick={exitSession}
-                className="rounded-full gradient-primary py-2.5 text-xs font-medium text-primary-foreground"
+                className={`rounded-full py-2.5 text-xs font-medium ${
+                  remainingCount > 0
+                    ? "border border-border bg-card"
+                    : "gradient-primary text-primary-foreground"
+                }`}
               >
                 العودة إلى قائمة الباب
               </button>
@@ -586,6 +685,15 @@ function AzkarSession() {
                 {prefs.tapAnywhere ? "اضغط على النص أو الزر للعدّ" : "اضغط للعدّ"} · ينتقل تلقائيًا
                 عند الإتمام
               </span>
+              <button
+                onClick={onUndo}
+                disabled={count <= 0}
+                aria-label="تراجع عن آخر عدّة"
+                className="mt-2 flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] text-muted-foreground disabled:opacity-40"
+              >
+                <Icon d={icons.minus} size={12} />
+                تراجع
+              </button>
             </div>
 
             {/* manual navigation */}
@@ -608,7 +716,7 @@ function AzkarSession() {
                 <Icon d={icons.share} size={15} />
               </button>
               <button
-                onClick={() => (index + 1 < azkar.length ? goTo(index + 1) : finish())}
+                onClick={() => (index + 1 < azkar.length ? goTo(index + 1) : advanceFrom(index))}
                 className="flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs text-foreground"
               >
                 التالي

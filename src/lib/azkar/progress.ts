@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDayKey } from "@/hooks/use-day-key";
 import { dayKey, recordAzkarCount, syncAzkarChapters } from "@/lib/activity-log";
+import { uniqueCompletedCount } from "./hub";
 import { azkarRepository } from "./repository";
 import type { AzkarBook, ZikrTime } from "./types";
 import { azkarForTime, hasTimeVariants, progressKey } from "./variant";
@@ -112,6 +113,42 @@ export function applyTap(p: AzkarProgress, key: string, repeat: number): AzkarPr
   return { ...p, counters: { ...p.counters, [key]: n }, completed };
 }
 
+/** تراجع عن آخر عدّة (دالة نقية): ينقص العدّاد واحدًا ويُخرج الذكر من المكتمل. */
+export function applyUndo(p: AzkarProgress, key: string): AzkarProgress {
+  const now = p.counters[key] ?? 0;
+  if (now <= 0) return p;
+  const counters = { ...p.counters };
+  if (now === 1) delete counters[key];
+  else counters[key] = now - 1;
+  return { ...p, counters, completed: p.completed.filter((k) => k !== key) };
+}
+
+export interface CompleteEntry {
+  key: string;
+  repeat: number;
+}
+
+/**
+ * يعلّم أذكارًا مكتملة (دالة نقية) — يستعمله الوِرد ليُحتسب إتمامه في أذكار
+ * الصباح والمساء. لا ينقص عدّادًا أعلى، ويعيد الحالة نفسها إن لم يتغيّر شيء.
+ */
+export function applyComplete(p: AzkarProgress, entries: readonly CompleteEntry[]): AzkarProgress {
+  let counters = p.counters;
+  let completed = p.completed;
+  for (const { key, repeat } of entries) {
+    if (!/^\d+(:e)?$/.test(key) || !(repeat > 0)) continue;
+    if ((counters[key] ?? 0) < repeat) {
+      if (counters === p.counters) counters = { ...counters };
+      counters[key] = repeat;
+    }
+    if (!completed.includes(key)) {
+      if (completed === p.completed) completed = [...completed];
+      completed.push(key);
+    }
+  }
+  return counters === p.counters && completed === p.completed ? p : { ...p, counters, completed };
+}
+
 /** تصفير مجموعة مفاتيح (دالة نقية). */
 export function applyReset(p: AzkarProgress, keys: readonly string[]): AzkarProgress {
   const counters = { ...p.counters };
@@ -130,12 +167,14 @@ function read(): AzkarProgress {
   }
 }
 
-function write(p: AzkarProgress) {
+function write(p: AzkarProgress, log = true) {
   try {
     window.localStorage.setItem(KEY, JSON.stringify(p));
-    /* السجل اليومي الموحّد يحتاج التاريخ، وهذه الوحدة تحفظ اليوم فقط. */
-    if (p.day === today()) {
-      recordAzkarCount(p.completed.length);
+    /* السجل اليومي الموحّد يحتاج التاريخ، وهذه الوحدة تحفظ اليوم فقط.
+     * التصفّح وحده (`setLast`) لا يمسّ السجل. */
+    if (log && p.day === today()) {
+      /* بلا تكرار، كما في الصفحة الرئيسية: «76» صباحًا و«76:e» مساءً ذكر واحد. */
+      recordAzkarCount(uniqueCompletedCount(p.completed));
       const book = azkarRepository.getCached();
       if (book) syncAzkarChapters(completedChapterKeys(book, p.completed));
     }
@@ -173,7 +212,7 @@ export function useAzkarProgress() {
     const next = touch ? { ...changed, updatedAt: Date.now() } : changed;
     ref.current = next;
     setState(next);
-    write(next);
+    write(next, touch);
   }, []);
 
   /** `key` من `progressKey(id, time)`. */
@@ -183,6 +222,9 @@ export function useAzkarProgress() {
   );
 
   const resetZikr = useCallback((key: string) => patch((p) => applyReset(p, [key])), [patch]);
+
+  /** تراجع عن آخر عدّة في ذكر. */
+  const undo = useCallback((key: string) => patch((p) => applyUndo(p, key)), [patch]);
 
   const toggleBookmark = useCallback(
     (zikrId: number) =>
@@ -213,5 +255,17 @@ export function useAzkarProgress() {
     [patch],
   );
 
-  return { progress: state, tap, resetZikr, resetMany, toggleBookmark, setLast };
+  return { progress: state, tap, undo, resetZikr, resetMany, toggleBookmark, setLast };
+}
+
+/**
+ * يعلّم أذكارًا مكتملة اليوم من خارج شاشة الأذكار (الوِرد). يقرأ آخر حالة
+ * محفوظة ويكتب فقط إن تغيّر شيء، فتتزامن الشاشات المفتوحة عبر الحدث.
+ */
+export function markAzkarComplete(entries: readonly CompleteEntry[]) {
+  if (typeof window === "undefined" || !entries.length) return;
+  const prev = read();
+  const next = applyComplete(prev, entries);
+  if (next === prev) return;
+  write({ ...next, updatedAt: Date.now() });
 }

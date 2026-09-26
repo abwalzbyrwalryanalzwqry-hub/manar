@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useAzkarBook } from "@/hooks/use-azkar";
 import { useAzkarProgress } from "@/lib/azkar/progress";
 import { isZikrDone } from "@/lib/azkar/variant";
-import { Icon, icons, Screen, ScreenHeader, Skeleton } from "@/components/manar/shell";
+import { EmptyState, Icon, icons, Screen, ScreenHeader, Skeleton } from "@/components/manar/shell";
 import { toArabicDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/azkar/group/$group")({
@@ -56,6 +56,13 @@ function GroupChapters() {
         </div>
       )}
       {error && <DataError message={error} onRetry={retry} title="تعذّر تحميل الأذكار" />}
+      {book && !info && (
+        <EmptyState
+          icon={icons.azkar}
+          title="القسم غير موجود"
+          hint="ربما تغيّر الرابط. ارجع إلى الأذكار واختر القسم من القائمة."
+        />
+      )}
 
       <div className="space-y-3 px-5 stagger">
         {chapters.map((c) => {

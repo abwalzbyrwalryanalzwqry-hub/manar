@@ -123,12 +123,13 @@ function AzkarSearch() {
               key={`${hit.chapter.id}-${hit.zikr.id}`}
               to="/azkar/$chapter"
               params={{ chapter: String(hit.chapter.id) }}
-              search={{ zikr: hit.zikr.id }}
+              search={{ zikr: hit.zikr.id, ...(hit.time ? { time: hit.time } : {}) }}
               className="block rounded-3xl border border-border/60 bg-card/70 p-4 text-right shadow-soft backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-elegant"
             >
               <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                 <span>{hit.chapter.title}</span>
                 <span className="tabular-nums">
+                  {hit.time ? `${hit.time === "morning" ? "صباحًا" : "مساءً"} · ` : ""}
                   {hit.zikr.title ? `${hit.zikr.title} · ` : ""}ذكر{" "}
                   {toArabicDigits(zikrNo(hit.zikr))}
                 </span>

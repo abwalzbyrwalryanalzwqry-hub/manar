@@ -130,3 +130,16 @@ export function zikrOfTheDay(book: Pick<AzkarBook, "chapters">, day: string): Bo
   const i = ((dayNumber(day) % pool.length) + pool.length) % pool.length;
   return pool[i];
 }
+
+/**
+ * الذكر الذي يُنتقل إليه بعد `from`: التالي مباشرة إن وُجد، وإلا (في آخر الباب)
+ * أول ذكر لم يكتمل. يعود -1 إن اكتمل الباب كله فتُعرض شاشة الإتمام.
+ */
+export function nextIndexAfter(
+  list: readonly Pick<Zikr, "repeat">[],
+  countOf: (z: Pick<Zikr, "repeat">, i: number) => number,
+  from: number,
+): number {
+  if (from + 1 < list.length) return from + 1;
+  return list.findIndex((z, i) => countOf(z, i) < z.repeat);
+}

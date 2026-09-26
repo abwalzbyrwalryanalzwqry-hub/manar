@@ -22,6 +22,13 @@ export interface WirdItem {
   repeat: number;
   /** رقم الذكر في «حصن المسلم» إن كان منه (النص يُؤخذ منه حرفيًا). */
   hisn?: number;
+  /** نص قرآني (آية الكرسي والمعوذات) — وحده يُعرض بخط المصحف. */
+  quran?: boolean;
+  /**
+   * لفظ الذكر المأخوذ من الحصن: «m» الصباح أو «e» المساء. قد يخالف وقت الوِرد
+   * (التهليل التام #93 بلفظ الصباح في الوِردين).
+   */
+  slot?: "m" | "e";
 }
 
 export interface WirdSession {
@@ -33,12 +40,24 @@ export interface WirdSession {
 
 type Slot = "m" | "e";
 
+/** أذكار الباب ٢٧ القرآنية: آية الكرسي (#75) والإخلاص والفلق والناس (#76، ٧٦٠٢، ٧٦٠٣). */
+const QURAN_HISN = new Set([75, 76, 7602, 7603]);
+
 /** نص ذكر من الباب ٢٧ في «حصن المسلم» — مصدر واحد للنص مع قسم الأذكار. */
 function hisn(id: number, slot: Slot, name: string, repeat: number): WirdItem {
   const text = HISN_WIRD_TEXTS[`${id}:${slot}`];
   if (!text) throw new Error(`wird: الذكر ${id}:${slot} غير موجود في الباب ٢٧`);
   const opening = HISN_WIRD_OPENINGS[id];
-  return { order: 0, name, ...(opening ? { opening } : {}), text, repeat, hisn: id };
+  return {
+    order: 0,
+    name,
+    ...(opening ? { opening } : {}),
+    text,
+    repeat,
+    hisn: id,
+    slot,
+    ...(QURAN_HISN.has(id) ? { quran: true } : {}),
+  };
 }
 
 /** أذكار ليست في «حصن المسلم» — أُبقيت في الوِرد باعتماد صاحب التطبيق. */

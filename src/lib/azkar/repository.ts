@@ -3,7 +3,7 @@
 // Repository: loads «حصن المسلم» dataset + search / lookup API
 // ============================================================
 
-import type { AzkarBook, AzkarChapter, AzkarGroup, Zikr, ZikrHit } from "./types";
+import type { AzkarBook, AzkarChapter, AzkarGroup, Zikr, ZikrHit, ZikrTime } from "./types";
 import { buildExcerpt, normalizeArabic, tokenize } from "./normalize";
 
 const URL = "/data/azkar/hisn-al-muslim.json";
@@ -11,7 +11,15 @@ const URL = "/data/azkar/hisn-al-muslim.json";
 let cache: AzkarBook | null = null;
 let inflight: Promise<AzkarBook> | null = null;
 /** normalized chapter title + text, per zikr, for search. */
-let index: { chapter: AzkarChapter; zikr: Zikr; hay: string; title: string }[] = [];
+let index: {
+  chapter: AzkarChapter;
+  zikr: Zikr;
+  hay: string;
+  title: string;
+  /** لفظ الصباح وحده ولفظ المساء وحده (للذكر الذي يختلف لفظه). */
+  morning: string;
+  evening: string | null;
+}[] = [];
 
 function buildIndex(book: AzkarBook) {
   index = [];
@@ -19,9 +27,18 @@ function buildIndex(book: AzkarBook) {
     const title = normalizeArabic(chapter.title);
     for (const zikr of chapter.azkar) {
       // صيغة المساء تُفهرس مع الصباح ليجدها البحث بأيّ اللفظين.
+      // العنوان (مثل «سورة الفلق») جزء من لفظ الذكر في البحث بكلا الوقتين.
       const text = zikr.title ? `${zikr.title} ${zikr.text}` : zikr.text;
+      const evening = zikr.evening && zikr.title ? `${zikr.title} ${zikr.evening}` : zikr.evening;
       const body = zikr.evening ? `${text} ${zikr.evening}` : text;
-      index.push({ chapter, zikr, hay: normalizeArabic(body), title });
+      index.push({
+        chapter,
+        zikr,
+        hay: normalizeArabic(body),
+        title,
+        morning: normalizeArabic(text),
+        evening: evening ? normalizeArabic(evening) : null,
+      });
     }
   }
 }
@@ -93,11 +110,21 @@ export class AzkarRepository {
         if (entry.hay.startsWith(t)) score += 2;
       }
       if (!matchedAll) continue;
+      /* إن طابق لفظُ المساء وحده فالنتيجة تُفتح على المساء وتُقتطف منه. */
+      const eveningOnly =
+        entry.evening != null &&
+        tokens.every((t) => entry.evening!.includes(t) || entry.title.includes(t)) &&
+        !tokens.every((t) => entry.morning.includes(t) || entry.title.includes(t));
+      const time: ZikrTime | undefined = entry.zikr.time ?? (eveningOnly ? "evening" : undefined);
       hits.push({
         chapter: entry.chapter,
         zikr: entry.zikr,
         score,
-        excerpt: buildExcerpt(entry.zikr.text, tokens[0]),
+        excerpt: buildExcerpt(
+          eveningOnly && entry.zikr.evening ? entry.zikr.evening : entry.zikr.text,
+          tokens[0],
+        ),
+        ...(time ? { time } : {}),
       });
     }
     return hits.sort((a, b) => b.score - a.score || a.zikr.id - b.zikr.id).slice(0, limit);
