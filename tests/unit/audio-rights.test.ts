@@ -3,7 +3,7 @@
  *
  * كل ملف صوتي يُشحن داخل التطبيق يجب أن يكون موثّق الحقوق في
  * `docs/audio/licenses.json`: تسجيلات الأذان والإقامة، والنداءات الصوتية
- * وتنبيهات «اقتربت الصلاة» (تسجيلات صاحب المشروع)، والنغمات المولَّدة داخل منار.
+ * وتنبيهات «اقتربت الصلاة» وأصوات تنبيهات المواسم (تسجيلات صاحب المشروع).
  * إضافة ملف دون توثيقه تُفشل هذا الاختبار.
  */
 import { readdirSync, readFileSync } from "node:fs";
@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { ADHAN_ASSETS } from "@/lib/adhan-library-assets";
 import { REMINDER_TONES } from "@/lib/daily-reminders";
 import { PRAYER_APPROACH_CLIPS } from "@/lib/prayer-approach-audio";
+import { SEASON_SOUNDS } from "@/lib/seasons/sounds";
 
 const root = resolve(__dirname, "../..");
 type Licenses = {
@@ -20,7 +21,7 @@ type Licenses = {
   verified_iqamah_files: string[];
   verified_reminder_files: string[];
   verified_prayer_approach_files: string[];
-  generated_tone_files: string[];
+  verified_season_files: string[];
   owner_recordings: { covers: string[] };
 };
 const licenses = JSON.parse(
@@ -52,9 +53,9 @@ describe("حقوق الأصوات موثّقة لكل ملف مشحون", () => 
     for (const f of audioIn("iqamah")) expect(licenses.verified_iqamah_files).toContain(f);
   });
 
-  it("أصوات التذكير: كل ملف إمّا تسجيل موثّق أو نغمة مولَّدة", () => {
-    const known = new Set([...licenses.verified_reminder_files, ...licenses.generated_tone_files]);
-    for (const f of audioIn("reminders")) expect(known.has(f), f).toBe(true);
+  it("أصوات التذكير: كل ملف تسجيل موثّق، ولا نغمات مولَّدة", () => {
+    for (const f of audioIn("reminders")) expect(licenses.verified_reminder_files, f).toContain(f);
+    expect(licenses).not.toHaveProperty("generated_tone_files");
   });
 
   it("النداءات الصوتية في الواجهة كلها من تسجيلات صاحب المشروع", () => {
@@ -70,9 +71,23 @@ describe("حقوق الأصوات موثّقة لكل ملف مشحون", () => 
       expect(licenses.verified_prayer_approach_files).toContain(fileOf(clip.url));
   });
 
+  it("أصوات تنبيهات المواسم كلها موثّقة، ولا ملف غير مستعمل", () => {
+    const files = audioIn("seasons").sort();
+    expect(files).toEqual([...licenses.verified_season_files].sort());
+    expect(
+      Object.values(SEASON_SOUNDS)
+        .map((s) => fileOf(s.url))
+        .sort(),
+    ).toEqual(files);
+  });
+
   it("تسجيلات صاحب المشروع مشمولة بإقرار الملكية", () => {
     expect(licenses.owner_recordings.covers).toEqual(
-      expect.arrayContaining(["verified_reminder_files", "verified_prayer_approach_files"]),
+      expect.arrayContaining([
+        "verified_reminder_files",
+        "verified_prayer_approach_files",
+        "verified_season_files",
+      ]),
     );
   });
 });

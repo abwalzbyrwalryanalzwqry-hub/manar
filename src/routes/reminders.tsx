@@ -5,8 +5,6 @@ import { Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/ma
 import {
   CUSTOM_TEMPLATES,
   MAX_CUSTOM_REMINDERS,
-  REMINDER_TONES,
-  TONE_KIND_LABELS,
   WEEKDAY_ORDER,
   WEEKDAY_SHORT,
   describeTiming,
@@ -18,14 +16,12 @@ import {
   switchTimingMode,
   timingWarning,
   to12h,
-  toneKind,
   toneName,
   toneUrl,
   useDailyReminders,
   type CustomTemplateId,
   type DailyReminder,
   type ReminderToneId,
-  type ToneKind,
   type Weekday,
   COMPLETION_HINTS,
   completionKeyFor,
@@ -57,7 +53,6 @@ function Reminders() {
   const { settings } = useSettings();
   const [openId, setOpenId] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<ReminderToneId | null>(null);
-  const [toneTab, setToneTab] = useState<Record<string, ToneKind>>({});
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newTemplate, setNewTemplate] = useState<CustomTemplateId>("after-prayer");
@@ -92,7 +87,7 @@ function Reminders() {
       usage: "notification",
       onEnd: () => setPreviewing((cur) => (cur === id ? null : cur)),
       onError: () => setPreviewing((cur) => (cur === id ? null : cur)),
-      label: `نغمة ${toneName(id)}`,
+      label: `نداء ${toneName(id)}`,
     });
   };
 
@@ -208,8 +203,7 @@ function Reminders() {
           const open = openId === r.id;
           const warning = warningFor(r);
           const suggested = suggestedToneFor(r);
-          const tab: ToneKind = toneTab[r.id] ?? toneKind(r.tone);
-          const tones = toneOptionsFor(r, tab);
+          const tones = toneOptionsFor(r);
           return (
             <div
               key={r.id}
@@ -364,24 +358,10 @@ function Reminders() {
                   {/* ------------ الصوت ------------ */}
                   <div>
                     <Label>الصوت</Label>
-                    <div className="mt-2 grid grid-cols-2 gap-2" role="tablist">
-                      {(["tone", "voice"] as const).map((k) => (
-                        <button
-                          key={k}
-                          role="tab"
-                          aria-selected={tab === k}
-                          onClick={() => setToneTab((cur) => ({ ...cur, [r.id]: k }))}
-                          className={`rounded-xl border py-1.5 text-[11px] font-medium transition ${
-                            tab === k
-                              ? "border-primary/50 bg-primary/10 text-primary"
-                              : "border-border bg-card text-muted-foreground"
-                          }`}
-                        >
-                          {TONE_KIND_LABELS[k]}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="mt-2 space-y-1.5">
+                    <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                      نداءات صوتية تناسب التذكير، والمقترح هو الافتراضي.
+                    </p>
+                    <div className="mt-2 space-y-1.5" role="radiogroup" aria-label="صوت التذكير">
                       {tones.map((t) => (
                         <div
                           key={t.id}
@@ -423,7 +403,7 @@ function Reminders() {
                           {t.url && (
                             <button
                               onClick={() => preview(t.id)}
-                              aria-label={`تجربة نغمة ${t.name}`}
+                              aria-label={`تجربة ${t.name}`}
                               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border text-primary"
                             >
                               <Icon d={previewing === t.id ? icons.stop : icons.play} size={11} />
@@ -551,9 +531,9 @@ function Reminders() {
 
       <div className="mt-3 px-5 pb-2">
         <p className="rounded-2xl border border-border bg-secondary/30 p-4 text-[10px] leading-relaxed text-muted-foreground">
-          النغمات القصيرة مُركَّبة داخل منار نفسه، والنداءات الصوتية تسجيلات مضمّنة في التطبيق،
-          وكلها تعمل دون إنترنت. والتذكيرات المنسوبة إلى صلاة تتحرّك مع المواقيت يومياً، فلا تحتاج
-          تعديلاً كل موسم.
+          النداءات الصوتية تسجيلات مضمّنة في التطبيق وتعمل دون إنترنت، ولكل تذكير نداؤه المقترح
+          افتراضياً. والتذكيرات المنسوبة إلى صلاة تتحرّك مع المواقيت يومياً، فلا تحتاج تعديلاً كل
+          موسم.
         </p>
       </div>
     </Screen>

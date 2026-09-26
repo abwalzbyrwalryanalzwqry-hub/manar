@@ -269,6 +269,8 @@ export type PlannedSeasonNotification = {
   /** مفتاح فريد لمنع التكرار. */
   key: string;
   seasonId: string;
+  /** معرّف التنبيه داخل موسمه — به يُختار صوته (seasons/sounds.ts). */
+  reminderId: string;
   dayIndex: number;
   slot: SeasonReminderSlot;
   at: Date;
@@ -315,6 +317,7 @@ export function seasonNotificationsBetween(
             n: {
               key: `${inst.key}:${r.id}`,
               seasonId: season.id,
+              reminderId: r.id,
               dayIndex: d,
               slot: r.slot,
               at,

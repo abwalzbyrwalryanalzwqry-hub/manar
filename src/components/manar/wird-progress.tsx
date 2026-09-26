@@ -40,9 +40,8 @@ export function WirdProgressBar({
   }, [ratio]);
 
   return (
-    <div className="glass relative overflow-hidden rounded-[24px] border border-white/15 p-4 shadow-elegant animate-fade-up">
+    <div className="glass-flat relative overflow-hidden rounded-[24px] border border-white/15 p-4 shadow-elegant animate-fade-up">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-bl from-gold/15 via-transparent to-primary/15" />
-      <div className="pointer-events-none absolute -top-8 left-1/4 h-16 w-32 rounded-full bg-white/10 blur-2xl" />
 
       <div className="relative flex items-end justify-between gap-3">
         <div className="min-w-0">
@@ -73,7 +72,6 @@ export function WirdProgressBar({
           }}
         >
           <span className="absolute inset-x-0 top-0 h-1/2 rounded-full bg-white/35" />
-          <span className="absolute inset-0 animate-pulse rounded-full bg-white/10" />
         </div>
       </div>
 

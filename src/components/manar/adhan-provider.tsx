@@ -235,17 +235,23 @@ export function AdhanProvider() {
     };
     let lastWird = wirdToday();
     let pending: ReturnType<typeof setTimeout> | undefined;
+    let check: ReturnType<typeof setTimeout> | undefined;
+    /* قراءة السجل (JSON كبير) مؤجَّلة ومجمّعة: لا تُقرأ مع كل نقرة عدّاد. */
     const onActivity = () => {
-      const w = wirdToday();
-      if (w === lastWird) return;
-      lastWird = w;
-      clearTimeout(pending);
-      pending = setTimeout(() => void syncNativePrayerSchedule(location, calc), 800);
+      clearTimeout(check);
+      check = setTimeout(() => {
+        const w = wirdToday();
+        if (w === lastWird) return;
+        lastWird = w;
+        clearTimeout(pending);
+        pending = setTimeout(() => void syncNativePrayerSchedule(location, calc), 800);
+      }, 1500);
     };
     window.addEventListener("manar:activity", onActivity);
     return () => {
       window.removeEventListener("manar:activity", onActivity);
       clearTimeout(pending);
+      clearTimeout(check);
     };
   }, [location, calc]);
 

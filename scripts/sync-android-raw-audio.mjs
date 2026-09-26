@@ -26,8 +26,8 @@ import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
 /* كل مجلدات الصوت التي يجدولها منار أصلياً.
- * `library` مقاطع الأذان، و`reminders`/`iqama` النغمات المُركَّبة محلياً
- * (scripts/build-tones.py). لو نُسخ الأول وحده صمتت كل تذكيرات الأذكار
+ * `library` مقاطع الأذان، و`reminders` نداءات الأذكار والوِرد، و`iqamah`
+ * تسجيلات الإقامة. لو نُسخ الأول وحده صمتت كل تذكيرات الأذكار
  * والوِرد والإقامة حين يكون التطبيق مغلقاً — وهو بالضبط وقت الحاجة إليها. */
 /* `prayer-approach` حزمة «التنبيهات قبل الصلاة» — مجلدها مستقل عن `reminders`. */
 const sources = [
@@ -36,6 +36,8 @@ const sources = [
   /* مكتبة الإقامة — تسجيلات حقيقية (Ogg Opus وM4A)، منفصلة تماماً عن `library`. */
   "public/audio/iqamah",
   "public/audio/prayer-approach",
+  /* تنبيهات المواسم — حزمة مستقلة (src/lib/seasons/sounds.ts). */
+  "public/audio/seasons",
   /* نسخ نغمات التنبيه بدرجات صوت ثابتة لقنوات الإشعار (build-volume-levels.mjs). */
   "assets/audio-levels",
 ].map((d) => resolve(root, d));

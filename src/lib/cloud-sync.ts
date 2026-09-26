@@ -124,10 +124,17 @@ function writeMeta(store: KV, meta: SyncMeta) {
  * أول رصد لمفتاح موجود مسبقاً يأخذ ختم ٠ (عمره مجهول) حتى لا تتغلّب قيم قديمة
  * على نسخة سحابية أحدث. يعيد `true` إن تغيّر شيء.
  */
-export function stampLocalChanges(store: KV, now = Date.now()): boolean {
+export function stampLocalChanges(
+  store: KV,
+  now = Date.now(),
+  /** مفاتيح بعينها فقط (من أحداثها) بدل بصمة كل المفاتيح في كل مرة. */
+  only?: Iterable<string>,
+): boolean {
   const meta = readMeta(store);
   let changed = false;
-  for (const key of SYNCED_KEYS) {
+  const keys = only ? [...only].filter((k) => SYNCED_KEYS.includes(k)) : SYNCED_KEYS;
+  if (only && keys.length === 0) return false;
+  for (const key of keys) {
     const h = fingerprint(store.getItem(key));
     const m = meta.keys[key];
     if (!m) {

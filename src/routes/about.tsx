@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Icon, icons, Screen, ScreenHeader, SectionLabel, Mark } from "@/components/manar/shell";
 import { DeveloperCard } from "@/components/manar/developer-card";
+import { copyText, DEVELOPER, openContact } from "@/lib/developer";
 
 export const Route = createFileRoute("/about")({
   head: () => ({ meta: [{ title: "عن التطبيق — منار" }] }),
@@ -44,8 +45,18 @@ function About() {
 
       <SectionLabel>روابط</SectionLabel>
       <div className="space-y-2 px-5">
-        <LinkRow icon={icons.globe} l="موقعنا" v="manar.app" />
-        <LinkRow icon={icons.mail} l="تواصل معنا" v="hello@manar.app" />
+        <LinkRow
+          icon={icons.globe}
+          l="موقعنا"
+          v={DEVELOPER.siteEmail}
+          onClick={() => void mail(DEVELOPER.siteEmail)}
+        />
+        <LinkRow
+          icon={icons.mail}
+          l="تواصل معنا"
+          v={DEVELOPER.contactEmail}
+          onClick={() => void mail(DEVELOPER.contactEmail)}
+        />
         <LinkRow icon={icons.star} l="قيّم التطبيق" v="App Store · Google Play" />
         <LinkRow icon={icons.share} l="شارك التطبيق" v="" />
       </div>
@@ -67,7 +78,25 @@ function About() {
   );
 }
 
-function LinkRow({ icon, l, v, to }: { icon: string; l: string; v: string; to?: string }) {
+/** يفتح تطبيق البريد، وإن لم يوجد يُنسخ العنوان. */
+async function mail(address: string) {
+  const ok = await openContact("email", address);
+  if (!ok) await copyText(address);
+}
+
+function LinkRow({
+  icon,
+  l,
+  v,
+  to,
+  onClick,
+}: {
+  icon: string;
+  l: string;
+  v: string;
+  to?: string;
+  onClick?: () => void;
+}) {
   const cls =
     "flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft";
   const body = (
@@ -76,8 +105,10 @@ function LinkRow({ icon, l, v, to }: { icon: string; l: string; v: string; to?: 
         <Icon d={icon} size={16} />
       </span>
       <span className="flex-1 text-right text-sm font-medium">{l}</span>
-      <span className="flex items-center gap-2 text-xs text-muted-foreground">
-        {v}
+      <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+        <span className="truncate" dir="ltr">
+          {v}
+        </span>
         <span className="rotate-180">
           <Icon d={icons.chevron} size={14} />
         </span>
@@ -90,5 +121,9 @@ function LinkRow({ icon, l, v, to }: { icon: string; l: string; v: string; to?: 
         {body}
       </Link>
     );
-  return <button className={cls}>{body}</button>;
+  return (
+    <button className={cls} onClick={onClick}>
+      {body}
+    </button>
+  );
 }

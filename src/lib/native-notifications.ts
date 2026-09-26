@@ -68,6 +68,14 @@ import { PRAYER_APPROACH_CLIPS, approachClipFor } from "@/lib/prayer-approach-au
 import { getHijriAdjust } from "@/lib/hijri";
 import { seasonNotificationsBetween } from "@/lib/seasons/engine";
 import { readSeasonNotifyPrefs } from "@/lib/seasons/store";
+import {
+  DEFAULT_SEASON_SOUND,
+  SEASON_SOUNDS,
+  seasonSoundFor,
+  seasonSoundUrl,
+  type SeasonSound,
+  type SeasonSoundId,
+} from "@/lib/seasons/sounds";
 import { seasonIdFromNotificationTap } from "@/lib/seasons/notification-route";
 
 type LocalNotificationsPlugin = {
@@ -130,7 +138,7 @@ export type SakinahNativeWindow = {
   end: number;
   prayer: string;
   label: string;
-  filter: "priority" | "alarms" | "none";
+  filter: "manar" | "priority" | "alarms" | "none";
   muteAdhan: boolean;
 };
 
@@ -499,6 +507,8 @@ export async function previewNativeAdhan(
  */
 
 const AZKAR_CHANNEL_PREFIX = "manar_azkar_";
+const SEASON_CHANNEL_PREFIX = "manar_season_";
+
 const APPROACH_CHANNEL_PREFIX = "manar_approach_";
 
 /* ------------------- مستوى صوت الإشعارات -------------------
@@ -509,7 +519,7 @@ const APPROACH_CHANNEL_PREFIX = "manar_approach_";
  * الأصلية نفسها بلا أي تغيير، والدرجة ٠ هي القناة الصامتة. */
 
 const levelSuffix = (level: NotificationLevel) => (level === 100 ? "" : `_v${level}`);
-const LEVEL_CHANNEL = /^manar_(?:azkar_.+|approach_.+|reminders)_v(\d+)$/;
+const LEVEL_CHANNEL = /^manar_(?:azkar_.+|approach_.+|season_.+|reminders)_v(\d+)$/;
 
 /** اسم مورد الصوت بالدرجة المطلوبة. */
 function leveledRaw(raw: string, level: NotificationLevel): string {
@@ -520,6 +530,12 @@ function leveledRaw(raw: string, level: NotificationLevel): string {
 export function azkarWirdChannelFor(url: string, level: NotificationLevel = 100): string {
   const raw = rawResourceName(url);
   return raw && level > 0 ? AZKAR_CHANNEL_PREFIX + leveledRaw(raw, level) : "manar_silent";
+}
+
+/** قناة تنبيه موسمي لصوتٍ من حزمة المواسم بالدرجة المطلوبة. */
+export function seasonChannelFor(id: SeasonSoundId, level: NotificationLevel = 100): string {
+  if (level === 0) return "manar_silent";
+  return SEASON_CHANNEL_PREFIX + leveledRaw(rawResourceName(seasonSoundUrl(id)), level);
 }
 
 /** قناة تنبيه قبل صلاة لمقطعٍ من حزمة اقتراب الصلاة. */
@@ -565,6 +581,17 @@ async function ensureSoundChannels(p: LocalNotificationsPlugin, level: Notificat
         vibration: true,
       });
     }
+    for (const [id, snd] of Object.entries(SEASON_SOUNDS) as [SeasonSoundId, SeasonSound][]) {
+      channels.push({
+        id: seasonChannelFor(id, l),
+        name: `تنبيهات المواسم · ${snd.name}${pct(l)}`,
+        description: "تنبيهات مواسم الخير في منار",
+        importance: 3,
+        visibility: 1,
+        sound: `${leveledRaw(rawResourceName(snd.url), l)}.mp3`,
+        vibration: true,
+      });
+    }
     if (l !== 100) {
       // `manar_reminders` نفسها تُنشأ أصلياً (ManarChannels) ولا تُمسّ.
       channels.push({
@@ -591,11 +618,19 @@ async function ensureSoundChannels(p: LocalNotificationsPlugin, level: Notificat
     }
   }
   /* قنوات الدرجات السابقة لا حاجة لها بعد تغيير المستوى، فنحذفها حتى لا
-   * تتراكم في إعدادات النظام. القنوات الأصلية (بلا لاحقة) لا تُحذف أبداً. */
+   * تتراكم في إعدادات النظام. القنوات الأصلية (بلا لاحقة) لا تُحذف أبداً.
+   * وقنوات النغمات المحذوفة من التذكيرات (manar_azkar_*) تُحذف كذلك. */
   if (p.listChannels && p.deleteChannel) {
     try {
       const { channels: existing } = await p.listChannels();
+      const wanted = new Set(channels.map((c) => c.id));
       for (const c of existing) {
+        const ours =
+          c.id.startsWith(AZKAR_CHANNEL_PREFIX) || c.id.startsWith(SEASON_CHANNEL_PREFIX);
+        if (ours && !wanted.has(c.id)) {
+          await p.deleteChannel({ id: c.id }).catch(() => {});
+          continue;
+        }
         const m = LEVEL_CHANNEL.exec(c.id);
         if (m && Number(m[1]) !== level) await p.deleteChannel({ id: c.id }).catch(() => {});
       }
@@ -778,20 +813,27 @@ async function syncNativePrayerScheduleNow(
       getHijriAdjust(),
       readSeasonNotifyPrefs(),
     );
-    const tone = REMINDER_TONES.find((t) => t.url);
-    const url = s.silentMode || !s.soundEnabled || level === 0 || !tone ? "" : toneUrl(tone.id);
+    /* لكل تنبيه موسمي صوته من حزمة المواسم (seasons/sounds.ts)؛ وإن تعذّرت
+     * قناته فالاحتياطي العام، ثم قناة التنبيهات العامة. */
+    const audible = !(s.silentMode || !s.soundEnabled || level === 0);
+    const generalChannel = channelOr(
+      seasonChannelFor(DEFAULT_SEASON_SOUND, level),
+      channelOr(defaultReminderChannelFor(level), "manar_reminders"),
+    );
     for (const n of planned) {
       if (n.at.getTime() <= now) continue;
+      const sound = seasonSoundFor(n.seasonId, n.reminderId);
       reminders.push({
         id: seasonIdFor(n.dayIndex, n.slot),
         title: n.title,
         body: n.body,
         schedule: { at: n.at, allowWhileIdle: true },
         smallIcon: "ic_stat_manar",
-        channelId: url
-          ? channelOr(azkarWirdChannelFor(url, level), azkarWirdFallbackChannel(level))
+        channelId: audible
+          ? channelOr(seasonChannelFor(sound, level), generalChannel)
           : "manar_silent",
-        sound: url ? leveledRaw(rawResourceName(url), level) : undefined,
+        /* أندرويد < ٨ يأخذ الصوت من الإشعار لا من القناة. */
+        sound: audible ? leveledRaw(rawResourceName(seasonSoundUrl(sound)), level) : undefined,
         extra: { kind: "season", season: n.seasonId, route: `/seasons/${n.seasonId}` },
       });
     }

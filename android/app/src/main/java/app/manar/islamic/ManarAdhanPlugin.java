@@ -43,6 +43,8 @@ public class ManarAdhanPlugin extends Plugin {
         Context context = getContext();
         List<AdhanScheduler.Event> parsed = AdhanScheduler.parse(events);
         int armed = AdhanScheduler.replaceAll(context, parsed);
+        // الويب أعاد إنشاء قنوات التذكير للتوّ: نُبقي «أصوات منار فقط» سارياً.
+        SakinahManager.refreshIfActive(context);
 
         JSObject result = new JSObject();
         result.put("scheduled", armed);

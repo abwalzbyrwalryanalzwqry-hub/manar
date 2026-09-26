@@ -4,7 +4,7 @@ import { counterAnnouncement } from "@/lib/azkar/a11y";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Arabesque, Icon, icons, Screen, Skeleton } from "@/components/manar/shell";
 import { WirdProgressBar } from "@/components/manar/wird-progress";
-import { useKeepAwake } from "@/hooks/use-keep-awake";
+import { KEEP_AWAKE_IDLE_MS, useKeepAwake } from "@/hooks/use-keep-awake";
 
 import { toArabicDigits } from "@/lib/format";
 import { getWirdSession } from "@/lib/wird/data";
@@ -46,7 +46,8 @@ function WirdSessionPage() {
   const { prefs, update: updatePrefs } = useAzkarPrefs();
   const [showDisplay, setShowDisplay] = useState(false);
   const startX = useRef<number | null>(null);
-  const restored = useRef(false);
+  /** يوم آخر استئناف — يُعاد الاستئناف إن تجدّد الوِرد بيومٍ جديد والشاشة مفتوحة. */
+  const restored = useRef<string | null>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** الذكر المعروض الآن — يقرؤه مؤقت الانتقال التلقائي بدل فهرس قديم. */
   const shownOrder = useRef<number | null>(null);
@@ -57,12 +58,13 @@ function WirdSessionPage() {
   const remaining = item ? item.repeat - count : 0;
   const overall = useMemo(() => wirdCompletion(progress, items), [progress, items]);
   /* الشاشة تبقى مضاءة أثناء الجلسة (العدّ مئة مرة يتجاوز مهلة إطفائها). */
-  useKeepAwake(Boolean(wird));
+  useKeepAwake(Boolean(wird), { idleMs: KEEP_AWAKE_IDLE_MS });
 
   // استئناف: أول ذكر غير مكتمل (أو المحفوظ)
   useEffect(() => {
-    if (!hydrated || restored.current || items.length === 0) return;
-    restored.current = true;
+    const day = progress.day ?? "";
+    if (!hydrated || restored.current === day || items.length === 0) return;
+    restored.current = day;
     const firstIncomplete = items.findIndex((it) => (progress.counts[it.order] ?? 0) < it.repeat);
     const savedIdx = items.findIndex((it) => it.order === progress.current);
     setIndex(firstIncomplete >= 0 ? firstIncomplete : savedIdx >= 0 ? savedIdx : 0);
@@ -93,7 +95,13 @@ function WirdSessionPage() {
   const onTap = useCallback(() => {
     if (!item) return;
     if (count >= item.repeat) {
-      goto(index + 1);
+      /* ذكر مكتمل: التالي، أو في آخر الوِرد أول ذكر ناقص — لا نقرة «ميتة». */
+      if (index + 1 < items.length) goto(index + 1);
+      else {
+        const missing = items.findIndex((it) => (progress.counts[it.order] ?? 0) < it.repeat);
+        if (missing >= 0) goto(missing);
+        else announce(`تم إكمال ${wird?.title ?? "الوِرد"}`);
+      }
       return;
     }
     haptic(prefs, hapticFor(count, item.repeat));
@@ -110,7 +118,16 @@ function WirdSessionPage() {
         if (at >= 0 && at + 1 < items.length) setIndex(at + 1);
       }, 320);
     }
-  }, [item, count, prefs, announce, increment, index, items, goto]);
+  }, [item, count, prefs, announce, increment, index, items, goto, progress.counts, wird?.title]);
+
+  /** قراءة جديدة فورية بعد الإكمال (بلا تأكيد — لا شيء ناقص يضيع). */
+  const startFresh = useCallback(() => {
+    if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    advanceTimer.current = null;
+    resetSession();
+    setIndex(0);
+    announce("بدأت قراءة جديدة");
+  }, [resetSession, announce]);
 
   const onUndo = useCallback(() => {
     if (!item || count <= 0) return;
@@ -215,7 +232,7 @@ function WirdSessionPage() {
           ) : (
             <div
               key={item.order}
-              className="glass relative overflow-hidden rounded-[28px] p-5 shadow-soft animate-fade-up"
+              className="glass-flat relative overflow-hidden rounded-[28px] p-5 shadow-soft animate-fade-up"
             >
               <Arabesque className="pointer-events-none absolute -left-10 -bottom-10 h-40 w-40 text-primary/10" />
               <div className="relative flex items-center gap-2">
@@ -228,7 +245,7 @@ function WirdSessionPage() {
               {showDisplay && <AzkarDisplayPanel prefs={prefs} update={updatePrefs} />}
               <div
                 onClick={onTextTap}
-                className={`counter-tap relative mt-4 max-h-[38vh] overflow-y-auto text-right text-foreground ${
+                className={`tap-text relative mt-4 max-h-[38vh] overflow-y-auto text-right text-foreground ${
                   item.quran ? "font-quran leading-[2.4]" : "font-display leading-[2.15]"
                 } ${prefs.tapAnywhere ? "cursor-pointer select-none" : ""}`}
                 style={{
@@ -254,6 +271,28 @@ function WirdSessionPage() {
 
         {/* العدّاد */}
         <div className="px-5 pb-8 pt-6">
+          {allDone && (
+            <div className="mb-5 w-full rounded-[24px] border border-primary/30 bg-card p-4 text-center shadow-soft animate-fade-up">
+              <div className="font-display text-lg font-medium">تم إكمال {wird.title}</div>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                تقبّل الله منك. يتجدّد الوِرد تلقائيًا غدًا، ويمكنك قراءته من جديد الآن.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={startFresh}
+                  className="gradient-primary flex-1 rounded-2xl py-3 text-sm font-medium text-primary-foreground shadow-glow"
+                >
+                  قراءة جديدة
+                </button>
+                <button
+                  onClick={() => nav({ to: "/wird" })}
+                  className="flex-1 rounded-2xl border border-border bg-card py-3 text-sm"
+                >
+                  العودة
+                </button>
+              </div>
+            </div>
+          )}
           {item && (
             <div className="flex flex-col items-center">
               {liveRegion}
@@ -329,18 +368,6 @@ function WirdSessionPage() {
                   التالي
                 </button>
               </div>
-
-              {allDone && (
-                <div className="mt-5 w-full rounded-[24px] border border-border bg-card p-4 text-center shadow-soft">
-                  <div className="font-display text-lg font-medium">تم إكمال {wird.title}</div>
-                  <button
-                    onClick={() => setConfirmReset(true)}
-                    className="gradient-primary mt-3 w-full rounded-2xl py-3 text-sm font-medium text-primary-foreground shadow-glow"
-                  >
-                    إعادة الورد
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>

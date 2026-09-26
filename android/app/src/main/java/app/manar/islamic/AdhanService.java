@@ -345,7 +345,9 @@ public class AdhanService extends Service
         // سكينة: إن كانت فترة الهدوء جارية والمستخدم اختار كتم الأذان أيضاً،
         // فلا نُشغّل الصوت — ونُبقي التنبيه المكتوب وحده.
         SakinahStore.Window quiet = SakinahStore.currentWindow(this);
-        if (quiet != null && quiet.muteAdhan && !"preview".equals(kind)) {
+        // «صمت كامل» يكتم مسار المنبّه نفسه في النظام، فلا فائدة من التشغيل.
+        if (quiet != null && (quiet.muteAdhan || "none".equals(quiet.filter))
+                && !"preview".equals(kind)) {
             SakinahLog.add(this, SakinahLog.ADHAN_MUTED, quiet.prayer, kind);
             postSilentNotice();
             publish(STATE_MUTED, kind, title);
@@ -362,6 +364,13 @@ public class AdhanService extends Service
             stopForegroundOnly();
             stopSelfSafely();
             return START_NOT_STICKY;
+        }
+
+        // «أصوات منار فقط»: يُفتح مسار المنبّه لصوت منار وحده طوال تشغيله،
+        // وتُشغَّل التنبيهات على مسار المنبّه لأن مسار الإشعارات مكتوم.
+        if (SakinahManager.isManarQuietActive(this)) {
+            notificationUsage = false;
+            SakinahManager.holdManarAudio(this);
         }
 
         if (!requestFocus(notificationUsage)) {
@@ -869,6 +878,7 @@ public class AdhanService extends Service
 
     /** يُوقف المشغّل ويُحرّره دون إنهاء الخدمة — أساس منع تراكب الأصوات. */
     private void releasePlayer() {
+        SakinahManager.releaseManarAudio(this);
         stopQuickStop();
         releaseEnhancer();
         restoreAlarmStream();

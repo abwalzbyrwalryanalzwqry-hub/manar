@@ -35,6 +35,8 @@ public final class SakinahLog {
     public static final String PRAYER_TIME_UPDATED = "prayer_time_updated";
     public static final String STATE_RESTORED = "state_restored";
     public static final String ADHAN_MUTED = "adhan_muted_by_sakinah";
+    public static final String MANAR_ONLY_APPLIED = "manar_only_applied";
+    public static final String MANAR_AUDIO_ALLOWED = "manar_audio_allowed";
 
     private SakinahLog() {}
 

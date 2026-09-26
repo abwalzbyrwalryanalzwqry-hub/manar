@@ -13,7 +13,9 @@ import {
   Skeleton,
 } from "@/components/manar/shell";
 import { useAzkarBook } from "@/hooks/use-azkar";
-import { useKeepAwake } from "@/hooks/use-keep-awake";
+import { KEEP_AWAKE_IDLE_MS, useKeepAwake } from "@/hooks/use-keep-awake";
+import { useDayKey } from "@/hooks/use-day-key";
+import { onResume } from "@/lib/native-shell";
 import { nextIndexAfter } from "@/lib/azkar/hub";
 import { AzkarDisplayPanel, DisplayToggleButton } from "@/components/manar/azkar-display-controls";
 import { haptic, hapticFor, isCountableTap, textSizePx, useAzkarPrefs } from "@/lib/azkar/prefs";
@@ -147,7 +149,7 @@ function AzkarSession() {
   const started = azkar.some((z) => countOf(z) > 0);
 
   /* الشاشة تبقى مضاءة ما دامت الجلسة جارية. */
-  useKeepAwake(Boolean(chapter && current && !finished));
+  useKeepAwake(Boolean(chapter && current && !finished), { idleMs: KEEP_AWAKE_IDLE_MS });
 
   useEffect(() => {
     if (chapter && current) setLast(chapter.id, current.id, activeTime);
@@ -313,8 +315,50 @@ function AzkarSession() {
     setIndex(0);
   };
 
+  /* تجدّد الجلسة: بقيت الشاشة مفتوحة حتى يومٍ جديد (العدّادات صُفّرت في
+   * وحدة التقدّم)، أو عاد المستخدم بعد أن انتقل الوقت من الصباح إلى المساء —
+   * فتُعاد الجلسة من أولها بدل أن تبقى ثابتة على شاشة الإتمام أو وقتٍ مضى. */
+  const day = useDayKey();
+  const lastDay = useRef(day);
+  const manualTime = useRef(Boolean(timeParam));
+  const timeRef = useRef(time);
+  timeRef.current = time;
+  useEffect(() => {
+    if (lastDay.current === day) return;
+    lastDay.current = day;
+    cancelAdvance();
+    if (!timeParam) {
+      manualTime.current = false;
+      setTime(azkarTimeNow());
+    }
+    setFinished(false);
+    setIndex(0);
+    setInitialized(false);
+  }, [day, timeParam, cancelAdvance]);
+
+  useEffect(() => {
+    if (!timed) return;
+    const check = () => {
+      if (document.visibilityState !== "visible" || manualTime.current) return;
+      const now = azkarTimeNow();
+      if (timeRef.current === now) return;
+      cancelAdvance();
+      setTime(now);
+      setFinished(false);
+      setIndex(0);
+      setInitialized(false);
+    };
+    document.addEventListener("visibilitychange", check);
+    const off = onResume(check);
+    return () => {
+      document.removeEventListener("visibilitychange", check);
+      off();
+    };
+  }, [timed, cancelAdvance]);
+
   const switchTime = (next: ZikrTime) => {
     if (next === time) return;
+    manualTime.current = true;
     cancelAdvance();
     setTime(next);
     setFinished(false);
@@ -530,7 +574,7 @@ function AzkarSession() {
         >
           <div
             key={current.id}
-            className={`glass relative overflow-hidden rounded-[32px] p-5 animate-fade-up`}
+            className="glass-flat relative overflow-hidden rounded-[32px] p-5 animate-fade-up"
           >
             <Arabesque className="pointer-events-none absolute -bottom-14 -left-14 h-40 w-40 text-primary/10" />
 
@@ -570,7 +614,7 @@ function AzkarSession() {
             <div
               ref={scrollRef}
               onClick={onTextTap}
-              className={`counter-tap relative mt-4 max-h-[46vh] overflow-y-auto pl-1 overscroll-contain ${
+              className={`tap-text relative mt-4 max-h-[46vh] overflow-y-auto pl-1 overscroll-contain ${
                 prefs.tapAnywhere ? "cursor-pointer select-none" : ""
               }`}
             >

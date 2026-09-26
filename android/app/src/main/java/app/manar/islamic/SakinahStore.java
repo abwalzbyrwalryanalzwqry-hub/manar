@@ -31,6 +31,11 @@ public final class SakinahStore {
     private static final String KEY_ACTIVE = "activeWindow";
     private static final String KEY_PREV_FILTER = "previousFilter";
     private static final String KEY_APPLIED_FILTER = "appliedFilter";
+    /* «أصوات منار فقط»: سياسة عدم الإزعاج قبل الفترة، والقنوات التي فتحناها. */
+    private static final String KEY_PREV_POLICY = "previousPolicy";
+    private static final String KEY_APPLIED_MODE = "appliedMode";
+    private static final String KEY_BYPASS_CHANNELS = "bypassChannels";
+    private static final String KEY_AUDIO_HOLD = "audioHold";
 
     private SakinahStore() {}
 
@@ -214,5 +219,55 @@ public final class SakinahStore {
 
     public static void clearActiveWindow(Context context) {
         prefs(context).edit().remove(KEY_ACTIVE).apply();
+    }
+
+    /* ------------- «أصوات منار فقط»: السياسة والقنوات ------------- */
+
+    /** السياسة السابقة كـ «فئات،متصلون،رسائل،تأثيرات،محادثات». */
+    public static void rememberPolicy(Context context, String encoded) {
+        prefs(context).edit().putString(KEY_PREV_POLICY, encoded).apply();
+    }
+
+    public static String previousPolicy(Context context) {
+        return prefs(context).getString(KEY_PREV_POLICY, null);
+    }
+
+    public static void forgetPolicy(Context context) {
+        prefs(context).edit().remove(KEY_PREV_POLICY).remove(KEY_AUDIO_HOLD).apply();
+    }
+
+    /** نمط الفترة المطبّق فعلاً ("manar" …) — ليُعاد تطبيقه إن تغيّر أثناءها. */
+    public static void setAppliedMode(Context context, String mode) {
+        prefs(context).edit().putString(KEY_APPLIED_MODE, mode).apply();
+    }
+
+    public static String appliedMode(Context context) {
+        return prefs(context).getString(KEY_APPLIED_MODE, null);
+    }
+
+    public static void clearAppliedMode(Context context) {
+        prefs(context).edit().remove(KEY_APPLIED_MODE).apply();
+    }
+
+    /** قنوات منار التي فعّلنا لها تجاوز عدم الإزعاج مؤقتاً (لإرجاعها كما كانت). */
+    public static void setBypassChannels(Context context, java.util.Set<String> ids) {
+        prefs(context).edit().putStringSet(KEY_BYPASS_CHANNELS, new java.util.HashSet<>(ids)).apply();
+    }
+
+    public static java.util.Set<String> bypassChannels(Context context) {
+        java.util.Set<String> v = prefs(context).getStringSet(KEY_BYPASS_CHANNELS, null);
+        return v == null ? new java.util.HashSet<>() : new java.util.HashSet<>(v);
+    }
+
+    public static void clearBypassChannels(Context context) {
+        prefs(context).edit().remove(KEY_BYPASS_CHANNELS).apply();
+    }
+
+    public static void setAudioHold(Context context, boolean on) {
+        prefs(context).edit().putBoolean(KEY_AUDIO_HOLD, on).apply();
+    }
+
+    public static boolean audioHold(Context context) {
+        return prefs(context).getBoolean(KEY_AUDIO_HOLD, false);
     }
 }

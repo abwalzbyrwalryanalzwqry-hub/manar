@@ -1,20 +1,7 @@
 # أصوات تذكيرات الأذكار والوِرد — `public/audio/reminders/`
 
 الفهرس البرمجي: `REMINDER_TONES` في `src/lib/daily-reminders.ts`. كل صوت يحمل
-`kind` فتعرضه الواجهة في إحدى مجموعتين:
-
-## النغمات (`kind: "tone"`) — مولَّدة داخل منار
-
-| الملف                  | الاسم في الواجهة |
-| ---------------------- | ---------------- |
-| `azkar-morning.mp3`    | إشراق            |
-| `azkar-evening.mp3`    | أصيل             |
-| `wird.mp3`             | تأمّل            |
-| `reminder-bell.mp3`    | جرس              |
-| `reminder-default.mp3` | هادئ             |
-| `reminder-chime.mp3`   | نقرة             |
-
-مولَّدة بـ`scripts/build-tones.py` (`npm run audio:tones`)، فلا حقوق فيها لطرف آخر.
+`kind`: نداء صوتي (`voice`) أو «صامت» (`silent`). لا نغمات في هذا القسم.
 
 ## النداءات الصوتية (`kind: "voice"`) — نداء واحد لكل موضوع
 
@@ -28,8 +15,16 @@
 | `wird-quran-01.mp3`    | لا تنسَ وِردك من القرآن  | `quran`           | الوِرد، القرآن                                      |
 | `azkar-general-01.mp3` | لا تنسَ الأذكار          | `general`         | الصباح، المساء، النوم، الاستيقاظ، بعد الصلاة، الضحى |
 
-كل تذكير يعرض في تبويب «نداءات صوتية» ما يناسب موضوعه فقط (`toneOptionsFor`)،
-والمقترح أولاً؛ و«تذكير» العام المضاف يعرضها كلها. النغمات عامة فتظهر في كل تذكير.
+كل تذكير يعرض ما يناسب موضوعه فقط (`toneOptionsFor`)، والمقترح أولاً وهو
+الافتراضي، ثم «صامت»؛ و«تذكير» العام المضاف يعرضها كلها.
+
+## النغمات المحذوفة
+
+حُذفت النغمات الست المولَّدة (`azkar-morning`، `azkar-evening`، `wird`،
+`reminder-bell`، `reminder-default`، `reminder-chime`) مع نسخها المخفّضة ومولّدها
+`scripts/build-tones.py`. من كان اختار إحداها يُنقل إلى النداء المقترح لتذكيره
+(`REMOVED_TONES`)، وتُحذف قنواتها القديمة من إعدادات النظام. تنبيهات المواسم صارت
+بصوت التكبير على قناة التنبيهات العامة.
 
 حُذفت خمسة نداءات مكرّرة الموضوع (`azkar-morning-01`، `azkar-morning-02`،
 `azkar-evening-01`، `azkar-sleep-01`، `azkar-general-02`) مع نسخها المخفّضة في
@@ -39,8 +34,7 @@
 **الحقوق: موثّقة (VERIFIED).** النداءات الصوتية السبعة أعلاه، ومعها مقاطع «اقتربت الصلاة»
 الخمسة في `public/audio/prayer-approach/`، سجّلها صاحب المشروع بصوته، وهي ملكه وحقوقها كاملة
 له (٢٥ سبتمبر ٢٠٢٦). مدرجة في `licenses.json` تحت `verified_reminder_files`
-و`verified_prayer_approach_files`، ومعها `owner_recordings`. والنغمات القصيرة مولَّدة داخل
-منار (`generated_tone_files`).
+و`verified_prayer_approach_files`، ومعها `owner_recordings`.
 
 اختبار `tests/unit/audio-rights.test.ts` يُفشل البناء إذا أُضيف ملف صوتي إلى الحزمة دون
 توثيقه في `licenses.json`.

@@ -13,44 +13,10 @@ import { PRAYER_LABELS, PRAYER_ORDER, type PrayerKey } from "./prayer";
  * فلا يمكن أن يظهر صوتٌ من إحدى الحزمتين في قائمة الأخرى. */
 export const AZKAR_WIRD_AUDIO_CATEGORY = "azkar_wird_reminders";
 
+/* قسم التذكيرات بالنداءات الصوتية وحدها: النغمات المولَّدة (إشراق، أصيل، تأمّل،
+ * جرس، هادئ، نقرة) حُذفت مع ملفاتها، وكل تذكير يبدأ بندائه المقترح. من كان
+ * اختار نغمةً ينتقل تلقائياً إلى النداء المقترح لتذكيره (انظر `normalizeItem`). */
 export const REMINDER_TONES = [
-  {
-    id: "azkar-morning",
-    name: "إشراق",
-    hint: "صاعد مشرق",
-    url: "/audio/reminders/azkar-morning.mp3",
-    kind: "tone",
-  },
-  {
-    id: "azkar-evening",
-    name: "أصيل",
-    hint: "هابط دافئ",
-    url: "/audio/reminders/azkar-evening.mp3",
-    kind: "tone",
-  },
-  { id: "wird", name: "تأمّل", hint: "ساكن ممتد", url: "/audio/reminders/wird.mp3", kind: "tone" },
-  {
-    id: "reminder-bell",
-    name: "جرس",
-    hint: "جرس دافئ مزدوج",
-    url: "/audio/reminders/reminder-bell.mp3",
-    kind: "tone",
-  },
-  {
-    id: "reminder-default",
-    /* كان اسمها «نداء» فتختلط بتبويب «النداءات الصوتية». */
-    name: "هادئ",
-    hint: "ثلاث درجات هادئة",
-    url: "/audio/reminders/reminder-default.mp3",
-    kind: "tone",
-  },
-  {
-    id: "reminder-chime",
-    name: "نقرة",
-    hint: "قصيرة محايدة",
-    url: "/audio/reminders/reminder-chime.mp3",
-    kind: "tone",
-  },
   /* حزمة «أصوات تذكيرات الأذكار والوِرد» — نداء صوتي واحد لكل موضوع. كانت
    * الحزمة ١٢ نداءً، منها أداءان وثلاثة للموضوع نفسه («أذكار الصباح»،
    * «أذكارُ الصباح»، «حان وقت أذكار الصباح»…) فتتكرّر في كل تذكير بلا فائدة.
@@ -112,8 +78,18 @@ export const REMINDER_TONES = [
     kind: "voice",
     topic: "general",
   },
-  { id: "silent", name: "صامت", hint: "إشعار بلا صوت", url: "", kind: "tone" },
+  { id: "silent", name: "صامت", hint: "إشعار بلا صوت", url: "", kind: "silent" },
 ] as const;
+
+/** نغمات حُذفت من القسم — يُستبدل بها النداء المقترح للتذكير نفسه. */
+export const REMOVED_TONES: ReadonlySet<string> = new Set([
+  "azkar-morning",
+  "azkar-evening",
+  "wird",
+  "reminder-bell",
+  "reminder-default",
+  "reminder-chime",
+]);
 
 export type ReminderToneId = (typeof REMINDER_TONES)[number]["id"];
 
@@ -148,17 +124,12 @@ export function toneName(id: ReminderToneId): string {
   return REMINDER_TONES.find((t) => t.id === id)?.name ?? "صامت";
 }
 
-export type ToneKind = "tone" | "voice";
+export type ToneKind = "voice" | "silent";
 
-/** نوع الصوت: نغمة مولَّدة، أو نداء صوتي بشري. */
+/** نوع الصوت: نداء صوتي، أو صامت. */
 export function toneKind(id: ReminderToneId): ToneKind {
-  return REMINDER_TONES.find((t) => t.id === id)?.kind ?? "tone";
+  return REMINDER_TONES.find((t) => t.id === id)?.kind ?? "voice";
 }
-
-export const TONE_KIND_LABELS: Record<ToneKind, string> = {
-  tone: "نغمات",
-  voice: "نداءات صوتية",
-};
 
 /** النداء الصوتي المقترح لكل تذكير مبنيّ — يطابق موضوعه («أذكار الصباح» لتذكير الصباح). */
 export const SUGGESTED_TONE: Record<string, ReminderToneId> = {
@@ -188,31 +159,27 @@ const TEMPLATE_VOICE_TOPICS: Record<CustomTemplateId, readonly VoiceTopic[] | nu
 type ToneEntry = (typeof REMINDER_TONES)[number];
 
 /**
- * خيارات الصوت لتذكير في تبويب واحد. النغمات كلها عامة فتظهر كلها؛ النداءات
- * الصوتية تظهر المناسبة لموضوع التذكير فقط، مع المقترح أولاً. والنداء المختار
- * حالياً يبقى ظاهراً ولو لم يكن من موضوعه، حتى لا يختفي اختيار المستخدم.
+ * خيارات الصوت لتذكير: النداءات المناسبة لموضوعه (المقترح أولاً)، ثم «صامت».
+ * والنداء المختار حالياً يبقى ظاهراً ولو لم يكن من موضوعه، حتى لا يختفي
+ * اختيار المستخدم.
  */
-export function toneOptionsFor(
-  r: Pick<DailyReminder, "id" | "template" | "tone">,
-  kind: ToneKind,
-): ToneEntry[] {
+export function toneOptionsFor(r: Pick<DailyReminder, "id" | "template" | "tone">): ToneEntry[] {
   const suggested = suggestedToneFor(r);
-  let list: ToneEntry[] = REMINDER_TONES.filter((t) => t.kind === kind);
-  if (kind === "voice") {
-    const topics =
-      VOICE_TOPICS[r.id] ?? (r.template ? TEMPLATE_VOICE_TOPICS[r.template] : null) ?? null;
-    if (topics) {
-      const rank = (t: ToneEntry) => {
-        const topic = "topic" in t ? t.topic : undefined;
-        const i = topic ? topics.indexOf(topic) : -1;
-        return i < 0 ? topics.length : i;
-      };
-      list = list
-        .filter((t) => rank(t) < topics.length || t.id === r.tone)
-        .sort((a, b) => rank(a) - rank(b));
-    }
+  let list: ToneEntry[] = REMINDER_TONES.filter((t) => t.kind === "voice");
+  const topics =
+    VOICE_TOPICS[r.id] ?? (r.template ? TEMPLATE_VOICE_TOPICS[r.template] : null) ?? null;
+  if (topics) {
+    const rank = (t: ToneEntry) => {
+      const topic = "topic" in t ? t.topic : undefined;
+      const i = topic ? topics.indexOf(topic) : -1;
+      return i < 0 ? topics.length : i;
+    };
+    list = list
+      .filter((t) => rank(t) < topics.length || t.id === r.tone)
+      .sort((a, b) => rank(a) - rank(b));
   }
-  return list.slice().sort((a, b) => Number(b.id === suggested) - Number(a.id === suggested));
+  list = list.slice().sort((a, b) => Number(b.id === suggested) - Number(a.id === suggested));
+  return [...list, ...REMINDER_TONES.filter((t) => t.kind === "silent")];
 }
 
 export function suggestedToneFor(r: Pick<DailyReminder, "id" | "template">): ReminderToneId | null {
@@ -319,7 +286,7 @@ export const CUSTOM_TEMPLATES: Record<
     body: "حان وقت الذكر",
     route: "/azkar",
     timing: { mode: "clock", hour: 12, minute: 0 },
-    tone: "reminder-default",
+    tone: "azkar-general-01",
   },
 };
 
@@ -344,7 +311,7 @@ export const DEFAULT_REMINDERS: DailyReminder[] = [
     /* مطفأ افتراضيًا: «ورد الصباح» (الفجر + ٢٠) يغني عنه، فلا يصل تذكيران متتاليان. */
     enabled: false,
     timing: { mode: "prayer", prayer: "fajr", offset: 45 },
-    tone: "azkar-morning",
+    tone: "azkar-morning-03",
     days: [...ALL_DAYS],
     route: "/azkar/27?time=morning",
     body: "حان وقت أذكار الصباح",
@@ -355,7 +322,7 @@ export const DEFAULT_REMINDERS: DailyReminder[] = [
     name: "أذكار المساء",
     enabled: true,
     timing: { mode: "prayer", prayer: "asr", offset: 30 },
-    tone: "azkar-evening",
+    tone: "azkar-evening-02",
     days: [...ALL_DAYS],
     route: "/azkar/27?time=evening",
     body: "حان وقت أذكار المساء",
@@ -366,7 +333,7 @@ export const DEFAULT_REMINDERS: DailyReminder[] = [
     name: "ورد الصباح",
     enabled: true,
     timing: { mode: "prayer", prayer: "fajr", offset: 20 },
-    tone: "wird",
+    tone: "wird-daily-01",
     days: [...ALL_DAYS],
     route: "/wird/morning",
     body: "حان وقت وِرد الصباح",
@@ -377,7 +344,7 @@ export const DEFAULT_REMINDERS: DailyReminder[] = [
     name: "أذكار النوم",
     enabled: false,
     timing: { mode: "clock", hour: 22, minute: 30 },
-    tone: "reminder-chime",
+    tone: "azkar-sleep-02",
     days: [...ALL_DAYS],
     route: "/azkar/28",
     body: "لا تنم قبل أذكار النوم",
@@ -390,7 +357,7 @@ export const DEFAULT_REMINDERS: DailyReminder[] = [
     name: "أذكار الاستيقاظ من النوم",
     enabled: false,
     timing: { mode: "prayer", prayer: "fajr", offset: -15 },
-    tone: "reminder-bell",
+    tone: "azkar-wake-01",
     days: [...ALL_DAYS],
     route: "/azkar/1",
     body: "ابدأ يومك بأذكار الاستيقاظ من النوم",
