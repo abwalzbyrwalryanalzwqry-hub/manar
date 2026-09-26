@@ -26,11 +26,62 @@ export const SAKINAH_PRAYERS: SakinahPrayerKey[] = ["fajr", "dhuhr", "asr", "mag
 
 export type SakinahPrayerConfig = {
   enabled: boolean;
-  /** دقائق قبل الأذان — صفرٌ يعني «مع الأذان». */
+  /**
+   * بداية الهدوء نسبةً إلى الأذان بالدقائق: سالبٌ = قبل الأذان، صفرٌ = مع
+   * الأذان، موجبٌ = بعد الأذان بعدد الدقائق الذي يختاره المستخدم.
+   */
+  startOffset: number;
+  /**
+   * @deprecated للتوافق مع النسخ السابقة فقط (قبل الأذان وحده). يُشتقّ من
+   * `startOffset` عند الحفظ: `max(0, -startOffset)`.
+   */
   beforeMinutes: number;
-  /** دقائق بعد الأذان تستمر فيها السكينة. */
+  /** دقائق بعد الأذان ينتهي عندها الهدوء (دائمًا بعد البداية). */
   afterMinutes: number;
 };
+
+/** اتجاه بداية الهدوء كما يختاره المستخدم. */
+export type StartDirection = "before" | "with" | "after";
+
+/** أقصى إزاحة للبداية قبل الأذان أو بعده. */
+export const START_OFFSET_LIMIT = 60;
+/** أقل مدة للهدوء بين بدايته ونهايته. */
+export const MIN_QUIET_MINUTES = 5;
+/** أقصى نهاية بعد الأذان. */
+export const END_LIMIT = 180;
+
+export function startDirection(offset: number): StartDirection {
+  return offset < 0 ? "before" : offset > 0 ? "after" : "with";
+}
+
+/** إزاحة موقّعة من اتجاه وعدد دقائق. */
+export function makeStartOffset(dir: StartDirection, minutes: number): number {
+  const m = Math.min(START_OFFSET_LIMIT, Math.max(1, Math.round(Math.abs(minutes) || 1)));
+  return dir === "with" ? 0 : dir === "before" ? -m : m;
+}
+
+/** النهاية الفعلية: لا تسبق البداية، ولا تقلّ مدة الهدوء عن الحد الأدنى. */
+export function effectiveEnd(startOffset: number, afterMinutes: number): number {
+  return Math.min(END_LIMIT, Math.max(afterMinutes, startOffset + MIN_QUIET_MINUTES, 1));
+}
+
+/** يوحّد إعداد صلاة بعد أي تعديل: يضبط الحدود ويشتقّ الحقل القديم. */
+export function withTiming(
+  cfg: SakinahPrayerConfig,
+  patch: Partial<Pick<SakinahPrayerConfig, "startOffset" | "afterMinutes">>,
+): SakinahPrayerConfig {
+  const startOffset = clampMinutes(
+    patch.startOffset ?? cfg.startOffset,
+    0,
+    -START_OFFSET_LIMIT,
+    START_OFFSET_LIMIT,
+  );
+  const afterMinutes = effectiveEnd(
+    startOffset,
+    clampMinutes(patch.afterMinutes ?? cfg.afterMinutes, 30, 1, END_LIMIT),
+  );
+  return { ...cfg, startOffset, beforeMinutes: Math.max(0, -startOffset), afterMinutes };
+}
 
 export type SakinahPreset = "prayer" | "mosque" | "custom";
 
@@ -42,8 +93,17 @@ export type SakinahSettings = {
   weekdays: number[];
   /** إعداد مستقلّ لصلاة الجمعة (الخطبة أطول من الصلاة). */
   jumuahSeparate: boolean;
+  /** بداية هدوء الجمعة نسبةً إلى الأذان (سالب قبل، موجب بعد). */
+  jumuahStartOffset: number;
+  /** @deprecated يُشتقّ من `jumuahStartOffset`. */
   jumuahBeforeMinutes: number;
   jumuahAfterMinutes: number;
+  /**
+   * «أصوات منار فقط»: يُكتم كل شيء في الهاتف (مكالمات، رسائل، إشعارات
+   * التطبيقات، الوسائط، منبّهات التطبيقات الأخرى) ويمرّ أذان منار وإقامتها
+   * وتنبيهاتها وحدها. الخيار الموصى به.
+   */
+  manarOnly: boolean;
   /** ما يُسمح له بالمرور أثناء الهدوء. */
   allowPriority: boolean;
   alarmsOnly: boolean;
@@ -60,8 +120,8 @@ export const SAKINAH_PRESET_LABELS: Record<SakinahPreset, { label: string; hint:
   custom: { label: "⚙️ مخصص", hint: "كما تضبطه بنفسك" },
 };
 
-/** خيارات البداية كما يراها المستخدم — لا حقول رقمية حرّة إلا «مخصص». */
-export const START_OPTIONS = [0, 1, 3, 5, 10, 15] as const;
+/** دقائق البداية السريعة (قبل الأذان أو بعده) — وما سواها من المُعدِّل. */
+export const START_OPTIONS = [1, 3, 5, 10, 15, 20] as const;
 /** خيارات النهاية. */
 export const END_OPTIONS = [10, 20, 30, 45, 60] as const;
 
@@ -69,29 +129,28 @@ export const DEFAULT_SAKINAH: SakinahSettings = {
   enabled: false,
   preset: "prayer",
   prayers: {
-    fajr: { enabled: true, beforeMinutes: 5, afterMinutes: 30 },
-    dhuhr: { enabled: true, beforeMinutes: 5, afterMinutes: 30 },
-    asr: { enabled: true, beforeMinutes: 5, afterMinutes: 30 },
-    maghrib: { enabled: true, beforeMinutes: 5, afterMinutes: 30 },
-    isha: { enabled: true, beforeMinutes: 5, afterMinutes: 30 },
+    fajr: { enabled: true, startOffset: -5, beforeMinutes: 5, afterMinutes: 30 },
+    dhuhr: { enabled: true, startOffset: -5, beforeMinutes: 5, afterMinutes: 30 },
+    asr: { enabled: true, startOffset: -5, beforeMinutes: 5, afterMinutes: 30 },
+    maghrib: { enabled: true, startOffset: -5, beforeMinutes: 5, afterMinutes: 30 },
+    isha: { enabled: true, startOffset: -5, beforeMinutes: 5, afterMinutes: 30 },
   },
   weekdays: [0, 1, 2, 3, 4, 5, 6],
   jumuahSeparate: true,
+  jumuahStartOffset: -15,
   jumuahBeforeMinutes: 15,
   jumuahAfterMinutes: 60,
-  allowPriority: true,
+  manarOnly: true,
+  allowPriority: false,
   alarmsOnly: false,
   totalSilence: false,
   muteAdhanDuringSakinah: false,
   skipDates: [],
 };
 
-const PRESET_VALUES: Record<
-  Exclude<SakinahPreset, "custom">,
-  { before: number; after: number; alarmsOnly: boolean }
-> = {
-  prayer: { before: 5, after: 30, alarmsOnly: false },
-  mosque: { before: 15, after: 45, alarmsOnly: true },
+const PRESET_VALUES: Record<Exclude<SakinahPreset, "custom">, { start: number; after: number }> = {
+  prayer: { start: -5, after: 30 },
+  mosque: { start: -15, after: 45 },
 };
 
 /** يُطبّق نمطاً جاهزاً على الصلوات كلّها دون أن يلمس ما عدا التوقيت. */
@@ -100,30 +159,53 @@ export function applyPreset(s: SakinahSettings, preset: SakinahPreset): SakinahS
   const v = PRESET_VALUES[preset];
   const prayers = { ...s.prayers };
   for (const p of SAKINAH_PRAYERS) {
-    prayers[p] = { ...prayers[p], beforeMinutes: v.before, afterMinutes: v.after };
+    prayers[p] = withTiming(prayers[p], { startOffset: v.start, afterMinutes: v.after });
   }
+  /* النمطان الجاهزان يُبقيان أذان منار وتنبيهاتها ويكتمان ما سواها. */
   return {
     ...s,
     preset,
     prayers,
-    alarmsOnly: v.alarmsOnly,
+    manarOnly: true,
+    alarmsOnly: false,
     totalSilence: false,
-    allowPriority: !v.alarmsOnly,
+    allowPriority: false,
   };
 }
 
+export type SakinahFilter = "manar" | "priority" | "alarms" | "none";
+
 /** نمط المنع الذي تفهمه الطبقة الأصلية. */
-export function filterMode(s: SakinahSettings): "priority" | "alarms" | "none" {
+export function filterMode(s: SakinahSettings): SakinahFilter {
   if (s.totalSilence) return "none";
   if (s.alarmsOnly) return "alarms";
+  if (s.manarOnly) return "manar";
   return "priority";
 }
 
-export const FILTER_LABELS: Record<"priority" | "alarms" | "none", string> = {
+/** الحقول المنطقية المقابلة لكل نمط — مصدر واحد للواجهة. */
+export function filterPatch(
+  mode: SakinahFilter,
+): Pick<SakinahSettings, "manarOnly" | "allowPriority" | "alarmsOnly" | "totalSilence"> {
+  return {
+    manarOnly: mode === "manar",
+    allowPriority: mode === "priority",
+    alarmsOnly: mode === "alarms",
+    totalSilence: mode === "none",
+  };
+}
+
+export const FILTER_LABELS: Record<SakinahFilter, string> = {
+  manar: "أصوات منار فقط",
   priority: "السماح بالمكالمات المهمة والمنبّهات",
   alarms: "المنبّهات فقط",
   none: "صمت كامل",
 };
+
+/** هل يمرّ صوت أذان منار في هذا النمط؟ الصمت الكامل يكتم كل شيء بلا استثناء. */
+export function adhanAudible(s: SakinahSettings): boolean {
+  return filterMode(s) !== "none" && !s.muteAdhanDuringSakinah;
+}
 
 /* ----------------------------- الحساب ----------------------------- */
 
@@ -190,10 +272,11 @@ export function computeSakinahWindows(
       if (!at) return;
 
       const jumuah = isFriday && prayer === "dhuhr" && s.jumuahSeparate;
-      const before = jumuah ? s.jumuahBeforeMinutes : cfg.beforeMinutes;
-      const after = jumuah ? s.jumuahAfterMinutes : cfg.afterMinutes;
+      const offset = jumuah ? s.jumuahStartOffset : cfg.startOffset;
+      const after = effectiveEnd(offset, jumuah ? s.jumuahAfterMinutes : cfg.afterMinutes);
 
-      const start = at - before * 60_000;
+      /* البداية قد تكون قبل الأذان أو معه أو بعده بدقائق يختارها المستخدم. */
+      const start = at + offset * 60_000;
       const end = at + after * 60_000;
       if (end <= now) return;
 
@@ -249,13 +332,20 @@ export function minutesWord(n: number): string {
   return "دقيقة";
 }
 
+/** وصف البداية وحدها: «مع الأذان» أو «قبل الأذان ٥ دقائق» أو «بعد الأذان ١٠ دقائق». */
+export function describeStart(offset: number, digits: (v: string | number) => string): string {
+  if (offset === 0) return "مع الأذان";
+  const m = Math.abs(offset);
+  return `${offset < 0 ? "قبل" : "بعد"} الأذان ${digits(m)} ${minutesWord(m)}`;
+}
+
 /** وصف التوقيت بالعربية كما يُقرأ في البطاقة. */
-export function describeTiming(cfg: SakinahPrayerConfig, digits: (v: string | number) => string) {
-  const before =
-    cfg.beforeMinutes === 0
-      ? "يبدأ مع الأذان"
-      : `يبدأ قبل الأذان ${digits(cfg.beforeMinutes)} ${minutesWord(cfg.beforeMinutes)}`;
-  return `${before}، وينتهي بعده ${digits(cfg.afterMinutes)} ${minutesWord(cfg.afterMinutes)}`;
+export function describeTiming(
+  cfg: Pick<SakinahPrayerConfig, "startOffset" | "afterMinutes">,
+  digits: (v: string | number) => string,
+) {
+  const end = effectiveEnd(cfg.startOffset, cfg.afterMinutes);
+  return `يبدأ ${describeStart(cfg.startOffset, digits)}، وينتهي بعد الأذان ${digits(end)} ${minutesWord(end)}`;
 }
 
 /* ---------------------------- التخزين ---------------------------- */
@@ -265,19 +355,41 @@ const LS_KEY = "manar.sakinah.v1";
 export const SAKINAH_EVENT = "manar:sakinah";
 const EVT = SAKINAH_EVENT;
 
-function normalize(raw: unknown): SakinahSettings {
+export function normalize(raw: unknown): SakinahSettings {
   if (!raw || typeof raw !== "object") return DEFAULT_SAKINAH;
   const p = raw as Partial<SakinahSettings>;
   const prayers = { ...DEFAULT_SAKINAH.prayers };
   for (const key of SAKINAH_PRAYERS) {
     const v = p.prayers?.[key];
     if (!v) continue;
-    prayers[key] = {
-      enabled: typeof v.enabled === "boolean" ? v.enabled : prayers[key].enabled,
-      beforeMinutes: clampMinutes(v.beforeMinutes, prayers[key].beforeMinutes, 0, 60),
-      afterMinutes: clampMinutes(v.afterMinutes, prayers[key].afterMinutes, 1, 180),
-    };
+    const def = prayers[key];
+    prayers[key] = withTiming(
+      { ...def, enabled: typeof v.enabled === "boolean" ? v.enabled : def.enabled },
+      {
+        startOffset: legacyOffset(v.startOffset, v.beforeMinutes, def.startOffset),
+        afterMinutes: clampMinutes(v.afterMinutes, def.afterMinutes, 1, END_LIMIT),
+      },
+    );
   }
+  const jumuahStartOffset = clampMinutes(
+    legacyOffset(p.jumuahStartOffset, p.jumuahBeforeMinutes, DEFAULT_SAKINAH.jumuahStartOffset),
+    DEFAULT_SAKINAH.jumuahStartOffset,
+    -START_OFFSET_LIMIT,
+    START_OFFSET_LIMIT,
+  );
+  const jumuahAfter = effectiveEnd(
+    jumuahStartOffset,
+    clampMinutes(p.jumuahAfterMinutes, DEFAULT_SAKINAH.jumuahAfterMinutes, 1, END_LIMIT),
+  );
+  const totalSilence = p.totalSilence === true;
+  const alarmsOnly = !totalSilence && p.alarmsOnly === true;
+  /* الإعداد المحفوظ قبل «أصوات منار فقط»: من لم يختر نمطًا صريحًا (المنبّهات
+   * أو الصمت الكامل) ينتقل إلى الخيار الموصى به، لأن «المكالمات المهمة» القديم
+   * كان يكتم تنبيهات منار نفسها. */
+  const manarOnly =
+    typeof p.manarOnly === "boolean"
+      ? p.manarOnly && !totalSilence && !alarmsOnly
+      : !totalSilence && !alarmsOnly;
   return {
     ...DEFAULT_SAKINAH,
     ...p,
@@ -286,20 +398,22 @@ function normalize(raw: unknown): SakinahSettings {
       Array.isArray(p.weekdays) && p.weekdays.length
         ? p.weekdays.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
         : DEFAULT_SAKINAH.weekdays,
-    jumuahBeforeMinutes: clampMinutes(
-      p.jumuahBeforeMinutes,
-      DEFAULT_SAKINAH.jumuahBeforeMinutes,
-      0,
-      60,
-    ),
-    jumuahAfterMinutes: clampMinutes(
-      p.jumuahAfterMinutes,
-      DEFAULT_SAKINAH.jumuahAfterMinutes,
-      1,
-      180,
-    ),
+    jumuahStartOffset,
+    jumuahBeforeMinutes: Math.max(0, -jumuahStartOffset),
+    jumuahAfterMinutes: jumuahAfter,
+    manarOnly,
+    totalSilence,
+    alarmsOnly,
+    allowPriority: !manarOnly && !totalSilence && !alarmsOnly,
     skipDates: Array.isArray(p.skipDates) ? p.skipDates.filter((v) => typeof v === "string") : [],
   };
+}
+
+/** الإزاحة الموقّعة، أو المشتقّة من «قبل الأذان» في النسخ القديمة. */
+function legacyOffset(offset: unknown, before: unknown, fallback: number): number {
+  if (typeof offset === "number" && Number.isFinite(offset)) return offset;
+  if (typeof before === "number" && Number.isFinite(before)) return -Math.max(0, before);
+  return fallback;
 }
 
 function clampMinutes(v: unknown, fallback: number, min: number, max: number): number {
@@ -347,14 +461,14 @@ export function useSakinah() {
   }, []);
 
   const update = useCallback((patch: Partial<SakinahSettings>) => {
-    const next = { ...readSakinah(), ...patch };
+    const next = normalize({ ...readSakinah(), ...patch });
     writeSakinah(next);
     setState(next);
     return next;
   }, []);
 
   const updateDeep = useCallback((mut: (s: SakinahSettings) => SakinahSettings) => {
-    const next = mut(readSakinah());
+    const next = normalize(mut(readSakinah()));
     writeSakinah(next);
     setState(next);
     return next;
@@ -365,7 +479,10 @@ export function useSakinah() {
       updateDeep((s) => ({
         ...s,
         preset: "custom",
-        prayers: { ...s.prayers, [prayer]: { ...s.prayers[prayer], ...patch } },
+        prayers: {
+          ...s.prayers,
+          [prayer]: withTiming({ ...s.prayers[prayer], ...patch }, patch),
+        },
       })),
     [updateDeep],
   );
@@ -390,6 +507,8 @@ const LOG_LABELS: Record<string, string> = {
   prayer_time_updated: "تحدّثت مواقيت الصلاة وأُعيد الجدول",
   state_restored: "أُعيدت حالة الهاتف كما كانت",
   adhan_muted_by_sakinah: "كُتم الأذان لأن السكينة كانت فعّالة",
+  manar_only_applied: "فُعّل «أصوات منار فقط»: كُتم ما سوى أذان منار وتنبيهاتها",
+  manar_audio_allowed: "مرّ صوت منار أثناء الهدوء",
 };
 
 /** حالة الصلاة كما تُعرض في «سجل سكينة» — لا لغة تقنية. */

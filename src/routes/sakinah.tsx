@@ -23,9 +23,18 @@ import {
   currentWindow,
   dateKey,
   describeLogEvent,
+  describeStart,
   describeTiming,
+  effectiveEnd,
   filterMode,
+  filterPatch,
+  makeStartOffset,
   minutesWord,
+  MIN_QUIET_MINUTES,
+  startDirection,
+  START_OFFSET_LIMIT,
+  END_LIMIT,
+  type StartDirection,
   nextWindow,
   useSakinah,
   type SakinahLogLine,
@@ -381,54 +390,47 @@ function Sakinah() {
 
               {open && (
                 <div className="space-y-4 border-t border-border bg-secondary/20 px-4 py-4">
-                  <div>
-                    <Label>بداية الهدوء</Label>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {START_OPTIONS.map((m) => (
-                        <MiniChip
-                          key={m}
-                          label={
-                            m === 0 ? "مع الأذان" : `قبل ${toArabicDigits(m)} ${minutesWord(m)}`
-                          }
-                          active={cfg.beforeMinutes === m}
-                          onClick={() => setPrayer(p, { beforeMinutes: m })}
-                        />
-                      ))}
-                    </div>
-                    <div className="mt-2 flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2">
-                      <span className="text-[10px] text-muted-foreground">مخصص</span>
-                      <Stepper
-                        value={cfg.beforeMinutes}
-                        onChange={(v) =>
-                          setPrayer(p, { beforeMinutes: Math.min(60, Math.max(0, v)) })
-                        }
-                        label="دقائق قبل الأذان"
-                      />
-                    </div>
-                  </div>
+                  <StartPicker
+                    offset={cfg.startOffset}
+                    onChange={(startOffset) => setPrayer(p, { startOffset })}
+                    label={label}
+                  />
 
                   <div>
                     <Label>نهاية الهدوء</Label>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {END_OPTIONS.map((m) => (
-                        <MiniChip
-                          key={m}
-                          label={`بعد ${toArabicDigits(m)} ${minutesWord(m)}`}
-                          active={cfg.afterMinutes === m}
-                          onClick={() => setPrayer(p, { afterMinutes: m })}
-                        />
-                      ))}
+                      {END_OPTIONS.filter((m) => m >= cfg.startOffset + MIN_QUIET_MINUTES).map(
+                        (m) => (
+                          <MiniChip
+                            key={m}
+                            label={`بعد ${toArabicDigits(m)} ${minutesWord(m)}`}
+                            active={cfg.afterMinutes === m}
+                            onClick={() => setPrayer(p, { afterMinutes: m })}
+                          />
+                        ),
+                      )}
                     </div>
                     <div className="mt-2 flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2">
                       <span className="text-[10px] text-muted-foreground">مخصص</span>
                       <Stepper
                         value={cfg.afterMinutes}
                         onChange={(v) =>
-                          setPrayer(p, { afterMinutes: Math.min(180, Math.max(1, v)) })
+                          setPrayer(p, {
+                            afterMinutes: effectiveEnd(
+                              cfg.startOffset,
+                              Math.min(END_LIMIT, Math.max(1, v)),
+                            ),
+                          })
                         }
                         label="دقائق بعد الأذان"
                       />
                     </div>
+                    {cfg.startOffset > 0 && (
+                      <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                        النهاية تُحسب من وقت الأذان، وتبقى بعد البداية بـ
+                        {toArabicDigits(MIN_QUIET_MINUTES)} دقائق على الأقل.
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -452,7 +454,13 @@ function Sakinah() {
               <span className="block text-sm font-medium">إعداد خاص للجمعة</span>
               <span className="block text-[10px] text-muted-foreground">
                 {settings.jumuahSeparate
-                  ? `قبل ${toArabicDigits(settings.jumuahBeforeMinutes)}، وبعد ${toArabicDigits(settings.jumuahAfterMinutes)} دقيقة`
+                  ? describeTiming(
+                      {
+                        startOffset: settings.jumuahStartOffset,
+                        afterMinutes: settings.jumuahAfterMinutes,
+                      },
+                      toArabicDigits,
+                    )
                   : "تُستخدم إعدادات الظهر نفسها"}
               </span>
             </span>
@@ -461,19 +469,23 @@ function Sakinah() {
 
           {settings.jumuahSeparate && (
             <div className="mt-3 space-y-2 border-t border-border pt-3">
-              <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/20 px-3 py-2">
-                <span className="text-[10px] text-muted-foreground">قبل الأذان</span>
-                <Stepper
-                  value={settings.jumuahBeforeMinutes}
-                  onChange={(v) => update({ jumuahBeforeMinutes: Math.min(60, Math.max(0, v)) })}
-                  label="دقائق قبل أذان الجمعة"
-                />
-              </div>
+              <StartPicker
+                offset={settings.jumuahStartOffset}
+                onChange={(jumuahStartOffset) => update({ jumuahStartOffset })}
+                label="الجمعة"
+              />
               <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/20 px-3 py-2">
                 <span className="text-[10px] text-muted-foreground">بعد الأذان</span>
                 <Stepper
                   value={settings.jumuahAfterMinutes}
-                  onChange={(v) => update({ jumuahAfterMinutes: Math.min(180, Math.max(1, v)) })}
+                  onChange={(v) =>
+                    update({
+                      jumuahAfterMinutes: effectiveEnd(
+                        settings.jumuahStartOffset,
+                        Math.min(END_LIMIT, Math.max(1, v)),
+                      ),
+                    })
+                  }
                   label="دقائق بعد أذان الجمعة"
                 />
               </div>
@@ -512,33 +524,33 @@ function Sakinah() {
           <Label>المكالمات والإشعارات</Label>
           <div className="mt-2 space-y-1.5">
             <Radio
+              label="أصوات منار فقط (موصى به)"
+              hint="يمرّ أذان منار وإقامتها وتنبيهاتها وحدها، وتُكتم المكالمات والرسائل وإشعارات التطبيقات الأخرى والوسائط"
+              active={filter === "manar"}
+              onClick={() => update(filterPatch("manar"))}
+            />
+            <Radio
               label="السماح بالمكالمات المهمة والمنبّهات"
-              hint="نمط «الأولوية» في النظام — حسب استثناءاتك فيه"
+              hint="نمط «الأولوية» في النظام حسب استثناءاتك فيه، مع أصوات منار"
               active={filter === "priority"}
-              onClick={() =>
-                update({ totalSilence: false, alarmsOnly: false, allowPriority: true })
-              }
+              onClick={() => update(filterPatch("priority"))}
             />
             <Radio
               label="المنبّهات فقط"
-              hint="كل الإشعارات تصمت إلا منبّهات الساعة"
+              hint="يصمت كل شيء إلا المنبّهات، ومنها أذان منار وإقامتها"
               active={filter === "alarms"}
-              onClick={() =>
-                update({ totalSilence: false, alarmsOnly: true, allowPriority: false })
-              }
+              onClick={() => update(filterPatch("alarms"))}
             />
             <Radio
               label="صمت كامل"
-              hint="لا شيء يصدر صوتاً — حتى المنبّهات"
+              hint="لا شيء يصدر صوتًا، ولا أذان منار نفسه"
               active={filter === "none"}
-              onClick={() =>
-                update({ totalSilence: true, alarmsOnly: false, allowPriority: false })
-              }
+              onClick={() => update(filterPatch("none"))}
             />
           </div>
           <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
-            الاهتزاز والوسائط يحكمهما نظام الهاتف في وضع عدم الإزعاج، ومنار يستخدم الوضع الرسمي نفسه
-            ولا يعبث بمستوى صوت جهازك.
+            منار يستخدم وضع «عدم الإزعاج» الرسمي في الهاتف ولا يعبث بمستوى صوت جهازك، ويُعيد الهاتف
+            كما كان عند انتهاء الفترة. يحتاج «أصوات منار فقط» إذن التحكم في عدم الإزعاج.
           </p>
         </div>
 
@@ -547,14 +559,24 @@ function Sakinah() {
           <div className="mt-2 space-y-1.5">
             <Radio
               label="السماح بالأذان"
-              hint="أذان منار يُسمع رغم الهدوء"
-              active={!settings.muteAdhanDuringSakinah}
-              onClick={() => update({ muteAdhanDuringSakinah: false })}
+              hint={
+                filter === "none"
+                  ? "غير متاح مع «صمت كامل» — اختر «أصوات منار فقط» ليُسمع الأذان"
+                  : "أذان منار وإقامتها يُسمعان رغم الهدوء"
+              }
+              active={!settings.muteAdhanDuringSakinah && filter !== "none"}
+              onClick={() =>
+                update(
+                  filter === "none"
+                    ? { ...filterPatch("manar"), muteAdhanDuringSakinah: false }
+                    : { muteAdhanDuringSakinah: false },
+                )
+              }
             />
             <Radio
               label="كتم الأذان أيضاً"
               hint="يبقى إشعار الصلاة، بلا صوت"
-              active={settings.muteAdhanDuringSakinah}
+              active={settings.muteAdhanDuringSakinah || filter === "none"}
               onClick={() => update({ muteAdhanDuringSakinah: true })}
             />
           </div>
@@ -678,6 +700,86 @@ function Switch({ on }: { on: boolean }) {
         }`}
       />
     </span>
+  );
+}
+
+const START_DIRS: { dir: StartDirection; label: string }[] = [
+  { dir: "before", label: "قبل الأذان" },
+  { dir: "with", label: "مع الأذان" },
+  { dir: "after", label: "بعد الأذان" },
+];
+
+/**
+ * بداية الهدوء: قبل الأذان أو معه أو بعده بدقائق يختارها المستخدم (١..٦٠).
+ * الإزاحة موقّعة — سالبة قبل الأذان وموجبة بعده.
+ */
+function StartPicker({
+  offset,
+  onChange,
+  label,
+}: {
+  offset: number;
+  onChange: (offset: number) => void;
+  label: string;
+}) {
+  const dir = startDirection(offset);
+  const minutes = Math.abs(offset);
+  /* آخر عدد دقائق اختير — يبقى عند التبديل بين «قبل» و«بعد». */
+  const [lastMinutes, setLastMinutes] = useState(minutes || 5);
+  useEffect(() => {
+    if (minutes) setLastMinutes(minutes);
+  }, [minutes]);
+  const set = (d: StartDirection, m: number) => onChange(makeStartOffset(d, m));
+  return (
+    <div>
+      <Label>بداية الهدوء</Label>
+      <div
+        role="radiogroup"
+        aria-label={`بداية الهدوء في ${label}`}
+        className="mt-2 grid grid-cols-3 gap-1 rounded-xl border border-border bg-card p-1"
+      >
+        {START_DIRS.map((o) => (
+          <button
+            key={o.dir}
+            role="radio"
+            aria-checked={dir === o.dir}
+            onClick={() => set(o.dir, lastMinutes)}
+            className={`rounded-lg py-1.5 text-[11px] font-medium transition ${
+              dir === o.dir ? "gradient-primary text-primary-foreground" : "text-muted-foreground"
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {dir !== "with" && (
+        <>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {START_OPTIONS.map((m) => (
+              <MiniChip
+                key={m}
+                label={`${toArabicDigits(m)} ${minutesWord(m)}`}
+                active={minutes === m}
+                onClick={() => set(dir, m)}
+              />
+            ))}
+          </div>
+          <div className="mt-2 flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2">
+            <span className="text-[10px] text-muted-foreground">
+              مخصص — {dir === "before" ? "دقائق قبل الأذان" : "دقائق بعد الأذان"}
+            </span>
+            <Stepper
+              value={minutes}
+              onChange={(v) => set(dir, Math.min(START_OFFSET_LIMIT, Math.max(1, v)))}
+              label={dir === "before" ? "دقائق قبل الأذان" : "دقائق بعد الأذان"}
+            />
+          </div>
+        </>
+      )}
+      <p className="mt-1.5 text-[10px] text-muted-foreground">
+        يبدأ الهدوء {describeStart(offset, toArabicDigits)}.
+      </p>
+    </div>
   );
 }
 

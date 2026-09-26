@@ -51,6 +51,8 @@ public final class ManarChannels {
         iqama.setDescription("تنبيه موعد إقامة الصلاة");
         iqama.setSound(null, null);
         iqama.enableVibration(true);
+        // كالأذان: الإقامة تُسمع أثناء «سكينة» وعدم الإزعاج (صوتها من AdhanService).
+        iqama.setBypassDnd(true);
         nm.createNotificationChannel(iqama);
 
         NotificationChannel reminders =

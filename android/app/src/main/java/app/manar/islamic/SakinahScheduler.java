@@ -44,6 +44,26 @@ public final class SakinahScheduler {
         }
         SakinahStore.saveWindows(context, kept);
 
+        // الفترة الجارية بعد تعديل الإعداد: إن حُذفت أو صارت بدايتها لاحقة
+        // (كأن اختار المستخدم «بعد الأذان») أو تُخطّيت — يُرفع الهدوء الآن، وإلا
+        // بقي الهاتف صامتاً بلا منبّه نهاية (أُلغي مع الجدول القديم). وإن تغيّر
+        // نمط الصوت أثناءها يُطبَّق الجديد فوراً.
+        int active = SakinahStore.activeWindow(context);
+        if (active >= 0) {
+            SakinahStore.Window current = null;
+            for (SakinahStore.Window w : kept) {
+                if (w.id == active) current = w;
+            }
+            if (current == null || SakinahStore.isSkipped(context, active)
+                    || current.startMillis > now || current.endMillis <= now) {
+                SakinahManager.end(context, "rescheduled");
+            } else if (!current.filter.equals(SakinahStore.appliedMode(context))) {
+                SakinahManager.start(context, current);
+            } else {
+                SakinahManager.refreshIfActive(context);
+            }
+        }
+
         if (am == null) return 0;
 
         int armed = 0;
