@@ -42,7 +42,6 @@ function WirdSessionPage() {
     useWirdSessionProgress(key, items);
   const [index, setIndex] = useState(0);
   const [confirmReset, setConfirmReset] = useState(false);
-  const [pulse, setPulse] = useState(0);
   const { prefs, update: updatePrefs } = useAzkarPrefs();
   const [showDisplay, setShowDisplay] = useState(false);
   const startX = useRef<number | null>(null);
@@ -99,7 +98,6 @@ function WirdSessionPage() {
     haptic(prefs, hapticFor(count, item.repeat));
     announce(counterAnnouncement(count, item.repeat));
     increment(item.order, item.repeat);
-    setPulse((p) => p + 1);
     /* الإكمال يُحسب في وحدة التقدّم من اكتمال كل الأذكار، لا من آخرها. */
     if (count + 1 >= item.repeat && index + 1 < items.length) {
       const doneOrder = item.order;
@@ -229,7 +227,7 @@ function WirdSessionPage() {
               {showDisplay && <AzkarDisplayPanel prefs={prefs} update={updatePrefs} />}
               <div
                 onClick={onTextTap}
-                className={`relative mt-4 max-h-[38vh] overflow-y-auto text-right text-foreground ${
+                className={`counter-tap relative mt-4 max-h-[38vh] overflow-y-auto text-right text-foreground ${
                   item.quran ? "font-quran leading-[2.4]" : "font-display leading-[2.15]"
                 } ${prefs.tapAnywhere ? "cursor-pointer select-none" : ""}`}
                 style={{
@@ -255,7 +253,7 @@ function WirdSessionPage() {
               {liveRegion}
               <button
                 onClick={onTap}
-                className="relative flex h-40 w-40 items-center justify-center rounded-full border border-white/20 bg-gradient-to-br from-primary/25 via-card/70 to-gold/20 shadow-elegant backdrop-blur-2xl transition active:scale-95"
+                className="counter-tap relative flex h-40 w-40 items-center justify-center rounded-full border border-white/20 bg-card bg-gradient-to-br from-primary/25 via-card/70 to-gold/20 shadow-elegant transition-transform duration-100 active:scale-95"
                 aria-label={`زيادة العدّاد، ${toArabicDigits(count)} من ${toArabicDigits(item.repeat)}`}
               >
                 <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
@@ -286,7 +284,7 @@ function WirdSessionPage() {
                     </linearGradient>
                   </defs>
                 </svg>
-                <span key={pulse} className="relative flex flex-col items-center animate-fade-up">
+                <span key={count} className="animate-count-pop relative flex flex-col items-center">
                   <span className="font-display text-4xl font-medium tabular-nums">
                     {toArabicDigits(count)}
                   </span>

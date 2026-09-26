@@ -14,7 +14,8 @@ import {
 describe("تفضيلات عرض الأذكار", () => {
   it("الافتراضي يطابق الحجم السابق الثابت (٢٢) مع تفعيل الاهتزاز والعدّ بالنص", () => {
     expect(textSizePx(DEFAULT_AZKAR_PREFS)).toBe(22);
-    expect(DEFAULT_AZKAR_PREFS.haptics).toBe(true);
+    expect(DEFAULT_AZKAR_PREFS.hapticTap).toBe(true);
+    expect(DEFAULT_AZKAR_PREFS.hapticDone).toBe(true);
     expect(DEFAULT_AZKAR_PREFS.tapAnywhere).toBe(true);
   });
 
@@ -27,11 +28,25 @@ describe("تفضيلات عرض الأذكار", () => {
 
   it("القيم التالفة ترجع للافتراضي", () => {
     expect(normalizeAzkarPrefs(null)).toEqual(DEFAULT_AZKAR_PREFS);
-    expect(normalizeAzkarPrefs({ haptics: "yes", tapAnywhere: 0, textSize: 4 })).toEqual({
+    expect(normalizeAzkarPrefs({ hapticTap: "yes", tapAnywhere: 0, textSize: 4 })).toEqual({
       ...DEFAULT_AZKAR_PREFS,
       textSize: 4,
     });
-    expect(normalizeAzkarPrefs({ haptics: false }).haptics).toBe(false);
+    expect(normalizeAzkarPrefs({ hapticDone: false })).toMatchObject({
+      hapticTap: true,
+      hapticDone: false,
+    });
+  });
+
+  it("الإعداد القديم (مفتاح واحد) يُنقل للنوعين، والجديد يغلبه", () => {
+    expect(normalizeAzkarPrefs({ haptics: false })).toMatchObject({
+      hapticTap: false,
+      hapticDone: false,
+    });
+    expect(normalizeAzkarPrefs({ haptics: false, hapticDone: true })).toMatchObject({
+      hapticTap: false,
+      hapticDone: true,
+    });
   });
 });
 

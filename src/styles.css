@@ -358,6 +358,30 @@
 .animate-fade-up {
   animation: manar-fade-up 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
+/* نبضة رقم العدّاد: تحويل فقط (بلا شفافية) فيبقى الرقم ظاهرًا فورًا مهما
+ * تسارع النقر، ويعمل على طبقة المركّب دون إعادة رسم. */
+@keyframes manar-count-pop {
+  0% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.animate-count-pop {
+  animation: manar-count-pop 150ms ease-out;
+}
+/* أزرار العدّ: بلا تأخير لمسة مزدوجة ولا وميض لمس، وعلى طبقة مستقلة. */
+.counter-tap {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-count-pop {
+    animation: none;
+  }
+}
 .animate-shimmer {
   background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.18), transparent);
   background-size: 200% 100%;

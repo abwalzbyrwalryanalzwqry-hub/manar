@@ -66,6 +66,9 @@ function AzkarSessionRoute() {
   return <AzkarSession key={`${chapter}|${zikr ?? ""}|${time ?? ""}`} />;
 }
 
+/** مهلة قصيرة بعد إتمام الذكر ليُرى الإتمام قبل الانتقال (الضغطات أثناءها تُهمل). */
+const ADVANCE_DELAY_MS = 450;
+
 function AzkarSession() {
   const { chapter: chapterParam } = Route.useParams();
   const { zikr: zikrParam, time: timeParam } = Route.useSearch();
@@ -92,7 +95,6 @@ function AzkarSession() {
   const [index, setIndex] = useState(0);
   const [initialized, setInitialized] = useState(false);
   const [finished, setFinished] = useState(false);
-  const [pulse, setPulse] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const { prefs, update: updatePrefs } = useAzkarPrefs();
   const [showDisplay, setShowDisplay] = useState(false);
@@ -101,7 +103,6 @@ function AzkarSession() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const advancing = useRef(false);
   const savedTimer = useRef<number | null>(null);
-  const pulseTimer = useRef<number | null>(null);
   const advanceTimer = useRef<number | null>(null);
   /** الذكر المعروض الآن — يقرؤه مؤقت الانتقال التلقائي بدل فهرس قديم. */
   const shownId = useRef<number | null>(null);
@@ -206,7 +207,6 @@ function AzkarSession() {
   useEffect(
     () => () => {
       if (savedTimer.current) window.clearTimeout(savedTimer.current);
-      if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
       if (advanceTimer.current) window.clearTimeout(advanceTimer.current);
     },
     [],
@@ -214,7 +214,13 @@ function AzkarSession() {
 
   const { announce, node: liveRegion } = useAnnouncer();
   const onTap = useCallback(() => {
-    if (!current || advancing.current) return;
+    if (!current) return;
+    /* نقرة أثناء مهلة الانتقال: انتقل الآن بدل الانتظار (ولا تُعدّ على المكتمل). */
+    if (advancing.current) {
+      cancelAdvance();
+      advanceFrom(index);
+      return;
+    }
     /* ذكر مكتمل: الضغط ينقل إلى ما بعده دون إعادة إعلان الإتمام أو الحفظ. */
     if (count >= current.repeat) {
       cancelAdvance();
@@ -226,9 +232,6 @@ function AzkarSession() {
     announce(counterAnnouncement(count, current.repeat, current.segments));
     tap(progressKey(current.id, activeTime), current.repeat);
     flashSaved();
-    setPulse(true);
-    if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
-    pulseTimer.current = window.setTimeout(() => setPulse(false), 260);
     if (next >= current.repeat) {
       advancing.current = true;
       const doneId = current.id;
@@ -240,7 +243,7 @@ function AzkarSession() {
         if (shownId.current !== doneId) return;
         const at = azkar.findIndex((z) => z.id === doneId);
         if (at >= 0) advanceRef.current(at);
-      }, 900);
+      }, ADVANCE_DELAY_MS);
     }
   }, [
     current,
@@ -565,7 +568,7 @@ function AzkarSession() {
             <div
               ref={scrollRef}
               onClick={onTextTap}
-              className={`relative mt-4 max-h-[46vh] overflow-y-auto pl-1 overscroll-contain ${
+              className={`counter-tap relative mt-4 max-h-[46vh] overflow-y-auto pl-1 overscroll-contain ${
                 prefs.tapAnywhere ? "cursor-pointer select-none" : ""
               }`}
             >
@@ -663,11 +666,9 @@ function AzkarSession() {
               <button
                 onClick={onTap}
                 aria-label={`زيادة العدّاد، ${toArabicDigits(count)} من ${toArabicDigits(current.repeat)}`}
-                className={`mt-2 flex h-24 w-24 flex-col items-center justify-center rounded-full gradient-primary text-primary-foreground shadow-glow transition active:scale-95 ${
-                  pulse ? "scale-105" : ""
-                }`}
+                className="counter-tap mt-2 flex h-24 w-24 flex-col items-center justify-center rounded-full gradient-primary text-primary-foreground shadow-glow transition-transform duration-100 active:scale-95"
               >
-                <span className="font-display text-2xl tabular-nums">
+                <span key={count} className="animate-count-pop font-display text-2xl tabular-nums">
                   {toArabicDigits(seg ? seg.count : count)}
                 </span>
                 <span className="text-[11px] tabular-nums opacity-80">
