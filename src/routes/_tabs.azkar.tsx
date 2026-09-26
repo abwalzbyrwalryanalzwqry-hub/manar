@@ -21,6 +21,7 @@ import {
   Skeleton,
 } from "@/components/manar/shell";
 import { toArabicDigits } from "@/lib/format";
+import { zikrNo } from "@/lib/azkar/variant";
 
 export const Route = createFileRoute("/_tabs/azkar")({
   head: () => ({
@@ -285,11 +286,14 @@ function AzkarHub() {
           >
             <Arabesque className="pointer-events-none absolute -bottom-10 -left-10 h-36 w-36 text-primary/10" />
             <p className="relative line-clamp-6 font-display text-lg leading-loose">
+              {daily.zikr.opening ? `${daily.zikr.opening} ` : ""}
               {daily.zikr.text}
             </p>
             <div className="relative mt-4 flex items-center justify-between gap-3 text-[10px] text-muted-foreground">
               <span className="min-w-0 truncate">
-                حصن المسلم · {daily.chapter.title} · الذكر {toArabicDigits(daily.zikr.id)}
+                حصن المسلم · {daily.chapter.title} ·{" "}
+                {daily.zikr.title ? `${daily.zikr.title} · ` : ""}الذكر{" "}
+                {toArabicDigits(zikrNo(daily.zikr))}
               </span>
               <span className="shrink-0 text-primary">افتح الذكر</span>
             </div>

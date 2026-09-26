@@ -5,6 +5,7 @@ import { useAzkarBook } from "@/hooks/use-azkar";
 import { azkarRepository } from "@/lib/azkar/repository";
 import { Icon, icons, Screen, ScreenHeader, EmptyState, Skeleton } from "@/components/manar/shell";
 import { toArabicDigits } from "@/lib/format";
+import { zikrNo } from "@/lib/azkar/variant";
 
 export const Route = createFileRoute("/azkar/search")({
   head: () => ({
@@ -128,8 +129,9 @@ function AzkarSearch() {
               <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                 <span>{hit.chapter.title}</span>
                 <span className="tabular-nums">
-                  {hit.time ? `${hit.time === "morning" ? "صباحًا" : "مساءً"} · ` : ""}ذكر{" "}
-                  {toArabicDigits(hit.zikr.id)}
+                  {hit.time ? `${hit.time === "morning" ? "صباحًا" : "مساءً"} · ` : ""}
+                  {hit.zikr.title ? `${hit.zikr.title} · ` : ""}ذكر{" "}
+                  {toArabicDigits(zikrNo(hit.zikr))}
                 </span>
               </div>
               <p className="mt-2 font-display text-[15px] leading-loose">{hit.excerpt}</p>

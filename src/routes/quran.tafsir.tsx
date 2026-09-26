@@ -17,6 +17,7 @@ import { shareCardText } from "@/lib/quran/share-card";
 /** أحجام خط التفسير (بكسل)، ويُحفظ الاختيار على الجهاز. */
 const FONT_SIZES = [13.5, 15, 16.5, 18.5, 21];
 const FONT_KEY = "manar.quran.tafsir.font.v1";
+const FONT_EVENT = "manar:tafsir-font";
 
 function readFontIndex(): number {
   if (typeof window === "undefined") return 0;
@@ -99,7 +100,17 @@ function TafsirScreen() {
   };
 
   const [fontIndex, setFontIndex] = useState(0);
-  useEffect(() => setFontIndex(readFontIndex()), []);
+  useEffect(() => {
+    const sync = () => setFontIndex(readFontIndex());
+    sync();
+    // يُعاد القراءة بعد الاستعادة من السحابة أو التعديل في تبويب آخر.
+    window.addEventListener(FONT_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(FONT_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
   const setFont = (i: number) => {
     const next = Math.min(FONT_SIZES.length - 1, Math.max(0, i));
     setFontIndex(next);
@@ -108,6 +119,7 @@ function TafsirScreen() {
     } catch {
       /* ignore */
     }
+    window.dispatchEvent(new Event(FONT_EVENT));
   };
   const fontPx = FONT_SIZES[fontIndex];
 

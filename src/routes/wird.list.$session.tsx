@@ -132,6 +132,7 @@ function WirdListPage() {
                 }`}
                 style={{ fontSize: textSizePx(prefs) * 0.85 }}
               >
+                {it.opening && <span className="block text-center text-primary">{it.opening}</span>}
                 {it.text}
               </p>
 

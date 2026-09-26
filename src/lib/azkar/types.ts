@@ -20,8 +20,15 @@ export interface QuranPassage {
 }
 
 export interface Zikr {
-  /** Global sequential number as printed in the book (١..٢٦٧). */
+  /** Global sequential number as printed in the book (١..٢٦٧). الأذكار المفصولة
+   * من ذكر واحد (كل سورة من المعوذات) تأخذ رقمًا مشتقًا مثل ٧٦٠٢، ورقمها المطبوع في `no`. */
   id: number;
+  /** رقم الذكر المطبوع في الكتاب حين يختلف عن `id` (الأذكار المفصولة). */
+  no?: number;
+  /** عنوان الذكر المفصول، مثل «سورة الفلق». */
+  title?: string;
+  /** ما يُتلى قبل النص في سطر مستقل: البسملة قبل السورة، أو الاستعاذة قبل آية الكرسي. */
+  opening?: string;
   /** Verbatim Arabic text (vocalized where available in the source). */
   text: string;
   /** Recommended repetition count (1 when unspecified). Equals the sum of segments when present. */
