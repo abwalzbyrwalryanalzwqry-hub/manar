@@ -39,7 +39,36 @@ const count = (s: string, ch: string) => s.split(ch).length - 1;
 describe("بنية حصن المسلم", () => {
   it("١٣٢ بابًا و٢٦٧ ذكرًا بأرقام متسلسلة بلا تكرار", () => {
     expect(book.chapters.map((c) => c.id)).toEqual(Array.from({ length: 132 }, (_, i) => i + 1));
-    expect(all.map((z) => z.id)).toEqual(Array.from({ length: 267 }, (_, i) => i + 1));
+    const printed = all.filter((z) => z.no == null || z.no === z.id);
+    expect(printed.map((z) => z.id)).toEqual(Array.from({ length: 267 }, (_, i) => i + 1));
+    expect(new Set(all.map((z) => z.id)).size).toBe(all.length);
+  });
+
+  it("المعوذات مفصولة: كل سورة ذكر مستقل بعدّاد وبسملة في سطر مستقل", () => {
+    for (const no of [70, 76, 99]) {
+      const parts = all.filter((z) => (z.no ?? z.id) === no);
+      expect(
+        parts.map((z) => z.id),
+        `#${no}`,
+      ).toEqual([no, no * 100 + 2, no * 100 + 3]);
+      expect(parts.map((z) => z.title)).toEqual(["سورة الإخلاص", "سورة الفلق", "سورة الناس"]);
+      for (const z of parts) {
+        expect(z.opening, `#${z.id}`).toBe("بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ");
+        expect(normalizeArabic(z.text).startsWith("قل"), `#${z.id}`).toBe(true);
+        expect(z.quran).toHaveLength(1);
+      }
+    }
+    expect(byId.get(7602)?.repeat).toBe(3);
+    expect(byId.get(99)?.lead).toBeTruthy();
+    expect(byId.get(9903)?.note).toContain("يَمْسَحُ");
+  });
+
+  it("الاستعاذة قبل آية الكرسي (الصباح والمساء) مفصولة عن نص الآية", () => {
+    const z = byId.get(75)!;
+    expect(z.opening).toBe("أَعُوذُ بِاللَّهِ مِنَ الشَّيْطَانِ الرَّجِيمِ");
+    expect(normalizeArabic(z.text).startsWith(normalizeArabic("ٱللَّهُ لَآ إِلَٰهَ"))).toBe(true);
+    expect(z.text.includes("أَعُوذُ")).toBe(false);
+    expect(HISN_WIRD_TEXTS["75:m"].includes("أَعُوذُ")).toBe(false);
   });
 
   it("عدد التكرار موجب، ويساوي مجموع المقاطع في الأذكار المركّبة", () => {
@@ -110,7 +139,9 @@ describe("النصوص القرآنية مطابقة للمصحف", () => {
   const quranItems = all.filter((z) => z.quran);
 
   it("الأذكار القرآنية معلَّمة", () => {
-    expect(quranItems.map((z) => z.id)).toEqual([4, 70, 71, 75, 76, 99, 100, 101]);
+    expect(quranItems.map((z) => z.id)).toEqual([
+      4, 70, 7002, 7003, 71, 75, 76, 7602, 7603, 99, 9902, 9903, 100, 101,
+    ]);
   });
 
   it("كل آية في موضعها كاملة من المصحف العثماني", () => {

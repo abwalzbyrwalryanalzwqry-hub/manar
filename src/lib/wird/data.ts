@@ -5,7 +5,7 @@
 // المُولَّد آليًا، فلا يختلف نص الوِرد عن نص قسم الأذكار.
 // ============================================================
 
-import { HISN_WIRD_TEXTS } from "./hisn-texts";
+import { HISN_WIRD_OPENINGS, HISN_WIRD_TEXTS } from "./hisn-texts";
 
 export type WirdSessionKey = "morning" | "evening";
 
@@ -14,7 +14,9 @@ export interface WirdItem {
   order: number;
   /** اسم الذكر (يُعرض فوق النص) */
   name: string;
-  /** نص الذكر كاملًا — بدون رقم التكرار وبدون مصدر */
+  /** ما يُتلى قبل النص في سطر مستقل: البسملة قبل السورة، أو الاستعاذة قبل آية الكرسي. */
+  opening?: string;
+  /** نص الذكر كاملًا — بدون رقم التكرار وبدون مصدر، وبدون البسملة/الاستعاذة (انظر opening) */
   text: string;
   /** عدد التكرار المطلوب */
   repeat: number;
@@ -35,7 +37,8 @@ type Slot = "m" | "e";
 function hisn(id: number, slot: Slot, name: string, repeat: number): WirdItem {
   const text = HISN_WIRD_TEXTS[`${id}:${slot}`];
   if (!text) throw new Error(`wird: الذكر ${id}:${slot} غير موجود في الباب ٢٧`);
-  return { order: 0, name, text, repeat, hisn: id };
+  const opening = HISN_WIRD_OPENINGS[id];
+  return { order: 0, name, ...(opening ? { opening } : {}), text, repeat, hisn: id };
 }
 
 /** أذكار ليست في «حصن المسلم» — أُبقيت في الوِرد باعتماد صاحب التطبيق. */
@@ -60,7 +63,10 @@ function numbered(items: WirdItem[]): WirdItem[] {
 function common(slot: Slot): WirdItem[] {
   return [
     hisn(75, slot, "آية الكرسي", 1),
-    hisn(76, slot, "الإخلاص والمعوذتان", 3),
+    // المعوذات: كل سورة ذكر مستقل بعدّاده (٧٦٠٢ و٧٦٠٣ رقمان مشتقان من الذكر ٧٦).
+    hisn(76, slot, "سورة الإخلاص", 3),
+    hisn(7602, slot, "سورة الفلق", 3),
+    hisn(7603, slot, "سورة الناس", 3),
     hisn(77, slot, "دعاء الملك لله", 1),
     hisn(78, slot, slot === "m" ? "دعاء الصباح" : "دعاء المساء", 1),
     hisn(79, slot, "سيد الاستغفار", 1),
