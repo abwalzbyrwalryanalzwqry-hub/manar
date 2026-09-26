@@ -46,3 +46,7 @@ android/keystore.properties
 android/*.keystore
 android/*.jks
 .icon-preview/
+
+# ملفات بايثون المؤقتة
+__pycache__/
+*.pyc

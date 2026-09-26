@@ -74,4 +74,27 @@ if (existsSync(audioDir)) {
   );
 }
 
+/* أيقونات تثبيت الويب (PWA وiOS) وملف manifest لا تُقرأ داخل الويب فيو، وقشرة
+ * أندرويد لا تذكرها في <head> أصلاً (انظر `src/routes/__root.tsx`). أيقونة
+ * التطبيق الفعلية في `res/mipmap-*`. تبقى الملفات كما هي في بناء الويب. */
+const webOnly = [
+  "icon-512.png",
+  "icon-192.png",
+  "apple-touch-icon.png",
+  "favicon.png",
+  "manifest.webmanifest",
+];
+let webOnlyFreed = 0;
+for (const name of webOnly) {
+  const full = resolve(clientDir, name);
+  if (!existsSync(full)) continue;
+  webOnlyFreed += statSync(full).size;
+  rmSync(full, { force: true });
+}
+if (webOnlyFreed > 0) {
+  console.log(
+    `[manar] dropped web-install icons (${(webOnlyFreed / 1024).toFixed(0)} KB) — not used by the WebView`,
+  );
+}
+
 console.log("[manar] dist/client/index.html ready for `cap sync android`.");

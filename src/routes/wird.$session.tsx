@@ -236,6 +236,7 @@ function WirdSessionPage() {
                   fontSize: item.quran ? textSizePx(prefs) - 0.4 : textSizePx(prefs),
                 }}
               >
+                {item.opening && <p className="mb-1 text-center text-primary">{item.opening}</p>}
                 {item.text}
               </div>
               <div className="relative mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] text-muted-foreground">

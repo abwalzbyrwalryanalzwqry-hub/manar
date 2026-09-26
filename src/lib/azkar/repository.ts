@@ -27,14 +27,17 @@ function buildIndex(book: AzkarBook) {
     const title = normalizeArabic(chapter.title);
     for (const zikr of chapter.azkar) {
       // صيغة المساء تُفهرس مع الصباح ليجدها البحث بأيّ اللفظين.
-      const body = zikr.evening ? `${zikr.text} ${zikr.evening}` : zikr.text;
+      // العنوان (مثل «سورة الفلق») جزء من لفظ الذكر في البحث بكلا الوقتين.
+      const text = zikr.title ? `${zikr.title} ${zikr.text}` : zikr.text;
+      const evening = zikr.evening && zikr.title ? `${zikr.title} ${zikr.evening}` : zikr.evening;
+      const body = zikr.evening ? `${text} ${zikr.evening}` : text;
       index.push({
         chapter,
         zikr,
         hay: normalizeArabic(body),
         title,
-        morning: normalizeArabic(zikr.text),
-        evening: zikr.evening ? normalizeArabic(zikr.evening) : null,
+        morning: normalizeArabic(text),
+        evening: evening ? normalizeArabic(evening) : null,
       });
     }
   }

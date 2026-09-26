@@ -8,7 +8,7 @@
  * أخطاء Supabase لم تعد تُبتلع: تُرمى لتظهر للمستخدم وتُسجَّل في حالة المزامنة.
  */
 
-import { getCloud } from "@/integrations/supabase/optional-client";
+import { loadCloud } from "@/integrations/supabase/optional-client";
 import {
   decodePayload,
   encodePayload,
@@ -26,9 +26,16 @@ export const SYNC_MAP: Record<string, string[]> = {
     "manar.hijri.adjust.v1",
     "manar.widget.v1",
     "manar.azkar.prefs.v1",
+    "manar.quran.recitation.prefs.v1",
+    "manar.quran.tafsir.edition.v1",
+    "manar.quran.tafsir.font.v1",
   ],
   prayer_preferences: ["manar.settings.v1", "manar.location.v1"],
-  notification_preferences: ["manar.adhan-settings.v2"],
+  notification_preferences: [
+    "manar.adhan-settings.v2",
+    "manar.daily-reminders.v1",
+    "manar.sakinah.v1",
+  ],
   reading_progress: [
     "manar.quran.history.v1",
     "manar.quran.bookmarks.v1",
@@ -36,6 +43,8 @@ export const SYNC_MAP: Record<string, string[]> = {
     "manar.azkar.progress.v1",
     "manar.wird.progress.v1",
     "manar.khatmah.v1",
+    "manar.quran.reader.v1",
+    "manar.seasons.v1",
   ],
   achievement_progress: ["manar.activity.v1"],
 };
@@ -58,6 +67,13 @@ export const KEY_EVENTS: Record<string, string> = {
   "manar.activity.v1": "manar:activity",
   "manar.widget.v1": "manar:widget-settings",
   "manar.azkar.prefs.v1": "manar:azkar-prefs",
+  "manar.quran.recitation.prefs.v1": "manar:recitation-prefs",
+  "manar.quran.tafsir.edition.v1": "manar:tafsir-edition",
+  "manar.quran.tafsir.font.v1": "manar:tafsir-font",
+  "manar.daily-reminders.v1": "manar:daily-reminders",
+  "manar.sakinah.v1": "manar:sakinah",
+  "manar.quran.reader.v1": "manar:reader-state",
+  "manar.seasons.v1": "manar:seasons",
 };
 
 /* ------------------------------------------------------------------ */
@@ -228,8 +244,8 @@ export async function runSync(
 /*  الواجهة العامة للتطبيق                                              */
 /* ------------------------------------------------------------------ */
 
-function supabaseBackend(userId: string): SyncBackend | null {
-  const cloud = getCloud();
+async function supabaseBackend(userId: string): Promise<SyncBackend | null> {
+  const cloud = await loadCloud();
   if (!cloud) return null;
   return {
     async fetch(table) {
@@ -255,7 +271,7 @@ let chain: Promise<unknown> = Promise.resolve();
 /** مزامنة ثنائية الاتجاه. العمليات متسلسلة فلا تتسابق مزامنتان. */
 export function syncNow(userId: string, mode: SyncMode = "merge"): Promise<SyncResult | null> {
   const job = chain.then(async () => {
-    const backend = supabaseBackend(userId);
+    const backend = await supabaseBackend(userId);
     if (!backend || typeof window === "undefined") return null;
     const store = window.localStorage;
     try {
