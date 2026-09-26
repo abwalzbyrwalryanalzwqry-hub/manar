@@ -36,6 +36,8 @@ const sources = [
   /* مكتبة الإقامة — تسجيلات حقيقية (Ogg Opus وM4A)، منفصلة تماماً عن `library`. */
   "public/audio/iqamah",
   "public/audio/prayer-approach",
+  /* تنبيهات المواسم — حزمة مستقلة (src/lib/seasons/sounds.ts). */
+  "public/audio/seasons",
   /* نسخ نغمات التنبيه بدرجات صوت ثابتة لقنوات الإشعار (build-volume-levels.mjs). */
   "assets/audio-levels",
 ].map((d) => resolve(root, d));

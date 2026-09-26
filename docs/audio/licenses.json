@@ -1,5 +1,5 @@
 {
-  "policy": "Every recording bundled in Manar is cleared for use and publication inside the Manar app. Adhan and iqamah rights were verified and documented by the project owner (2026-09-24). The voice reminders (azkar / wird) and the prayer-approach announcements were recorded by the project owner personally; they are the owner's own work and property (2026-09-25).",
+  "policy": "Every recording bundled in Manar is cleared for use and publication inside the Manar app. Adhan and iqamah rights were verified and documented by the project owner (2026-09-24). The voice reminders (azkar / wird) and the prayer-approach announcements (2026-09-25), and the season notification voices (2026-09-26), were recorded by the project owner personally; they are the owner's own work and property.",
   "rights_status": "VERIFIED",
   "verified_on": "2026-09-25",
   "verified_adhan_files": [
@@ -54,11 +54,19 @@
     "approach-isha.mp3",
     "approach-maghrib.mp3"
   ],
+  "verified_season_files": [
+    "season-fast-eve.mp3",
+    "season-friday-day.mp3",
+    "season-friday-eve.mp3",
+    "season-general.mp3",
+    "season-new.mp3",
+    "season-white-days-eve.mp3"
+  ],
   "owner_recordings": {
     "recorded_by": "Project owner (developer of Manar)",
     "ownership": "Recorded personally by the project owner; the owner holds all rights.",
     "declared_on": "2026-09-25",
-    "covers": ["verified_reminder_files", "verified_prayer_approach_files"]
+    "covers": ["verified_reminder_files", "verified_prayer_approach_files", "verified_season_files"]
   },
   "exact_duplicates": [
     {

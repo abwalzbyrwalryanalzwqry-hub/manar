@@ -41,6 +41,17 @@ const sources = [
   resolve(root, "public/audio/library/segment-takbir.mp3"),
 ];
 
+/* حزمة المواسم: تسجيلات كلام أحادية، فتكفيها ترميزة VBR (‏LAME ‎-V5، نحو
+ * ٦٠–٩٠ ك.ب/ث) بجودة الكلام نفسها وحجمٍ أصغر من ٩٦ ك ثابتة. النغمات
+ * والمقاطع أعلاه تبقى على ترميزها كما هي حتى لا يتغيّر أيٌّ من ملفاتها. */
+const seasonsDir = resolve(root, "public/audio/seasons");
+const vbrSources = new Set(
+  readdirSync(seasonsDir)
+    .filter((f) => f.endsWith(".mp3"))
+    .map((f) => resolve(seasonsDir, f)),
+);
+sources.push(...vbrSources);
+
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 
@@ -63,8 +74,7 @@ for (const src of sources) {
       "-1",
       "-c:a",
       "libmp3lame",
-      "-b:a",
-      "96k",
+      ...(vbrSources.has(src) ? ["-q:a", "5"] : ["-b:a", "96k"]),
       dest,
     ]);
     n++;
