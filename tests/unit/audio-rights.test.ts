@@ -20,7 +20,6 @@ type Licenses = {
   verified_iqamah_files: string[];
   verified_reminder_files: string[];
   verified_prayer_approach_files: string[];
-  generated_tone_files: string[];
   owner_recordings: { covers: string[] };
 };
 const licenses = JSON.parse(
@@ -52,9 +51,9 @@ describe("حقوق الأصوات موثّقة لكل ملف مشحون", () => 
     for (const f of audioIn("iqamah")) expect(licenses.verified_iqamah_files).toContain(f);
   });
 
-  it("أصوات التذكير: كل ملف إمّا تسجيل موثّق أو نغمة مولَّدة", () => {
-    const known = new Set([...licenses.verified_reminder_files, ...licenses.generated_tone_files]);
-    for (const f of audioIn("reminders")) expect(known.has(f), f).toBe(true);
+  it("أصوات التذكير: كل ملف تسجيل موثّق، ولا نغمات مولَّدة", () => {
+    for (const f of audioIn("reminders")) expect(licenses.verified_reminder_files, f).toContain(f);
+    expect(licenses).not.toHaveProperty("generated_tone_files");
   });
 
   it("النداءات الصوتية في الواجهة كلها من تسجيلات صاحب المشروع", () => {

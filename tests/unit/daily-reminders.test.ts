@@ -186,11 +186,11 @@ describe("الأصوات", () => {
     const files = readdirSync(resolve(root, "public/audio/reminders"))
       .filter((f) => f.endsWith(".mp3"))
       .sort();
-    // ملفات النغمات المحذوفة من القسم باقية لأن الأذان والمواسم يستعملانها.
-    const kept = [...REMOVED_TONES].map((id) => `${id}.mp3`);
-    expect(files).toEqual([...urls.map((u) => u.split("/").pop()), ...kept].sort());
+    expect(files).toEqual(urls.map((u) => u.split("/").pop()).sort());
+    // ملفات النغمات المحذوفة لم تعد في الحزمة.
+    for (const id of REMOVED_TONES) expect(files).not.toContain(`${id}.mp3`);
     const raws = new Set(
-      [...urls, ...[...REMOVED_TONES].map((id) => `/${id}.mp3`)].map((u) =>
+      urls.map((u) =>
         u
           .split("/")
           .pop()!

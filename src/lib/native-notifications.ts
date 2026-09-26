@@ -500,9 +500,6 @@ export async function previewNativeAdhan(
 
 const AZKAR_CHANNEL_PREFIX = "manar_azkar_";
 
-/* تنبيهات المواسم كانت تأخذ «أول نغمة» في فهرس التذكيرات (إشراق). بعد حذف
- * النغمات من التذكيرات بقي صوتها نفسه ثابتاً هنا فلا يتغيّر على المستخدم. */
-const SEASON_TONE = { name: "المواسم", url: "/audio/reminders/azkar-morning.mp3" } as const;
 const APPROACH_CHANNEL_PREFIX = "manar_approach_";
 
 /* ------------------- مستوى صوت الإشعارات -------------------
@@ -546,7 +543,7 @@ async function ensureSoundChannels(p: LocalNotificationsPlugin, level: Notificat
   const pct = (l: NotificationLevel) => (l === 100 ? "" : ` · ${toArabicDigitsLocal(l)}٪`);
   const channels: Parameters<LocalNotificationsPlugin["createChannel"]>[0][] = [];
   for (const l of levels) {
-    for (const t of [...REMINDER_TONES, SEASON_TONE]) {
+    for (const t of REMINDER_TONES) {
       if (!t.url) continue;
       channels.push({
         id: azkarWirdChannelFor(t.url, l),
@@ -788,7 +785,12 @@ async function syncNativePrayerScheduleNow(
       getHijriAdjust(),
       readSeasonNotifyPrefs(),
     );
-    const url = s.silentMode || !s.soundEnabled || level === 0 ? "" : SEASON_TONE.url;
+    /* المواسم بصوت التكبير (قناة التنبيهات العامة) — لا بنداءٍ من نداءات
+     * الأذكار، لأن نصّها عن الصيام والمناسبات لا عن الأذكار. */
+    const audible = !(s.silentMode || !s.soundEnabled || level === 0);
+    const seasonChannel = audible
+      ? channelOr(defaultReminderChannelFor(level), "manar_reminders")
+      : "manar_silent";
     for (const n of planned) {
       if (n.at.getTime() <= now) continue;
       reminders.push({
@@ -797,10 +799,7 @@ async function syncNativePrayerScheduleNow(
         body: n.body,
         schedule: { at: n.at, allowWhileIdle: true },
         smallIcon: "ic_stat_manar",
-        channelId: url
-          ? channelOr(azkarWirdChannelFor(url, level), azkarWirdFallbackChannel(level))
-          : "manar_silent",
-        sound: url ? leveledRaw(rawResourceName(url), level) : undefined,
+        channelId: seasonChannel,
         extra: { kind: "season", season: n.seasonId, route: `/seasons/${n.seasonId}` },
       });
     }

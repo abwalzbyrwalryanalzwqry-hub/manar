@@ -1,10 +1,7 @@
 # Reminder Audio Assets
 
-Place reminder / chime audio files here. Supported formats: MP3, WAV, OGG.
-
-## Required filenames
-
-- `reminder-default.mp3` — تنبيه قبل الصلاة
-- `reminder-chime.mp3` — نغمة ناعمة (تجربة الصوت)
+نداءات «تذكيرات الأذكار والوِرد» الصوتية (MP3)، مسجّلة بصوت صاحب المشروع.
+الفهرس: `REMINDER_TONES` في `src/lib/daily-reminders.ts`، والتفاصيل في
+`docs/audio/reminders.md`.
 
 Served from `/audio/reminders/<filename>`.
