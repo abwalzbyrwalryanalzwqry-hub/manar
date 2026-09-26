@@ -24,9 +24,19 @@ export function azkarTimeNow(now: Date = new Date()): ZikrTime {
   try {
     const loc = getLocation();
     if (loc.source === "default") return defaultTime(now);
-    const t = computePrayerTimes(loc, readSettings(), now);
-    if (!valid(t.fajr) || !valid(t.asr) || t.fajr >= t.asr) return defaultTime(now);
-    return timeFromPrayers(now, t.fajr, t.asr);
+    const settings = readSettings();
+    /* مواقيت اليوم واليومين المجاورين: إن اختلفت منطقة الجهاز الزمنية عن
+     * منطقة الموقع (مسافر لم يغيّر ساعته) وقع فجر الموقع في تاريخ محلي آخر. */
+    let ok = false;
+    for (const shift of [0, -1, 1]) {
+      const day = new Date(now);
+      day.setDate(day.getDate() + shift);
+      const t = computePrayerTimes(loc, settings, day);
+      if (!valid(t.fajr) || !valid(t.asr) || t.fajr >= t.asr) continue;
+      ok = true;
+      if (timeFromPrayers(now, t.fajr, t.asr) === "morning") return "morning";
+    }
+    return ok ? "evening" : defaultTime(now);
   } catch {
     return defaultTime(now);
   }

@@ -12,6 +12,22 @@ import { describe, expect, it } from "vitest";
 const root = resolve(__dirname, "../..");
 const read = (p: string) => readFileSync(resolve(root, p), "utf8");
 
+describe("عمود البريد لا يكتبه العميل", () => {
+  const dir = resolve(root, "supabase/migrations");
+  const file = readdirSync(dir).find((f) => f.endsWith("_profile_email_readonly.sql"));
+  const sql = file ? readFileSync(resolve(dir, file), "utf8") : "";
+
+  it("الترحيل يسحب INSERT ويعيد منحه بلا email ولا plan", () => {
+    expect(file).toBeTruthy();
+    expect(sql).toMatch(/REVOKE INSERT ON public\.profiles FROM authenticated;/);
+    const grant = sql.match(/GRANT INSERT \(([^)]+)\)/);
+    expect(grant).toBeTruthy();
+    const cols = grant![1].split(",").map((c) => c.trim());
+    expect(cols).not.toContain("email");
+    expect(cols).not.toContain("plan");
+  });
+});
+
 describe("حماية عمود plan", () => {
   const dir = resolve(root, "supabase/migrations");
   const file = readdirSync(dir).find((f) => f.endsWith("_protect_profile_plan.sql"));

@@ -23,7 +23,6 @@ public class BootReceiver extends BroadcastReceiver {
 
         switch (action) {
             case Intent.ACTION_BOOT_COMPLETED:
-            case "android.intent.action.LOCKED_BOOT_COMPLETED":
             case Intent.ACTION_MY_PACKAGE_REPLACED:
             case Intent.ACTION_TIMEZONE_CHANGED:
             case Intent.ACTION_TIME_CHANGED:
