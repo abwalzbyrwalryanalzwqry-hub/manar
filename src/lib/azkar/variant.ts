@@ -25,6 +25,11 @@ export function azkarForTime(chapter: AzkarChapter, time: ZikrTime | null): Zikr
   return chapter.azkar.filter((z) => z.time == null || z.time === time);
 }
 
+/** رقم الذكر كما في الكتاب (الأذكار المفصولة تشترك في رقم أصلها). */
+export function zikrNo(zikr: Pick<Zikr, "id" | "no">): number {
+  return zikr.no ?? zikr.id;
+}
+
 /** لفظ الذكر في الوقت المحدد. */
 export function zikrText(zikr: Zikr, time: ZikrTime | null): string {
   return time === "evening" && zikr.evening ? zikr.evening : zikr.text;

@@ -72,6 +72,7 @@ function AzkarBookmarks() {
             >
               <div className="text-[11px] text-muted-foreground">
                 الباب {toArabicDigits(chapter.id)} · {chapter.title}
+                {zikr.title ? ` · ${zikr.title}` : ""}
               </div>
               <p
                 className={`mt-2 leading-loose ${zikr.quran ? "font-quran text-[17px]" : "font-display text-[16px]"}`}

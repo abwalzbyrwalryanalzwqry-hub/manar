@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/integrations/supabase/optional-client", () => ({ getCloud: () => null }));
+vi.mock("@/integrations/supabase/optional-client", () => ({ loadCloud: async () => null }));
 
 import {
   META_KEY,

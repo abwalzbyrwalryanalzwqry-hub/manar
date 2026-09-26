@@ -68,16 +68,54 @@ def ayahs(surah: int, a: int, b: int) -> list[tuple[int, str]]:
     return out
 
 
+def passage_text(p: dict) -> str:
+    return " ".join(f"{t} ﴿{str(n).translate(AR_DIGITS)}﴾" for n, t in ayahs(p["surah"], p["from"], p["to"]))
+
+
 def quran_text(spec: dict) -> str:
-    parts: list[str] = []
+    """نص المقاطع بلا الاستعاذة والبسملة — تُعرضان سطرًا مستقلًّا (الحقل opening)."""
+    return " ".join(passage_text(p) for p in spec["passages"])
+
+
+def quran_opening(spec: dict) -> str | None:
+    """الاستعاذة (prefix) أو البسملة قبل السورة — تُفصل عن نص الآيات."""
     if spec.get("prefix"):
-        parts.append(spec["prefix"])
-    for p in spec["passages"]:
-        if p.get("basmala"):
-            parts.append(BASMALA)
-        body = " ".join(f"{t} ﴿{str(n).translate(AR_DIGITS)}﴾" for n, t in ayahs(p["surah"], p["from"], p["to"]))
-        parts.append(body)
-    return " ".join(parts)
+        return spec["prefix"]
+    if len(spec["passages"]) == 1 and spec["passages"][0].get("basmala"):
+        return BASMALA
+    return None
+
+
+# رقم الذكر المنفصل عن أصله: السورة الثانية من الذكر ٧٦ ← ٧٦٠٢، والثالثة ← ٧٦٠٣.
+SPLIT_FACTOR = 100
+
+
+def split_zikr(z: dict, spec: dict) -> list[dict]:
+    """يفصل الذكر القرآني المركّب (المعوذات) إلى ذكر مستقل لكل سورة بعدّاد خاص.
+    الأول يحتفظ برقم الكتاب، والباقي برقم مشتق؛ و«no» رقمه المطبوع في الكتاب."""
+    passages = spec["passages"]
+    out: list[dict] = []
+    for i, p in enumerate(passages):
+        one = {**spec, "passages": [p]}
+        item = dict(z)
+        item.pop("lead", None)
+        item.pop("note", None)
+        item["id"] = z["id"] if i == 0 else z["id"] * SPLIT_FACTOR + i + 1
+        item["no"] = z["id"]
+        item["title"] = p["title"]
+        item["text"] = quran_text(one)
+        opening = quran_opening(one)
+        if opening:
+            item["opening"] = opening
+        item["quran"] = [{"surah": p["surah"], "from": p["from"], "to": p["to"]}]
+        lead_on = spec.get("lead_on", "all")
+        note_on = spec.get("note_on", "all")
+        if "lead" in spec and (lead_on == "all" or i == 0):
+            item["lead"] = spec["lead"]
+        if "note" in spec and (note_on == "all" or i == len(passages) - 1):
+            item["note"] = spec["note"]
+        out.append(item)
+    return out
 
 
 # ---------- تنظيف النص ----------
@@ -137,6 +175,9 @@ def clean_refs(lines: list[str]) -> list[str]:
 
 # ---------- البناء ----------
 
+# ترتيب ثابت للمفاتيح
+ORDER = ["id", "no", "title", "lead", "opening", "text", "evening", "note", "repeat", "segments", "time", "quran"]
+
 
 def build(book: dict, patches: dict) -> dict:
     qp = {int(k): v for k, v in patches["quran"].items()}
@@ -144,6 +185,8 @@ def build(book: dict, patches: dict) -> dict:
     seen = set()
     for ch in book["chapters"]:
         ch["references"] = clean_refs(ch.get("references", []))
+        # الأذكار المفصولة تُولَّد من أصلها في كل تشغيل (متساوي الأثر).
+        ch["azkar"] = [z for z in ch["azkar"] if z.get("no", z["id"]) == z["id"]]
         for z in ch["azkar"]:
             zid = z["id"]
             seen.add(zid)
@@ -151,6 +194,13 @@ def build(book: dict, patches: dict) -> dict:
             if zid in qp:
                 spec = qp[zid]
                 z["text"] = quran_text(spec)
+                z.pop("title", None)
+                z.pop("no", None)
+                opening = quran_opening(spec)
+                if opening:
+                    z["opening"] = opening
+                else:
+                    z.pop("opening", None)
                 z["quran"] = [{"surah": p["surah"], "from": p["from"], "to": p["to"]} for p in spec["passages"]]
                 if "lead" in spec:
                     z["lead"] = spec["lead"]
@@ -177,10 +227,18 @@ def build(book: dict, patches: dict) -> dict:
             if z.get("segments"):
                 z["repeat"] = sum(s["repeat"] for s in z["segments"])
             # ترتيب ثابت للمفاتيح
-            order = ["id", "lead", "text", "evening", "note", "repeat", "segments", "time", "quran"]
+            order = ORDER
             items = {k: z[k] for k in order if k in z}
             z.clear()
             z.update(items)
+        expanded: list[dict] = []
+        for z in ch["azkar"]:
+            spec = qp.get(z["id"])
+            if spec and spec.get("split"):
+                expanded.extend({k: s[k] for k in ORDER if k in s} for s in split_zikr(z, spec))
+            else:
+                expanded.append(z)
+        ch["azkar"] = expanded
     missing = (set(qp) | set(zp)) - seen
     if missing:
         raise SystemExit(f"patch ids not found: {sorted(missing)}")
@@ -209,6 +267,15 @@ def wird_texts(book: dict) -> str:
             text = z.get("evening", z["text"])
             key = json.dumps(f"{z['id']}:e")
             lines.append(f"  {key}: {json.dumps(text, ensure_ascii=False)},")
+    lines.append("};")
+    lines += [
+        "",
+        "/** ما يُتلى قبل نص الذكر في سطر مستقل: الاستعاذة قبل آية الكرسي، والبسملة قبل كل سورة. */",
+        "export const HISN_WIRD_OPENINGS: Readonly<Record<number, string>> = {",
+    ]
+    for z in ch["azkar"]:
+        if z.get("opening"):
+            lines.append(f"  {z['id']}: {json.dumps(z['opening'], ensure_ascii=False)},")
     lines.append("};")
     return "\n".join(lines) + "\n"
 

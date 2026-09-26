@@ -5,7 +5,7 @@
 // المُولَّد آليًا، فلا يختلف نص الوِرد عن نص قسم الأذكار.
 // ============================================================
 
-import { HISN_WIRD_TEXTS } from "./hisn-texts";
+import { HISN_WIRD_OPENINGS, HISN_WIRD_TEXTS } from "./hisn-texts";
 
 export type WirdSessionKey = "morning" | "evening";
 
@@ -14,7 +14,9 @@ export interface WirdItem {
   order: number;
   /** اسم الذكر (يُعرض فوق النص) */
   name: string;
-  /** نص الذكر كاملًا — بدون رقم التكرار وبدون مصدر */
+  /** ما يُتلى قبل النص في سطر مستقل: البسملة قبل السورة، أو الاستعاذة قبل آية الكرسي. */
+  opening?: string;
+  /** نص الذكر كاملًا — بدون رقم التكرار وبدون مصدر، وبدون البسملة/الاستعاذة (انظر opening) */
   text: string;
   /** عدد التكرار المطلوب */
   repeat: number;
@@ -38,16 +40,18 @@ export interface WirdSession {
 
 type Slot = "m" | "e";
 
-/** أذكار الباب ٢٧ القرآنية: آية الكرسي (#75) والمعوذات (#76). */
-const QURAN_HISN = new Set([75, 76]);
+/** أذكار الباب ٢٧ القرآنية: آية الكرسي (#75) والإخلاص والفلق والناس (#76، ٧٦٠٢، ٧٦٠٣). */
+const QURAN_HISN = new Set([75, 76, 7602, 7603]);
 
 /** نص ذكر من الباب ٢٧ في «حصن المسلم» — مصدر واحد للنص مع قسم الأذكار. */
 function hisn(id: number, slot: Slot, name: string, repeat: number): WirdItem {
   const text = HISN_WIRD_TEXTS[`${id}:${slot}`];
   if (!text) throw new Error(`wird: الذكر ${id}:${slot} غير موجود في الباب ٢٧`);
+  const opening = HISN_WIRD_OPENINGS[id];
   return {
     order: 0,
     name,
+    ...(opening ? { opening } : {}),
     text,
     repeat,
     hisn: id,
@@ -78,7 +82,10 @@ function numbered(items: WirdItem[]): WirdItem[] {
 function common(slot: Slot): WirdItem[] {
   return [
     hisn(75, slot, "آية الكرسي", 1),
-    hisn(76, slot, "الإخلاص والمعوذتان", 3),
+    // المعوذات: كل سورة ذكر مستقل بعدّاده (٧٦٠٢ و٧٦٠٣ رقمان مشتقان من الذكر ٧٦).
+    hisn(76, slot, "سورة الإخلاص", 3),
+    hisn(7602, slot, "سورة الفلق", 3),
+    hisn(7603, slot, "سورة الناس", 3),
     hisn(77, slot, "دعاء الملك لله", 1),
     hisn(78, slot, slot === "m" ? "دعاء الصباح" : "دعاء المساء", 1),
     hisn(79, slot, "سيد الاستغفار", 1),
