@@ -135,6 +135,12 @@ function writeSession(session: WirdSessionKey, next: WirdSessionProgress) {
   }
 }
 
+/** يبدأ قراءة جديدة لوِرد (من بطاقة الوِرد بعد إكماله). */
+export function resetWirdSession(session: WirdSessionKey) {
+  if (typeof window === "undefined") return;
+  writeSession(session, { ...emptySession(), updatedAt: Date.now() });
+}
+
 /** قراءة تقدّم الوِردين (للبطاقات في الصفحة الرئيسية للوِرد). */
 export function useWirdOverview() {
   const day = useDayKey();

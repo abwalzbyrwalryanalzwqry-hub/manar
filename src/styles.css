@@ -227,6 +227,13 @@
   backdrop-filter: blur(24px) saturate(160%);
   border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
 }
+/* بطاقات القراءة الطويلة (الأذكار والوِرد): مظهر الزجاج بلا backdrop-filter.
+ * التمويه يُعاد حسابه مع كل إطار تمرير أو نقرة عدّاد فوق نص كبير — عبءٌ على
+ * المعالج الرسومي يرفع حرارة الهاتف أثناء القراءة. */
+@utility glass-flat {
+  background: color-mix(in oklab, var(--card) 94%, transparent);
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+}
 @utility glass-dark {
   background: linear-gradient(135deg, oklch(0.22 0.025 258 / 0.7), oklch(0.16 0.02 255 / 0.5));
   backdrop-filter: blur(24px) saturate(160%);
@@ -376,6 +383,12 @@
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   will-change: transform;
+}
+/* نص الذكر القابل للنقر: السلوك نفسه بلا طبقة رسومية دائمة — طبقة بحجم نص
+ * طويل قابل للتمرير تستهلك ذاكرة الرسوميات بلا فائدة. */
+.tap-text {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 @media (prefers-reduced-motion: reduce) {
   .animate-count-pop {

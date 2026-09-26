@@ -10,6 +10,30 @@ import {
 
 /** مهلة تجميع التعديلات المتتالية قبل الرفع. */
 const PUSH_DEBOUNCE_MS = 3000;
+/**
+ * مفاتيح «ساخنة» تتغيّر مع كل نقرة عدّاد أو صفحة مصحف. رفعها بعد ٣ ثوانٍ من
+ * كل توقّف كان يعني طلب شبكة كل بضع ثوانٍ أثناء القراءة، مع بصمة JSON كبيرة
+ * لكل المفاتيح في كل نقرة — وهو من أسباب سخونة الهاتف أثناء الأذكار. تُجمع
+ * الآن وتُرفع بعد هدوءٍ أطول، وفوراً عند مغادرة التطبيق.
+ */
+const HOT_KEYS = new Set([
+  "manar.azkar.progress.v1",
+  "manar.wird.progress.v1",
+  "manar.activity.v1",
+  "manar.quran.history.v1",
+]);
+const HOT_PUSH_DEBOUNCE_MS = 45_000;
+/** تجميع أحداث النقرات المتتالية قبل حساب البصمات. */
+const STAMP_DEBOUNCE_MS = 1200;
+
+/** الحدث ← مفاتيحه. */
+const EVENT_KEYS: Record<string, string[]> = Object.entries(KEY_EVENTS).reduce(
+  (acc, [key, evt]) => {
+    (acc[evt] ??= []).push(key);
+    return acc;
+  },
+  {} as Record<string, string[]>,
+);
 /** عند العودة إلى التطبيق نسحب تعديلات الأجهزة الأخرى إن مضى هذا الوقت. */
 const RESUME_PULL_MS = 5 * 60 * 1000;
 
@@ -31,7 +55,12 @@ export function CloudSyncBridge() {
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let stampTimer: ReturnType<typeof setTimeout> | null = null;
     let lastSync = 0;
+    /** مفاتيح تغيّرت ولم تُختم بعد؛ `null` = كلها (حدث storage من تبويب آخر). */
+    let dirty: Set<string> | null = new Set();
+    /** موعد الرفع المجدول (لا يُؤجَّل الرفع العادي بسبب نقرات ساخنة لاحقة). */
+    let pushAt = 0;
 
     const run = () => {
       if (!userId) return;
@@ -39,16 +68,39 @@ export function CloudSyncBridge() {
       syncNow(userId).catch((e) => console.warn("[منار] فشلت المزامنة", e));
     };
 
-    const onChange = () => {
-      const changed = stampLocalChanges(window.localStorage);
-      if (!changed || !userId) return;
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(run, PUSH_DEBOUNCE_MS);
+    const flushStamp = (): boolean => {
+      if (stampTimer) clearTimeout(stampTimer);
+      stampTimer = null;
+      const keys = dirty;
+      dirty = new Set();
+      if (keys && keys.size === 0) return false;
+      const changed = stampLocalChanges(window.localStorage, Date.now(), keys ?? undefined);
+      if (!changed || !userId) return changed;
+      const hotOnly = keys != null && [...keys].every((k) => HOT_KEYS.has(k));
+      const at = Date.now() + (hotOnly ? HOT_PUSH_DEBOUNCE_MS : PUSH_DEBOUNCE_MS);
+      /* رفعٌ عادي قريب لا يؤجّله رفعٌ ساخن أبعد؛ والعكس يُقدَّم. */
+      if (!timer || at < pushAt || !hotOnly) {
+        if (timer) clearTimeout(timer);
+        pushAt = at;
+        timer = setTimeout(() => {
+          timer = null;
+          run();
+        }, at - Date.now());
+      }
+      return changed;
+    };
+
+    const onChange = (e: Event) => {
+      if (e.type === "storage") dirty = null;
+      else if (dirty) for (const k of EVENT_KEYS[e.type] ?? []) dirty.add(k);
+      if (stampTimer) clearTimeout(stampTimer);
+      stampTimer = setTimeout(flushStamp, STAMP_DEBOUNCE_MS);
     };
 
     const onVisibility = () => {
       if (!userId) return;
       if (document.visibilityState === "hidden") {
+        flushStamp();
         stampLocalChanges(window.localStorage);
         if (hasPendingChanges(window.localStorage)) {
           if (timer) clearTimeout(timer);
@@ -74,6 +126,7 @@ export function CloudSyncBridge() {
       window.removeEventListener("storage", onChange);
       document.removeEventListener("visibilitychange", onVisibility);
       if (timer) clearTimeout(timer);
+      if (stampTimer) clearTimeout(stampTimer);
     };
   }, [userId]);
 

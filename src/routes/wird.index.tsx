@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   Arabesque,
   Icon,
@@ -10,7 +10,12 @@ import {
 } from "@/components/manar/shell";
 import { toArabicDigits } from "@/lib/format";
 import { WIRD_SESSIONS, WIRD_SESSION_KEYS, type WirdSessionKey } from "@/lib/wird/data";
-import { useWirdOverview, wirdCompletion } from "@/lib/wird/progress";
+import {
+  isWirdComplete,
+  resetWirdSession,
+  useWirdOverview,
+  wirdCompletion,
+} from "@/lib/wird/progress";
 
 export const Route = createFileRoute("/wird/")({
   head: () => ({
@@ -39,6 +44,7 @@ const META: Record<WirdSessionKey, { icon: string; tint: string }> = {
 
 function WirdHub() {
   const store = useWirdOverview();
+  const nav = useNavigate();
 
   return (
     <Screen>
@@ -74,6 +80,7 @@ function WirdHub() {
           const { ratio, completedItems } = wirdCompletion(p, s.items);
           const started = completedItems > 0 || (p.counts[p.current] ?? 0) > 0;
           const currentItem = s.items.find((i) => i.order === p.current) ?? s.items[0];
+          const complete = isWirdComplete(p, s.items);
           return (
             <div
               key={key}
@@ -90,7 +97,9 @@ function WirdHub() {
                   <div className="font-display text-xl font-medium">{s.title}</div>
                   <div className="text-[11px] text-muted-foreground">{s.description}</div>
                   <div className="mt-2 text-[11px] text-muted-foreground">
-                    {started ? (
+                    {complete ? (
+                      "أتممته اليوم · يتجدّد تلقائيًا غدًا"
+                    ) : started ? (
                       <>
                         آخر ما بدأت به: {currentItem?.name} · الذكر {toArabicDigits(p.current)} من{" "}
                         {toArabicDigits(s.items.length)}
@@ -117,13 +126,25 @@ function WirdHub() {
               </div>
 
               <div className="relative mt-4 flex items-center gap-2">
-                <Link
-                  to="/wird/$session"
-                  params={{ session: key }}
-                  className="gradient-primary flex flex-1 items-center justify-center rounded-2xl py-3 text-sm font-medium text-primary-foreground shadow-glow"
-                >
-                  {started ? "متابعة الورد" : "ابدأ الورد"}
-                </Link>
+                {complete ? (
+                  <button
+                    onClick={() => {
+                      resetWirdSession(key);
+                      nav({ to: "/wird/$session", params: { session: key } });
+                    }}
+                    className="gradient-primary flex flex-1 items-center justify-center rounded-2xl py-3 text-sm font-medium text-primary-foreground shadow-glow"
+                  >
+                    قراءة جديدة
+                  </button>
+                ) : (
+                  <Link
+                    to="/wird/$session"
+                    params={{ session: key }}
+                    className="gradient-primary flex flex-1 items-center justify-center rounded-2xl py-3 text-sm font-medium text-primary-foreground shadow-glow"
+                  >
+                    {started ? "متابعة الورد" : "ابدأ الورد"}
+                  </Link>
+                )}
                 <Link
                   to="/wird/list/$session"
                   params={{ session: key }}
