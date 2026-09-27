@@ -21,6 +21,7 @@ import { GlobalRecitationBar, RecitationDownloadNotifier } from "@/components/ma
 import { RecitationPlayerProvider } from "@/hooks/use-recitation-player";
 import { hideSplash } from "@/lib/native-shell";
 import { StorageGate } from "@/components/manar/storage-gate";
+import { DisplayPrefsGate } from "@/components/manar/display-prefs-gate";
 import { markAppMounted } from "@/lib/boot-guard";
 
 function NotFoundComponent() {
@@ -216,7 +217,9 @@ function RootComponent() {
         <AudioStopBar />
         <Toaster position="top-center" dir="rtl" richColors closeButton />
         <RecitationPlayerProvider>
-          <Outlet />
+          <DisplayPrefsGate>
+            <Outlet />
+          </DisplayPrefsGate>
           <GlobalRecitationBar />
           <RecitationDownloadNotifier />
         </RecitationPlayerProvider>

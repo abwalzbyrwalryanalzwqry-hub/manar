@@ -9,6 +9,7 @@
  * البناء دالة نقية (`buildWidgetSnapshot`) تُختبر بلا جهاز.
  */
 
+import { displayPrefs } from "./display-prefs";
 import { dayKey } from "./activity-log";
 import { formatArTime, formatHijriAr, formatWeekdayAr } from "./format";
 import {
@@ -83,13 +84,13 @@ export function buildWidgetSnapshot(input: {
       hijri: formatHijriAr(date, input.hijriAdjust ?? 0),
       prayers: WIDGET_PRAYERS.map((p) => {
         const at = times[p];
-        const ampm = at.getHours() < 12 ? "ص" : "م";
+        const ampm = displayPrefs().clock === "24" ? "" : at.getHours() < 12 ? "ص" : "م";
         return {
           key: p,
           /* يوم الجمعة: «الجمعة» بدل «الظهر» كما في التطبيق والإشعارات. */
           name: p === "dhuhr" && date.getDay() === 5 ? "الجمعة" : PRAYER_LABELS[p].ar,
           at: at.getTime(),
-          time: `${formatArTime(at)} ${ampm}`,
+          time: ampm ? `${formatArTime(at)} ${ampm}` : formatArTime(at),
         };
       }),
       verse: input.verses?.[key] ?? null,

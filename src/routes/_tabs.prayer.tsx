@@ -11,7 +11,14 @@ import {
   SectionLabel,
 } from "@/components/manar/shell";
 import { LocationSheet } from "@/components/manar/location-sheet";
-import { PRAYER_LABELS, PRAYER_ORDER, usePrayerSchedule, type PrayerKey } from "@/lib/prayer";
+import {
+  METHOD_LABELS,
+  PRAYER_LABELS,
+  PRAYER_ORDER,
+  usePrayerSchedule,
+  type PrayerKey,
+} from "@/lib/prayer";
+import { MethodSuggestCard } from "@/components/manar/method-suggest-card";
 import { useAdhanSettings } from "@/lib/adhan-settings";
 import { formatCountdown, formatHHMM, formatHijriAr, toArabicDigits } from "@/lib/format";
 import { useHijriAdjust } from "@/lib/hijri";
@@ -26,21 +33,6 @@ export const Route = createFileRoute("/_tabs/prayer")({
   head: () => ({ meta: [{ title: "أوقات الصلاة — منار" }] }),
   component: Prayer,
 });
-
-const METHOD_LABELS: Record<string, string> = {
-  UmmAlQura: "أم القرى",
-  MuslimWorldLeague: "رابطة العالم الإسلامي",
-  Egyptian: "الهيئة المصرية",
-  Karachi: "كراتشي",
-  Dubai: "دبي",
-  Qatar: "قطر",
-  Kuwait: "الكويت",
-  MoonsightingCommittee: "لجنة رؤية الهلال",
-  Singapore: "سنغافورة",
-  Turkey: "ديانت تركيا",
-  Tehran: "طهران",
-  NorthAmerica: "أمريكا الشمالية (ISNA)",
-};
 
 /** «غداً» أو «بعد ٣ أيام» حتى الجمعة القادمة من يوم الصلاة `key`. */
 function daysToFridayLabel(key: string): string {
@@ -308,9 +300,10 @@ function Prayer() {
 
       <SectionLabel>الإعدادات</SectionLabel>
       <div className="space-y-2 px-4">
+        <MethodSuggestCard />
         {[
           { l: "الموقع", v: location.city, onClick: () => setSheet(true) },
-          { l: "طريقة الحساب", v: METHOD_LABELS[calc.method] ?? calc.method },
+          { l: "طريقة الحساب", v: METHOD_LABELS[calc.method] },
           { l: "المذهب", v: calc.madhab === "hanafi" ? "الحنفي" : "الجمهور" },
         ].map((r) => (
           <button

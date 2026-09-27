@@ -17,6 +17,7 @@ import { hasStructuralMerge, mergeEntry } from "./sync-merge";
 export const BACKUP_KEYS: string[] = [
   /* المظهر والعرض */
   "manar.appearance.v1",
+  "manar.display.v1",
   "manar.hijri.adjust.v1",
   "manar.widget.v1",
   "manar.user.name.v1",
@@ -55,6 +56,7 @@ export const DEVICE_ONLY_KEYS = new Set([
   "manar.quran.search.recent.v1", // سجل بحث محلي
   "manar.backup.last-export.v1", // تاريخ آخر تصدير من هذا الجهاز
   "manar.more.usage.v1", // «الأكثر استخداماً» في المزيد: عادة هذا الجهاز
+  "manar.method-suggest.v1", // اقتراحات طريقة الحساب التي رفضها المستخدم على هذا الجهاز
 ]);
 
 /** تاريخ آخر تصدير لملف النسخة من هذا الجهاز (مللي ثانية). */
@@ -87,6 +89,7 @@ export const KEY_EVENTS: Record<string, string> = {
   "manar.khatmah.v1": "manar:khatmah",
   "manar.seasons.v1": "manar:seasons",
   "manar.activity.v1": "manar:activity",
+  "manar.display.v1": "manar:display",
   "manar.jumuah.v1": "manar:jumuah",
 };
 

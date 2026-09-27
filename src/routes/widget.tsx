@@ -5,7 +5,7 @@ import { Icon, icons, Mark, Screen, ScreenHeader, SectionLabel } from "@/compone
 import { computePrayerTimes, PRAYER_LABELS, useLocation, useSettings, useNow } from "@/lib/prayer";
 import { useHijriAdjust } from "@/lib/hijri";
 import { useDailyVerse, useLocalDay } from "@/lib/daily-content";
-import { formatArTime, formatCountdown, formatHijriAr, toArabicDigits } from "@/lib/format";
+import { ampmAr, formatArTime, formatCountdown, formatHijriAr, toArabicDigits } from "@/lib/format";
 import { WIDGET_PRAYERS, widgetVerseText } from "@/lib/widget-snapshot";
 import {
   requestWidgetRefresh,
@@ -291,7 +291,7 @@ function WidgetPreview({ options }: { options: WidgetOptions }) {
           </div>
           {next && (
             <div className="text-[13px] text-white/80">
-              {formatArTime(next.at)} {next.at.getHours() < 12 ? "ص" : "م"}
+              {formatArTime(next.at)} {ampmAr(next.at) && (next.at.getHours() < 12 ? "ص" : "م")}
             </div>
           )}
         </div>
