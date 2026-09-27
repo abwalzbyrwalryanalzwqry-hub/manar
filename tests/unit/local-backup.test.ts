@@ -204,14 +204,11 @@ describe("لا حساب ولا تسجيل دخول", () => {
   });
 
   it("لا يستورد التطبيق المصادقة ولا عميل السحابة", () => {
-    const offenders = walk(join(root, "src"))
-      .filter((f) => !f.includes("/integrations/"))
-      .filter((f) => !f.endsWith("start.ts"))
-      .filter((f) =>
-        /auth-context|cloud-sync|integrations\/supabase|integrations\/lovable|"\/login"|"\/profile"/.test(
-          readFileSync(f, "utf8"),
-        ),
-      );
+    const offenders = walk(join(root, "src")).filter((f) =>
+      /auth-context|cloud-sync|integrations\/supabase|integrations\/lovable|@supabase\/|"\/login"|"\/profile"/.test(
+        readFileSync(f, "utf8"),
+      ),
+    );
     expect(offenders).toEqual([]);
   });
 });

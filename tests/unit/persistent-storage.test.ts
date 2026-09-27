@@ -67,7 +67,7 @@ async function freshModule() {
   return { mod, localStorage };
 }
 
-describe("التخزين الدائم: فصل الجلسة عن النسخ الاحتياطي", () => {
+describe("التخزين الدائم: حالة منار وحدها، وبقايا الحساب تُمسح", () => {
   beforeEach(() => {
     groups.clear();
     active = "CapacitorStorage";
@@ -75,7 +75,7 @@ describe("التخزين الدائم: فصل الجلسة عن النسخ ال�
     Object.assign(MemoryStorage.prototype, ORIGINAL);
   });
 
-  it("رمز الدخول يُحفظ في مجموعة الجلسة، والإعدادات في مجموعة الحالة", async () => {
+  it("مفاتيح منار تُطابَق في مجموعة الحالة، ورمز الجلسة لا يُطابَق", async () => {
     const { mod, localStorage } = await freshModule();
     await mod.hydratePersistentStorage();
     localStorage.setItem("manar.settings.v1", '{"a":1}');
@@ -84,30 +84,22 @@ describe("التخزين الدائم: فصل الجلسة عن النسخ ال�
 
     expect(group("CapacitorStorage").get("manar.settings.v1")).toBe('{"a":1}');
     expect(group("CapacitorStorage").has(TOKEN)).toBe(false);
-    expect(group("ManarSession").get(TOKEN)).toBe("secret");
+    expect(group("ManarSession").has(TOKEN)).toBe(false);
   });
 
-  it("ينقل رمز الجلسة القديم من مجموعة الحالة (المنسوخة احتياطياً) إلى مجموعة الجلسة", async () => {
+  it("الإقلاع يمسح رموز الجلسة القديمة من المجموعتين ومن localStorage، ويستعيد الحالة", async () => {
     group("CapacitorStorage").set(TOKEN, "old-secret");
     group("CapacitorStorage").set("manar.appearance.v1", "dark");
+    group("ManarSession").set(TOKEN, "secret");
     const { mod, localStorage } = await freshModule();
+    localStorage.setItem(TOKEN, "secret");
     await mod.hydratePersistentStorage();
     await mod.flushPersistentWrites();
 
     expect(group("CapacitorStorage").has(TOKEN)).toBe(false);
-    expect(group("ManarSession").get(TOKEN)).toBe("old-secret");
-    expect(localStorage.getItem(TOKEN)).toBe("old-secret");
+    expect(group("ManarSession").size).toBe(0);
+    expect(localStorage.getItem(TOKEN)).toBeNull();
     expect(localStorage.getItem("manar.appearance.v1")).toBe("dark");
-  });
-
-  it("تسجيل الخروج يحذف الرمز من مجموعة الجلسة", async () => {
-    group("ManarSession").set(TOKEN, "secret");
-    const { mod, localStorage } = await freshModule();
-    await mod.hydratePersistentStorage();
-    localStorage.removeItem(TOKEN);
-    await mod.flushPersistentWrites();
-
-    expect(group("ManarSession").has(TOKEN)).toBe(false);
   });
 
   it("المجموعة النشطة تعود افتراضية بعد الاستعادة", async () => {
@@ -118,10 +110,11 @@ describe("التخزين الدائم: فصل الجلسة عن النسخ ال�
     expect(active).toBe("CapacitorStorage");
   });
 
-  it("لا يطابق إلا مفاتيح منار والجلسة", async () => {
+  it("لا يطابق إلا مفاتيح منار", async () => {
     const { mod } = await freshModule();
-    expect(mod.groupFor(TOKEN)).toBe("ManarSession");
-    expect(mod.groupFor("manar.settings.v1")).toBe("CapacitorStorage");
+    expect(mod.isMirroredKey("manar.settings.v1")).toBe(true);
+    expect(mod.isMirroredKey(TOKEN)).toBe(false);
     expect(mod.isMirroredKey("other")).toBe(false);
+    expect(mod.isLegacySessionKey(TOKEN)).toBe(true);
   });
 });

@@ -1,51 +1,33 @@
 /**
  * منار — حرّاس أمان ثابتة.
  *
- * - عمود الاشتراك plan لا يكتبه المستخدم (صلاحيات العمود في Supabase).
- * - سجلّ المصادقة لا يُطبع في الإصدار (البريد ومعرّف المستخدم).
+ * - لا خدمة سحابية: لا Supabase ولا Lovable Cloud في الشجرة ولا في البناء.
  * - خطوة الإصدار في CI تشترط مفتاح التوقيع.
  */
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const root = resolve(__dirname, "../..");
 const read = (p: string) => readFileSync(resolve(root, p), "utf8");
 
-describe("عمود البريد لا يكتبه العميل", () => {
-  const dir = resolve(root, "supabase/migrations");
-  const file = readdirSync(dir).find((f) => f.endsWith("_profile_email_readonly.sql"));
-  const sql = file ? readFileSync(resolve(dir, file), "utf8") : "";
-
-  it("الترحيل يسحب INSERT ويعيد منحه بلا email ولا plan", () => {
-    expect(file).toBeTruthy();
-    expect(sql).toMatch(/REVOKE INSERT ON public\.profiles FROM authenticated;/);
-    const grant = sql.match(/GRANT INSERT \(([^)]+)\)/);
-    expect(grant).toBeTruthy();
-    const cols = grant![1].split(",").map((c) => c.trim());
-    expect(cols).not.toContain("email");
-    expect(cols).not.toContain("plan");
-  });
-});
-
-describe("حماية عمود plan", () => {
-  const dir = resolve(root, "supabase/migrations");
-  const file = readdirSync(dir).find((f) => f.endsWith("_protect_profile_plan.sql"));
-  const sql = file ? readFileSync(resolve(dir, file), "utf8") : "";
-
-  it("يوجد ترحيل يسحب الكتابة العامة ويمنح أعمدة محدّدة", () => {
-    expect(file).toBeTruthy();
-    expect(sql).toMatch(/REVOKE INSERT, UPDATE ON public\.profiles FROM authenticated;/);
-  });
-
-  it("plan ليس ضمن أعمدة INSERT ولا UPDATE الممنوحة", () => {
-    const grants = [...sql.matchAll(/GRANT (INSERT|UPDATE) \(([^)]+)\)/g)];
-    expect(grants.length).toBe(2);
-    for (const [, , cols] of grants) {
-      const list = cols.split(",").map((c) => c.trim());
-      expect(list).not.toContain("plan");
-      expect(list).not.toContain("created_at");
+describe("لا خدمة سحابية", () => {
+  it("مجلّدا Supabase وتكامل Lovable Cloud محذوفان", () => {
+    for (const d of ["supabase", "src/integrations"]) {
+      expect(existsSync(resolve(root, d)), d).toBe(false);
     }
+  });
+
+  it("لا اعتماد على مكتبات السحابة", () => {
+    const pkg = JSON.parse(read("package.json"));
+    const deps = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
+    expect(deps.filter((d) => /^@supabase\/|^@lovable\.dev\/cloud-auth/.test(d))).toEqual([]);
+  });
+
+  it("لا متغيرات Supabase في البناء", () => {
+    expect(read(".github/workflows/android.yml")).not.toMatch(/SUPABASE/);
+    expect(read("src/start.ts")).not.toMatch(/supabase/i);
+    expect(read("vite.config.capacitor.ts")).not.toMatch(/supabase/i);
   });
 });
 

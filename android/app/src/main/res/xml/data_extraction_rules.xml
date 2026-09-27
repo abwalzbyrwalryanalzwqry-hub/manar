@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12+. Same policy as backup_rules.xml: progress travels, the sign-in
-     token (ManarSession.xml, WebView Local Storage) and old alarm times do not. -->
+<!-- Android 12+. Same policy as backup_rules.xml: progress travels; the legacy
+     session file (ManarSession.xml), WebView Local Storage and old alarm times do not. -->
 <data-extraction-rules>
     <cloud-backup>
         <include domain="sharedpref" path="." />

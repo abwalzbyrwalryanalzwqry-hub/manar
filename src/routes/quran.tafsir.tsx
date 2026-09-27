@@ -103,7 +103,7 @@ function TafsirScreen() {
   useEffect(() => {
     const sync = () => setFontIndex(readFontIndex());
     sync();
-    // يُعاد القراءة بعد الاستعادة من السحابة أو التعديل في تبويب آخر.
+    // يُعاد القراءة بعد استيراد نسخة احتياطية أو التعديل في تبويب آخر.
     window.addEventListener(FONT_EVENT, sync);
     window.addEventListener("storage", sync);
     return () => {

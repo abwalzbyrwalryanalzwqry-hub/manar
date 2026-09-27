@@ -1,32 +1,11 @@
 // Manar — dedicated build config for the Capacitor (Android/iOS) shell.
 // Produces a fully static SPA in dist/client (with index.html) that runs
 // inside the native WebView with zero server involvement.
-import { fileURLToPath } from "node:url";
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-
-/* تحميل كسول لمكتبة Supabase في قشرة أندرويد.
- *
- * `auth-attacher.ts` مُنشأ تلقائياً من Lovable (لا يُعدَّل يدوياً) ويستورد عميل
- * Supabase استيراداً ثابتاً من `start.ts`، فكانت المكتبة كلها (~٢٠٠ كيلوبايت
- * مضغوطة) تُحلَّل قبل رسم أول شاشة. هنا — في بناء أندرويد وحده — نستبدل به
- * نسخة كسولة مطابقة السلوك (`auth-attacher.native.ts`). بناء الويب لا يتغيّر. */
-const nativeAttacher = fileURLToPath(
-  new URL("./src/integrations/supabase/auth-attacher.native.ts", import.meta.url),
-);
-const lazyCloudPlugin = {
-  name: "manar-lazy-cloud",
-  enforce: "pre" as const,
-  resolveId(source: string, importer?: string) {
-    if (importer?.endsWith("auth-attacher.native.ts")) return null;
-    if (/(^|\/)integrations\/supabase\/auth-attacher(\.ts)?$/.test(source)) return nativeAttacher;
-    return null;
-  },
-};
 
 export default defineConfig({
   nitro: false,
   vite: {
-    plugins: [lazyCloudPlugin],
     build: {
       /* هدف بناء متحفّظ لمتصفّح أندرويد المدمج.
        *

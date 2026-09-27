@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 const KEY = "manar.quran.reader.v1";
-/** يُطلَق بعد كل حفظ، وتُطلقه المزامنة السحابية بعد الاستعادة. */
+/** يُطلَق بعد كل حفظ، وبعد استيراد نسخة احتياطية. */
 export const READER_STATE_EVENT = "manar:reader-state";
 
 export type ReaderMode = "surah" | "mushaf";
