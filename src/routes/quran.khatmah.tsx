@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { formatPercent } from "@/lib/format";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Arabesque,
@@ -317,7 +318,7 @@ function ActivePlan({ k, status }: { k: ReturnType<typeof useKhatmah>; status: K
           >
             <div className="text-center">
               <div className="font-display text-xl font-medium tabular-nums">
-                {toArabicDigits(percent)}٪
+                {formatPercent(percent)}
               </div>
               <div className="text-[9px] text-muted-foreground">
                 {toArabicDigits(status.readPages)} من {toArabicDigits(status.totalPages)}

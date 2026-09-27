@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { LocationDefaultBanner } from "@/components/manar/location-default-banner";
 import { useMemo, useState } from "react";
 import {
   Arabesque,
@@ -150,6 +151,7 @@ function CalendarScreen() {
           </button>
         }
       />
+      <LocationDefaultBanner what="مواقيت اليوم" />
 
       {/* بطاقة اليوم */}
       <div className="px-4 animate-fade-up">

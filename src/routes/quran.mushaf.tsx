@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { formatPercent } from "@/lib/format";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SurahRenderer } from "@/components/manar/surah-renderer";
 import { MushafPageRenderer } from "@/components/manar/mushaf-page-renderer";
@@ -394,7 +395,7 @@ function MushafReader() {
                       {here ? ` · صفحة ${toArabicDigits(here.p)}` : ""}
                     </span>
                     <span>
-                      <RelativeTime at={state.updatedAt} /> · {toArabicDigits(progressPercent)}٪
+                      <RelativeTime at={state.updatedAt} /> · {formatPercent(progressPercent)}
                     </span>
                   </div>
                   <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">

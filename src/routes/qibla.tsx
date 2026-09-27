@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { LocationDefaultBanner } from "@/components/manar/location-default-banner";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Arabesque,
@@ -91,6 +92,7 @@ function Qibla() {
           </button>
         }
       />
+      <LocationDefaultBanner what="القبلة" />
 
       <div className="px-4 animate-fade-up">
         <div className="gradient-night relative overflow-hidden rounded-[36px] p-8 text-white shadow-elegant">

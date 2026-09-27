@@ -462,3 +462,77 @@ export function useActivityLog() {
     }, []),
   };
 }
+
+/* ------------------------------------------------------------------ */
+/*  خريطة الأيام الشهرية                                               */
+/* ------------------------------------------------------------------ */
+
+export type HeatCell = {
+  key: string;
+  day: number;
+  /** نسبة الصلوات المسجّلة (٠..١). */
+  ratio: number;
+  prayers: number;
+  /** يوم لم يأتِ بعد: لا يُسجَّل فيه. */
+  future: boolean;
+  isToday: boolean;
+};
+
+/**
+ * شهر ميلادي كامل بخلايا فارغة قبل أوله حتى يبدأ الأسبوع بالسبت كما في
+ * التقويم. `null` خلية فارغة.
+ */
+export function monthHeatmap(
+  log: ActivityLog,
+  year: number,
+  month: number,
+  todayKey = dayKey(),
+): (HeatCell | null)[] {
+  const first = new Date(year, month - 1, 1, 12);
+  const lead = (first.getDay() + 1) % 7; // السبت = ٠
+  const length = new Date(year, month, 0).getDate();
+  const out: (HeatCell | null)[] = Array.from({ length: lead }, () => null);
+  for (let d = 1; d <= length; d += 1) {
+    const key = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const n = log.days[key]?.prayers.length ?? 0;
+    out.push({
+      key,
+      day: d,
+      ratio: n / FARD_PRAYERS.length,
+      prayers: n,
+      future: key > todayKey,
+      isToday: key === todayKey,
+    });
+  }
+  return out;
+}
+
+/** يضبط صلوات يوم سابق كما هي (للتسجيل المتأخر). يرفض الأيام القادمة. */
+export function setDayPrayers(key: string, prayers: PrayerKey[], todayKey = dayKey()): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || key > todayKey) return false;
+  const [y, m, d] = key.split("-").map(Number);
+  const date = new Date(y, m - 1, d, 12);
+  for (const p of FARD_PRAYERS) recordPrayer(p, prayers.includes(p), date);
+  return true;
+}
+
+export type MonthBar = { year: number; month: number; ratio: number; prayers: number };
+
+/** آخر `count` شهراً ميلادياً حتى شهر `todayKey`، من الأقدم. النسبة على ما مضى من أيام الشهر فقط. */
+export function monthBars(log: ActivityLog, count = 12, todayKey = dayKey()): MonthBar[] {
+  const [ty, tm, td] = todayKey.split("-").map(Number);
+  const out: MonthBar[] = [];
+  for (let i = count - 1; i >= 0; i -= 1) {
+    const total = ty * 12 + (tm - 1) - i;
+    const year = Math.floor(total / 12);
+    const month = (total % 12) + 1;
+    const len = i === 0 ? td : new Date(year, month, 0).getDate();
+    let prayers = 0;
+    for (let d = 1; d <= len; d += 1) {
+      const k = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      prayers += log.days[k]?.prayers.length ?? 0;
+    }
+    out.push({ year, month, prayers, ratio: prayers / (len * FARD_PRAYERS.length) });
+  }
+  return out;
+}

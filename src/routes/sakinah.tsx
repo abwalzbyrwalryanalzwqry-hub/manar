@@ -83,6 +83,7 @@ function Sakinah() {
   const now = useNow(1000);
 
   const [openPrayer, setOpenPrayer] = useState<SakinahPrayerKey | null>(null);
+  const [advanced, setAdvanced] = useState(false);
   const [status, setStatus] = useState<SakinahNativeStatus | null>(null);
   const [diagnostics, setDiagnostics] = useState<SakinahDiagnostics | null>(null);
   const [testing, setTesting] = useState(false);
@@ -439,241 +440,265 @@ function Sakinah() {
         })}
       </div>
 
-      {/* صلاة الجمعة */}
-      <SectionLabel hint="الخطبة أطول من الصلاة">صلاة الجمعة</SectionLabel>
-      <div className="px-5">
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-          <button
-            onClick={() => update({ jumuahSeparate: !settings.jumuahSeparate })}
-            role="switch"
-            aria-checked={settings.jumuahSeparate}
-            aria-label="إعداد خاص لصلاة الجمعة"
-            className="flex w-full items-center gap-3 text-right"
-          >
-            <span className="flex-1">
-              <span className="block text-sm font-medium">إعداد خاص للجمعة</span>
-              <span className="block text-[10px] text-muted-foreground">
-                {settings.jumuahSeparate
-                  ? describeTiming(
-                      {
-                        startOffset: settings.jumuahStartOffset,
-                        afterMinutes: settings.jumuahAfterMinutes,
-                      },
-                      toArabicDigits,
-                    )
-                  : "تُستخدم إعدادات الظهر نفسها"}
-              </span>
+      {/* الخيارات المتقدمة: مطويّة حتى لا تطغى على الأساسي (النمط والصلوات). */}
+      <div className="px-5 pt-5">
+        <button
+          type="button"
+          onClick={() => setAdvanced((v) => !v)}
+          aria-expanded={advanced}
+          className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5 text-right shadow-soft"
+        >
+          <span>
+            <span className="block text-sm font-medium">خيارات متقدمة</span>
+            <span className="block text-[10px] text-muted-foreground">
+              الجمعة، أيام الأسبوع، الصوت، الاختبار، السجل
             </span>
-            <Switch on={settings.jumuahSeparate} />
-          </button>
+          </span>
+          <span className={`transition ${advanced ? "-rotate-90" : "rotate-90"}`}>
+            <Icon d={icons.chevron} size={14} />
+          </span>
+        </button>
+      </div>
 
-          {settings.jumuahSeparate && (
-            <div className="mt-3 space-y-2 border-t border-border pt-3">
-              <StartPicker
-                offset={settings.jumuahStartOffset}
-                onChange={(jumuahStartOffset) => update({ jumuahStartOffset })}
-                label="الجمعة"
-              />
-              <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/20 px-3 py-2">
-                <span className="text-[10px] text-muted-foreground">بعد الأذان</span>
-                <Stepper
-                  value={settings.jumuahAfterMinutes}
-                  onChange={(v) =>
-                    update({
-                      jumuahAfterMinutes: effectiveEnd(
-                        settings.jumuahStartOffset,
-                        Math.min(END_LIMIT, Math.max(1, v)),
-                      ),
+      {advanced && (
+        <>
+          {/* صلاة الجمعة */}
+          <SectionLabel hint="الخطبة أطول من الصلاة">صلاة الجمعة</SectionLabel>
+          <div className="px-5">
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+              <button
+                onClick={() => update({ jumuahSeparate: !settings.jumuahSeparate })}
+                role="switch"
+                aria-checked={settings.jumuahSeparate}
+                aria-label="إعداد خاص لصلاة الجمعة"
+                className="flex w-full items-center gap-3 text-right"
+              >
+                <span className="flex-1">
+                  <span className="block text-sm font-medium">إعداد خاص للجمعة</span>
+                  <span className="block text-[10px] text-muted-foreground">
+                    {settings.jumuahSeparate
+                      ? describeTiming(
+                          {
+                            startOffset: settings.jumuahStartOffset,
+                            afterMinutes: settings.jumuahAfterMinutes,
+                          },
+                          toArabicDigits,
+                        )
+                      : "تُستخدم إعدادات الظهر نفسها"}
+                  </span>
+                </span>
+                <Switch on={settings.jumuahSeparate} />
+              </button>
+
+              {settings.jumuahSeparate && (
+                <div className="mt-3 space-y-2 border-t border-border pt-3">
+                  <StartPicker
+                    offset={settings.jumuahStartOffset}
+                    onChange={(jumuahStartOffset) => update({ jumuahStartOffset })}
+                    label="الجمعة"
+                  />
+                  <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/20 px-3 py-2">
+                    <span className="text-[10px] text-muted-foreground">بعد الأذان</span>
+                    <Stepper
+                      value={settings.jumuahAfterMinutes}
+                      onChange={(v) =>
+                        update({
+                          jumuahAfterMinutes: effectiveEnd(
+                            settings.jumuahStartOffset,
+                            Math.min(END_LIMIT, Math.max(1, v)),
+                          ),
+                        })
+                      }
+                      label="دقائق بعد أذان الجمعة"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* الأيام */}
+          <SectionLabel hint="سكينة تعمل في الأيام المحددة فقط">أيام الأسبوع</SectionLabel>
+          <div className="px-5">
+            <div className="grid grid-cols-7 gap-1">
+              {WEEKDAYS.map((d) => (
+                <DayChip
+                  key={d.index}
+                  label={d.short}
+                  active={settings.weekdays.includes(d.index)}
+                  onClick={() =>
+                    updateDeep((s) => {
+                      const on = s.weekdays.includes(d.index);
+                      const next = on
+                        ? s.weekdays.filter((x) => x !== d.index)
+                        : [...s.weekdays, d.index].sort((a, b) => a - b);
+                      return { ...s, weekdays: next.length ? next : s.weekdays };
                     })
                   }
-                  label="دقائق بعد أذان الجمعة"
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* إعدادات الصوت */}
+          <SectionLabel hint="ما يُسمح له بالمرور أثناء الهدوء">إعدادات الصوت</SectionLabel>
+          <div className="space-y-2 px-5">
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+              <Label>المكالمات والإشعارات</Label>
+              <div className="mt-2 space-y-1.5">
+                <Radio
+                  label="أصوات منار فقط (موصى به)"
+                  hint="يمرّ أذان منار وإقامتها وتنبيهاتها وحدها، وتُكتم المكالمات والرسائل وإشعارات التطبيقات الأخرى والوسائط"
+                  active={filter === "manar"}
+                  onClick={() => update(filterPatch("manar"))}
+                />
+                <Radio
+                  label="السماح بالمكالمات المهمة والمنبّهات"
+                  hint="نمط «الأولوية» في النظام حسب استثناءاتك فيه، مع أصوات منار"
+                  active={filter === "priority"}
+                  onClick={() => update(filterPatch("priority"))}
+                />
+                <Radio
+                  label="المنبّهات فقط"
+                  hint="يصمت كل شيء إلا المنبّهات، ومنها أذان منار وإقامتها"
+                  active={filter === "alarms"}
+                  onClick={() => update(filterPatch("alarms"))}
+                />
+                <Radio
+                  label="صمت كامل"
+                  hint="لا شيء يصدر صوتًا، ولا أذان منار نفسه"
+                  active={filter === "none"}
+                  onClick={() => update(filterPatch("none"))}
+                />
+              </div>
+              <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
+                منار يستخدم وضع «عدم الإزعاج» الرسمي في الهاتف ولا يعبث بمستوى صوت جهازك، ويُعيد
+                الهاتف كما كان عند انتهاء الفترة. يحتاج «أصوات منار فقط» إذن التحكم في عدم الإزعاج.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+              <Label>أثناء سكينة — الأذان</Label>
+              <div className="mt-2 space-y-1.5">
+                <Radio
+                  label="السماح بالأذان"
+                  hint={
+                    filter === "none"
+                      ? "غير متاح مع «صمت كامل» — اختر «أصوات منار فقط» ليُسمع الأذان"
+                      : "أذان منار وإقامتها يُسمعان رغم الهدوء"
+                  }
+                  active={!settings.muteAdhanDuringSakinah && filter !== "none"}
+                  onClick={() =>
+                    update(
+                      filter === "none"
+                        ? { ...filterPatch("manar"), muteAdhanDuringSakinah: false }
+                        : { muteAdhanDuringSakinah: false },
+                    )
+                  }
+                />
+                <Radio
+                  label="كتم الأذان أيضاً"
+                  hint="يبقى إشعار الصلاة، بلا صوت"
+                  active={settings.muteAdhanDuringSakinah || filter === "none"}
+                  onClick={() => update({ muteAdhanDuringSakinah: true })}
                 />
               </div>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* الأيام */}
-      <SectionLabel hint="سكينة تعمل في الأيام المحددة فقط">أيام الأسبوع</SectionLabel>
-      <div className="px-5">
-        <div className="grid grid-cols-7 gap-1">
-          {WEEKDAYS.map((d) => (
-            <DayChip
-              key={d.index}
-              label={d.short}
-              active={settings.weekdays.includes(d.index)}
-              onClick={() =>
-                updateDeep((s) => {
-                  const on = s.weekdays.includes(d.index);
-                  const next = on
-                    ? s.weekdays.filter((x) => x !== d.index)
-                    : [...s.weekdays, d.index].sort((a, b) => a - b);
-                  return { ...s, weekdays: next.length ? next : s.weekdays };
-                })
-              }
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* إعدادات الصوت */}
-      <SectionLabel hint="ما يُسمح له بالمرور أثناء الهدوء">إعدادات الصوت</SectionLabel>
-      <div className="space-y-2 px-5">
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-          <Label>المكالمات والإشعارات</Label>
-          <div className="mt-2 space-y-1.5">
-            <Radio
-              label="أصوات منار فقط (موصى به)"
-              hint="يمرّ أذان منار وإقامتها وتنبيهاتها وحدها، وتُكتم المكالمات والرسائل وإشعارات التطبيقات الأخرى والوسائط"
-              active={filter === "manar"}
-              onClick={() => update(filterPatch("manar"))}
-            />
-            <Radio
-              label="السماح بالمكالمات المهمة والمنبّهات"
-              hint="نمط «الأولوية» في النظام حسب استثناءاتك فيه، مع أصوات منار"
-              active={filter === "priority"}
-              onClick={() => update(filterPatch("priority"))}
-            />
-            <Radio
-              label="المنبّهات فقط"
-              hint="يصمت كل شيء إلا المنبّهات، ومنها أذان منار وإقامتها"
-              active={filter === "alarms"}
-              onClick={() => update(filterPatch("alarms"))}
-            />
-            <Radio
-              label="صمت كامل"
-              hint="لا شيء يصدر صوتًا، ولا أذان منار نفسه"
-              active={filter === "none"}
-              onClick={() => update(filterPatch("none"))}
-            />
+            <LinkRow to="/adhan" title="أذان منار" hint="اختيار الصوت لكل صلاة" />
+            <LinkRow to="/iqama" title="الإقامة" hint="الفاصل والصوت" />
+            <LinkRow to="/notifications" title="إشعارات منار" hint="الأذان والإقامة والتذكيرات" />
           </div>
-          <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
-            منار يستخدم وضع «عدم الإزعاج» الرسمي في الهاتف ولا يعبث بمستوى صوت جهازك، ويُعيد الهاتف
-            كما كان عند انتهاء الفترة. يحتاج «أصوات منار فقط» إذن التحكم في عدم الإزعاج.
-          </p>
-        </div>
 
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-          <Label>أثناء سكينة — الأذان</Label>
-          <div className="mt-2 space-y-1.5">
-            <Radio
-              label="السماح بالأذان"
-              hint={
-                filter === "none"
-                  ? "غير متاح مع «صمت كامل» — اختر «أصوات منار فقط» ليُسمع الأذان"
-                  : "أذان منار وإقامتها يُسمعان رغم الهدوء"
-              }
-              active={!settings.muteAdhanDuringSakinah && filter !== "none"}
-              onClick={() =>
-                update(
-                  filter === "none"
-                    ? { ...filterPatch("manar"), muteAdhanDuringSakinah: false }
-                    : { muteAdhanDuringSakinah: false },
-                )
-              }
-            />
-            <Radio
-              label="كتم الأذان أيضاً"
-              hint="يبقى إشعار الصلاة، بلا صوت"
-              active={settings.muteAdhanDuringSakinah || filter === "none"}
-              onClick={() => update({ muteAdhanDuringSakinah: true })}
-            />
-          </div>
-        </div>
+          {/* اختبار سكينة */}
+          <SectionLabel hint="يفحص ما يحتاجه النظام فعلاً">اختبار سكينة</SectionLabel>
+          <div className="px-5">
+            <button
+              onClick={() => void runTest()}
+              disabled={testing}
+              className="gradient-primary flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium text-primary-foreground shadow-glow disabled:opacity-60"
+            >
+              <Icon d={icons.check} size={14} />
+              {testing ? "جارٍ الفحص…" : "تشغيل الاختبار"}
+            </button>
 
-        <LinkRow to="/adhan" title="أذان منار" hint="اختيار الصوت لكل صلاة" />
-        <LinkRow to="/iqama" title="الإقامة" hint="الفاصل والصوت" />
-        <LinkRow to="/notifications" title="إشعارات منار" hint="الأذان والإقامة والتذكيرات" />
-      </div>
-
-      {/* اختبار سكينة */}
-      <SectionLabel hint="يفحص ما يحتاجه النظام فعلاً">اختبار سكينة</SectionLabel>
-      <div className="px-5">
-        <button
-          onClick={() => void runTest()}
-          disabled={testing}
-          className="gradient-primary flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium text-primary-foreground shadow-glow disabled:opacity-60"
-        >
-          <Icon d={icons.check} size={14} />
-          {testing ? "جارٍ الفحص…" : "تشغيل الاختبار"}
-        </button>
-
-        {diagnostics && (
-          <div className="mt-3 rounded-2xl border border-border bg-card p-4 shadow-soft">
-            <div className="text-sm font-medium">{diagnostics.title}</div>
-            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              {diagnostics.summary}
-            </p>
-            <div className="mt-3 space-y-2">
-              {diagnostics.checks.map((c) => (
-                <div
-                  key={c.key}
-                  className="rounded-xl border border-border bg-secondary/20 px-3 py-2.5"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className={c.ok ? "text-primary" : "text-destructive"}>
-                      <Icon d={c.ok ? icons.check : icons.info} size={12} />
-                    </span>
-                    <span className="flex-1 text-xs font-medium">{c.title}</span>
-                  </div>
-                  <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                    {c.detail}
-                  </p>
-                  {c.fix && (
-                    <button
-                      onClick={() => void fix(c.fix!)}
-                      className="mt-2 rounded-full border border-border bg-card px-3 py-1.5 text-[10px] font-medium"
+            {diagnostics && (
+              <div className="mt-3 rounded-2xl border border-border bg-card p-4 shadow-soft">
+                <div className="text-sm font-medium">{diagnostics.title}</div>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                  {diagnostics.summary}
+                </p>
+                <div className="mt-3 space-y-2">
+                  {diagnostics.checks.map((c) => (
+                    <div
+                      key={c.key}
+                      className="rounded-xl border border-border bg-secondary/20 px-3 py-2.5"
                     >
-                      فتح الإعدادات
-                    </button>
-                  )}
+                      <div className="flex items-center gap-2">
+                        <span className={c.ok ? "text-primary" : "text-destructive"}>
+                          <Icon d={c.ok ? icons.check : icons.info} size={12} />
+                        </span>
+                        <span className="flex-1 text-xs font-medium">{c.title}</span>
+                      </div>
+                      <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                        {c.detail}
+                      </p>
+                      {c.fix && (
+                        <button
+                          onClick={() => void fix(c.fix!)}
+                          className="mt-2 rounded-full border border-border bg-card px-3 py-1.5 text-[10px] font-medium"
+                        >
+                          فتح الإعدادات
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* سجل سكينة */}
-      <SectionLabel hint="ما جرى فعلاً على هذا الجهاز">سجل سكينة</SectionLabel>
-      <div className="px-5">
-        {log.length === 0 ? (
-          <p className="rounded-2xl border border-border bg-secondary/30 p-4 text-[10px] leading-relaxed text-muted-foreground">
-            لا سجل بعد. يظهر هنا ما نُفّذ وما تُخطّي وما تعذّر، لكل صلاة على حدة.
-          </p>
-        ) : (
-          <div className="space-y-1.5">
-            {log
-              .slice()
-              .reverse()
-              .slice(0, 30)
-              .map((line, i) => (
-                <div
-                  key={`${line.at}-${i}`}
-                  className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2"
-                >
-                  <span
-                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                      line.tone === "warn"
-                        ? "bg-destructive"
-                        : line.tone === "ok"
-                          ? "bg-primary"
-                          : "bg-muted-foreground/50"
-                    }`}
-                  />
-                  <span className="min-w-0 flex-1 truncate text-[11px]">
-                    {line.prayer ? `${line.prayer} — ` : ""}
-                    {line.text}
-                  </span>
-                  <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground">
-                    {formatHHMM(new Date(line.at))}
-                  </span>
-                </div>
-              ))}
+          {/* سجل سكينة */}
+          <SectionLabel hint="ما جرى فعلاً على هذا الجهاز">سجل سكينة</SectionLabel>
+          <div className="px-5">
+            {log.length === 0 ? (
+              <p className="rounded-2xl border border-border bg-secondary/30 p-4 text-[10px] leading-relaxed text-muted-foreground">
+                لا سجل بعد. يظهر هنا ما نُفّذ وما تُخطّي وما تعذّر، لكل صلاة على حدة.
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {log
+                  .slice()
+                  .reverse()
+                  .slice(0, 30)
+                  .map((line, i) => (
+                    <div
+                      key={`${line.at}-${i}`}
+                      className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2"
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                          line.tone === "warn"
+                            ? "bg-destructive"
+                            : line.tone === "ok"
+                              ? "bg-primary"
+                              : "bg-muted-foreground/50"
+                        }`}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-[11px]">
+                        {line.prayer ? `${line.prayer} — ` : ""}
+                        {line.text}
+                      </span>
+                      <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground">
+                        {formatHHMM(new Date(line.at))}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       <div className="mt-5 px-5 pb-2">
         <p className="rounded-2xl border border-border bg-secondary/30 p-4 text-[10px] leading-relaxed text-muted-foreground">

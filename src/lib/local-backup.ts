@@ -45,6 +45,7 @@ export const BACKUP_KEYS: string[] = [
   "manar.seasons.v1",
   "manar.activity.v1",
   "manar.jumuah.v1",
+  "manar.qada.v1",
 ];
 
 /** مفاتيح تخصّ هذا الجهاز فقط ولا تدخل النسخة (ذاكرات مؤقتة، ملفات محمّلة…). */
@@ -91,6 +92,7 @@ export const KEY_EVENTS: Record<string, string> = {
   "manar.activity.v1": "manar:activity",
   "manar.display.v1": "manar:display",
   "manar.jumuah.v1": "manar:jumuah",
+  "manar.qada.v1": "manar:qada",
 };
 
 export type KV = Pick<Storage, "getItem" | "setItem" | "removeItem">;
