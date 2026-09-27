@@ -45,16 +45,7 @@ export function isNativeApp(): boolean {
 }
 
 /** Routes where pressing back should ask to exit instead of navigating away. */
-const ROOT_PATHS = new Set([
-  "/",
-  "/home",
-  "/prayer",
-  "/quran",
-  "/azkar",
-  "/more",
-  "/onboarding",
-  "/login",
-]);
+const ROOT_PATHS = new Set(["/", "/home", "/prayer", "/quran", "/azkar", "/more", "/onboarding"]);
 
 let backHandlerAttached = false;
 

@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Mark } from "@/components/manar/shell";
-import { useAuth } from "@/lib/auth-context";
 import { hasOnboarded } from "@/lib/onboarding-state";
 
 export const Route = createFileRoute("/")({
@@ -17,41 +16,21 @@ export const Route = createFileRoute("/")({
 
 function Splash() {
   const navigate = useNavigate();
-  const { user, isGuest, loading } = useAuth();
-  const [returning] = useState(() => hasOnboarded());
+  /* `null` حتى التركيب: قراءة التخزين في القيمة الابتدائية كانت تجعل رسم الجهاز
+   * (بلا «تخطي») يختلف عن رسم الخادم فيفشل الترطيب. */
+  const [returning, setReturning] = useState<boolean | null>(null);
+  useEffect(() => setReturning(hasOnboarded()), []);
 
-  /* من فتح التطبيق قبل اليوم لا يُعاد تعريفه به.
-   *
-   * كانت هذه الشاشة تُحوّل إلى `/onboarding` دائماً، فيرى المستخدم شرائح
-   * التعريف ثم شاشة الدخول في كل مرّة يفتح فيها التطبيق — حتى بعد أن دخل
-   * كزائر أو بحسابه. الوجهة الآن تتبع حالته المحفوظة:
-   *   • أتمّ التعريف ومعه حساب أو وضع زائر → الرئيسية مباشرةً.
-   *   • أتمّ التعريف بلا حساب → شاشة الدخول (لا الشرائح ثانيةً).
-   *   • أول مرّة → الشرائح.
-   *
-   * ننتظر انتهاء `loading` قبل القرار، وإلا حُسم الأمر قبل أن تُستعاد
-   * الجلسة من التخزين فيُطرد صاحب الحساب إلى شاشة الدخول. */
-  /* الانتظار مسقوف.
-   *
-   * كان القرار يُعلَّق حتى ينتهي `loading`، وهو رهانٌ على أن استعادة الجلسة
-   * تنتهي دائماً. إن تعلّقت — خادمٌ لا يُستجاب، أو خطأ يمنع `setLoading(false)` —
-   * بقي المستخدم على شاشة البداية إلى الأبد بلا أي مخرج. الآن ننتظر ثانية
-   * واحدة على الأكثر ثم نُقرّر بما لدينا: الأسوأ أن يُطلب منه الدخول مرّةً
-   * وهو مسجَّل، لا أن يُحبس في شاشةٍ لا تتغيّر. */
-  const [waitedOut, setWaitedOut] = useState(false);
+  /* من فتح التطبيق قبل اليوم لا يُعاد تعريفه به: أول مرّة ← الشرائح، وبعدها
+   * ← الرئيسية مباشرةً. لا حساب ولا شاشة دخول، فلا انتظار لاستعادة جلسة. */
   useEffect(() => {
-    const t = setTimeout(() => setWaitedOut(true), 1000);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    if (loading && !waitedOut) return;
-    const to = !returning ? "/onboarding" : user || isGuest ? "/home" : "/login";
+    if (returning == null) return;
+    const to = returning ? "/home" : "/onboarding";
     /* العائد لا ينتظر شاشة البداية كاملةً — ٢٢٠٠ مللي ثانية ترحيبٌ لطيف
        في المرّة الأولى وتأخيرٌ مزعج فيما بعدها. */
     const t = setTimeout(() => navigate({ to }), returning ? 600 : 2200);
     return () => clearTimeout(t);
-  }, [navigate, loading, waitedOut, returning, user, isGuest]);
+  }, [navigate, returning]);
 
   return (
     <div dir="rtl" className="relative min-h-screen overflow-hidden gradient-hero text-white">
@@ -71,7 +50,7 @@ function Splash() {
             />
           ))}
         </div>
-        {!returning && (
+        {returning === false && (
           <Link
             to="/onboarding"
             className="absolute bottom-8 text-[11px] tracking-[0.3em] text-white/50"

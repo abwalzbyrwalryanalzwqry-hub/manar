@@ -1,7 +1,6 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { toast } from "sonner";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Icon, icons, Screen, ScreenHeader, SectionLabel, Mark } from "@/components/manar/shell";
-import { useAuth } from "@/lib/auth-context";
+import { useUserName } from "@/lib/user-name";
 
 export const Route = createFileRoute("/_tabs/more")({
   head: () => ({ meta: [{ title: "المزيد — منار" }] }),
@@ -31,51 +30,42 @@ const ITEMS = [
   { to: "/calendar", l: "التقويم", d: "هجري وميلادي ومناسبات", i: icons.calendar },
   { to: "/seasons", l: "مواسم منار", d: "رمضان وذو الحجة والجمعة وغيرها", i: icons.star },
   { to: "/statistics", l: "الإحصائيات", d: "تقدمك ورحلتك", i: icons.stats },
-  { to: "/profile", l: "الملف الشخصي", d: "بياناتك وحسابك", i: icons.profile },
+  {
+    to: "/my-data",
+    l: "بياناتي",
+    d: "النسخ الاحتياطي، التصدير والاستيراد، اسمك",
+    i: icons.profile,
+  },
   { to: "/settings", l: "الإعدادات", d: "اللغة، الإشعارات، المظهر", i: icons.settings },
   { to: "/about", l: "عن التطبيق", d: "النسخة، المطور، الخصوصية والشروط", i: icons.info },
 ] as const;
 
 function More() {
-  const nav = useNavigate();
-  const { user, profile, isGuest, signOut } = useAuth();
-  const name = profile?.full_name || user?.email?.split("@")[0] || "زائر";
-  const sub = user
-    ? profile?.created_at
-      ? `عضو منذ ${new Date(profile.created_at).toLocaleDateString("ar", { year: "numeric", month: "long" })}`
-      : "مرحباً بك"
-    : "وضع الزائر — سجّل لمزامنة بياناتك";
-
-  const doSignOut = async () => {
-    await signOut();
-    toast.success("تم تسجيل الخروج");
-    nav({ to: "/login" });
-  };
+  const name = useUserName();
 
   return (
     <Screen>
       <ScreenHeader title="المزيد" subtitle="إعدادات وأدوات إضافية" />
 
       <div className="px-5">
-        <div className="glass flex items-center gap-4 rounded-[24px] p-4 shadow-soft">
+        <Link
+          to="/my-data"
+          aria-label={name ? `${name} — بياناتي` : "بياناتي — أضف اسمك"}
+          className="glass flex items-center gap-4 rounded-[24px] p-4 shadow-soft"
+        >
           <div className="gradient-primary flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl shadow-glow">
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <Mark size={26} tone="light" />
-            )}
+            <Mark size={26} tone="light" />
           </div>
           <div className="flex-1">
-            <div className="font-display text-lg font-medium">{name}</div>
-            <div className="text-xs text-muted-foreground">{sub}</div>
+            <div className="font-display text-lg font-medium">
+              {name ? `أهلاً، ${name}` : "أهلاً بك في منار"}
+            </div>
+            <div className="text-xs text-muted-foreground">بياناتك على جهازك فقط — بلا حساب</div>
           </div>
-          <Link
-            to={user ? "/profile" : "/login"}
-            className="rounded-full border border-border px-3 py-1.5 text-[11px]"
-          >
-            {user ? "عرض" : "دخول"}
-          </Link>
-        </div>
+          <span className="rounded-full border border-border px-3 py-1.5 text-[11px]">
+            {name ? "بياناتي" : "أضف اسمك"}
+          </span>
+        </Link>
       </div>
 
       <SectionLabel>أدوات</SectionLabel>
@@ -98,25 +88,6 @@ function More() {
             </span>
           </Link>
         ))}
-      </div>
-
-      <SectionLabel>الحساب</SectionLabel>
-      <div className="px-5">
-        {user ? (
-          <button
-            onClick={doSignOut}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 py-3.5 text-sm font-medium text-destructive"
-          >
-            تسجيل الخروج
-          </button>
-        ) : (
-          <Link
-            to="/login"
-            className="gradient-primary flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-medium text-primary-foreground shadow-glow"
-          >
-            {isGuest ? "تسجيل الدخول وحفظ تقدمي" : "تسجيل الدخول"}
-          </Link>
-        )}
       </div>
     </Screen>
   );

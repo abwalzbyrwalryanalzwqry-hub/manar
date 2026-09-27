@@ -241,7 +241,7 @@ const MORE_PATHS = [
   "/qibla",
   "/calendar",
   "/statistics",
-  "/profile",
+  "/my-data",
   "/settings",
   "/about",
   "/sources",
