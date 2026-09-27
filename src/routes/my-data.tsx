@@ -63,7 +63,7 @@ async function appVersion(): Promise<string> {
 }
 
 /** يكتب التغييرات إلى المرآة الأصلية ثم يعيد تشغيل الواجهة لتقرأ كل وحدة قيمها. */
-async function restartWithNewData(to = "/home") {
+async function restartWithNewData(to = "/") {
   await flushPersistentWrites();
   window.location.replace(to);
 }
@@ -272,7 +272,7 @@ function MyData() {
         <input
           ref={fileRef}
           type="file"
-          accept="application/json,.json"
+          accept="application/json,text/plain,application/octet-stream,.json"
           className="hidden"
           aria-hidden="true"
           tabIndex={-1}
