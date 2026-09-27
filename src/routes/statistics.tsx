@@ -9,11 +9,29 @@ import {
   ScreenHeader,
   SectionLabel,
 } from "@/components/manar/shell";
-import { FARD_PRAYERS, useActivityLog, type Achievement, type DayBar } from "@/lib/activity-log";
-import { PRAYER_LABELS } from "@/lib/prayer";
-import { toArabicDigits } from "@/lib/format";
+import {
+  FARD_PRAYERS,
+  dayKey,
+  monthBars,
+  monthHeatmap,
+  rangeStats,
+  setDayPrayers,
+  shiftDayKey,
+  useActivityLog,
+  type Achievement,
+  type DayBar,
+  type HeatCell,
+} from "@/lib/activity-log";
+import { PRAYER_LABELS, type PrayerKey } from "@/lib/prayer";
+import { formatPercent, formatWeekdayAr, toArabicDigits } from "@/lib/format";
+import { GREGORIAN_MONTHS, WEEKDAY_LABELS } from "@/lib/hijri";
+import { useMemo, useState } from "react";
+import { QuranSummary } from "@/components/manar/stats-quran-summary";
+import { QadaCard } from "@/components/manar/qada-card";
 
 export const Route = createFileRoute("/statistics")({
+  /* «اليوم» والشهر الحالي بتوقيت الجهاز (انظر ssr-time-routes). */
+  ssr: false,
   head: () => ({ meta: [{ title: "الإحصائيات — منار" }] }),
   component: Statistics,
 });
@@ -69,7 +87,7 @@ function Statistics() {
             <RingProgress value={month.prayerRatio} size={104} stroke={4}>
               <div className="text-center">
                 <div className="font-display text-2xl font-black tabular-nums">
-                  {toArabicDigits(pct(month.prayerRatio))}٪
+                  {formatPercent(pct(month.prayerRatio))}
                 </div>
                 <div className="text-[9px] uppercase tracking-widest text-white/60">٣٠ يوماً</div>
               </div>
@@ -94,47 +112,6 @@ function Statistics() {
         </div>
       ) : (
         <>
-          {/* الرسم الأسبوعي */}
-          <SectionLabel hint="آخر ٧ أيام">نشاط الأسبوع</SectionLabel>
-          <div className="px-4">
-            <div className="rounded-3xl border border-border bg-card p-5 shadow-soft">
-              <div className="flex h-36 items-end justify-between gap-2">
-                {bars.map((b) => (
-                  <WeekBar key={b.key} bar={b} />
-                ))}
-              </div>
-              <div className="mt-4 flex justify-between border-t border-border pt-4 text-[11px]">
-                <div>
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                    معدل الأسبوع
-                  </div>
-                  <div className="font-display text-base font-medium tabular-nums">
-                    {toArabicDigits(pct(week.prayerRatio))}٪
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                    مقارنة بالأسبوع الماضي
-                  </div>
-                  <div
-                    className={`font-display text-base font-medium tabular-nums ${
-                      weekDelta > 0
-                        ? "text-emerald-500"
-                        : weekDelta < 0
-                          ? "text-rose-500"
-                          : "text-muted-foreground"
-                    }`}
-                  >
-                    <span dir="ltr">
-                      {weekDelta > 0 ? "+" : weekDelta < 0 ? "−" : ""}
-                      {toArabicDigits(Math.abs(weekDelta))}٪
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* صلوات اليوم */}
           <SectionLabel
             hint={`${toArabicDigits(today.prayers.length)} من ${toArabicDigits(FARD_PRAYERS.length)}`}
@@ -164,36 +141,7 @@ function Statistics() {
             </div>
           </div>
 
-          {/* شبكة الأرقام */}
-          <SectionLabel hint="آخر ٧ أيام">هذا الأسبوع</SectionLabel>
-          <div className="grid grid-cols-2 gap-3 px-4 stagger">
-            <Stat
-              icon={icons.prayer}
-              label="الصلوات"
-              value={toArabicDigits(week.prayers)}
-              sub={`من ${toArabicDigits(week.prayersPossible)}`}
-              tone="gradient-primary"
-            />
-            <Stat
-              icon={icons.quran}
-              label="آيات مقروءة"
-              value={toArabicDigits(week.ayahs)}
-              sub={`${toArabicDigits(month.ayahs)} خلال ٣٠ يوماً`}
-            />
-            <Stat
-              icon={icons.azkar}
-              label="الأذكار"
-              value={toArabicDigits(week.azkar)}
-              sub="ذكر مكتمل"
-            />
-            <Stat
-              icon={icons.heart}
-              label="جلسات الوِرد"
-              value={toArabicDigits(week.wird)}
-              sub={`${toArabicDigits(week.activeDays)} ${dayWord(week.activeDays)} نشطة`}
-              tone="gradient-gold"
-            />
-          </div>
+          <RangeSection log={log} bars={bars} weekDelta={weekDelta} />
 
           {/* الإنجازات */}
           <SectionLabel hint={`${toArabicDigits(unlocked)} مفتوحة`}>الإنجازات</SectionLabel>
@@ -202,8 +150,11 @@ function Statistics() {
               <AchievementRow key={a.id} achievement={a} />
             ))}
           </div>
+          <QuranSummary />
         </>
       )}
+
+      {hydrated && <QadaCard />}
     </Screen>
   );
 }
@@ -253,7 +204,7 @@ function AchievementRow({ achievement: a }: { achievement: Achievement }) {
         </div>
         <div className="shrink-0 text-right">
           <div className="text-xs font-medium tabular-nums text-primary">
-            {toArabicDigits(pct(ratio))}٪
+            {formatPercent(pct(ratio))}
           </div>
           <div className="text-[9px] text-muted-foreground tabular-nums">
             {toArabicDigits(Math.min(a.value, a.goal))} / {toArabicDigits(a.goal)}
@@ -294,6 +245,352 @@ function Stat({
       <div className="relative mt-3 font-display text-3xl font-black tabular-nums">{value}</div>
       <div className="relative text-xs font-medium">{label}</div>
       <div className="relative mt-0.5 text-[10px] text-muted-foreground">{sub}</div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  أسبوع / شهر / سنة                                                  */
+/* ------------------------------------------------------------------ */
+
+type Range = "week" | "month" | "year";
+const RANGE_DAYS: Record<Range, number> = { week: 7, month: 30, year: 365 };
+const RANGE_HINT: Record<Range, string> = {
+  week: "آخر ٧ أيام",
+  month: "آخر ٣٠ يوماً",
+  year: "آخر ٣٦٥ يوماً",
+};
+
+function RangeSection({
+  log,
+  bars,
+  weekDelta,
+}: {
+  log: ReturnType<typeof useActivityLog>["log"];
+  bars: DayBar[];
+  weekDelta: number;
+}) {
+  const [range, setRange] = useState<Range>("week");
+  const todayKey = dayKey();
+  const stats = useMemo(() => rangeStats(log, RANGE_DAYS[range], todayKey), [log, range, todayKey]);
+  const [ty, tm] = todayKey.split("-").map(Number);
+  const [cursor, setCursor] = useState({ year: ty, month: tm });
+  const [editKey, setEditKey] = useState<string | null>(null);
+  const cells = useMemo(
+    () => monthHeatmap(log, cursor.year, cursor.month, todayKey),
+    [log, cursor, todayKey],
+  );
+  const months = useMemo(() => monthBars(log, 12, todayKey), [log, todayKey]);
+  const atCurrent = cursor.year === ty && cursor.month === tm;
+  const oldest = shiftDayKey(todayKey, -729).slice(0, 7);
+  const cursorKey = `${cursor.year}-${String(cursor.month).padStart(2, "0")}`;
+  const step = (delta: number) => {
+    const total = cursor.year * 12 + (cursor.month - 1) + delta;
+    setCursor({ year: Math.floor(total / 12), month: (total % 12) + 1 });
+  };
+
+  return (
+    <>
+      <div className="px-4 pt-6">
+        <div
+          className="flex items-center gap-2 rounded-2xl border border-border bg-card p-1 shadow-soft"
+          role="tablist"
+          aria-label="المدى"
+        >
+          {(
+            [
+              { k: "week", l: "أسبوع" },
+              { k: "month", l: "شهر" },
+              { k: "year", l: "سنة" },
+            ] as { k: Range; l: string }[]
+          ).map((t) => (
+            <button
+              key={t.k}
+              type="button"
+              role="tab"
+              aria-selected={range === t.k}
+              onClick={() => setRange(t.k)}
+              className={`flex-1 rounded-xl py-2 text-xs font-medium transition ${
+                range === t.k
+                  ? "gradient-primary text-primary-foreground shadow-glow"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {t.l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <SectionLabel hint={range === "month" ? "اضغط يوماً لتعديل صلواته" : RANGE_HINT[range]}>
+        {range === "week" ? "نشاط الأسبوع" : range === "month" ? "خريطة الشهر" : "نشاط السنة"}
+      </SectionLabel>
+      <div className="px-4">
+        <div className="rounded-3xl border border-border bg-card p-5 shadow-soft">
+          {range === "week" && (
+            <div className="flex h-36 items-end justify-between gap-2">
+              {bars.map((b) => (
+                <button
+                  key={b.key}
+                  type="button"
+                  className="flex h-full flex-1"
+                  onClick={() => setEditKey(b.key)}
+                  aria-label={`تعديل صلوات ${formatWeekdayAr(b.date)}`}
+                >
+                  <WeekBar bar={b} />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {range === "month" && (
+            <>
+              <div className="mb-3 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => step(-1)}
+                  disabled={cursorKey <= oldest}
+                  aria-label="الشهر السابق"
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-border disabled:opacity-30"
+                >
+                  <Icon d={icons.chevron} size={14} />
+                </button>
+                <div className="text-sm font-medium">
+                  {GREGORIAN_MONTHS[cursor.month - 1]} {toArabicDigits(cursor.year)}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => step(1)}
+                  disabled={atCurrent}
+                  aria-label="الشهر التالي"
+                  className="flex h-8 w-8 rotate-180 items-center justify-center rounded-xl border border-border disabled:opacity-30"
+                >
+                  <Icon d={icons.chevron} size={14} />
+                </button>
+              </div>
+              <div className="grid grid-cols-7 gap-1.5 text-center">
+                {WEEKDAY_LABELS.map((w) => (
+                  <div key={w} className="pb-1 text-[9px] text-muted-foreground">
+                    {w}
+                  </div>
+                ))}
+                {cells.map((c, i) =>
+                  c ? (
+                    <HeatDay key={c.key} cell={c} onPick={() => setEditKey(c.key)} />
+                  ) : (
+                    <div key={`e${i}`} />
+                  ),
+                )}
+              </div>
+              <div className="mt-3 flex items-center justify-end gap-1.5 text-[9px] text-muted-foreground">
+                أقل
+                {[0, 0.2, 0.6, 1].map((r) => (
+                  <span key={r} className={`h-3 w-3 rounded ${heatTone(r)}`} />
+                ))}
+                أكثر
+              </div>
+            </>
+          )}
+
+          {range === "year" && (
+            <div className="flex h-36 items-end justify-between gap-1">
+              {months.map((m) => (
+                <div
+                  key={`${m.year}-${m.month}`}
+                  className="flex h-full flex-1 flex-col items-center gap-1.5"
+                >
+                  <div className="relative flex w-full flex-1 items-end">
+                    <div
+                      className={`w-full rounded-t-lg ${m.prayers ? "gradient-primary" : "bg-muted"}`}
+                      style={{ height: `${Math.max(4, m.ratio * 100)}%` }}
+                      title={formatPercent(pct(m.ratio))}
+                    />
+                  </div>
+                  <span className="text-[8px] text-muted-foreground">
+                    {GREGORIAN_MONTHS[m.month - 1].slice(0, 3)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-4 flex justify-between border-t border-border pt-4 text-[11px]">
+            <div>
+              <div className="text-[10px] text-muted-foreground">معدل الصلوات</div>
+              <div className="font-display text-base font-medium tabular-nums">
+                {formatPercent(pct(stats.prayerRatio))}
+              </div>
+            </div>
+            {range === "week" && (
+              <div className="text-right">
+                <div className="text-[10px] text-muted-foreground">مقارنة بالأسبوع الماضي</div>
+                <div
+                  className={`font-display text-base font-medium tabular-nums ${
+                    weekDelta > 0
+                      ? "text-emerald-500"
+                      : weekDelta < 0
+                        ? "text-rose-500"
+                        : "text-muted-foreground"
+                  }`}
+                >
+                  {formatPercent(weekDelta, { signed: true })}
+                </div>
+              </div>
+            )}
+            {range !== "week" && (
+              <div className="text-right">
+                <div className="text-[10px] text-muted-foreground">أيام نشطة</div>
+                <div className="font-display text-base font-medium tabular-nums">
+                  {toArabicDigits(stats.activeDays)} من {toArabicDigits(stats.days)}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-3 px-4 stagger">
+        <Stat
+          icon={icons.prayer}
+          label="الصلوات"
+          value={toArabicDigits(stats.prayers)}
+          sub={`من ${toArabicDigits(stats.prayersPossible)}`}
+          tone="gradient-primary"
+        />
+        <Stat
+          icon={icons.quran}
+          label="آيات مقروءة"
+          value={toArabicDigits(stats.ayahs)}
+          sub={RANGE_HINT[range]}
+        />
+        <Stat
+          icon={icons.azkar}
+          label="الأذكار"
+          value={toArabicDigits(stats.azkar)}
+          sub="ذكر مكتمل"
+        />
+        <Stat
+          icon={icons.heart}
+          label="جلسات الوِرد"
+          value={toArabicDigits(stats.wird)}
+          sub={`${toArabicDigits(stats.activeDays)} ${dayWord(stats.activeDays)} نشطة`}
+          tone="gradient-gold"
+        />
+      </div>
+
+      {editKey && (
+        <DaySheet
+          dayKeyValue={editKey}
+          prayers={log.days[editKey]?.prayers ?? []}
+          onClose={() => setEditKey(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function heatTone(ratio: number): string {
+  if (ratio <= 0) return "bg-muted";
+  if (ratio < 0.4) return "bg-primary/25";
+  if (ratio < 0.8) return "bg-primary/55";
+  if (ratio < 1) return "bg-primary/80";
+  return "gradient-primary";
+}
+
+function HeatDay({ cell, onPick }: { cell: HeatCell; onPick: () => void }) {
+  return (
+    <button
+      type="button"
+      disabled={cell.future}
+      onClick={onPick}
+      aria-label={`يوم ${toArabicDigits(cell.day)}: ${toArabicDigits(cell.prayers)} من ٥`}
+      className={`flex aspect-square items-center justify-center rounded-lg text-[10px] tabular-nums transition disabled:opacity-30 ${heatTone(
+        cell.ratio,
+      )} ${cell.ratio >= 0.8 ? "text-primary-foreground" : "text-foreground"} ${
+        cell.isToday ? "ring-2 ring-gold" : ""
+      }`}
+    >
+      {toArabicDigits(cell.day)}
+    </button>
+  );
+}
+
+function DaySheet({
+  dayKeyValue,
+  prayers,
+  onClose,
+}: {
+  dayKeyValue: string;
+  prayers: PrayerKey[];
+  onClose: () => void;
+}) {
+  const [y, m, d] = dayKeyValue.split("-").map(Number);
+  const date = new Date(y, m - 1, d, 12);
+  const [picked, setPicked] = useState<PrayerKey[]>(prayers);
+  const toggle = (p: PrayerKey) =>
+    setPicked((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-navy/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        dir="rtl"
+        role="dialog"
+        aria-label="تسجيل صلوات يوم"
+        onClick={(e) => e.stopPropagation()}
+        className="mx-auto w-full max-w-md rounded-t-[32px] border-t border-border bg-card p-6 shadow-elegant animate-fade-up"
+      >
+        <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-muted" />
+        <h2 className="font-display text-lg font-medium">
+          {formatWeekdayAr(date)} {toArabicDigits(d)} {GREGORIAN_MONTHS[m - 1]}
+        </h2>
+        <p className="mb-4 text-[11px] text-muted-foreground">
+          سجّل ما صلّيته في هذا اليوم إن نسيت تسجيله في وقته.
+        </p>
+        <div className="grid grid-cols-5 gap-2">
+          {FARD_PRAYERS.map((p) => {
+            const on = picked.includes(p);
+            return (
+              <button
+                key={p}
+                type="button"
+                aria-pressed={on}
+                onClick={() => toggle(p)}
+                className={`rounded-2xl border p-3 text-center transition ${
+                  on
+                    ? "border-transparent gradient-primary text-primary-foreground shadow-glow"
+                    : "border-border bg-card text-muted-foreground"
+                }`}
+              >
+                <div className="flex justify-center">
+                  <Icon d={on ? icons.check : icons.prayer} size={14} />
+                </div>
+                <div className="mt-1.5 text-[10px] font-medium">{PRAYER_LABELS[p].ar}</div>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setDayPrayers(dayKeyValue, picked);
+              onClose();
+            }}
+            className="gradient-primary rounded-2xl py-3.5 text-sm font-medium text-primary-foreground shadow-glow"
+          >
+            حفظ
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-border py-3.5 text-sm font-medium text-muted-foreground"
+          >
+            إلغاء
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

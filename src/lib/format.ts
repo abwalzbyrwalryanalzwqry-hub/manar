@@ -36,6 +36,21 @@ export function formatHHMM(date: Date): string {
   );
 }
 
+/**
+ * نسبة مئوية بقواعد CLDR للعربية: «٥٠٪» تُعرض والعلامة إلى يسار الرقم كما في
+ * أنظمة التشغيل العربية، و«50%» مع الأرقام الغربية. `value` من ٠ إلى ١٠٠.
+ * تحمل علامات اتجاه (ALM/LRM) فلا تنقلب داخل حاوية `dir="ltr"`.
+ * `signed` يضيف «+» للفروق الموجبة.
+ */
+export function formatPercent(value: number, opts: { signed?: boolean } = {}): string {
+  const n = Math.round(Number.isFinite(value) ? value : 0);
+  return new Intl.NumberFormat(`ar-EG${numberingTag()}`, {
+    style: "percent",
+    maximumFractionDigits: 0,
+    signDisplay: opts.signed ? "exceptZero" : "auto",
+  }).format(n / 100);
+}
+
 /** لاحقة نظام الترقيم في Intl حسب اختيار المستخدم. */
 export function numberingTag(): string {
   return displayPrefs().digits === "latn" ? "-u-nu-latn" : "";

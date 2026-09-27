@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { formatPercent } from "@/lib/format";
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { EmptyState, Icon, icons, Screen, ScreenHeader, Skeleton } from "@/components/manar/shell";
 import {
@@ -165,7 +166,7 @@ function QuranSearch() {
           <div className="rounded-3xl border border-border/60 bg-card/70 p-4 shadow-soft backdrop-blur-xl">
             <div className="flex items-center justify-between text-[11px] text-muted-foreground">
               <span>جارٍ تهيئة فهرس البحث…</span>
-              <span className="tabular-nums">{toArabicDigits(percent)}٪</span>
+              <span className="tabular-nums">{formatPercent(percent)}</span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
               <div

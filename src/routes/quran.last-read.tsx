@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { formatPercent } from "@/lib/format";
 import { useEffect, useState } from "react";
 import {
   Arabesque,
@@ -121,7 +122,7 @@ function LastReadScreen() {
           <RingProgress value={progress} size={104} stroke={8} trackColor="rgba(148,163,184,0.2)">
             <div className="text-center">
               <div className="font-display text-xl font-medium tabular-nums">
-                {toArabicDigits(percent)}٪
+                {formatPercent(percent)}
               </div>
               <div className="text-[9px] text-muted-foreground">الختمة</div>
             </div>

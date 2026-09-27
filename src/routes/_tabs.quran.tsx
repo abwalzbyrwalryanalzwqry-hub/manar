@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { formatPercent } from "@/lib/format";
 import { useEffect, useState } from "react";
 import {
   Arabesque,
@@ -166,7 +167,7 @@ function QuranHub() {
               />
             </div>
             <span className="text-[10px] tabular-nums text-white/70">
-              {toArabicDigits(percent)}٪ من المصحف
+              {formatPercent(percent)} من المصحف
             </span>
           </div>
         </div>
@@ -178,7 +179,7 @@ function QuranHub() {
         <StatPill label="سلسلة الأيام" value={toArabicDigits(streak)} to="/quran/last-read" />
         <StatPill
           label="الختمة"
-          value={`${toArabicDigits(k ? Math.round(k.progress * 100) : percent)}٪`}
+          value={formatPercent(k ? k.progress * 100 : percent)}
           to="/quran/khatmah"
         />
       </div>

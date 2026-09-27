@@ -8,7 +8,7 @@ import {
 } from "@/lib/adhan-settings";
 import { playAdhan, playIqama } from "@/lib/adhan-sound";
 import { play, stop } from "@/lib/audio-engine";
-import { toArabicDigits } from "@/lib/format";
+import { toArabicDigits, formatPercent } from "@/lib/format";
 import {
   getPhoneAlarmVolume,
   isNativeShell,
@@ -29,7 +29,7 @@ const ROWS: { key: RowKey; label: string; hint: string }[] = [
   },
 ];
 
-const pct = (v: number) => `${toArabicDigits(Math.round(v * 100))}٪`;
+const pct = (v: number) => formatPercent(v * 100);
 
 const pick = (s: VolumeLevels): VolumeLevels => ({
   volume: s.volume,
@@ -202,9 +202,9 @@ export function VolumeLevelsCard({
 
       <div className="mt-3 rounded-xl bg-secondary/40 px-3 py-2 text-[10px] leading-relaxed text-muted-foreground">
         المستوى الفعلي: الأذان {pct(effectiveVolume(draft, "adhan"))} · الإقامة{" "}
-        {pct(effectiveVolume(draft, "iqama"))} · التنبيهات {toArabicDigits(reminderPct)}٪
+        {pct(effectiveVolume(draft, "iqama"))} · التنبيهات {formatPercent(reminderPct)}
         {isNativeShell() && level !== reminderPct && (
-          <> (تُشغَّل إشعاراتها بدرجة {toArabicDigits(level)}٪)</>
+          <> (تُشغَّل إشعاراتها بدرجة {formatPercent(level)})</>
         )}
         {muted && <div className="mt-1 text-foreground">الوضع الصامت مفعّل: لن تُسمع الأصوات.</div>}
       </div>

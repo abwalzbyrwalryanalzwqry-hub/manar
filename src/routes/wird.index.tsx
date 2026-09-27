@@ -8,7 +8,7 @@ import {
   ScreenHeader,
   SectionLabel,
 } from "@/components/manar/shell";
-import { toArabicDigits } from "@/lib/format";
+import { toArabicDigits, formatPercent } from "@/lib/format";
 import { WIRD_SESSIONS, WIRD_SESSION_KEYS, type WirdSessionKey } from "@/lib/wird/data";
 import {
   isWirdComplete,
@@ -120,7 +120,7 @@ function WirdHub() {
                 </div>
                 <RingProgress value={ratio} size={62} stroke={5} trackColor="var(--border)">
                   <span className="text-[11px] font-medium tabular-nums">
-                    {toArabicDigits(Math.round(ratio * 100))}٪
+                    {formatPercent(ratio * 100)}
                   </span>
                 </RingProgress>
               </div>

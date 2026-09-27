@@ -4,7 +4,7 @@
 // ============================================================
 
 import { useEffect, useState } from "react";
-import { toArabicDigits } from "@/lib/format";
+import { toArabicDigits, formatPercent } from "@/lib/format";
 
 interface Props {
   /** نسبة إنجاز الوِرد كاملًا (٠..١) */
@@ -54,7 +54,7 @@ export function WirdProgressBar({
         </div>
         <div className="shrink-0 text-left">
           <div className="font-display text-2xl font-medium tabular-nums leading-none">
-            {toArabicDigits(Math.round(ratio * 100))}٪
+            {formatPercent(ratio * 100)}
           </div>
           <div className="text-[10px] text-muted-foreground">
             الذكر {toArabicDigits(currentOrder)} من {toArabicDigits(total)}
