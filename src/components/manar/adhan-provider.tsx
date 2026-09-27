@@ -195,6 +195,8 @@ export function AdhanProvider() {
     window.addEventListener("manar:hijri-adjust", onSoundSettings);
     // صلاة الجمعة: تفضيلات التنبيه أو إنجاز عمل (فلا يُذكَّر بما أُنجز).
     window.addEventListener("manar:jumuah", onSoundSettings);
+    // ١٢/٢٤ ساعة ونوع الأرقام: نصوص الإشعارات تُكتب بالتنسيق الجديد.
+    window.addEventListener("manar:display", onSoundSettings);
 
     /* تغيّر اليوم أو المنطقة الزمنية والتطبيق مفتوح: نافذة الأيام السبعة تتقدّم
      * يوماً، والأوقات المطلقة تُعاد حسابها. فحصٌ خفيف كل دقيقة لا يُنشئ منبّهاً. */
@@ -216,6 +218,8 @@ export function AdhanProvider() {
       window.removeEventListener("manar:adhan-settings", onSoundSettings);
       window.removeEventListener("manar:seasons", onSoundSettings);
       window.removeEventListener("manar:hijri-adjust", onSoundSettings);
+      window.removeEventListener("manar:display", onSoundSettings);
+      window.removeEventListener("manar:jumuah", onSoundSettings);
       window.clearInterval(watch);
       clearTimeout(pending);
     };

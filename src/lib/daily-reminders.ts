@@ -5,6 +5,7 @@
  * يربطها بصلاة (بعد الفجر، قبل المغرب) فتتحرّك معها كل يوم.
  */
 
+import { displayPrefs } from "./display-prefs";
 import { useEffect, useState } from "react";
 import { PRAYER_LABELS, PRAYER_ORDER, type PrayerKey } from "./prayer";
 
@@ -599,6 +600,9 @@ export function reminderTimeOn(
 export function describeTiming(t: ReminderTiming, digits: (s: string | number) => string): string {
   if (t.mode === "clock") {
     const h24 = t.hour;
+    if (displayPrefs().clock === "24") {
+      return `${digits(String(h24).padStart(2, "0"))}:${digits(String(t.minute).padStart(2, "0"))}`;
+    }
     const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
     const suffix = h24 < 12 ? "صباحاً" : "مساءً";
     return `${digits(h12)}:${digits(String(t.minute).padStart(2, "0"))} ${suffix}`;

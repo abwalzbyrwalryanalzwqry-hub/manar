@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
 import { LocationSheet } from "@/components/manar/location-sheet";
 import {
@@ -14,34 +14,37 @@ import {
   PRAYER_LABELS,
   PRAYER_ORDER,
   computePrayerTimes,
+  METHOD_LABELS,
   useLocation,
   useSettings,
   type CalcMethodKey,
   type PrayerKey,
 } from "@/lib/prayer";
 import { useAdhanSettings } from "@/lib/adhan-settings";
+import { useSakinah } from "@/lib/sakinah";
+import { HIJRI_ADJUST_RANGE, useHijriAdjust } from "@/lib/hijri";
+import {
+  CLOCK_LABELS,
+  DIGIT_LABELS,
+  DISPLAY_EVENT,
+  readDisplay,
+  writeDisplay,
+  DEFAULT_DISPLAY,
+  type ClockFormat,
+  type DigitStyle,
+  type DisplayPrefs,
+} from "@/lib/display-prefs";
+import { MethodSuggestCard } from "@/components/manar/method-suggest-card";
+import { formatHijriAr } from "@/lib/format";
 import { haptic, useAzkarPrefs } from "@/lib/azkar/prefs";
 import { ampmAr, formatHHMM, toArabicDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/settings")({
+  /* معاينة التاريخ الهجري وتنسيق العرض بتوقيت الجهاز (انظر ssr-time-routes). */
+  ssr: false,
   head: () => ({ meta: [{ title: "الإعدادات — منار" }] }),
   component: Settings,
 });
-
-const METHOD_LABELS: Record<CalcMethodKey, string> = {
-  UmmAlQura: "أم القرى (مكة المكرمة)",
-  MuslimWorldLeague: "رابطة العالم الإسلامي",
-  Egyptian: "الهيئة المصرية العامة للمساحة",
-  Karachi: "جامعة العلوم الإسلامية — كراتشي",
-  Dubai: "دبي",
-  Qatar: "قطر",
-  Kuwait: "الكويت",
-  MoonsightingCommittee: "لجنة رؤية الهلال",
-  Singapore: "سنغافورة",
-  Turkey: "تركيا (ديانت)",
-  Tehran: "طهران",
-  NorthAmerica: "أمريكا الشمالية (ISNA)",
-};
 
 const DST_LABELS: Record<number, string> = {
   [-1]: "ساعة أقل",
@@ -55,7 +58,10 @@ function Settings() {
   const { appearance, setTheme, setFontScale } = useAppearance();
   const { location, setLocation, requestGps, status: locStatus, error: locError } = useLocation();
   const { settings, patchSettings, setOffset, resetOffsets } = useSettings();
-  const { settings: adhan, updateDeep } = useAdhanSettings();
+  const { settings: adhan } = useAdhanSettings();
+  const { settings: sakinah } = useSakinah();
+  const { adjust, setAdjust } = useHijriAdjust();
+  const display = useDisplayPrefs();
   const { prefs: azkarPrefs, update: updateAzkarPrefs } = useAzkarPrefs();
 
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -76,7 +82,7 @@ function Settings() {
     <Screen>
       <ScreenHeader title="الإعدادات" subtitle="كل ما تغيّره يُحفظ فوراً" backTo="/more" />
 
-      <SectionLabel>المظهر</SectionLabel>
+      <SectionLabel>العرض</SectionLabel>
       <div className="space-y-2 px-5">
         <Row
           icon={appearance.theme === "dark" ? icons.moon : icons.sun}
@@ -90,7 +96,25 @@ function Settings() {
           value={FONT_SCALE_LABELS[appearance.fontScale]}
           onClick={() => setSheet("font")}
         />
-        <Row icon={icons.globe} label="اللغة" value="العربية" hint="لغة واحدة حالياً" />
+        <Segmented
+          icon={icons.clock}
+          label="تنسيق الوقت"
+          value={display.clock}
+          options={(["12", "24"] as ClockFormat[]).map((v) => ({ v, l: CLOCK_LABELS[v] }))}
+          onChange={(clock) => writeDisplay({ clock })}
+        />
+        <Segmented
+          icon={icons.tag}
+          label="الأرقام"
+          value={display.digits}
+          options={(["arab", "latn"] as DigitStyle[]).map((v) => ({ v, l: DIGIT_LABELS[v] }))}
+          onChange={(digits) => writeDisplay({ digits })}
+        />
+        {/* لغة واحدة الآن: نص للعلم، لا زرّ يوحي بخيارات غير موجودة. */}
+        <div className="flex items-center gap-3 px-4 py-2 text-[11px] text-muted-foreground">
+          <Icon d={icons.globe} size={14} />
+          لغة التطبيق: العربية
+        </div>
       </div>
 
       <SectionLabel>الصلاة والمواقيت</SectionLabel>
@@ -107,6 +131,7 @@ function Settings() {
           value={METHOD_LABELS[settings.method]}
           onClick={() => setSheet("method")}
         />
+        <MethodSuggestCard />
         <Row
           icon={icons.qibla}
           label="المذهب في العصر"
@@ -152,30 +177,54 @@ function Settings() {
         />
       </div>
 
-      <SectionLabel>الإشعارات</SectionLabel>
+      <SectionLabel hint="تُدار كلها من مركز التنبيهات">التنبيهات والأصوات</SectionLabel>
       <div className="space-y-2 px-5">
-        <SwitchRow
-          icon={icons.bell}
-          label="أذان الصلاة"
-          sub="إشعار صوتي مع رفع الأذان"
-          on={PRAYER_ORDER.some((p) => adhan.perPrayer[p]?.adhan)}
-          onChange={(next) =>
-            updateDeep((s) => ({
-              ...s,
-              perPrayer: Object.fromEntries(
-                PRAYER_ORDER.map((p) => [p, { ...s.perPrayer[p], adhan: next }]),
-              ) as typeof s.perPrayer,
-            }))
-          }
-        />
         <Row
-          icon={icons.prayer}
-          label="مركز التنبيهات"
-          value="تفصيل لكل صلاة"
+          icon={icons.bell}
+          label="التنبيهات والأصوات"
+          hint={notifySummary(adhan, sakinah.enabled)}
+          value=""
           to="/notifications"
         />
-        <Row icon={icons.speed} label="الإقامة" value="الصوت والموعد بعد الأذان" to="/iqama" />
-        <Row icon={icons.play} label="مكتبة الأذان" value="اختيار الصوت" to="/adhan" />
+      </div>
+
+      <SectionLabel hint="تسري على التقويم والمواسم والويدجت">التقويم الهجري</SectionLabel>
+      <div className="px-5">
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium">إزاحة التاريخ الهجري</div>
+              <div className="text-[10px] text-muted-foreground">
+                إن سبق الهلالُ الحسابَ في بلدك أو تأخّر عنه
+              </div>
+            </div>
+            <div className="shrink-0 text-left text-xs font-medium text-primary">
+              {formatHijriAr(new Date(), adjust)}
+            </div>
+          </div>
+          <div
+            className="mt-3 grid grid-cols-5 gap-1.5"
+            role="radiogroup"
+            aria-label="إزاحة الهجري"
+          >
+            {HIJRI_ADJUST_RANGE.map((v) => (
+              <button
+                key={v}
+                type="button"
+                role="radio"
+                aria-checked={adjust === v}
+                onClick={() => setAdjust(v)}
+                className={`rounded-xl border py-2 text-xs font-medium tabular-nums transition ${
+                  adjust === v
+                    ? "border-transparent gradient-primary text-primary-foreground shadow-glow"
+                    : "border-border bg-card text-muted-foreground"
+                }`}
+              >
+                {v === 0 ? "بلا" : `${v > 0 ? "+" : "−"}${toArabicDigits(Math.abs(v))}`}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <SectionLabel>بياناتي</SectionLabel>
@@ -533,5 +582,73 @@ function Choice({
         {hint && <span className="mt-0.5 block text-[10px] text-muted-foreground">{hint}</span>}
       </span>
     </button>
+  );
+}
+
+/** ملخّص سطر واحد لما في مركز التنبيهات. */
+function notifySummary(
+  s: ReturnType<typeof useAdhanSettings>["settings"],
+  sakinahOn: boolean,
+): string {
+  const fard = PRAYER_ORDER.filter((p) => p !== "sunrise");
+  const adhanCount = s.adhanEnabled ? fard.filter((p) => s.perPrayer[p]?.adhan).length : 0;
+  const adhanText =
+    adhanCount === 0
+      ? "الأذان متوقف"
+      : adhanCount === fard.length
+        ? "الأذان مفعّل"
+        : `الأذان لـ${toArabicDigits(adhanCount)} صلوات`;
+  const iqama = s.iqamaEnabled ? "الإقامة مفعّلة" : "الإقامة متوقفة";
+  const sak = sakinahOn ? "سكينة مفعّلة" : "سكينة متوقفة";
+  return `${adhanText} · ${iqama} · ${sak}`;
+}
+
+function useDisplayPrefs(): DisplayPrefs {
+  const [p, setP] = useState<DisplayPrefs>(DEFAULT_DISPLAY);
+  useEffect(() => {
+    const sync = () => setP(readDisplay());
+    sync();
+    window.addEventListener(DISPLAY_EVENT, sync);
+    return () => window.removeEventListener(DISPLAY_EVENT, sync);
+  }, []);
+  return p;
+}
+
+function Segmented<T extends string>({
+  icon,
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  icon: string;
+  label: string;
+  value: T;
+  options: { v: T; l: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-soft">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
+        <Icon d={icon} size={16} />
+      </span>
+      <span className="min-w-0 flex-1 text-sm font-medium">{label}</span>
+      <div className="flex shrink-0 rounded-xl bg-muted p-1" role="radiogroup" aria-label={label}>
+        {options.map((o) => (
+          <button
+            key={o.v}
+            type="button"
+            role="radio"
+            aria-checked={value === o.v}
+            onClick={() => onChange(o.v)}
+            className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition ${
+              value === o.v ? "bg-card text-foreground shadow-soft" : "text-muted-foreground"
+            }`}
+          >
+            {o.l}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

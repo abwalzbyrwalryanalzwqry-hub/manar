@@ -24,6 +24,8 @@
  * القائمة ذاتها بالمعرّفات ذاتها — والطبقة الأصلية تستبدل ولا تُضيف.
  */
 
+import { formatArTime, toArabicDigits } from "./format";
+import { displayPrefs } from "./display-prefs";
 import {
   computePrayerTimes,
   PRAYER_LABELS,
@@ -125,11 +127,12 @@ export function eventId(prayer: PrayerKey, role: AlarmRole, day: Date): number {
   return (localDayNumber(day) % 100) * 1000 + PRAYER_ORDER.indexOf(prayer) * 100 + ROLE_CODE[role];
 }
 
-const AR = (n: number | string) => String(n).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
+/* الأرقام ونظام الساعة يتبعان اختيار المستخدم (`display-prefs`). */
+const AR = (n: number | string) => toArabicDigits(n);
 
 function hhmm(d: Date): string {
-  const h = ((d.getHours() + 11) % 12) + 1;
-  return AR(`${h}:${pad(d.getMinutes())}`) + (d.getHours() < 12 ? " ص" : " م");
+  const suffix = displayPrefs().clock === "24" ? "" : d.getHours() < 12 ? " ص" : " م";
+  return formatArTime(d) + suffix;
 }
 
 function minutesAr(m: number): string {

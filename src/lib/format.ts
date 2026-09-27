@@ -1,26 +1,44 @@
-/* Arabic formatting helpers — Manar */
+/* Arabic formatting helpers — Manar
+ *
+ * تتبع اختيار المستخدم في `display-prefs`: ساعة ١٢/٢٤ ونوع الأرقام. */
+
+import { displayPrefs } from "./display-prefs";
 
 const AR_DIGITS = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
 
+/**
+ * الأرقام بالنوع الذي اختاره المستخدم. الاسم تاريخي: مع «أرقام غربية» تُعاد
+ * الأرقام العربية المشرقية أيضاً إلى 0-9.
+ */
 export function toArabicDigits(input: string | number): string {
+  if (displayPrefs().digits === "latn") {
+    return String(input).replace(/[٠-٩]/g, (d) => String(AR_DIGITS.indexOf(d)));
+  }
   return String(input).replace(/[0-9]/g, (d) => AR_DIGITS[Number(d)]);
 }
 
+const is24 = () => displayPrefs().clock === "24";
+const hour = (date: Date) => (is24() ? date.getHours() : ((date.getHours() + 11) % 12) + 1);
+
 export function formatArTime(date: Date): string {
-  const h = date.getHours();
-  const m = date.getMinutes();
-  const h12 = ((h + 11) % 12) + 1;
-  return toArabicDigits(`${h12}:${String(m).padStart(2, "0")}`);
+  return toArabicDigits(`${hour(date)}:${String(date.getMinutes()).padStart(2, "0")}`);
 }
 
+/** «صباحاً» أو «مساءً»، ولا شيء بنظام ٢٤ ساعة. */
 export function ampmAr(date: Date): string {
+  if (is24()) return "";
   return date.getHours() < 12 ? "صباحاً" : "مساءً";
 }
 
 export function formatHHMM(date: Date): string {
   return toArabicDigits(
-    `${String(((date.getHours() + 11) % 12) + 1).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`,
+    `${String(hour(date)).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`,
   );
+}
+
+/** لاحقة نظام الترقيم في Intl حسب اختيار المستخدم. */
+export function numberingTag(): string {
+  return displayPrefs().digits === "latn" ? "-u-nu-latn" : "";
 }
 
 /** Format a positive ms difference as Arabic HH:MM:SS */
@@ -40,7 +58,7 @@ export function formatCountdown(ms: number): { h: string; m: string; s: string; 
 }
 
 export function formatGregorianAr(date: Date): string {
-  return new Intl.DateTimeFormat("ar-EG", {
+  return new Intl.DateTimeFormat(`ar-EG${numberingTag()}`, {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -53,11 +71,14 @@ export function formatGregorianAr(date: Date): string {
  */
 export function formatHijriAr(date: Date, adjust = 0): string {
   const target = adjust === 0 ? date : new Date(date.getTime() + adjust * 86_400_000);
-  return new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(target);
+  return new Intl.DateTimeFormat(
+    `ar-SA-u-ca-islamic-umalqura${displayPrefs().digits === "latn" ? "-nu-latn" : ""}`,
+    {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    },
+  ).format(target);
 }
 
 export function formatWeekdayAr(date: Date): string {

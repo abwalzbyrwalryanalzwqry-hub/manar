@@ -50,6 +50,22 @@ export type CalcMethodKey =
   | "Tehran"
   | "NorthAmerica";
 
+/** أسماء طرق الحساب بالعربية — مصدر واحد لكل الشاشات. */
+export const METHOD_LABELS: Record<CalcMethodKey, string> = {
+  UmmAlQura: "أم القرى (مكة المكرمة)",
+  MuslimWorldLeague: "رابطة العالم الإسلامي",
+  Egyptian: "الهيئة المصرية العامة للمساحة",
+  Karachi: "جامعة العلوم الإسلامية — كراتشي",
+  Dubai: "دبي",
+  Qatar: "قطر",
+  Kuwait: "الكويت",
+  MoonsightingCommittee: "لجنة رؤية الهلال",
+  Singapore: "سنغافورة",
+  Turkey: "تركيا (ديانت)",
+  Tehran: "طهران",
+  NorthAmerica: "أمريكا الشمالية (ISNA)",
+};
+
 /** إزاحة يدوية بالدقائق لكل صلاة. */
 export type PrayerOffsets = Record<PrayerKey, number>;
 
