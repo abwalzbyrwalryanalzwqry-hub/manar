@@ -61,6 +61,7 @@ import {
   type ReminderRoute,
 } from "@/lib/daily-reminders";
 import { dayKey, readLog } from "@/lib/activity-log";
+import { jumuahTimeline, planJumuahReminders, readJumuah } from "@/lib/jumuah";
 import { getIqamahSound } from "@/lib/iqamah-library";
 import { resolveIqamaForPrayer } from "@/lib/adhan-settings";
 import { prayerLabelOn } from "@/lib/prayer-schedule";
@@ -390,6 +391,8 @@ function dailyIdFor(dayIndex: number, reminderIndex: number) {
 /* تنبيهات «مواسم منار» داخل مدى التذكيرات نفسه (فتُلغى وتُعاد جدولتها معه)،
  * لكن بإزاحة لا تتقاطع مع معرّفات الأذكار والوِرد (dayIndex * 100 + ri). */
 const SEASON_ID_BASE = DAILY_ID_BASE + 50000;
+/* تنبيهات الجمعة في المدى نفسه أيضاً، بعد المواسم: dayIndex * 10 + slot. */
+const JUMUAH_ID_BASE = DAILY_ID_BASE + 60000;
 
 function seasonIdFor(dayIndex: number, slot: "morning" | "evening") {
   return SEASON_ID_BASE + dayIndex * 10 + (slot === "morning" ? 0 : 1);
@@ -843,6 +846,45 @@ async function syncNativePrayerScheduleNow(
     console.error("[manar] تعذّر حساب تنبيهات المواسم", e);
   }
 
+  /* ---------- صلاة الجمعة: الكهف، التبكير، ساعة الإجابة ---------- */
+
+  try {
+    const store = readJumuah();
+    const planned = planJumuahReminders({
+      now,
+      days: DAYS_AHEAD,
+      store,
+      timelineFor: (key) => jumuahTimeline(key, location, calc, s, store.prefs),
+      sunriseFor: (key) => {
+        const [y, m, d] = key.split("-").map(Number);
+        return computePrayerTimes(location, calc, new Date(y, m - 1, d, 12)).sunrise;
+      },
+    });
+    const audible = !(s.silentMode || !s.soundEnabled || level === 0);
+    const channel = audible
+      ? channelOr(defaultReminderChannelFor(level), "manar_reminders")
+      : "manar_silent";
+    planned.forEach((r) => {
+      const dayIndex = Math.max(
+        0,
+        Math.round(
+          (new Date(r.key).getTime() - new Date(dayKey(new Date(now))).getTime()) / 86_400_000,
+        ),
+      );
+      reminders.push({
+        id: JUMUAH_ID_BASE + dayIndex * 10 + r.slot,
+        title: r.title,
+        body: r.body,
+        schedule: { at: r.at, allowWhileIdle: true },
+        smallIcon: "ic_stat_manar",
+        channelId: channel,
+        extra: { kind: "jumuah", route: "/jumuah" },
+      });
+    });
+  } catch (e) {
+    console.error("[manar] تعذّر حساب تنبيهات الجمعة", e);
+  }
+
   let scheduled = 0;
   let alarms = 0;
   let exactAlarms = false;
@@ -1033,6 +1075,13 @@ export async function attachReminderTapListener(onOpen: (route: ReminderRoute) =
   reminderTapAttached = true;
   try {
     await p.addListener("localNotificationActionPerformed", (e) => {
+      /* تنبيهات الجمعة تفتح قسمها. */
+      const extra = (e as { actionId?: string; notification?: { extra?: { kind?: string } } })
+        ?.notification?.extra;
+      if (extra?.kind === "jumuah" && (e as { actionId?: string }).actionId === "tap") {
+        reminderTapHandler?.("/jumuah" as ReminderRoute);
+        return;
+      }
       const action = reminderActionFromTap(e);
       if (!action) return;
       if (action.type === "open") reminderTapHandler?.(action.route);

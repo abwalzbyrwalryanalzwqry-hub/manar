@@ -22,6 +22,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as MyDataRouteImport } from './routes/my-data'
+import { Route as JumuahRouteImport } from './routes/jumuah'
 import { Route as IqamaRouteImport } from './routes/iqama'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as AdhanRouteImport } from './routes/adhan'
@@ -115,6 +116,11 @@ const NotificationsRoute = NotificationsRouteImport.update({
 const MyDataRoute = MyDataRouteImport.update({
   id: '/my-data',
   path: '/my-data',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JumuahRoute = JumuahRouteImport.update({
+  id: '/jumuah',
+  path: '/jumuah',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IqamaRoute = IqamaRouteImport.update({
@@ -268,6 +274,7 @@ export interface FileRoutesByFullPath {
   '/adhan': typeof AdhanRoute
   '/calendar': typeof CalendarRoute
   '/iqama': typeof IqamaRoute
+  '/jumuah': typeof JumuahRoute
   '/my-data': typeof MyDataRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
@@ -311,6 +318,7 @@ export interface FileRoutesByTo {
   '/adhan': typeof AdhanRoute
   '/calendar': typeof CalendarRoute
   '/iqama': typeof IqamaRoute
+  '/jumuah': typeof JumuahRoute
   '/my-data': typeof MyDataRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
@@ -355,6 +363,7 @@ export interface FileRoutesById {
   '/adhan': typeof AdhanRoute
   '/calendar': typeof CalendarRoute
   '/iqama': typeof IqamaRoute
+  '/jumuah': typeof JumuahRoute
   '/my-data': typeof MyDataRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
@@ -400,6 +409,7 @@ export interface FileRouteTypes {
     | '/adhan'
     | '/calendar'
     | '/iqama'
+    | '/jumuah'
     | '/my-data'
     | '/notifications'
     | '/onboarding'
@@ -443,6 +453,7 @@ export interface FileRouteTypes {
     | '/adhan'
     | '/calendar'
     | '/iqama'
+    | '/jumuah'
     | '/my-data'
     | '/notifications'
     | '/onboarding'
@@ -486,6 +497,7 @@ export interface FileRouteTypes {
     | '/adhan'
     | '/calendar'
     | '/iqama'
+    | '/jumuah'
     | '/my-data'
     | '/notifications'
     | '/onboarding'
@@ -531,6 +543,7 @@ export interface RootRouteChildren {
   AdhanRoute: typeof AdhanRoute
   CalendarRoute: typeof CalendarRoute
   IqamaRoute: typeof IqamaRoute
+  JumuahRoute: typeof JumuahRoute
   MyDataRoute: typeof MyDataRoute
   NotificationsRoute: typeof NotificationsRoute
   OnboardingRoute: typeof OnboardingRoute
@@ -652,6 +665,13 @@ declare module '@tanstack/react-router' {
       path: '/my-data'
       fullPath: '/my-data'
       preLoaderRoute: typeof MyDataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/jumuah': {
+      id: '/jumuah'
+      path: '/jumuah'
+      fullPath: '/jumuah'
+      preLoaderRoute: typeof JumuahRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/iqama': {
@@ -899,6 +919,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdhanRoute: AdhanRoute,
   CalendarRoute: CalendarRoute,
   IqamaRoute: IqamaRoute,
+  JumuahRoute: JumuahRoute,
   MyDataRoute: MyDataRoute,
   NotificationsRoute: NotificationsRoute,
   OnboardingRoute: OnboardingRoute,

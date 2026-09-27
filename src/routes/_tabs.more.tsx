@@ -26,6 +26,7 @@ const ITEMS = [
     d: "أضف الصلاة القادمة وآية اليوم إلى شاشة جوالك",
     i: icons.widget,
   },
+  { to: "/jumuah", l: "صلاة الجمعة", d: "موعدها وسننها وسجلّ حضورك", i: icons.star },
   { to: "/qibla", l: "القِبلة", d: "البوصلة واتجاه الكعبة", i: icons.qibla },
   { to: "/calendar", l: "التقويم", d: "هجري وميلادي ومناسبات", i: icons.calendar },
   { to: "/seasons", l: "مواسم منار", d: "رمضان وذو الحجة والجمعة وغيرها", i: icons.star },

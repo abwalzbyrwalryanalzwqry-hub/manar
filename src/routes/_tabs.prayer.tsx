@@ -16,6 +16,8 @@ import { useAdhanSettings } from "@/lib/adhan-settings";
 import { formatCountdown, formatHHMM, formatHijriAr, toArabicDigits } from "@/lib/format";
 import { useHijriAdjust } from "@/lib/hijri";
 import { FARD_PRAYERS, dayKey, prayerDayKey, useActivityLog } from "@/lib/activity-log";
+import { prayerLabelOn } from "@/lib/prayer-schedule";
+import { JUMUAH_DEEDS, isFriday, useJumuah } from "@/lib/jumuah";
 
 export const Route = createFileRoute("/_tabs/prayer")({
   /* الأوقات والأيام تُنسَّق بتوقيت الجهاز، والخادم لا يعرف منطقة المستخدم
@@ -39,6 +41,15 @@ const METHOD_LABELS: Record<string, string> = {
   Tehran: "طهران",
   NorthAmerica: "أمريكا الشمالية (ISNA)",
 };
+
+/** «غداً» أو «بعد ٣ أيام» حتى الجمعة القادمة من يوم الصلاة `key`. */
+function daysToFridayLabel(key: string): string {
+  const [y, m, d] = key.split("-").map(Number);
+  const n = (5 - new Date(y, m - 1, d, 12).getDay() + 7) % 7;
+  if (n === 1) return "غداً";
+  if (n === 2) return "بعد يومين";
+  return `بعد ${toArabicDigits(n)} أيام`;
+}
 
 function Prayer() {
   const { adjust: hijriAdjust } = useHijriAdjust();
@@ -65,6 +76,17 @@ function Prayer() {
   const logDay = prayerDayKey(now, today.fajr);
   const beforeFajr = logDay !== dayKey(now);
   const todayLog = dayRecord(logDay);
+
+  /* الجمعة: تظهر بدل الظهر ولا تُحتسب إلا حين يكون يوم الصلاة جمعة. */
+  const { store: jum, toggle: toggleJumuah } = useJumuah();
+  const [ly, lm, ld] = logDay.split("-").map(Number);
+  const fridayMode = jum.prefs.showInList && isFriday(new Date(ly, lm - 1, ld, 12));
+  const jumuahDone = JUMUAH_DEEDS.filter((d) => jum.days[logDay]?.[d.id]).length;
+  const isJumuahRow = (k: PrayerKey) => fridayMode && k === "dhuhr";
+  const togglePrayerRow = (k: PrayerKey) => {
+    if (isJumuahRow(k)) toggleJumuah(logDay, "attended", !todayLog.prayers.includes("dhuhr"));
+    else togglePrayer(k, logDay);
+  };
 
   const cd = formatCountdown(remainingMs);
   const toggleBell = (k: PrayerKey) =>
@@ -102,7 +124,7 @@ function Prayer() {
               <RingProgress value={progress} size={220} stroke={6}>
                 <div className="text-center">
                   <div className="font-display text-2xl font-light text-white/90">
-                    صلاة {PRAYER_LABELS[next.key].ar}
+                    صلاة {prayerLabelOn(next.key, next.at)}
                   </div>
                   <div className="mt-2 font-display text-5xl font-black tabular-nums leading-none">
                     {cd.h}:{cd.m}
@@ -115,7 +137,7 @@ function Prayer() {
             </div>
             <div className="mt-6 flex w-full justify-between border-t border-white/15 pt-4 text-[11px]">
               <div>
-                <div className="text-white/50">آذان {PRAYER_LABELS[next.key].ar}</div>
+                <div className="text-white/50">أذان {prayerLabelOn(next.key, next.at)}</div>
                 <div className="font-display text-base tabular-nums">
                   {toArabicDigits(formatHHMM(next.at))}
                 </div>
@@ -178,7 +200,7 @@ function Prayer() {
             >
               {active && <Arabesque className="absolute -right-6 -top-6 h-32 w-32 text-white/15" />}
               <Link
-                to="/notifications"
+                to={isJumuahRow(k) ? "/jumuah" : "/notifications"}
                 className="relative flex items-center justify-between px-4 py-4"
               >
                 <div className="flex items-center gap-3">
@@ -189,12 +211,12 @@ function Prayer() {
                   </span>
                   <div>
                     <div className={`text-sm font-medium ${passed && !active ? "opacity-60" : ""}`}>
-                      {PRAYER_LABELS[k].ar}
+                      {isJumuahRow(k) ? "الجمعة" : PRAYER_LABELS[k].ar}
                     </div>
                     <div
                       className={`text-[10px] uppercase tracking-widest ${active ? "text-white/70" : "text-muted-foreground"}`}
                     >
-                      {PRAYER_LABELS[k].en}
+                      {isJumuahRow(k) ? "Jumu'ah" : PRAYER_LABELS[k].en}
                     </div>
                   </div>
                 </div>
@@ -216,7 +238,7 @@ function Prayer() {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        togglePrayer(k, logDay);
+                        togglePrayerRow(k);
                       }}
                       className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
                         todayLog.prayers.includes(k)
@@ -229,8 +251,8 @@ function Prayer() {
                       }`}
                       aria-label={
                         todayLog.prayers.includes(k)
-                          ? `إلغاء تسجيل ${PRAYER_LABELS[k].ar}`
-                          : `تسجيل أداء ${PRAYER_LABELS[k].ar}`
+                          ? `إلغاء تسجيل ${isJumuahRow(k) ? "الجمعة" : PRAYER_LABELS[k].ar}`
+                          : `تسجيل أداء ${isJumuahRow(k) ? "الجمعة" : PRAYER_LABELS[k].ar}`
                       }
                     >
                       <Icon d={icons.check} size={14} />
@@ -258,6 +280,30 @@ function Prayer() {
             </div>
           );
         })}
+
+        {jum.prefs.showInList && (
+          <Link
+            to="/jumuah"
+            className="flex items-center gap-3 rounded-2xl border border-gold/30 bg-card p-4 shadow-soft"
+          >
+            <span className="gradient-gold flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-navy">
+              <Icon d={icons.star} size={18} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">
+                {fridayMode ? "صلاة الجمعة وسننها" : "صلاة الجمعة"}
+              </span>
+              <span className="block text-[10px] text-muted-foreground">
+                {fridayMode
+                  ? `${toArabicDigits(jumuahDone)} من ${toArabicDigits(JUMUAH_DEEDS.length)} · الكهف، الغسل، التبكير، ساعة الإجابة`
+                  : `الجمعة القادمة ${daysToFridayLabel(logDay)} · تُحتسب يوم الجمعة فقط`}
+              </span>
+            </span>
+            <span className="rotate-180 text-muted-foreground">
+              <Icon d={icons.chevron} size={14} />
+            </span>
+          </Link>
+        )}
       </div>
 
       <SectionLabel>الإعدادات</SectionLabel>
