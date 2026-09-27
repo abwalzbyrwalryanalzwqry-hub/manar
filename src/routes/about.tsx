@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Icon, icons, Screen, ScreenHeader, SectionLabel, Mark } from "@/components/manar/shell";
 import { DeveloperCard } from "@/components/manar/developer-card";
+import { toast } from "sonner";
 import { copyText, DEVELOPER, openContact } from "@/lib/developer";
+import { rateApp, shareApp } from "@/lib/app-store";
 
 export const Route = createFileRoute("/about")({
   head: () => ({ meta: [{ title: "عن التطبيق — منار" }] }),
@@ -57,8 +59,8 @@ function About() {
           v={DEVELOPER.contactEmail}
           onClick={() => void mail(DEVELOPER.contactEmail)}
         />
-        <LinkRow icon={icons.star} l="قيّم التطبيق" v="App Store · Google Play" />
-        <LinkRow icon={icons.share} l="شارك التطبيق" v="" />
+        <LinkRow icon={icons.star} l="قيّم التطبيق" v="Google Play" onClick={() => void rate()} />
+        <LinkRow icon={icons.share} l="شارك التطبيق" v="" onClick={() => void share()} />
       </div>
 
       <SectionLabel>قانوني</SectionLabel>
@@ -76,6 +78,16 @@ function About() {
       </div>
     </Screen>
   );
+}
+
+async function rate() {
+  if (!(await rateApp())) toast.error("تعذّر فتح Google Play على هذا الجهاز");
+}
+
+async function share() {
+  const outcome = await shareApp();
+  if (outcome === "copied") toast.success("نُسخ رابط منار");
+  else if (outcome === "failed") toast.error("تعذّرت المشاركة");
 }
 
 /** يفتح تطبيق البريد، وإن لم يوجد يُنسخ العنوان. */

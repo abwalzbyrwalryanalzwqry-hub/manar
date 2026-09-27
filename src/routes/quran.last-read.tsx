@@ -15,6 +15,9 @@ import { SURAH_META } from "@/lib/quran/metadata";
 import { formatRelativeArabic } from "@/lib/quran-reader-state";
 
 export const Route = createFileRoute("/quran/last-read")({
+  /* الأوقات والأيام تُنسَّق بتوقيت الجهاز، والخادم لا يعرف منطقة المستخدم
+   * الزمنية، فرسمها على الخادم يعطي نصاً مختلفاً ويكسر الـHydration. */
+  ssr: false,
   head: () => ({
     meta: [
       { title: "آخر قراءة — منار" },

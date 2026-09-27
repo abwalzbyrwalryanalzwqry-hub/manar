@@ -40,6 +40,9 @@ import { effectiveVolume, getAdhanSettings } from "@/lib/adhan-settings";
 import { isNativeShell, testDailyReminderNow } from "@/lib/native-notifications";
 
 export const Route = createFileRoute("/reminders")({
+  /* المحتوى كله أوقات وتواريخ بتوقيت الجهاز، والخادم لا يعرف منطقة المستخدم
+   * الزمنية، فرسمه على الخادم يعطي نصاً مختلفاً ويكسر الـHydration. */
+  ssr: false,
   head: () => ({ meta: [{ title: "تذكيرات الأذكار والوِرد — منار" }] }),
   component: Reminders,
 });

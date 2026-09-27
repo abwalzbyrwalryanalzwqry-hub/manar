@@ -15,9 +15,12 @@ import { PRAYER_LABELS, PRAYER_ORDER, usePrayerSchedule, type PrayerKey } from "
 import { useAdhanSettings } from "@/lib/adhan-settings";
 import { formatCountdown, formatHHMM, formatHijriAr, toArabicDigits } from "@/lib/format";
 import { useHijriAdjust } from "@/lib/hijri";
-import { FARD_PRAYERS, useActivityLog } from "@/lib/activity-log";
+import { FARD_PRAYERS, dayKey, prayerDayKey, useActivityLog } from "@/lib/activity-log";
 
 export const Route = createFileRoute("/_tabs/prayer")({
+  /* الأوقات والأيام تُنسَّق بتوقيت الجهاز، والخادم لا يعرف منطقة المستخدم
+   * الزمنية، فرسمها على الخادم يعطي نصاً مختلفاً ويكسر الـHydration. */
+  ssr: false,
   head: () => ({ meta: [{ title: "أوقات الصلاة — منار" }] }),
   component: Prayer,
 });
@@ -39,7 +42,7 @@ const METHOD_LABELS: Record<string, string> = {
 
 function Prayer() {
   const { adjust: hijriAdjust } = useHijriAdjust();
-  const { today: todayLog, streak, togglePrayer } = useActivityLog();
+  const { dayRecord, streak, togglePrayer } = useActivityLog();
   const [sheet, setSheet] = useState(false);
   const { settings, updateDeep } = useAdhanSettings();
 
@@ -57,6 +60,11 @@ function Prayer() {
     locError,
     settings: calc,
   } = usePrayerSchedule();
+
+  /* يوم الصلاة من الفجر إلى الفجر: عشاء ما بعد منتصف الليل يُسجَّل للأمس. */
+  const logDay = prayerDayKey(now, today.fajr);
+  const beforeFajr = logDay !== dayKey(now);
+  const todayLog = dayRecord(logDay);
 
   const cd = formatCountdown(remainingMs);
   const toggleBell = (k: PrayerKey) =>
@@ -129,7 +137,9 @@ function Prayer() {
           </span>
           <div className="flex-1">
             <div className="flex items-baseline justify-between">
-              <span className="text-xs font-medium">صلوات اليوم</span>
+              <span className="text-xs font-medium">
+                {beforeFajr ? "صلوات الأمس · حتى الفجر" : "صلوات اليوم"}
+              </span>
               <span className="font-display text-sm tabular-nums">
                 {toArabicDigits(todayLog.prayers.length)} / {toArabicDigits(FARD_PRAYERS.length)}
               </span>
@@ -149,7 +159,9 @@ function Prayer() {
         </div>
       </div>
 
-      <SectionLabel hint="اضغط ✓ لتسجيل الأداء">جدول الصلوات</SectionLabel>
+      <SectionLabel hint={beforeFajr ? "✓ يُسجَّل للأمس حتى الفجر" : "اضغط ✓ لتسجيل الأداء"}>
+        جدول الصلوات
+      </SectionLabel>
       <div className="space-y-2 px-4 stagger">
         {PRAYER_ORDER.map((k) => {
           const at: Date = today[k];
@@ -204,7 +216,7 @@ function Prayer() {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        togglePrayer(k);
+                        togglePrayer(k, logDay);
                       }}
                       className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
                         todayLog.prayers.includes(k)
