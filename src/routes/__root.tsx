@@ -14,8 +14,6 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AdhanProvider } from "@/components/manar/adhan-provider";
 import { WidgetSync } from "@/components/manar/widget-sync";
 import { Toaster } from "@/components/ui/sonner";
-import { AuthProvider } from "@/lib/auth-context";
-import { CloudSyncBridge } from "@/components/manar/cloud-sync-bridge";
 import { NativeBridge } from "@/components/manar/native-bridge";
 import { ReminderTapBridge } from "@/components/manar/reminder-tap-bridge";
 import { AudioStopBar } from "@/components/manar/audio-stop-bar";
@@ -211,20 +209,17 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* تُستعاد حالة المستخدم من الطبقة الأصلية قبل تركيب أي مزوّد يقرأ التخزين. */}
       <StorageGate>
-        <AuthProvider>
-          <CloudSyncBridge />
-          <AdhanProvider />
-          <WidgetSync />
-          <NativeBridge />
-          <ReminderTapBridge />
-          <AudioStopBar />
-          <Toaster position="top-center" dir="rtl" richColors closeButton />
-          <RecitationPlayerProvider>
-            <Outlet />
-            <GlobalRecitationBar />
-            <RecitationDownloadNotifier />
-          </RecitationPlayerProvider>
-        </AuthProvider>
+        <AdhanProvider />
+        <WidgetSync />
+        <NativeBridge />
+        <ReminderTapBridge />
+        <AudioStopBar />
+        <Toaster position="top-center" dir="rtl" richColors closeButton />
+        <RecitationPlayerProvider>
+          <Outlet />
+          <GlobalRecitationBar />
+          <RecitationDownloadNotifier />
+        </RecitationPlayerProvider>
       </StorageGate>
     </QueryClientProvider>
   );

@@ -47,20 +47,6 @@ describe("حماية عمود plan", () => {
       expect(list).not.toContain("created_at");
     }
   });
-
-  it("التطبيق لا يرسل plan عند تعديل الملف", () => {
-    const ctx = read("src/lib/auth-context.tsx");
-    expect(ctx).toMatch(/updateProfile: \(patch: EditableProfile\)/);
-    expect(ctx).not.toMatch(/Pick<\s*Profile,[^>]*"plan"/);
-  });
-});
-
-describe("سجلّ المصادقة في وضع التطوير فقط", () => {
-  it("LOG محروس بـ import.meta.env.DEV", () => {
-    expect(read("src/lib/auth-context.tsx")).toMatch(
-      /const LOG = \(\.\.\.a: unknown\[\]\) => \{\s*if \(import\.meta\.env\.DEV\) console\.log/,
-    );
-  });
 });
 
 describe("توقيع الإصدار", () => {

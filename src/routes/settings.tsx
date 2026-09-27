@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
 import { LocationSheet } from "@/components/manar/location-sheet";
@@ -21,7 +21,6 @@ import {
 } from "@/lib/prayer";
 import { useAdhanSettings } from "@/lib/adhan-settings";
 import { haptic, useAzkarPrefs } from "@/lib/azkar/prefs";
-import { useAuth } from "@/lib/auth-context";
 import { ampmAr, formatHHMM, toArabicDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/settings")({
@@ -57,9 +56,7 @@ function Settings() {
   const { location, setLocation, requestGps, status: locStatus, error: locError } = useLocation();
   const { settings, patchSettings, setOffset, resetOffsets } = useSettings();
   const { settings: adhan, updateDeep } = useAdhanSettings();
-  const { user, signOut } = useAuth();
   const { prefs: azkarPrefs, update: updateAzkarPrefs } = useAzkarPrefs();
-  const router = useRouter();
 
   const [sheet, setSheet] = useState<Sheet>(null);
   const close = () => setSheet(null);
@@ -181,34 +178,16 @@ function Settings() {
         <Row icon={icons.play} label="مكتبة الأذان" value="اختيار الصوت" to="/adhan" />
       </div>
 
-      <SectionLabel>الحساب</SectionLabel>
+      <SectionLabel>بياناتي</SectionLabel>
       <div className="space-y-2 px-5">
         <Row
-          icon={icons.mail}
-          label="الحساب"
-          value={user?.email ?? "زائر"}
-          hint={user ? undefined : "لم تسجّل الدخول"}
-          /* `/login` لا `/auth`: الثاني مسار لا وجود له في `src/routes`، فكان
-             الرابط يقود إلى صفحة «غير موجود» — وأفشل التوليد المسبق لبناء
-             أندرويد أيضاً لأنه يتبع كل رابط داخلي. */
-          to={user ? "/profile" : "/login"}
+          icon={icons.download}
+          label="بياناتي"
+          value="النسخ الاحتياطي والتصدير والاستيراد"
+          to="/my-data"
         />
         <Row icon={icons.info} label="عن التطبيق" value="" to="/about" />
       </div>
-
-      {user && (
-        <div className="mt-6 px-5 pb-2">
-          <button
-            onClick={async () => {
-              await signOut();
-              router.navigate({ to: "/" });
-            }}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 py-3.5 text-sm font-medium text-destructive"
-          >
-            تسجيل الخروج
-          </button>
-        </div>
-      )}
 
       {/* ---------------- الأوراق ---------------- */}
 

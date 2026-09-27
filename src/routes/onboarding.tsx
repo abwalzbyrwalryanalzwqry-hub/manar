@@ -20,7 +20,7 @@ function Onboarding() {
   return (
     <div dir="rtl" className="flex min-h-screen flex-col bg-background">
       <div className="flex items-center justify-between px-5 pt-6">
-        <Link to="/login" onClick={markOnboarded} className="text-xs text-muted-foreground">
+        <Link to="/home" onClick={markOnboarded} className="text-xs text-muted-foreground">
           تخطي
         </Link>
         <div className="flex gap-1.5">
@@ -47,7 +47,7 @@ function Onboarding() {
       <div className="px-6 pb-10">
         {last ? (
           <Link
-            to="/login"
+            to="/home"
             onClick={markOnboarded}
             className="gradient-primary block rounded-full py-4 text-center text-sm font-medium text-primary-foreground shadow-glow"
           >
