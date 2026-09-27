@@ -54,6 +54,7 @@ export const DEVICE_ONLY_KEYS = new Set([
   "manar.quran.recitation.downloads.v1", // ملفات صوتية محمَّلة على هذا الجهاز فقط
   "manar.quran.search.recent.v1", // سجل بحث محلي
   "manar.backup.last-export.v1", // تاريخ آخر تصدير من هذا الجهاز
+  "manar.more.usage.v1", // «الأكثر استخداماً» في المزيد: عادة هذا الجهاز
 ]);
 
 /** تاريخ آخر تصدير لملف النسخة من هذا الجهاز (مللي ثانية). */

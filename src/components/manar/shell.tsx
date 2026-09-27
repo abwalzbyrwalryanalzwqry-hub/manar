@@ -102,6 +102,11 @@ export const icons = {
   book: "M4 4h7v16H6a2 2 0 01-2-2V4z M20 4h-7v16h5a2 2 0 002-2V4z",
   layers: "M12 3l9 5-9 5-9-5 9-5z M3 13l9 5 9-5",
   target: "M12 21a9 9 0 100-18 9 9 0 000 18z M12 16a4 4 0 100-8 4 4 0 000 8z M12 12h.01",
+  // مسجد بقبّة وهلال — صلاة الجمعة
+  mosque:
+    "M12 2v2 M7 11a5 5 0 0110 0 M5 11h14v10H5z M3 21h18 M10 21v-4a2 2 0 014 0v4 M8 14h.01 M16 14h.01",
+  // مئذنة بشرفة — الأذان
+  minaret: "M12 2l2 3h-4l2-3z M10 5h4v4h-4z M9 9h6 M10 9v12 M14 9v12 M8 21h8 M10 14h4",
 
   /* ----- Per-prayer iconography (sun/moon arc) ----- */
   // Fajr — pre-dawn star + horizon
