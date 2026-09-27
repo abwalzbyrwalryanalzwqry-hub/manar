@@ -1,3 +1,4 @@
+import { prayerLabelOn } from "@/lib/prayer-schedule";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -72,7 +73,7 @@ function Home() {
   }, [location.source, askedOnce]);
 
   const countdown = formatCountdown(remainingMs);
-  const nextLabel = PRAYER_LABELS[next.key].ar;
+  const nextLabel = prayerLabelOn(next.key, next.at);
 
   return (
     <Screen>

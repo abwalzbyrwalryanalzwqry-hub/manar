@@ -193,6 +193,8 @@ export function AdhanProvider() {
     // مواسم منار: تغيير تفضيلات التنبيه أو تعديل التاريخ الهجري يُعيد الجدولة.
     window.addEventListener("manar:seasons", onSoundSettings);
     window.addEventListener("manar:hijri-adjust", onSoundSettings);
+    // صلاة الجمعة: تفضيلات التنبيه أو إنجاز عمل (فلا يُذكَّر بما أُنجز).
+    window.addEventListener("manar:jumuah", onSoundSettings);
 
     /* تغيّر اليوم أو المنطقة الزمنية والتطبيق مفتوح: نافذة الأيام السبعة تتقدّم
      * يوماً، والأوقات المطلقة تُعاد حسابها. فحصٌ خفيف كل دقيقة لا يُنشئ منبّهاً. */

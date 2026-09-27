@@ -13,6 +13,7 @@ const TIME_ROUTES = [
   "reminders.tsx",
   "widget.tsx",
   "quran.last-read.tsx",
+  "jumuah.tsx",
 ];
 
 describe("شاشات الوقت لا تُرسم على الخادم", () => {
