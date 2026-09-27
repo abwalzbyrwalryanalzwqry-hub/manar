@@ -74,7 +74,7 @@
 - البطاقات بزوايا `rounded-2xl`.
 - لا رموز تعبيرية.
 
-### المرحلة ١٩ — إصلاحات عاجلة (P0) — تقدير: طلب دمج واحد
+### المرحلة ١٩ — إصلاحات عاجلة (P0) ✅ أُنجزت في #61
 
 1. **«قيّم التطبيق»:**
    - يفتح `market://details?id=app.manar.islamic`، وعند الفشل `https://play.google.com/store/apps/details?id=app.manar.islamic`.

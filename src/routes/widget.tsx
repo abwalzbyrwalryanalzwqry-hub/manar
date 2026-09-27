@@ -22,6 +22,9 @@ import {
 } from "@/lib/native-notifications";
 
 export const Route = createFileRoute("/widget")({
+  /* المحتوى كله أوقات وتواريخ بتوقيت الجهاز، والخادم لا يعرف منطقة المستخدم
+   * الزمنية، فرسمه على الخادم يعطي نصاً مختلفاً ويكسر الـHydration. */
+  ssr: false,
   head: () => ({ meta: [{ title: "ويدجت الشاشة الرئيسية — منار" }] }),
   component: WidgetScreen,
 });

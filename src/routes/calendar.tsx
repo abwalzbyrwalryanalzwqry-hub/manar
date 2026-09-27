@@ -28,6 +28,9 @@ import { computePrayerTimes, useLocation, useSettings } from "@/lib/prayer";
 import { ampmAr, formatHHMM, toArabicDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/calendar")({
+  /* المحتوى كله أوقات وتواريخ بتوقيت الجهاز، والخادم لا يعرف منطقة المستخدم
+   * الزمنية، فرسمه على الخادم يعطي نصاً مختلفاً ويكسر الـHydration. */
+  ssr: false,
   head: () => ({ meta: [{ title: "التقويم — منار" }] }),
   component: CalendarScreen,
 });

@@ -55,6 +55,20 @@ export function dayKey(date: Date = new Date()): string {
   return `${y}-${m}-${d}`;
 }
 
+/**
+ * يوم الصلاة الشرعي: من الفجر إلى الفجر، لا من منتصف الليل.
+ *
+ * من يصلي العشاء بعد الساعة ١٢ ليلاً يصليها لليوم الذي مضى، فقبل فجر اليوم
+ * يُنسب التسجيل إلى الأمس. بلا وقت فجر معروف نرجع إلى التاريخ الميلادي.
+ */
+export function prayerDayKey(now: Date = new Date(), fajr?: Date | null): string {
+  const key = dayKey(now);
+  if (!fajr || Number.isNaN(fajr.getTime())) return key;
+  // الفجر المعطى يجب أن يكون فجر اليوم الميلادي نفسه، وإلا فلا نزحزح.
+  if (dayKey(fajr) !== key) return key;
+  return now.getTime() < fajr.getTime() ? shiftDayKey(key, -1) : key;
+}
+
 export function shiftDayKey(key: string, delta: number): string {
   const [y, m, d] = key.split("-").map(Number);
   return dayKey(new Date(y, m - 1, d + delta));
@@ -439,9 +453,12 @@ export function useActivityLog() {
     month: useMemo(() => rangeStats(log, 30, today), [log, today]),
     bars: useMemo(() => dayBars(log, 7, today), [log, today]),
     achievements: useMemo(() => achievements(log, today), [log, today]),
-    togglePrayer: useCallback(
-      (p: PrayerKey) => recordPrayer(p, !(readLog().days[dayKey()]?.prayers ?? []).includes(p)),
-      [],
-    ),
+    /** سجل يوم محدد (مثل يوم الصلاة الشرعي قبل الفجر). */
+    dayRecord: useCallback((key: string) => log.days[key] ?? EMPTY_DAY, [log]),
+    /** يقلب تسجيل صلاة في يوم `key` (الافتراضي: اليوم الميلادي). */
+    togglePrayer: useCallback((p: PrayerKey, key: string = dayKey()) => {
+      const [y, m, d] = key.split("-").map(Number);
+      recordPrayer(p, !(readLog().days[key]?.prayers ?? []).includes(p), new Date(y, m - 1, d, 12));
+    }, []),
   };
 }

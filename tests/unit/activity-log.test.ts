@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   currentStreak,
   dayKey,
+  prayerDayKey,
   rangeStats,
   shiftDayKey,
   type ActivityLog,
@@ -119,5 +120,32 @@ describe("فصول الأذكار المكتملة اليوم", () => {
     } finally {
       g.window = prev;
     }
+  });
+});
+
+describe("prayerDayKey — يوم الصلاة من الفجر إلى الفجر", () => {
+  const fajr = new Date(2026, 8, 28, 4, 30);
+
+  it("قبل فجر اليوم يُنسب التسجيل إلى الأمس", () => {
+    expect(prayerDayKey(new Date(2026, 8, 28, 0, 40), fajr)).toBe("2026-09-27");
+    expect(prayerDayKey(new Date(2026, 8, 28, 4, 29), fajr)).toBe("2026-09-27");
+  });
+
+  it("من الفجر فصاعداً هو اليوم نفسه", () => {
+    expect(prayerDayKey(new Date(2026, 8, 28, 4, 30), fajr)).toBe("2026-09-28");
+    expect(prayerDayKey(new Date(2026, 8, 28, 23, 59), fajr)).toBe("2026-09-28");
+  });
+
+  it("بلا فجر أو بفجر يوم آخر يرجع إلى التاريخ الميلادي", () => {
+    const now = new Date(2026, 8, 28, 1, 0);
+    expect(prayerDayKey(now)).toBe("2026-09-28");
+    expect(prayerDayKey(now, null)).toBe("2026-09-28");
+    expect(prayerDayKey(now, new Date(2026, 8, 29, 4, 30))).toBe("2026-09-28");
+    expect(prayerDayKey(now, new Date(Number.NaN))).toBe("2026-09-28");
+  });
+
+  it("عبر حدّ الشهر والسنة", () => {
+    const f = new Date(2027, 0, 1, 5, 0);
+    expect(prayerDayKey(new Date(2027, 0, 1, 1, 0), f)).toBe("2026-12-31");
   });
 });

@@ -30,6 +30,9 @@ import {
 } from "@/lib/format";
 
 export const Route = createFileRoute("/_tabs/home")({
+  /* الأوقات والأيام تُنسَّق بتوقيت الجهاز، والخادم لا يعرف منطقة المستخدم
+   * الزمنية، فرسمها على الخادم يعطي نصاً مختلفاً ويكسر الـHydration. */
+  ssr: false,
   head: () => ({ meta: [{ title: "الرئيسية — منار" }] }),
   component: Home,
 });

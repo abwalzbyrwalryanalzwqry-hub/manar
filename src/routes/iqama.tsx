@@ -39,6 +39,9 @@ import {
 import { isNativeShell, testIqamaNow } from "@/lib/native-notifications";
 
 export const Route = createFileRoute("/iqama")({
+  /* المحتوى كله أوقات وتواريخ بتوقيت الجهاز، والخادم لا يعرف منطقة المستخدم
+   * الزمنية، فرسمه على الخادم يعطي نصاً مختلفاً ويكسر الـHydration. */
+  ssr: false,
   head: () => ({ meta: [{ title: "الإقامة — منار" }] }),
   component: IqamaSettings,
 });
