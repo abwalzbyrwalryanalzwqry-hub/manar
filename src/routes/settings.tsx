@@ -1,7 +1,8 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
 import { LocationSheet } from "@/components/manar/location-sheet";
+import { SignOutSheet } from "@/components/manar/sign-out-sheet";
 import {
   FONT_SCALE_LABELS,
   THEME_LABELS,
@@ -50,16 +51,15 @@ const DST_LABELS: Record<number, string> = {
   1: "ساعة إضافية",
 };
 
-type Sheet = null | "theme" | "font" | "method" | "madhab" | "offsets" | "location";
+type Sheet = null | "theme" | "font" | "method" | "madhab" | "offsets" | "location" | "signout";
 
 function Settings() {
   const { appearance, setTheme, setFontScale } = useAppearance();
   const { location, setLocation, requestGps, status: locStatus, error: locError } = useLocation();
   const { settings, patchSettings, setOffset, resetOffsets } = useSettings();
   const { settings: adhan, updateDeep } = useAdhanSettings();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { prefs: azkarPrefs, update: updateAzkarPrefs } = useAzkarPrefs();
-  const router = useRouter();
 
   const [sheet, setSheet] = useState<Sheet>(null);
   const close = () => setSheet(null);
@@ -199,10 +199,7 @@ function Settings() {
       {user && (
         <div className="mt-6 px-5 pb-2">
           <button
-            onClick={async () => {
-              await signOut();
-              router.navigate({ to: "/" });
-            }}
+            onClick={() => setSheet("signout")}
             className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 py-3.5 text-sm font-medium text-destructive"
           >
             تسجيل الخروج
@@ -211,6 +208,8 @@ function Settings() {
       )}
 
       {/* ---------------- الأوراق ---------------- */}
+
+      <SignOutSheet open={sheet === "signout"} onClose={close} />
 
       <LocationSheet
         open={sheet === "location"}

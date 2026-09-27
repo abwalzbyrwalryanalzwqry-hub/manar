@@ -1,6 +1,7 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { toast } from "sonner";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { Icon, icons, Screen, ScreenHeader, SectionLabel, Mark } from "@/components/manar/shell";
+import { SignOutSheet } from "@/components/manar/sign-out-sheet";
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/_tabs/more")({
@@ -37,20 +38,14 @@ const ITEMS = [
 ] as const;
 
 function More() {
-  const nav = useNavigate();
-  const { user, profile, isGuest, signOut } = useAuth();
+  const { user, profile, isGuest } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
   const name = profile?.full_name || user?.email?.split("@")[0] || "زائر";
   const sub = user
     ? profile?.created_at
       ? `عضو منذ ${new Date(profile.created_at).toLocaleDateString("ar", { year: "numeric", month: "long" })}`
       : "مرحباً بك"
     : "وضع الزائر — سجّل لمزامنة بياناتك";
-
-  const doSignOut = async () => {
-    await signOut();
-    toast.success("تم تسجيل الخروج");
-    nav({ to: "/login" });
-  };
 
   return (
     <Screen>
@@ -104,7 +99,7 @@ function More() {
       <div className="px-5">
         {user ? (
           <button
-            onClick={doSignOut}
+            onClick={() => setSigningOut(true)}
             className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 py-3.5 text-sm font-medium text-destructive"
           >
             تسجيل الخروج
@@ -118,6 +113,8 @@ function More() {
           </Link>
         )}
       </div>
+
+      <SignOutSheet open={signingOut} onClose={() => setSigningOut(false)} />
     </Screen>
   );
 }

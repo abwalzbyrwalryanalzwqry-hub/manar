@@ -1,11 +1,17 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { icons } from "@/components/manar/shell";
+import { ConfirmSheet } from "@/components/manar/confirm-sheet";
 import { useAuth } from "@/lib/auth-context";
 import {
   hasPendingChanges,
   KEY_EVENTS,
+  needsAccountChoice,
+  releaseDeviceOwnership,
   stampLocalChanges,
   syncNow,
   syncOnLogin,
+  wipeLocalSyncedData,
 } from "@/lib/cloud-sync";
 
 /** مهلة تجميع التعديلات المتتالية قبل الرفع. */
@@ -45,8 +51,43 @@ const RESUME_PULL_MS = 5 * 60 * 1000;
  * يُطلَق عند إغلاق التطبيق من أندرويد. الآن نستمع لأحداث الوحدات نفسها. */
 
 export function CloudSyncBridge() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const userId = user?.id ?? null;
+  /* بيانات حساب آخر على الجهاز تنتظر قرار المستخدم قبل أي مزامنة. */
+  const [choice, setChoice] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!userId) {
+      setChoice(false);
+      return;
+    }
+    const check = () => setChoice(needsAccountChoice(window.localStorage, userId));
+    check();
+    window.addEventListener("manar:account-choice", check);
+    return () => window.removeEventListener("manar:account-choice", check);
+  }, [userId]);
+
+  const resolve = async (mode: "mine" | "merge" | "leave") => {
+    if (!userId) return;
+    setBusy(true);
+    try {
+      if (mode === "leave") {
+        await signOut();
+        return;
+      }
+      if (mode === "mine") wipeLocalSyncedData();
+      else releaseDeviceOwnership(window.localStorage);
+      setChoice(false);
+      await syncOnLogin(userId);
+      toast.success(mode === "mine" ? "استُعيدت بيانات حسابك" : "دُمجت بيانات الجهاز في حسابك");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "تعذّرت المزامنة");
+    } finally {
+      setBusy(false);
+      setChoice(needsAccountChoice(window.localStorage, userId));
+    }
+  };
 
   // الرصد يعمل دائماً — حتى قبل الدخول — لتُختم التعديلات بوقتها الحقيقي.
   useEffect(() => {
@@ -130,5 +171,33 @@ export function CloudSyncBridge() {
     };
   }, [userId]);
 
-  return null;
+  return (
+    <ConfirmSheet
+      open={choice}
+      blocking
+      busy={busy}
+      icon={icons.user}
+      title="على هذا الجهاز بيانات حساب آخر"
+      body="الإعدادات والتقدّم المحفوظة هنا تخصّ حساباً سُجّل به سابقاً على هذا الجهاز. اختر ما يحدث لها قبل مزامنة حسابك — لن يُرفع شيء قبل اختيارك."
+      actions={[
+        {
+          label: "استخدم بيانات حسابي فقط",
+          hint: "تُمسح بيانات الحساب السابق من الجهاز وتُستعاد نسختك من السحابة",
+          onSelect: () => void resolve("mine"),
+        },
+        {
+          label: "ادمج بيانات هذا الجهاز في حسابي",
+          hint: "تُضاف إعدادات الحساب السابق وتقدّمه إلى حسابك",
+          tone: "plain",
+          onSelect: () => void resolve("merge"),
+        },
+        {
+          label: "تسجيل الخروج",
+          tone: "danger",
+          onSelect: () => void resolve("leave"),
+        },
+      ]}
+      onCancel={() => undefined}
+    />
+  );
 }

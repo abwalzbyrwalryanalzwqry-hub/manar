@@ -10,6 +10,8 @@ import {
   ScreenHeader,
   SectionLabel,
 } from "@/components/manar/shell";
+import { ConfirmSheet } from "@/components/manar/confirm-sheet";
+import { SignOutSheet } from "@/components/manar/sign-out-sheet";
 import { useAuth } from "@/lib/auth-context";
 import { pushAll, pullAll, readMeta } from "@/lib/cloud-sync";
 
@@ -20,13 +22,15 @@ export const Route = createFileRoute("/profile")({
 
 function Profile() {
   const nav = useNavigate();
-  const { user, profile, isGuest, signOut, updateProfile, refreshProfile } = useAuth();
+  const { user, profile, loading, updateProfile, refreshProfile } = useAuth();
   const [editing, setEditing] = useState(false);
   const [fullName, setFullName] = useState("");
   const [country, setCountry] = useState("");
   const [city, setCity] = useState("");
   const [language, setLanguage] = useState("ar");
   const [busy, setBusy] = useState(false);
+  const [confirmRestore, setConfirmRestore] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const syncStatus = useSyncStatus();
 
   useEffect(() => {
@@ -38,7 +42,11 @@ function Profile() {
     }
   }, [profile]);
 
-  if (isGuest && !user) return <GuestProfile onSignIn={() => nav({ to: "/login" })} />;
+  /* قبل انتهاء فحص الجلسة لا نعرض شيئاً: عرضُ «زائر» ثم الملف (أو العكس) كان
+   * يُومض، ويختلف عن رسم الخادم فيفشل الترطيب. وبلا حساب لا يوجد ملف شخصي
+   * أصلاً — سواء كان المستخدم زائراً أو خرج للتوّ. */
+  if (loading) return <ProfileLoading />;
+  if (!user) return <GuestProfile onSignIn={() => nav({ to: "/login" })} />;
 
   const save = async () => {
     setBusy(true);
@@ -61,18 +69,13 @@ function Profile() {
     ? new Date(profile.created_at).toLocaleDateString("ar", { year: "numeric", month: "long" })
     : "—";
 
-  const handleSignOut = async () => {
-    await signOut();
-    toast.success("تم تسجيل الخروج");
-    nav({ to: "/login" });
-  };
-
   const handleBackup = async () => {
     if (!user) return;
     setBusy(true);
     try {
-      await pushAll(user.id);
-      toast.success("تمت المزامنة مع السحابة");
+      const result = await pushAll(user.id);
+      /* `null` = لم تتم مزامنة (سحابة غير مهيأة، أو بيانات حساب آخر تنتظر قرارك). */
+      if (result) toast.success("تمت المزامنة مع السحابة");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "فشلت المزامنة");
     } finally {
@@ -82,10 +85,11 @@ function Profile() {
 
   const handleRestore = async () => {
     if (!user) return;
+    setConfirmRestore(false);
     setBusy(true);
     try {
-      await pullAll(user.id);
-      toast.success("تم استرجاع الإعدادات");
+      const result = await pullAll(user.id);
+      if (result) toast.success("تم استرجاع الإعدادات");
       await refreshProfile();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "فشل الاسترجاع");
@@ -184,7 +188,7 @@ function Profile() {
           className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft disabled:opacity-60"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-primary">
-            <Icon d={icons.bell} size={16} />
+            <Icon d={icons.refresh} size={16} />
           </span>
           <div className="flex-1 text-right">
             <div className="text-sm font-medium">مزامنة الآن</div>
@@ -194,12 +198,12 @@ function Profile() {
           </div>
         </button>
         <button
-          onClick={handleRestore}
+          onClick={() => setConfirmRestore(true)}
           disabled={busy || !user}
           className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft disabled:opacity-60"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-primary">
-            <Icon d={icons.azkar} size={16} />
+            <Icon d={icons.download} size={16} />
           </span>
           <div className="flex-1 text-right">
             <div className="text-sm font-medium">استرجاع من السحابة</div>
@@ -224,7 +228,7 @@ function Profile() {
       <SectionLabel>الحساب</SectionLabel>
       <div className="px-4 pb-4">
         <button
-          onClick={handleSignOut}
+          onClick={() => setSigningOut(true)}
           className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 py-3.5 text-sm font-medium text-destructive"
         >
           تسجيل الخروج
@@ -236,6 +240,38 @@ function Profile() {
         >
           حذف الحساب وبياناته نهائياً
         </button>
+      </div>
+
+      <ConfirmSheet
+        open={confirmRestore}
+        icon={icons.download}
+        title="استرجاع من السحابة؟"
+        body="ستحلّ نسخة السحابة محلّ الإعدادات والتقدّم على هذا الجهاز حيث وُجدت، ولا يمكن التراجع. إن أردت الإبقاء على تعديلات هذا الجهاز فاختر «مزامنة الآن» بدلاً من ذلك."
+        actions={[
+          {
+            label: "استرجاع نسخة السحابة",
+            tone: "danger",
+            onSelect: () => void handleRestore(),
+          },
+        ]}
+        onCancel={() => setConfirmRestore(false)}
+      />
+      <SignOutSheet open={signingOut} onClose={() => setSigningOut(false)} />
+    </Screen>
+  );
+}
+
+function ProfileLoading() {
+  return (
+    <Screen>
+      <ScreenHeader title="الملف الشخصي" backTo="/more" />
+      <div className="px-5" aria-busy="true">
+        <div className="h-48 animate-pulse rounded-[32px] bg-secondary/60" />
+        <div className="mt-4 space-y-2">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-16 animate-pulse rounded-2xl bg-secondary/40" />
+          ))}
+        </div>
       </div>
     </Screen>
   );

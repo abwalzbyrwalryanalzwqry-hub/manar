@@ -149,6 +149,57 @@ export function stampLocalChanges(
   return changed;
 }
 
+/* ------------------------------------------------------------------ */
+/*  ملكية بيانات الجهاز (عزل الحسابات)                                 */
+/* ------------------------------------------------------------------ */
+
+/** هل على الجهاز أيّ بيانات متزامنة (إعدادات أو تقدّم)؟ */
+export function hasLocalSyncedData(store: KV): boolean {
+  return SYNCED_KEYS.some((k) => store.getItem(k) != null);
+}
+
+/**
+ * هل بيانات هذا الجهاز تخصّ حساباً آخر غير الداخل الآن؟
+ *
+ * كانت المزامنة الأولى لأي حساب تدمج كل ما على الجهاز فيه، فإن خرج المستخدم (أ)
+ * ودخل (ب) على الهاتف نفسه رُفعت علامات (أ) وملاحظاته وإحصائياته إلى سحابة (ب).
+ * الآن: إن كان آخر حساب زامن هذا الجهاز غير الداخل، لا مزامنة حتى يختار المستخدم.
+ * بيانات الزائر (`user: null`) لا تحتاج سؤالاً — دمجها هو معنى «حفظ تقدّمي».
+ */
+export function needsAccountChoice(store: KV, userId: string): boolean {
+  const owner = readMeta(store).user;
+  return owner != null && owner !== userId && hasLocalSyncedData(store);
+}
+
+/** يمسح كل البيانات المتزامنة وبيانات المزامنة من الجهاز. يعيد المفاتيح الممسوحة. */
+export function clearSyncedLocalData(store: KV): string[] {
+  const removed = SYNCED_KEYS.filter((k) => store.getItem(k) != null);
+  for (const k of SYNCED_KEYS) store.removeItem(k);
+  store.removeItem(META_KEY);
+  return removed;
+}
+
+/**
+ * يعتبر بيانات الجهاز بيانات زائر لم تُنسب لأي حساب بعد، مع إبقاء أختام
+ * التعديل. يُستدعى حين يختار المستخدم صراحةً دمج ما على الجهاز في حسابه.
+ */
+export function releaseDeviceOwnership(store: KV): void {
+  const meta = readMeta(store);
+  meta.user = null;
+  meta.lastSyncAt = null;
+  meta.lastError = null;
+  writeMeta(store, meta);
+}
+
+/** يمسح بيانات الجهاز المتزامنة ويُعلم الوحدات لتعيد القراءة (القيم الافتراضية). */
+export function wipeLocalSyncedData(): void {
+  if (typeof window === "undefined") return;
+  const removed = clearSyncedLocalData(window.localStorage);
+  const events = new Set(removed.map((k) => KEY_EVENTS[k]).filter(Boolean));
+  for (const evt of events) window.dispatchEvent(new Event(evt));
+  window.dispatchEvent(new CustomEvent("manar:sync-status"));
+}
+
 /** هل على الجهاز تعديلات لم تُرفع بعد؟ */
 export function hasPendingChanges(store: KV): boolean {
   const meta = readMeta(store);
@@ -281,6 +332,12 @@ export function syncNow(userId: string, mode: SyncMode = "merge"): Promise<SyncR
     const backend = await supabaseBackend(userId);
     if (!backend || typeof window === "undefined") return null;
     const store = window.localStorage;
+    /* بيانات حساب آخر على الجهاز: لا دمج ولا رفع حتى يختار المستخدم
+     * (انظر `needsAccountChoice` وورقة الاختيار في CloudSyncBridge). */
+    if (needsAccountChoice(store, userId)) {
+      window.dispatchEvent(new CustomEvent("manar:account-choice"));
+      return null;
+    }
     try {
       const result = await runSync(store, backend, userId, mode);
       for (const key of result.updatedLocal) {

@@ -74,9 +74,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isGuest, setIsGuest] = useState(
-    () => typeof window !== "undefined" && localStorage.getItem(GUEST_KEY) === "1",
-  );
+  /* يبدأ `false` على الخادم والجهاز معاً ثم يُقرأ بعد التركيب: قراءته من
+   * `localStorage` في القيمة الابتدائية كانت تجعل رسم الجهاز يختلف عن رسم الخادم
+   * («المزيد» و«الملف الشخصي») فيفشل الترطيب ويُعاد بناء الشجرة كلها. القراءة
+   * تسبق انتهاء `loading` دائماً (ذاك ينتظر السحابة)، فلا تتأثّر توجيهات البداية. */
+  const [isGuest, setIsGuest] = useState(false);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(GUEST_KEY) === "1") setIsGuest(true);
+    } catch {
+      /* التخزين محجوب: نبقى «غير زائر». */
+    }
+  }, []);
 
   const loadProfile = async (uid: string) => {
     const cloud = await loadCloud();
@@ -159,17 +168,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await cloud.auth.signInWithPassword({ email, password });
     if (error) {
       LOG("signInEmail error", error.status, error.message);
-      // If the account exists but is OAuth-only, give a precise hint.
-      if (/invalid/i.test(error.message)) {
-        try {
-          const probe = await cloud.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/reset-password`,
-          });
-          LOG("probe reset (silent)", probe.error?.message ?? "ok");
-        } catch {
-          /* ignore */
-        }
-      }
+      /* كان هنا «فحص» يستدعي `resetPasswordForEmail` بعد كل كلمة مرور خاطئة ليعرف
+       * هل الحساب حساب Google — فيصل المستخدمَ بريدُ إعادة تعيين حقيقي مع كل خطأ،
+       * ويستطيع أيّ أحد إغراق بريد غيره بها واستهلاك حدّ الإرسال. أُزيل: رسالة
+       * الخطأ العربية تذكر احتمال Google أصلاً. */
       return { error: arabicAuthError(error.message) };
     }
     LOG("signInEmail ok", data.user?.id);
