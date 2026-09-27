@@ -47,6 +47,7 @@ import {
   buildPrayerAlarms,
   rawResourceName as rawName,
   SCHEDULE_DAYS_AHEAD,
+  ADHAN_DAYS_AHEAD,
   type ManarAlarmEvent,
 } from "@/lib/prayer-schedule";
 import {
@@ -743,7 +744,7 @@ async function syncNativePrayerScheduleNow(
     location,
     calc,
     now,
-    days: DAYS_AHEAD,
+    days: ADHAN_DAYS_AHEAD,
   });
 
   for (let d = 0; d < DAYS_AHEAD; d++) {

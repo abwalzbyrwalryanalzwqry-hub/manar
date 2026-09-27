@@ -13,16 +13,14 @@ describe("لقطة الويدجت", () => {
     now: 42,
   });
 
-  it("سبعة أيام متتالية تبدأ من اليوم", () => {
-    expect(snap.days.map((d) => d.date)).toEqual([
+  it("ثلاثون يوماً متتالية تبدأ من اليوم", () => {
+    expect(snap.days).toHaveLength(30);
+    expect(snap.days.slice(0, 3).map((d) => d.date)).toEqual([
       "2026-09-23",
       "2026-09-24",
       "2026-09-25",
-      "2026-09-26",
-      "2026-09-27",
-      "2026-09-28",
-      "2026-09-29",
     ]);
+    expect(snap.days[29].date).toBe("2026-10-22");
     expect(snap.city).toBe("صنعاء");
     expect(snap.generatedAt).toBe(42);
   });

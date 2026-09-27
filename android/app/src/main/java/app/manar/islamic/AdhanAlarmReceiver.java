@@ -25,7 +25,19 @@ public class AdhanAlarmReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        if (intent == null || !ACTION_FIRE.equals(intent.getAction())) return;
+        if (intent == null) return;
+        // منبّه التعبئة: يُقدّم نافذة الأحداث المضبوطة من الجدول المحفوظ فقط.
+        if (AdhanScheduler.ACTION_TOP_UP.equals(intent.getAction())) {
+            AdhanScheduler.topUp(context);
+            return;
+        }
+        if (!ACTION_FIRE.equals(intent.getAction())) return;
+        // كل إطلاق فرصة لتقديم النافذة أيضاً — لا ننتظر منبّه التعبئة.
+        try {
+            AdhanScheduler.topUp(context);
+        } catch (Exception e) {
+            Log.w("ManarSchedule", "top-up after fire failed", e);
+        }
 
         ManarChannels.ensure(context);
 

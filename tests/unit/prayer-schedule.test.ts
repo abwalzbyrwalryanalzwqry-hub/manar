@@ -15,6 +15,7 @@ import {
   prayerLabelOn,
   rawResourceName,
   SCHEDULE_DAYS_AHEAD,
+  ADHAN_DAYS_AHEAD,
   type ManarAlarmEvent,
 } from "@/lib/prayer-schedule";
 import { computePrayerTimes, type LocationState, type Settings } from "@/lib/prayer";
@@ -206,12 +207,13 @@ describe("منع التكرار (الاختبارات ١٥–١٨)", () => {
     for (const e of later) if (first.has(e.key)) expect(e.id).toBe(first.get(e.key));
   });
 
-  it("سبعة أيام، ولا أحداث في الماضي", () => {
+  it("ثلاثون يوماً للأذان، ولا أحداث في الماضي", () => {
     expect(SCHEDULE_DAYS_AHEAD).toBe(7);
-    // ٧ أيام بتقويم الجهاز: ٦ أو ٧ أيام كاملة من صلوات صنعاء حسب فرق المنطقة.
+    expect(ADHAN_DAYS_AHEAD).toBe(30);
+    // ٣٠ يوماً بتقويم الجهاز: ٢٩ أو ٣٠ يوماً كاملة من صلوات صنعاء حسب فرق المنطقة.
     const n = byRole(week, "adhan").length;
-    expect(n).toBeGreaterThanOrEqual(30);
-    expect(n).toBeLessThanOrEqual(35);
+    expect(n).toBeGreaterThanOrEqual(145);
+    expect(n).toBeLessThanOrEqual(150);
     for (const e of week) expect(e.at).toBeGreaterThan(NOW);
   });
 });
@@ -411,5 +413,38 @@ describe("فواصل الإقامة المحفوظة", () => {
     const ev = build(s);
     for (const e of ev) expect(Number.isFinite(e.at), e.key).toBe(true);
     expect(iqamahTimeFor(s, "asr", new Date(2026, 8, 24, 15))).toBeNull();
+  });
+});
+
+describe("شبكة أمان: تنبيه تجديد الجدول", () => {
+  const all = buildPrayerAlarms({ settings: base(), location: SANAA, calc: CALC, now: NOW });
+  const renew = all.filter((e) => e.role === "renew");
+
+  it("تنبيه واحد نصّي قبل نهاية الجدول بيومين، بعد العشاء", () => {
+    expect(renew).toHaveLength(1);
+    const r = renew[0];
+    expect(r.kind).toBe("notice");
+    expect(r.sound).toBe("");
+    const last = Math.max(...all.filter((e) => e.role !== "renew").map((e) => e.at));
+    expect(last - r.at).toBeGreaterThan(20 * 3600_000);
+    expect(last - r.at).toBeLessThan(2 * 24 * 3600_000);
+    const isha = all.filter((e) => e.prayer === "isha" && e.role === "adhan" && e.at < r.at);
+    expect(r.at - Math.max(...isha.map((e) => e.at))).toBe(30 * 60_000);
+  });
+
+  it("معرّفه ومفتاحه لا يتقاطعان مع بقية الأحداث", () => {
+    const ids = new Set(all.map((e) => e.id));
+    expect(ids.size).toBe(all.length);
+    expect(renew[0].key).toMatch(/^isha_renew_\d{4}_\d{2}_\d{2}$/);
+  });
+});
+
+describe("الجمعة في الإشعارات", () => {
+  it("أذان ظهر الجمعة باسم «الجمعة»", () => {
+    const all = buildPrayerAlarms({ settings: base(), location: SANAA, calc: CALC, now: NOW });
+    const fri = all.find((e) => e.key === "dhuhr_adhan_2026_09_25")!;
+    expect(fri.title).toBe("حان الآن وقت الجمعة");
+    const thu = all.find((e) => e.key === "dhuhr_adhan_2026_09_24")!;
+    expect(thu.title).toBe("حان الآن وقت الظهر");
   });
 });
