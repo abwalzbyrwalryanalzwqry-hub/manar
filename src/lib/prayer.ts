@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState, useLayoutEffect } from "react";
 import {
   CalculationMethod,
   Coordinates,
+  HighLatitudeRule,
   Madhab,
+  PolarCircleResolution,
   PrayerTimes,
   SunnahTimes,
   type CalculationParameters,
 } from "adhan";
+import { getHijriAdjust, toHijri, useHijriAdjust } from "./hijri";
 
 /* ------------------------------------------------------------------ */
 /*  Types & constants                                                  */
@@ -166,13 +169,42 @@ function buildParams(settings: Settings): CalculationParameters {
   return params;
 }
 
+/** شهر رمضان في التقويم الهجري بإزاحة المستخدم. */
+function isRamadan(date: Date, hijriAdjust: number): boolean {
+  try {
+    return toHijri(date, hijriAdjust).month === 9;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * مواقيت يوم واحد. تُحسب لكل تاريخ من جديد، فتتغيّر يومياً مع حركة الشمس.
+ *
+ * فوق ما تفعله المكتبة:
+ * - **أم القرى في رمضان:** العشاء بعد المغرب بـ١٢٠ دقيقة بدل ٩٠، كما يطبّقه
+ *   تقويم أم القرى الرسمي (وتوصي به مكتبة adhan نفسها).
+ * - **خطوط العرض العالية (> ٤٨°):** قاعدة «سُبع الليل» الموصى بها بدل «منتصف
+ *   الليل»، حتى لا يتطابق الفجر والعشاء صيفاً في أوروبا الشمالية.
+ * - **الدائرة القطبية:** حين لا تشرق الشمس أو لا تغرب يُؤخذ أقرب يوم له
+ *   مواقيت، بدل «تاريخ غير صالح» يكسر العرض والتنبيهات.
+ *
+ * `hijriAdjust` اختياري: الافتراضي إزاحة المستخدم المحفوظة.
+ */
 export function computePrayerTimes(
   loc: LocationState,
   settings: Settings,
   date = new Date(),
+  hijriAdjust: number = getHijriAdjust(),
 ): PrayerTimes {
   const coords = new Coordinates(loc.lat, loc.lng);
-  return new PrayerTimes(coords, date, buildParams(settings));
+  const params = buildParams(settings);
+  params.highLatitudeRule = HighLatitudeRule.recommended(coords);
+  params.polarCircleResolution = PolarCircleResolution.AqrabYaum;
+  if (settings.method === "UmmAlQura" && isRamadan(date, hijriAdjust)) {
+    params.ishaInterval = 120;
+  }
+  return new PrayerTimes(coords, date, params);
 }
 
 export function computeSunnahTimes(times: PrayerTimes): SunnahTimes {
@@ -432,15 +464,18 @@ export function usePrayerSchedule() {
    * نستخرج مفتاح اليوم كمتغيّر حتى يتحقّق منه المدقّق ولا نحتاج تعطيله. */
   const dayStamp = now.toDateString();
 
+  /* إزاحة الهجري تحدّد بداية رمضان، وفيه يتغيّر عشاء أم القرى. */
+  const { adjust: hijriAdjust } = useHijriAdjust();
+
   const today = useMemo(
-    () => computePrayerTimes(location, settings, new Date(dayStamp)),
-    [location, settings, dayStamp],
+    () => computePrayerTimes(location, settings, new Date(dayStamp), hijriAdjust),
+    [location, settings, dayStamp, hijriAdjust],
   );
   const tomorrow = useMemo(() => {
     const d = new Date(dayStamp);
     d.setDate(d.getDate() + 1);
-    return computePrayerTimes(location, settings, d);
-  }, [location, settings, dayStamp]);
+    return computePrayerTimes(location, settings, d, hijriAdjust);
+  }, [location, settings, dayStamp, hijriAdjust]);
 
   // Cache last successful schedule for offline fallback
   useEffect(() => {

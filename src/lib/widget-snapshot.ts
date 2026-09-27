@@ -20,7 +20,8 @@ import {
 } from "./prayer";
 import { DEFAULT_WIDGET_OPTIONS, type WidgetOptions } from "./widget-settings";
 
-export const WIDGET_DAYS = 7;
+/** أيام اللقطة: الويدجت يعرض المواقيت شهراً دون فتح التطبيق. */
+export const WIDGET_DAYS = 30;
 export const WIDGET_PRAYERS: PrayerKey[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
 
 export interface WidgetPrayer {
@@ -85,7 +86,8 @@ export function buildWidgetSnapshot(input: {
         const ampm = at.getHours() < 12 ? "ص" : "م";
         return {
           key: p,
-          name: PRAYER_LABELS[p].ar,
+          /* يوم الجمعة: «الجمعة» بدل «الظهر» كما في التطبيق والإشعارات. */
+          name: p === "dhuhr" && date.getDay() === 5 ? "الجمعة" : PRAYER_LABELS[p].ar,
           at: at.getTime(),
           time: `${formatArTime(at)} ${ampm}`,
         };

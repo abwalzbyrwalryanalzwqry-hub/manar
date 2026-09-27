@@ -30,6 +30,12 @@ import java.util.Set;
  * after a reboot, an app update, or a timezone change — without needing the
  * WebView to be alive.
  *
+ * <p><b>نافذة الضبط:</b> الويب يسلّم جدولاً طويلاً (أسابيع)، فيُحفظ كله، لكن لا
+ * يُضبط منه في {@link AlarmManager} إلا ما يقع خلال {@link #ARM_WINDOW_MS}. منبّه
+ * «تعبئة» خفيف ({@link #ACTION_TOP_UP}) وكلُّ إطلاق حدث يُقدّمان النافذة من
+ * الجدول المحفوظ. هكذا يستمر الأذان أسابيع دون فتح التطبيق، ويبقى عدد
+ * المنبّهات المعلّقة صغيراً بعيداً عن حدّ النظام (٥٠٠ منبّه للتطبيق).
+ *
  * <p>منع التكرار على ثلاث طبقات:
  * <ol>
  *   <li>لكل حدث مفتاح فريد ({@code fajr_iqamah_2026_09_23}). القائمة الواردة
@@ -53,6 +59,14 @@ public final class AdhanScheduler {
     private static final int REQUEST_BASE = 41000;
 
     static final String EXTRA_EVENT_ID = "event_id";
+
+    /** تُضبط منبّهات الأحداث الواقعة خلال هذه المدة فقط (٤٨ ساعة). */
+    static final long ARM_WINDOW_MS = 48L * 60 * 60 * 1000;
+    /** منبّه التعبئة يُقدّم النافذة كل ١٢ ساعة على الأكثر. */
+    static final long TOP_UP_EVERY_MS = 12L * 60 * 60 * 1000;
+    /** رمز طلب منبّه التعبئة — خارج مدى الأحداث (REQUEST_BASE + id). */
+    private static final int TOP_UP_REQUEST = REQUEST_BASE - 1;
+    public static final String ACTION_TOP_UP = "app.manar.islamic.action.ADHAN_TOP_UP";
 
     private AdhanScheduler() {}
 
@@ -138,42 +152,97 @@ public final class AdhanScheduler {
         return new ArrayList<>(byKey.values());
     }
 
-    /** Replaces the whole schedule: cancels what we armed before, then re-arms. */
-    public static int replaceAll(Context context, List<Event> events) {
+    /**
+     * Replaces the whole schedule: cancels what we armed before, stores every
+     * future event, then arms only the next {@link #ARM_WINDOW_MS}.
+     *
+     * @return عدد الأحداث القادمة المحفوظة (المضبوط منها وما ينتظر النافذة).
+     */
+    public static synchronized int replaceAll(Context context, List<Event> events) {
         cancelAll(context);
 
-        AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        if (am == null) return 0;
-
         long now = System.currentTimeMillis();
-        List<Event> armed = new ArrayList<>();
         Set<String> fired = firedKeys(context);
-
+        List<Event> pending = new ArrayList<>();
         for (Event e : dedupe(events)) {
             if (e.atMillis <= now) continue;
             if (fired.contains(e.key)) continue;
-            PendingIntent pi = pendingIntentFor(context, e, PendingIntent.FLAG_UPDATE_CURRENT);
-            if (pi == null) continue;
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !am.canScheduleExactAlarms()) {
-                    // Without the exact-alarm permission the OS would reject the
-                    // call outright; an inexact alarm still fires, just later.
-                    am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, e.atMillis, pi);
-                } else {
-                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, e.atMillis, pi);
-                }
-                armed.add(e);
-            } catch (SecurityException ignored) {
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, e.atMillis, pi);
-                armed.add(e);
-            }
+            pending.add(e);
         }
 
-        persist(context, armed);
+        persist(context, pending);
         prefs(context).edit().putLong(KEY_LAST_SCHEDULED, now).apply();
-        android.util.Log.i("ManarSchedule", "armed " + armed.size() + " of " + events.size()
-                + " exact=" + canScheduleExact(context));
-        return armed.size();
+        int armed = armWindow(context, pending, now);
+        android.util.Log.i("ManarSchedule", "stored " + pending.size() + " of " + events.size()
+                + ", armed " + armed + " exact=" + canScheduleExact(context));
+        return pending.size();
+    }
+
+    /**
+     * يُقدّم النافذة من الجدول المحفوظ دون إلغاء شيء ولا حذف: يضبط ما دخل
+     * النافذة فقط. إعادة ضبط منبّه قائم بالنيّة نفسها تستبدله، فلا تكرار. الماضي
+     * يبقى في المحفوظ (يقرؤه {@link #find}) حتى يستبدل التطبيق الجدول كله.
+     */
+    public static synchronized int topUp(Context context) {
+        long now = System.currentTimeMillis();
+        List<Event> stored = restore(context);
+        int armed = armWindow(context, stored, now);
+        android.util.Log.i("ManarSchedule", "top-up: armed " + armed + " of " + stored.size());
+        return armed;
+    }
+
+    /** يضبط أحداث النافذة، ثم منبّه التعبئة التالي إن بقي ما بعدها. */
+    private static int armWindow(Context context, List<Event> pending, long now) {
+        AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (am == null) return 0;
+
+        Set<String> fired = firedKeys(context);
+        long windowEnd = now + ARM_WINDOW_MS;
+        boolean beyond = false;
+        int armed = 0;
+        for (Event e : pending) {
+            if (e.atMillis <= now || fired.contains(e.key)) continue;
+            if (e.atMillis > windowEnd) {
+                beyond = true;
+                continue;
+            }
+            PendingIntent pi = pendingIntentFor(context, e, PendingIntent.FLAG_UPDATE_CURRENT);
+            if (pi == null) continue;
+            setAlarm(am, e.atMillis, pi, true);
+            armed++;
+        }
+
+        PendingIntent topUp = topUpIntent(context, PendingIntent.FLAG_UPDATE_CURRENT);
+        if (beyond && topUp != null) {
+            // غير دقيق عمداً: لا يحتاج إذن المنبّهات الدقيقة، والنافذة (٤٨ ساعة)
+            // أوسع كثيراً من أي تأخير يفرضه وضع توفير الطاقة.
+            setAlarm(am, now + TOP_UP_EVERY_MS, topUp, false);
+        } else if (topUp != null) {
+            am.cancel(topUp);
+        }
+        return armed;
+    }
+
+    private static void setAlarm(AlarmManager am, long at, PendingIntent pi, boolean exact) {
+        try {
+            if (exact && (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || am.canScheduleExactAlarms())) {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+            } else {
+                // Without the exact-alarm permission the OS would reject the
+                // exact call outright; an inexact alarm still fires, just later.
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+            }
+        } catch (SecurityException ignored) {
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+        }
+    }
+
+    private static PendingIntent topUpIntent(Context context, int extraFlags) {
+        Intent intent = new Intent(context, AdhanAlarmReceiver.class)
+                .setAction(ACTION_TOP_UP)
+                .setData(android.net.Uri.parse("manar://adhan/top-up"));
+        return PendingIntent.getBroadcast(
+                context, TOP_UP_REQUEST, intent, extraFlags | PendingIntent.FLAG_IMMUTABLE);
     }
 
     /* ------------------------- منع الإطلاق المكرّر ------------------------- */
@@ -253,6 +322,13 @@ public final class AdhanScheduler {
                     am.cancel(pi);
                     pi.cancel();
                 }
+            }
+        }
+        if (am != null) {
+            PendingIntent topUp = topUpIntent(context, PendingIntent.FLAG_NO_CREATE);
+            if (topUp != null) {
+                am.cancel(topUp);
+                topUp.cancel();
             }
         }
         prefs(context).edit().remove(KEY_EVENTS).apply();

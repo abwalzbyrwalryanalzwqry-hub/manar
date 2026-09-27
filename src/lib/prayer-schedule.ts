@@ -44,7 +44,9 @@ export type AlarmRole =
   | "adhan"
   | "prayer_notice"
   | "iqamah_reminder"
-  | "iqamah";
+  | "iqamah"
+  /** «افتح منار لتجديد المواقيت» قبل نفاد الجدول المضبوط. */
+  | "renew";
 
 export type ManarAlarmEvent = {
   /** معرّف رقمي ثابت للحدث (≤ ٩٩٬٩٩٩) — مشتقّ من التاريخ والصلاة والدور. */
@@ -66,7 +68,15 @@ export type ManarAlarmEvent = {
   notice?: boolean;
 };
 
+/** مدى تذكيرات LocalNotifications (قبل الصلاة، الأذكار، المواسم). */
 export const SCHEDULE_DAYS_AHEAD = 7;
+
+/**
+ * مدى جدول الأذان والإقامة المسلَّم لـ`AdhanScheduler`. يُحفظ كله على الجهاز،
+ * ولا يُضبط منه في النظام إلا ٤٨ ساعة متحرّكة، فيستمر الأذان شهراً كاملاً دون
+ * فتح التطبيق بلا اقتراب من حدّ المنبّهات.
+ */
+export const ADHAN_DAYS_AHEAD = 30;
 
 const ROLE_CODE: Record<AlarmRole, number> = {
   adhan: 1,
@@ -74,6 +84,7 @@ const ROLE_CODE: Record<AlarmRole, number> = {
   iqamah: 3,
   prayer_notice: 4,
   iqamah_reminder: 5,
+  renew: 6,
 };
 
 /**
@@ -194,7 +205,7 @@ export function iqamahReminderSkipped(
 
 export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
   const { settings: s, location, calc, now } = o;
-  const days = o.days ?? SCHEDULE_DAYS_AHEAD;
+  const days = o.days ?? ADHAN_DAYS_AHEAD;
   const byKey = new Map<string, ManarAlarmEvent>();
   const soundOn = s.soundEnabled && !s.silentMode;
 
@@ -213,7 +224,8 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
     for (const prayer of PRAYER_ORDER) {
       if (prayer === "sunrise") continue;
       const per = s.perPrayer[prayer] ?? { adhan: true, reminder: true, iqama: true };
-      const label = PRAYER_LABELS[prayer].ar;
+      /* يوم الجمعة: الأذان باسم «الجمعة» أيضاً. */
+      const label = prayerLabelOn(prayer, day);
       /* يوم الجمعة: الإقامة وتنبيهها باسم «الجمعة» وبفاصلها الخاص. */
       const iqamaLabel = prayerLabelOn(prayer, day);
       const adhanAt = times[prayer];
@@ -294,6 +306,30 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
         });
       }
     }
+  }
+
+  /* ---------------- شبكة أمان: تجديد الجدول ----------------
+   * المواقيت تُحسب على الجهاز وتُسلَّم للنظام لأيام معدودة. من لم يفتح منار
+   * طوال هذه المدة ينفد جدوله فيسكت الأذان بلا إنذار. قبل النهاية بيومين بعد العشاء
+   * نُنبّه مرة واحدة. فتح التطبيق يستبدل الجدول كله، فيتأخّر هذا التنبيه معه
+   * ولا يراه من يفتح منار بانتظام. */
+  if (days >= 2 && byKey.size > 0) {
+    const day = new Date(now);
+    day.setHours(12, 0, 0, 0);
+    day.setDate(day.getDate() + days - 2);
+    const isha = computePrayerTimes(location, calc, day).isha;
+    push({
+      id: eventId("isha", "renew", day),
+      key: eventKey("isha", "renew", day),
+      role: "renew",
+      prayer: "isha",
+      at: isha.getTime() + 30 * 60_000,
+      sound: "",
+      title: "افتح منار لتجديد مواقيت الصلاة",
+      body: "جدول الأذان المحفوظ على جوالك ينتهي بعد يومين. افتح التطبيق مرة ليُحسب الشهر القادم.",
+      kind: "notice",
+      channel: "adhan",
+    });
   }
 
   return [...byKey.values()].sort((a, b) => a.at - b.at || a.id - b.id);
