@@ -1,9 +1,9 @@
 /* منار — طبقة التخزين الدائم (Persistence Core)
  *
  * المشكلة: كل حالة التطبيق (الموقع، الإعدادات، إعدادات الأذان، تقدّم القرآن
- * والأذكار والورد، وجلسة الدخول) كانت محفوظة في `localStorage` داخل الـ WebView
+ * والأذكار والورد) كانت محفوظة في `localStorage` داخل الـ WebView
  * فقط. تخزين الـ WebView عُرضة للمسح من النظام (تنظيف التخزين، Doze العدواني على
- * بعض أجهزة OEM، أو مسح بيانات التطبيق)، فيفقد المستخدم إعداداته وجلسته.
+ * بعض أجهزة OEM، أو مسح بيانات التطبيق)، فيفقد المستخدم إعداداته وتقدّمه.
  *
  * الحل: مرآة مزدوجة.
  *
@@ -14,35 +14,32 @@
  *     فيجد المستخدم كل شيء من حيث توقف حتى بعد إعادة تشغيل الهاتف.
  *
  * المطابقة تُثبَّت على `Storage.prototype`، لذلك تعمل مع كل الوحدات الموجودة
- * (بما فيها عميل Supabase) دون تعديل أي منها.
+ * دون تعديل أي منها.
  *
- * الجلسة منفصلة عن الحالة: رمز دخول Supabase يُحفظ في مجموعة Preferences خاصة
- * (`ManarSession` ← `ManarSession.xml`) مستثناة من النسخ الاحتياطي لأندرويد، بينما
- * تبقى الإعدادات والتقدّم في المجموعة الافتراضية (`CapacitorStorage`) وتُنسخ. هكذا
- * ينتقل تقدّم المستخدم إلى هاتفه الجديد، ولا ينتقل معه رمز الدخول — فلا تُفتح
- * الجلسة على جهاز آخر بمجرّد استعادة نسخة احتياطية. تخزين الـ WebView نفسه مستثنى
- * من النسخ أيضاً (راجع `android/app/src/main/res/xml/backup_rules.xml`).
+ * كل الحالة في المجموعة الافتراضية (`CapacitorStorage` ← `CapacitorStorage.xml`)،
+ * وهي مشمولة في نسخ Google التلقائي، فينتقل تقدّم المستخدم إلى هاتفه الجديد.
+ * تخزين الـ WebView نفسه مستثنى من النسخ (راجع `backup_rules.xml`).
+ *
+ * لا حساب في منار: رموز جلسة Supabase القديمة (`sb-*-auth-token`) ومجموعتها
+ * `ManarSession` من النسخ التجريبية السابقة تُمسح مرة واحدة عند الإقلاع.
  */
 
-/** المفاتيح التي نطابقها: حالة منار + رمز جلسة Supabase. */
+/** المفاتيح التي نطابقها: حالة منار فقط. */
 const MANAR_PREFIX = /^manar[.\-_]?/i;
-const SUPABASE_AUTH = /^sb-[a-z0-9]+-auth-token(\.\d+)?$/i;
 
 export function isMirroredKey(key: string): boolean {
-  return MANAR_PREFIX.test(key) || SUPABASE_AUTH.test(key);
+  return MANAR_PREFIX.test(key);
 }
 
 /** مجموعة الحالة: تُنسخ احتياطياً (الاسم الافتراضي لإضافة Preferences). */
 export const STATE_GROUP = "CapacitorStorage";
-/** مجموعة الجلسة: مستثناة من النسخ الاحتياطي في قواعد أندرويد. */
-export const SESSION_GROUP = "ManarSession";
 
-export function isSessionKey(key: string): boolean {
-  return SUPABASE_AUTH.test(key);
-}
+/** مجموعة جلسة الدخول من عهد الحساب — تُفرَّغ ولا يُكتب فيها شيء. */
+export const LEGACY_SESSION_GROUP = "ManarSession";
 
-export function groupFor(key: string): string {
-  return isSessionKey(key) ? SESSION_GROUP : STATE_GROUP;
+/** رمز جلسة Supabase قديم (قبل حذف الحساب). */
+export function isLegacySessionKey(key: string): boolean {
+  return /^sb-[a-z0-9]+-auth-token(\.\d+)?$/i.test(key);
 }
 
 /* ------------------------------------------------------------------ */
@@ -132,14 +129,14 @@ export function flushPersistentWrites(): Promise<unknown> {
 function mirrorSet(key: string, value: string) {
   void enqueue(async () => {
     const prefs = await nativePreferences();
-    if (prefs) await inGroup(prefs, groupFor(key), (p) => p.set({ key, value }));
+    if (prefs) await inGroup(prefs, STATE_GROUP, (p) => p.set({ key, value }));
   });
 }
 
 function mirrorRemove(key: string) {
   void enqueue(async () => {
     const prefs = await nativePreferences();
-    if (prefs) await inGroup(prefs, groupFor(key), (p) => p.remove({ key }));
+    if (prefs) await inGroup(prefs, STATE_GROUP, (p) => p.remove({ key }));
   });
 }
 
@@ -215,31 +212,32 @@ async function readGroup(prefs: PreferencesApi, group: string) {
   });
 }
 
+/** يمسح بقايا الحساب القديم: مجموعة `ManarSession` كلها، ورموز الجلسة أينما كانت. */
+async function purgeLegacySession(prefs: PreferencesApi): Promise<void> {
+  await inGroup(prefs, LEGACY_SESSION_GROUP, async (p) => {
+    const { keys } = await p.keys();
+    for (const key of keys) await p.remove({ key });
+  });
+  await inGroup(prefs, STATE_GROUP, async (p) => {
+    const { keys } = await p.keys();
+    for (const key of keys.filter(isLegacySessionKey)) await p.remove({ key });
+  });
+  const stale: string[] = [];
+  for (let i = 0; i < window.localStorage.length; i += 1) {
+    const key = window.localStorage.key(i);
+    if (key && isLegacySessionKey(key)) stale.push(key);
+  }
+  for (const key of stale) window.localStorage.removeItem(key);
+}
+
 async function restoreFromNative(prefs: PreferencesApi): Promise<void> {
   try {
-    const state = await readGroup(prefs, STATE_GROUP);
-    const session = await readGroup(prefs, SESSION_GROUP);
-
-    // ٠. ترقية: النسخ السابقة حفظت رمز الجلسة في مجموعة الحالة (فكان يُنسخ
-    //    احتياطياً). ننقله إلى مجموعة الجلسة ونحذفه من مجموعة الحالة.
-    const legacy = [...state.keys()].filter(isSessionKey);
-    if (legacy.length) {
-      await inGroup(prefs, SESSION_GROUP, async (p) => {
-        for (const key of legacy) {
-          if (!session.has(key)) {
-            const value = state.get(key)!;
-            await p.set({ key, value });
-            session.set(key, value);
-          }
-        }
-      });
-      await inGroup(prefs, STATE_GROUP, async (p) => {
-        for (const key of legacy) await p.remove({ key });
-      });
-      for (const key of legacy) state.delete(key);
-    }
-
-    const native = new Map<string, string>([...state, ...session]);
+    await purgeLegacySession(prefs);
+  } catch {
+    /* أفضل-جهد: البقايا غير مقروءة أصلاً، وفشل مسحها لا يمنع الإقلاع. */
+  }
+  try {
+    const native = await readGroup(prefs, STATE_GROUP);
 
     // ١. الطبقة الأصلية → localStorage
     for (const [key, value] of native) {
@@ -258,7 +256,7 @@ async function restoreFromNative(prefs: PreferencesApi): Promise<void> {
       if (value != null) pending.push([key, value]);
     }
     for (const [key, value] of pending) {
-      await inGroup(prefs, groupFor(key), (p) => p.set({ key, value }));
+      await inGroup(prefs, STATE_GROUP, (p) => p.set({ key, value }));
     }
   } catch {
     /* الاستعادة أفضل-جهد: أي فشل يترك التطبيق يعمل على localStorage وحده. */

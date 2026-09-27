@@ -52,14 +52,7 @@ jobs:
 
       # VITE_NATIVE_SHELL=1 مضمّن في السكربت: يجعل الصفحة المُسبَقة تُطابق ما
       # يرسمه العميل داخل القشرة الأصلية، فلا يقع عدم تطابق ترطيب عند الإقلاع.
-      # إعداد الحساب والمزامنة (Supabase). مفتاح «publishable» عامّ بطبيعته ويُضمَّن
-      # في أي حزمة ويب، لكن نقرؤه من الأسرار حتى لا يُكتب في الشجرة. بدونهما
-      # تُبنى النسخة محلية بالكامل وتظهر رسالة «خدمة الحساب غير مهيأة».
       - name: بناء حزمة الويب ومزامنة Capacitor
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
         run: npm run build:android
 
       # المفتاح يُحفظ في أسرار المستودع base64، ولا يلمس الشجرة إلا هنا.
