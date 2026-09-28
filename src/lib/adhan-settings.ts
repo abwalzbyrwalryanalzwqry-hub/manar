@@ -184,6 +184,12 @@ export type AdhanSettings = {
    * منخفضاً سُمع الأذان ضعيفاً مهما رُفع مستواه في منار.
    */
   raisePhoneAlarm: boolean;
+  /**
+   * أولوية المنبّه (أندرويد، المرحلة ٣٢): الأذان والإقامة وتنبيهها بـ`setAlarmClock`،
+   * فلا يؤخّرها وضع Doze والهاتف ساكن. ثمنه أيقونة منبّه في شريط الحالة و«المنبّه
+   * القادم» على شاشة القفل. مفعّل افتراضياً.
+   */
+  alarmClockPriority: boolean;
 
   /* Per-prayer toggles */
   perPrayer: Record<PrayerKey, { adhan: boolean; reminder: boolean; iqama: boolean }>;
@@ -236,6 +242,7 @@ const DEFAULTS: AdhanSettings = {
   iqamaVolume: 1,
   reminderVolume: 1,
   raisePhoneAlarm: false,
+  alarmClockPriority: true,
   perPrayer: {
     fajr: { adhan: true, reminder: true, iqama: true },
     sunrise: { adhan: false, reminder: false, iqama: false },
@@ -311,6 +318,7 @@ function read(): AdhanSettings {
       reminderSound: normalizeApproachSound(parsed.reminderSound),
       ...readVolumes(parsed),
       raisePhoneAlarm: parsed.raisePhoneAlarm === true,
+      alarmClockPriority: parsed.alarmClockPriority !== false,
       fajrFirstAdhanOffset: minutesIn(
         parsed.fajrFirstAdhanOffset,
         1,

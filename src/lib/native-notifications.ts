@@ -226,7 +226,15 @@ type ManarAdhanPlugin = {
     title?: string;
     body?: string;
     seconds?: number;
-  }) => Promise<{ scheduled: boolean; key?: string; at?: number; exact?: boolean }>;
+    /** بأولوية المنبّه كما في الإعداد (المرحلة ٣٢). */
+    priority?: boolean;
+  }) => Promise<{
+    scheduled: boolean;
+    key?: string;
+    at?: number;
+    exact?: boolean;
+    mode?: "clock" | "exact" | "inexact";
+  }>;
   /** طابور «صلّيت» من الإشعارات (المرحلة ٢٩) — يُعاد ويُفرَّغ. */
   takePrayed?: () => Promise<{ items: unknown }>;
   /* صوت منار */
@@ -896,6 +904,8 @@ async function syncNativePrayerScheduleNow(
       prayer: "fajr",
       channel: ln.channelId,
       meta: { route: r.route, snooze: SNOOZE_MINUTES },
+      /* تذكير أذكار: منبّه دقيق عادي، لا أولوية منبّه (المرحلة ٣٢). */
+      priority: false,
     });
   }
 
@@ -1357,6 +1367,7 @@ export async function scheduleFullTest(): Promise<{
       title: "تجربة شاملة — منار",
       body: "هكذا يصل الأذان والتطبيق مغلق",
       seconds: 60,
+      priority: s.alarmClockPriority,
     });
     if (!r.scheduled || !r.key || !r.at) return null;
     return { key: r.key, at: r.at, exact: !!r.exact };

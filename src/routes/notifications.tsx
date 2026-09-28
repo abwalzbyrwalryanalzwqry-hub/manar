@@ -256,6 +256,27 @@ function Notifications() {
         />
       </div>
 
+      {/* أولوية المنبّه — أندرويد وحده (المرحلة ٣٢). `nativePerms` لا يُعرف إلا بعد
+       * الترطيب داخل القشرة الأصلية، فلا خطأ Hydration. */}
+      {nativePerms && (
+        <>
+          <SectionLabel hint="للأذان والإقامة وتنبيهها">دقّة التوقيت</SectionLabel>
+          <div className="px-4">
+            <Toggle
+              icon={icons.clock}
+              label="أولوية المنبّه"
+              hint={
+                settings.alarmClockPriority
+                  ? "يصل الأذان والإقامة في موعدهما ولو كان الجوال ساكناً في وضع توفير الطاقة. تظهر أيقونة منبّه في شريط الحالة."
+                  : "مطفأة: قد تتأخّر الإقامة دقائق والجوال ساكن، لأن النظام يباعد بين التنبيهات المتقاربة."
+              }
+              on={settings.alarmClockPriority}
+              onToggle={() => update({ alarmClockPriority: !settings.alarmClockPriority })}
+            />
+          </div>
+        </>
+      )}
+
       {/* Reminders */}
       <SectionLabel hint="يمكن اختيار أكثر من توقيت">تذكيرات قبل الصلاة</SectionLabel>
       <div className="px-4">

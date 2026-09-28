@@ -622,31 +622,23 @@ public class ManarAdhanPlugin extends Plugin {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         android.app.AlarmManager am =
                 (android.app.AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        boolean exact = AdhanScheduler.canScheduleExact(context);
         JSObject result = new JSObject();
         if (am == null) {
             result.put("scheduled", false);
             call.resolve(result);
             return;
         }
-        try {
-            if (exact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                // المسار نفسه للأذان المجدول: منبّه دقيق يسمح ببدء الخدمة الأمامية.
-                am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pi);
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                am.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pi);
-            } else {
-                am.setExact(android.app.AlarmManager.RTC_WAKEUP, at, pi);
-            }
-        } catch (SecurityException e) {
-            am.set(android.app.AlarmManager.RTC_WAKEUP, at, pi);
-            exact = false;
-        }
-        ManarLog.add(context, ManarLog.TEST_SCHEDULED, key, exact ? "exact" : "inexact");
+        // المسار نفسه للأذان المجدول (AdhanScheduler.armExact)، بأولوية المنبّه
+        // كما في الإعداد، فتقيس التجربة ما سيحدث فعلاً.
+        boolean priority = Boolean.TRUE.equals(call.getBoolean("priority", true));
+        String mode = AdhanScheduler.armExact(context, am, at, pi, priority);
+        boolean exact = !AdhanScheduler.MODE_INEXACT.equals(mode);
+        ManarLog.add(context, ManarLog.TEST_SCHEDULED, key, mode);
         result.put("scheduled", true);
         result.put("key", key);
         result.put("at", at);
         result.put("exact", exact);
+        result.put("mode", mode);
         call.resolve(result);
     }
 
