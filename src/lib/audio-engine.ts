@@ -8,7 +8,7 @@
  * Supported formats: MP3, M4A (AAC), OGG (Opus/Vorbis), WAV.
  */
 
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 export type PlayOptions = {
   volume?: number; // 0..1

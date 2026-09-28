@@ -24,7 +24,7 @@
  * القائمة ذاتها بالمعرّفات ذاتها — والطبقة الأصلية تستبدل ولا تُضيف.
  */
 
-import { formatArTime, toArabicDigits } from "./format";
+import { formatArTime } from "./format";
 import { displayPrefs } from "./display-prefs";
 import { PRE_PRAYER_TITLE, minutesAr, prePrayerBody } from "./notification-text";
 import {
@@ -238,8 +238,7 @@ export function eventId(prayer: PrayerKey, role: AlarmRole, day: Date, slot = 0)
   );
 }
 
-/* الأرقام ونظام الساعة يتبعان اختيار المستخدم (`display-prefs`). */
-const AR = (n: number | string) => toArabicDigits(n);
+/* نظام الساعة يتبع اختيار المستخدم (`display-prefs`). */
 
 function hhmm(d: Date): string {
   const suffix = displayPrefs().clock === "24" ? "" : d.getHours() < 12 ? " ص" : " م";

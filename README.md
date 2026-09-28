@@ -1,82 +1,87 @@
-# Manar: Guiding Light
+# منار — نور يهديك في كل وقت
 
-:::writing{variant="standard" id="48173"} Create a premium Islamic mobile application called "منار" (Manar).
+تطبيق إسلامي عربي لأندرويد: مواقيت الصلاة والأذان، والقرآن الكريم بمصحف المدينة، والأذكار
+والورد، والقبلة، والتقويم الهجري، ومواسم العبادة. يعمل كاملاً بلا إنترنت، ولا يجمع أي بيانات
+عن مستخدمه.
 
-Project Type: Mobile Application
+- المعرّف: `app.manar.islamic` — أندرويد ٧ فما فوق (`minSdk 24`، `targetSdk 36`).
+- الواجهة عربية أولاً (RTL)، والأرقام والساعة حسب اختيار المستخدم.
 
-Platforms: Android and iOS
+## الميزات
 
-Language Support: Arabic (Primary) English (Secondary)
+| القسم   | أبرز ما فيه                                                                                                      |
+| ------- | ---------------------------------------------------------------------------------------------------------------- |
+| الصلاة  | حساب محلي (مكتبة `adhan`) بطرق الحساب المعتمدة، أذان كامل والتطبيق مغلق عبر خدمة أمامية، إقامة، تنبيه قبل الصلاة |
+| القرآن  | مصحف المدينة (١٥ سطراً)، تفاسير مضمّنة، تلاوات آية آية مع تحميل للاستماع بلا إنترنت، بحث، ختمة، مشاركة آية       |
+| الأذكار | حصن المسلم، ورد الصباح والمساء، عدّاد واهتزاز، مفضّلة                                                            |
+| الموقع  | محافظات ٢٢ دولة عربية ومدنها، و٢٢٩٢ مدينة عالمية بمناطقها الزمنية — كلها مضمّنة                                  |
+| التقويم | أم القرى مع جدول احتياطي، إزاحة يدوية، اليوم الهجري عند المغرب (اختياري)                                         |
+| غير ذلك | القبلة (نموذج WMM 2025)، الجمعة، القضاء، سكينة، الإحصائيات، ويدجت الشاشة الرئيسية، نسخ احتياطي محلي              |
 
-Design Direction: Luxury Islamic Modern Design
+## البنية
 
-Brand Personality: Elegant Trustworthy Spiritual Modern Premium
+- **الويب:** React 19 + TanStack Start/Router، وTailwind CSS. تُبنى نسخة أندرويد تطبيقَ صفحة
+  واحدة ثابتاً (`vite.config.capacitor.ts`) بلا خادم.
+- **أندرويد:** Capacitor 7، وطبقة أصلية بلغة Java في
+  `android/app/src/main/java/app/manar/islamic/`: جدولة الأذان بـ`AlarmManager`، والخدمة الأمامية،
+  والويدجت، وقنوات الإشعار.
+- **البيانات:** كلها داخل الحزمة. ولا شبكة إلا للتلاوات عند الطلب، ولتحسين اسم المدينة عبر
+  OpenStreetMap Nominatim بإحداثيات مقرّبة (انظر سياسة الخصوصية في التطبيق).
 
-Color Palette:
-
-Primary Emerald Green: #0E7A5F
-
-Royal Gold: #C9A227
-
-Deep Navy: #152238
-
-Light Background: #F8F9FA
-
-Dark Background: #0B1117
-
-Typography:
-
-Arabic Fonts: Cairo Tajawal Amiri IBM Plex Sans Arabic
-
-English Fonts: Inter Poppins Montserrat
-
-Application Name: منار
-
-Tagline: نور يهديك في كل وقت
-
-Create a complete design system including:
-
-Colors
-
-Typography
-
-Spacing System
-
-Button Styles
-
-Card Styles
-
-Icons Style
-
-Dark Mode
-
-Light Mode
-
-Design Style: Modern Luxury Glassmorphism Soft Shadows Premium Animations Rounded Corners Professional Mobile UX
-
-Do not create features yet.
-
-Only create the complete visual identity and design system for the application. :::
-
-Use attached lines Use the fonts attached to you in the files and make them the official fonts of the entire application with formatting sizes by interfaces, tabs, numbers, etc.
-
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/***REMOVED***).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
 ```
+src/routes/            الشاشات (مسار لكل ملف)
+src/components/manar/  مكوّنات التطبيق
+src/lib/               المنطق: المواقيت، الهجري، الأماكن، الإشعارات، القرآن…
+scripts/               سكربتات توليد البيانات والبناء
+tests/unit/            اختبارات Vitest
+docs/                  خطة التطوير، التكامل المستمر، قوائم الفحص على الجهاز
+```
+
+## التشغيل
+
+يلزم Node ‏22.12 فما فوق، ولبناء أندرويد JDK 21 وAndroid SDK 36.
+
+```bash
+npm ci
+npm run dev                # معاينة في المتصفح
+npm run build:android      # بناء الويب + نسخ الأصوات إلى res/raw + cap sync
+npm run android:apk:debug  # APK تجريبي
+```
+
+## الفحوص
+
+```bash
+npm run typecheck          # TypeScript (المتغيّرات غير المستعملة أخطاء)
+npm run lint               # ESLint
+npx prettier --check .
+npm run knip               # ملفات وتبعيات بلا استعمال
+npm test                   # Vitest
+MANAR_TEST_TZ=Pacific/Auckland npm test   # الاختبارات نفسها بمنطقة زمنية أخرى
+bash scripts/android/javac-check.sh       # ترجمة Java دون Gradle
+```
+
+سير العمل في `.github/workflows` يشغّلها على كل طلب دمج — التفاصيل في
+[docs/CI.ar.md](docs/CI.ar.md). وما لا يُختبر إلا على هاتف حقيقي في
+[docs/testing/PHONE-CHECKLIST.ar.md](docs/testing/PHONE-CHECKLIST.ar.md).
+
+## البيانات المولَّدة
+
+لا تُعدَّل يدوياً؛ يُعاد توليدها بسكربتها:
+
+| الملف                      | السكربت                                    |
+| -------------------------- | ------------------------------------------ |
+| `src/lib/arab-places.ts`   | `scripts/build-arab-places.py` (GeoNames)  |
+| `src/lib/world-cities.ts`  | `scripts/build-world-cities.py` (GeoNames) |
+| `src/lib/hijri-table.ts`   | `scripts/build-hijri-table.mjs` (ICU)      |
+| بيانات حصن المسلم والورد   | `scripts/azkar/build-hisn.py`              |
+| نسخ الصوت المخفّضة للقنوات | `scripts/build-volume-levels.mjs` (ffmpeg) |
+
+## المصادر والتراخيص
+
+نص القرآن من مشروع تنزيل، والتفاسير عبر مكتبة QUL، والتلاوات من EveryAyah، والأماكن من
+GeoNames (CC BY 4.0)، وأسماء المدن عبر OpenStreetMap (ODbL). القائمة الكاملة مع التراخيص في
+شاشة «المصادر والتراخيص» داخل التطبيق (`src/lib/sources.ts`).
+
+## خطة التطوير
+
+المراحل المنجزة والقادمة في [docs/ROADMAP.ar.md](docs/ROADMAP.ar.md).

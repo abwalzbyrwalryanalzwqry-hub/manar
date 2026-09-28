@@ -4,7 +4,7 @@
  * تفتح تطبيقها في النظام، ولكل صفٍّ زرّ نسخ بديل إن لم يوجد التطبيق.
  */
 
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Icon, icons } from "@/components/manar/shell";
 import { copyText, DEVELOPER, openContact, type ContactKind } from "@/lib/developer";
 

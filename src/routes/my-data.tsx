@@ -11,7 +11,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Capacitor } from "@capacitor/core";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Icon, icons, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
 import { ConfirmSheet } from "@/components/manar/confirm-sheet";
 import { exportTextFile } from "@/lib/export-file";

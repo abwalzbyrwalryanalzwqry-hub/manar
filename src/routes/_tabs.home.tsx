@@ -20,7 +20,7 @@ import { HadithSheet } from "@/components/manar/hadith-sheet";
 import { formatSecondsAr, useDailyHadith, useDailyVerse, useLocalDay } from "@/lib/daily-content";
 import { toggleBookmark, useBookmarks } from "@/lib/quran/bookmarks";
 import { formatRangeAr } from "@/lib/quran/format";
-import { PRAYER_LABELS, usePrayerSchedule } from "@/lib/prayer";
+import { usePrayerSchedule } from "@/lib/prayer";
 import { hijriDisplayDate, useHijriAdjust } from "@/lib/hijri";
 import {
   ampmAr,

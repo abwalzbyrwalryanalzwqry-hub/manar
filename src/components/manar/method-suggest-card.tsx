@@ -2,7 +2,7 @@
  * ولا تغيّر شيئاً إلا بضغطة «اعتمدها». «لا، شكراً» يخفيها لهذا البلد. */
 
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Icon, icons } from "@/components/manar/shell";
 import { dismissSuggestion, methodSuggestion, readDismissed } from "@/lib/method-suggest";
 import { METHOD_LABELS, useLocation, useSettings } from "@/lib/prayer";

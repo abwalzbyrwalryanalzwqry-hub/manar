@@ -356,6 +356,20 @@
   - حارس `tests/unit/world-cities.test.ts` (يمنع الاستيراد الثابت أيضاً).
   - **`@capacitor/geolocation`:** مثبَّت ومسجَّل في Gradle لكن لا يستعمله أي ملف؛ و`BridgeWebChromeClient` في Capacitor يطلب إذن الموقع لـ`navigator.geolocation` بنفسه. والإضافة تجرّ `play-services-location` فلا تعمل على أجهزة بلا خدمات Google. تُحذف في المرحلة ٣٤ بدل اعتمادها.
 
+### ي) تنظيف الكود وحجم الحزمة
+
+- [x] **المرحلة ٣٤ ✅:**
+  - **حذف الميت:** ٤٤ مكوّناً من قوالب `src/components/ui` (بقي `dialog` و`sonner`)، و`use-mobile` و`example.functions.ts` و`config.server.ts` و`quran-data.ts`، و٣٨ مؤشّر أصول Lovable في `src/assets` (لا يستوردها شيء)، واختبارا قالب Capacitor (`com.getcapacitor.myapp`، وكان أحدهما يفشل لو شُغّل لأنه يتوقّع معرّفاً آخر).
+  - **٤٠ تبعية محذوفة:** أغلب `@radix-ui/*`، و`recharts` و`react-hook-form` و`zod` و`date-fns` و`cmdk` و`vaul` و`embla-carousel-react` و`react-day-picker` و`input-otp` و`react-resizable-panels` و`class-variance-authority`، و`@tanstack/react-query` (مزوّد بلا استعلام واحد)، وإضافتا Capacitor غير المستعملتين `@capacitor/device` و`@capacitor/geolocation`. الثانية كانت تجرّ `play-services-location` إلى الـAPK؛ وتحديد الموقع يمرّ بـ`navigator.geolocation` الذي يطلب له Capacitor إذنَي البيان.
+  - **حزمة الإقلاع:** ٦٥٠ ← ٥٨٨ ك.ب (٢٠٦ ← ١٨٨ ك.ب مضغوطة): خرج React Query، وصارت sonner تُحمَّل عند أول إشعار عابر (`src/lib/toast.ts` بالواجهة نفسها، و`<LazyToaster>` يُركَّب قبل الإطلاق لأن sonner لا يعرض ما سبق تركيبه).
+  - **حرّاس:** `knip.json` وخطوة «الكود الميت» في CI (الملفات والتبعيات؛ الصادرات خارج الفحص لأن كثيراً منها واجهة تستعملها الاختبارات)، و`noUnusedLocals`/`noUnusedParameters` في `tsconfig`، و`tests/unit/cleanup-phase34.test.ts`.
+  - README عربي يصف التطبيق والبنية والتشغيل والفحوص والبيانات المولَّدة.
+- **قرارات بعد الفحص:**
+  - تكرار الأصوات بين `public/audio` و`res/raw` أُزيل من قبل (`prepare-android-webdir.mjs` يحذف نسخة الويب، والمعاينة تمرّ بالمشغّل الأصلي).
+  - `assets/audio-levels` (٧٦ ملفاً، ٣٫٣ م.ب) **تبقى:** صوت قناة الإشعار في أندرويد ٨+ ملفٌّ ثابت لا يقبل مستوى صوت برمجياً، فهذه النسخ هي ما يجعل مؤشّر «التنبيهات» يعمل والتطبيق مغلق.
+  - هدف «إقلاع < ٣٥٠ ك.ب» غير واقعي مع React وTanStack Router وحدهما (~٣١٠ ك.ب). الباقي من كود التطبيق ~١٨٠ ك.ب، أكبره `seasons/definitions` و`native-notifications` و`daily-reminders` لأن الجدولة تعمل عند الإقلاع؛ تأجيلها يحتاج اختباراً على الجهاز.
+- [ ] **مؤجّل من المرحلة ٣٤:** تقسيم `quran.mushaf.tsx` (١٥١٤ سطراً) و`native-notifications.ts` (١٣٩٠) — إعادة هيكلة بلا مكسب في الحجم، والأسلم أن تأتي بعد اختبارات المرحلة ٣٥. وإزالة Nitro/SSR من بناء الويب (خطر على نسخة الويب، لا أثر له في الـAPK).
+
 ### و) مؤجّل
 
 - واجهة إنجليزية كاملة (مؤجّلة بقرار المالك).

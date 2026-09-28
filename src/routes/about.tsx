@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Icon, icons, Screen, ScreenHeader, SectionLabel, Mark } from "@/components/manar/shell";
 import { DeveloperCard } from "@/components/manar/developer-card";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { copyText, DEVELOPER, openContact } from "@/lib/developer";
 import { PUBLISHED_ON_PLAY, rateApp, shareApp } from "@/lib/app-store";
 import { BUILD_VERSION, formatAppVersion, readAppVersion } from "@/lib/app-version";

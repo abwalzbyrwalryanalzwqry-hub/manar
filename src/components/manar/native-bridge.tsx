@@ -18,7 +18,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useRouterState } from "@tanstack/react-router";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import {
   applyStatusBar,

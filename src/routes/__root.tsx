@@ -1,8 +1,7 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
-  createRootRouteWithContext,
+  createRootRoute,
   useRouter,
   HeadContent,
   Scripts,
@@ -13,7 +12,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AdhanProvider } from "@/components/manar/adhan-provider";
 import { WidgetSync } from "@/components/manar/widget-sync";
-import { Toaster } from "@/components/ui/sonner";
+import { LazyToaster } from "@/components/manar/lazy-toaster";
 import { NativeBridge } from "@/components/manar/native-bridge";
 import { ReminderTapBridge } from "@/components/manar/reminder-tap-bridge";
 import { AudioStopBar } from "@/components/manar/audio-stop-bar";
@@ -108,7 +107,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 const NATIVE_SHELL_BUILD = import.meta.env.VITE_NATIVE_SHELL === "1";
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -199,15 +198,13 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 function RootComponent() {
-  const { queryClient } = Route.useRouteContext();
-
   // يُعلن لدرع الإقلاع أن الحزمة عملت فعلاً (لا يكفي وجود HTML المبني مسبقاً).
   useEffect(() => {
     markAppMounted();
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <>
       {/* تُستعاد حالة المستخدم من الطبقة الأصلية قبل تركيب أي مزوّد يقرأ التخزين. */}
       <StorageGate>
         <AdhanProvider />
@@ -215,7 +212,7 @@ function RootComponent() {
         <NativeBridge />
         <ReminderTapBridge />
         <AudioStopBar />
-        <Toaster position="top-center" dir="rtl" richColors closeButton />
+        <LazyToaster />
         <RecitationPlayerProvider>
           <DisplayPrefsGate>
             <Outlet />
@@ -224,6 +221,6 @@ function RootComponent() {
           <RecitationDownloadNotifier />
         </RecitationPlayerProvider>
       </StorageGate>
-    </QueryClientProvider>
+    </>
   );
 }
