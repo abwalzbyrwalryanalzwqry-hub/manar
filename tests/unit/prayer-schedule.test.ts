@@ -34,7 +34,9 @@ const NOW = Date.UTC(2026, 8, 22, 22, 0, 0);
 const DAY = "_2026_09_23";
 
 const base = (): AdhanSettings => structuredClone(getAdhanSettings());
-/** أحداث صلوات ٢٣ سبتمبر في صنعاء وحدها، مهما كانت منطقة الجهاز الزمنية. */
+/** أحداث صلوات ٢٣ سبتمبر في صنعاء وحدها، مهما كانت منطقة الجهاز الزمنية.
+ * تنبيه «التجديد» (`renew`) ليس من صلوات اليوم: يومه يُحسب بساعة الجهاز، فيقع
+ * على ٢٣ سبتمبر في نيويورك وعلى ٢٤ في صنعاء. يُستبعد هنا ويُختبر وحده. */
 const build = (s: AdhanSettings, extra: Partial<Parameters<typeof buildPrayerAlarms>[0]> = {}) =>
   buildPrayerAlarms({
     settings: s,
@@ -43,7 +45,7 @@ const build = (s: AdhanSettings, extra: Partial<Parameters<typeof buildPrayerAla
     now: NOW,
     days: 3,
     ...extra,
-  }).filter((e) => e.key.endsWith(DAY));
+  }).filter((e) => e.key.endsWith(DAY) && e.role !== "renew");
 const byRole = (ev: ManarAlarmEvent[], role: ManarAlarmEvent["role"]) =>
   ev.filter((e) => e.role === role);
 

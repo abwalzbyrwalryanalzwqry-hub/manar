@@ -14,7 +14,7 @@ type Row = {
   icon: string;
   /** ما يُفتح عند اللمس؛ بلا قيمة = صفّ معلومات فقط. */
   kind?: ContactKind;
-  /** قيمة يمرّرها للرابط (البريد البديل). */
+  /** قيمة يمرّرها للرابط. */
   arg?: string;
   /** اسم التطبيق في رسالة «غير متاح». */
   app?: string;
@@ -41,16 +41,6 @@ const ROWS: Row[] = [
     icon: icons.mail,
     kind: "email",
     arg: DEVELOPER.email,
-    app: "تطبيق البريد",
-    ltr: true,
-    hint: "مراسلة",
-  },
-  {
-    label: "البريد الإلكتروني",
-    value: DEVELOPER.emailAlt,
-    icon: icons.mail,
-    kind: "email",
-    arg: DEVELOPER.emailAlt,
     app: "تطبيق البريد",
     ltr: true,
     hint: "مراسلة",

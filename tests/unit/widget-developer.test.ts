@@ -29,8 +29,6 @@ describe("إعدادات الويدجت", () => {
 describe("عن المطور", () => {
   it("البيانات الرسمية كما زُوِّدت", () => {
     expect(DEVELOPER.name).toBe("م. إدريس الزوقري");
-    expect(DEVELOPER.siteEmail).toBe("zbyrzwqr@gmail.com");
-    expect(DEVELOPER.contactEmail).toBe("old-contact@example.invalid");
     expect(DEVELOPER.phone).toBe("776343551");
     expect(DEVELOPER.address).toBe("اليمن _ إب _ جوبلة");
     expect(DEVELOPER.email).toBe("zoqriidris@gmail.com");
@@ -41,9 +39,6 @@ describe("عن المطور", () => {
   it("روابط التواصل مبنية من البيانات المزوَّدة فقط", () => {
     expect(contactUrls("phone")).toEqual(["tel:+967776343551"]);
     expect(contactUrls("email")).toEqual(["mailto:zoqriidris@gmail.com"]);
-    expect(contactUrls("email", DEVELOPER.emailAlt)).toEqual([
-      "mailto:old-contact@example.invalid",
-    ]);
     expect(contactUrls("whatsapp")).toEqual([
       "whatsapp://send?phone=967776343551",
       "https://wa.me/967776343551",
