@@ -91,9 +91,16 @@ public final class AdhanScheduler {
         public final String channel;
         /** بعد انتهاء الأذان يبقى إشعار دخول الوقت. */
         public final boolean notice;
+        /** مقطعٌ يُشغَّل بعد الصوت الرئيسي مباشرة (التثويب بعد أذان الفجر)، أو "". */
+        public final String follow;
 
         Event(int id, String key, long atMillis, String sound, String title, String body,
               String kind, String channel, boolean notice) {
+            this(id, key, atMillis, sound, title, body, kind, channel, notice, "");
+        }
+
+        Event(int id, String key, long atMillis, String sound, String title, String body,
+              String kind, String channel, boolean notice, String follow) {
             this.id = id;
             this.key = key == null || key.isEmpty() ? (kind + "_" + id) : key;
             this.atMillis = atMillis;
@@ -103,6 +110,7 @@ public final class AdhanScheduler {
             this.kind = kind;
             this.channel = channel == null ? "" : channel;
             this.notice = notice;
+            this.follow = follow == null ? "" : follow;
         }
 
         static Event fromJson(JSONObject o) {
@@ -115,7 +123,8 @@ public final class AdhanScheduler {
                     o.optString("body", ""),
                     o.optString("kind", KIND_ADHAN),
                     o.optString("channel", ""),
-                    o.optBoolean("notice", false));
+                    o.optBoolean("notice", false),
+                    o.optString("follow", ""));
         }
 
         JSONObject toJson() throws JSONException {
@@ -128,7 +137,8 @@ public final class AdhanScheduler {
                     .put("body", body)
                     .put("kind", kind)
                     .put("channel", channel)
-                    .put("notice", notice);
+                    .put("notice", notice)
+                    .put("follow", follow);
         }
     }
 
@@ -388,6 +398,7 @@ public final class AdhanScheduler {
                 .putExtra(AdhanService.EXTRA_KEY, e.key)
                 .putExtra(AdhanService.EXTRA_CHANNEL, e.channel)
                 .putExtra(AdhanService.EXTRA_NOTICE, e.notice)
+                .putExtra(AdhanService.EXTRA_FOLLOW, e.follow)
                 .putExtra(EXTRA_EVENT_ID, e.id);
 
         return PendingIntent.getBroadcast(

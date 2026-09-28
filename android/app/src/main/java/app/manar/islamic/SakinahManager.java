@@ -182,7 +182,7 @@ public final class SakinahManager {
         NotificationManager nm = context.getSystemService(NotificationManager.class);
         if (nm == null) return;
         for (String id : opened) {
-            if (ManarChannels.ADHAN.equals(id) || ManarChannels.IQAMA.equals(id)) continue;
+            if (ManarChannels.isPrayerChannel(id)) continue;
             try {
                 NotificationChannel ch = nm.getNotificationChannel(id);
                 if (ch == null || !ch.canBypassDnd()) continue;

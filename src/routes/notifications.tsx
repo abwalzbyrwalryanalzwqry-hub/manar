@@ -220,8 +220,12 @@ function Notifications() {
         <Toggle
           icon={icons.bell}
           label="الصوت"
-          hint="تشغيل الأذان والنغمات"
-          on={settings.soundEnabled && !settings.silentMode}
+          hint={
+            settings.silentMode
+              ? "الوضع الصامت مفعّل — لن يُسمع شيء حتى تطفئه"
+              : "تشغيل الأذان والنغمات"
+          }
+          on={settings.soundEnabled}
           onToggle={() => update({ soundEnabled: !settings.soundEnabled })}
         />
         <Toggle
@@ -356,6 +360,11 @@ function Notifications() {
             key={p}
             p={p}
             value={settings.perPrayer[p]}
+            master={{
+              adhan: settings.adhanEnabled,
+              reminder: settings.remindersEnabled,
+              iqama: settings.iqamaEnabled,
+            }}
             onChange={(patch) =>
               updateDeep((s) => ({
                 ...s,
@@ -473,6 +482,9 @@ function Toggle({
 }) {
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={on}
       onClick={onToggle}
       className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 text-right shadow-soft"
     >
@@ -497,20 +509,28 @@ function Toggle({
 function PerPrayer({
   p,
   value,
+  master,
   onChange,
 }: {
   p: PrayerKey;
   value: { adhan: boolean; reminder: boolean; iqama: boolean };
+  /** المفاتيح العامة: رقاقة مفعّلة تحت مفتاحٍ عام مطفأ لا أثر لها، فتظهر باهتة. */
+  master: { adhan: boolean; reminder: boolean; iqama: boolean };
   onChange: (patch: Partial<{ adhan: boolean; reminder: boolean; iqama: boolean }>) => void;
 }) {
   const Chip = ({ k, l }: { k: keyof typeof value; l: string }) => (
     <button
+      type="button"
+      role="switch"
+      aria-checked={value[k]}
+      aria-label={`${l} ${PRAYER_LABELS[p].ar}${master[k] ? "" : " — المفتاح العام مطفأ"}`}
+      title={master[k] ? undefined : "المفتاح العام لهذا التنبيه مطفأ"}
       onClick={() => onChange({ [k]: !value[k] })}
       className={`rounded-full px-3 py-1 text-[11px] transition ${
         value[k]
           ? "gradient-primary text-primary-foreground shadow-glow"
           : "border border-border bg-card text-muted-foreground"
-      }`}
+      } ${master[k] ? "" : "opacity-40"}`}
     >
       {l}
     </button>

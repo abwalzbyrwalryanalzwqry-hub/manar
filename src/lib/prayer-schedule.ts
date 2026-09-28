@@ -68,6 +68,8 @@ export type ManarAlarmEvent = {
   channel?: "adhan" | "iqama";
   /** بعد انتهاء الأذان يبقى إشعار دخول الوقت (إن كان مفعّلاً). */
   notice?: boolean;
+  /** مقطعٌ يُشغَّل بعد الصوت مباشرة (التثويب بعد أذان الفجر) — اسم مورد res/raw. */
+  follow?: string;
 };
 
 /** مدى تذكيرات LocalNotifications (قبل الصلاة، الأذكار، المواسم). */
@@ -135,7 +137,7 @@ function hhmm(d: Date): string {
   return formatArTime(d) + suffix;
 }
 
-function minutesAr(m: number): string {
+export function minutesAr(m: number): string {
   if (m === 1) return "دقيقة واحدة";
   if (m === 2) return "دقيقتان";
   if (m >= 3 && m <= 10) return `${AR(m)} دقائق`;
@@ -206,6 +208,25 @@ export function iqamahReminderSkipped(
   return out;
 }
 
+/**
+ * دقائق «تذكير الفجر» قبل أذان الفجر، أو null إن كان مطفأً أو مكرّراً لتنبيهٍ
+ * قبل الصلاة بالدقائق نفسها (فلا يصل إشعاران في اللحظة ذاتها).
+ */
+export function fajrReminderMinutesFor(s: AdhanSettings): number | null {
+  if (!s.fajrReminderEnabled) return null;
+  const m = Math.round(s.fajrReminderMinutes);
+  if (!Number.isFinite(m) || m <= 0) return null;
+  const general = s.remindersEnabled && s.perPrayer.fajr?.reminder !== false;
+  if (general && s.reminderMinutes.includes(m as never)) return null;
+  return m;
+}
+
+export const FAJR_REMINDER_TITLE = "تذكير الفجر";
+
+export function fajrReminderBody(m: number): string {
+  return `بقي ${minutesAr(m)} على أذان الفجر`;
+}
+
 export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
   const { settings: s, location, calc, now } = o;
   const days = o.days ?? ADHAN_DAYS_AHEAD;
@@ -263,6 +284,10 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
           body: `${location.city} · أذان ${label}`,
           kind: "adhan",
           notice: s.prayerNoticeEnabled,
+          /* التثويب يُسلسَل بعد أذان الفجر في الخدمة الأصلية نفسها (مشغّلٌ واحد). */
+          ...(prayer === "fajr" && soundOn && s.fajrTathweebEnabled
+            ? { follow: rawResourceName(adhanVariantUrl(s.fajrTathweebAudio)) }
+            : {}),
         });
       } else if (s.prayerNoticeEnabled) {
         push({

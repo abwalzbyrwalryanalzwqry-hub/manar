@@ -64,7 +64,12 @@ import { dayKey, readLog } from "@/lib/activity-log";
 import { jumuahTimeline, planJumuahReminders, readJumuah } from "@/lib/jumuah";
 import { getIqamahSound } from "@/lib/iqamah-library";
 import { resolveIqamaForPrayer } from "@/lib/adhan-settings";
-import { prayerLabelOn } from "@/lib/prayer-schedule";
+import {
+  FAJR_REMINDER_TITLE,
+  fajrReminderBody,
+  fajrReminderMinutesFor,
+  prayerLabelOn,
+} from "@/lib/prayer-schedule";
 import type { PrayerKey } from "@/lib/prayer";
 import { PRAYER_APPROACH_CLIPS, approachClipFor } from "@/lib/prayer-approach-audio";
 import { getHijriAdjust } from "@/lib/hijri";
@@ -196,6 +201,8 @@ type ManarAdhanPlugin = {
     reminder: number;
     /** رفع صوت المنبّه في الجوال مؤقتاً وقت الأذان والإقامة. */
     raiseAlarm?: boolean;
+    /** إعداد «الاهتزاز»: اهتزاز الأذان والإقامة وقنوات تنبيههما المكتوب. */
+    vibrate?: boolean;
   }) => Promise<void>;
   /** صوت «المنبّه» في الجوال — الأذان نسبةٌ منه. */
   alarmVolume: () => Promise<{ level: number; max: number; percent: number }>;
@@ -408,6 +415,9 @@ function seasonIdFor(dayIndex: number, slot: "morning" | "evening") {
 }
 
 /** Stable, collision-free id per (day, prayer, kind). */
+/** خانة «تذكير الفجر» في idFor — بعيدة عن خانات دقائق التنبيه (١..٤). */
+export const FAJR_REMINDER_EXTRA = 9;
+
 function idFor(dayIndex: number, prayerIndex: number, kind: number, extra = 0) {
   return ID_BASE + dayIndex * 100 + prayerIndex * 10 + kind + extra * 1000;
 }
@@ -586,7 +596,21 @@ const APPROACH_CHANNEL_PREFIX = "manar_approach_";
  * الأصلية نفسها بلا أي تغيير، والدرجة ٠ هي القناة الصامتة. */
 
 const levelSuffix = (level: NotificationLevel) => (level === 100 ? "" : `_v${level}`);
-const LEVEL_CHANNEL = /^manar_(?:azkar_.+|approach_.+|season_.+|reminders)_v(\d+)$/;
+const LEVEL_CHANNEL = /^manar_(?:azkar_.+|approach_.+|season_.+|reminders)_v(\d+)(?:_nv)?$/;
+/** قنوات التنبيهات بلاحقة (درجة أو «بلا اهتزاز») — تُحذف إن لم تعد مطلوبة. */
+const NV_CHANNEL = /^manar_(?:azkar_.+|approach_.+|season_.+|reminders(?:_v\d+)?)_nv$/;
+
+/* ------------------- الاهتزاز -------------------
+ * اهتزاز القناة ثابتٌ بعد إنشائها كصوتها، فكانت قنوات التنبيهات كلها تهتزّ
+ * مهما كان إعداد «الاهتزاز». من أطفأه تُنشأ له نسخةٌ من كل قناة بلاحقة `_nv`
+ * بلا اهتزاز، وتُسلَّم تنبيهاته عليها. */
+let channelVibrate = true;
+const nv = () => (channelVibrate ? "" : "_nv");
+
+/** يضبط نمط القنوات (للاختبار وللمزامنة). */
+export function setChannelVibration(on: boolean) {
+  channelVibrate = on;
+}
 
 /** اسم مورد الصوت بالدرجة المطلوبة. */
 function leveledRaw(raw: string, level: NotificationLevel): string {
@@ -596,33 +620,37 @@ function leveledRaw(raw: string, level: NotificationLevel): string {
 /** قناة تذكير أذكار/وِرد لصوتٍ من فهرسه — أو القناة الصامتة. */
 export function azkarWirdChannelFor(url: string, level: NotificationLevel = 100): string {
   const raw = rawResourceName(url);
-  return raw && level > 0 ? AZKAR_CHANNEL_PREFIX + leveledRaw(raw, level) : "manar_silent";
+  return raw && level > 0 ? AZKAR_CHANNEL_PREFIX + leveledRaw(raw, level) + nv() : "manar_silent";
 }
 
 /** قناة تنبيه موسمي لصوتٍ من حزمة المواسم بالدرجة المطلوبة. */
 export function seasonChannelFor(id: SeasonSoundId, level: NotificationLevel = 100): string {
   if (level === 0) return "manar_silent";
-  return SEASON_CHANNEL_PREFIX + leveledRaw(rawResourceName(seasonSoundUrl(id)), level);
+  return SEASON_CHANNEL_PREFIX + leveledRaw(rawResourceName(seasonSoundUrl(id)), level) + nv();
 }
 
 /** قناة تنبيه قبل صلاة لمقطعٍ من حزمة اقتراب الصلاة. */
 export function prayerApproachChannelFor(url: string, level: NotificationLevel = 100): string {
   if (level === 0) return "manar_silent";
-  return APPROACH_CHANNEL_PREFIX + leveledRaw(rawResourceName(url), level);
+  return APPROACH_CHANNEL_PREFIX + leveledRaw(rawResourceName(url), level) + nv();
 }
 
 /** قناة التنبيه الافتراضي قبل الصلاة (التكبير) بالدرجة المطلوبة. */
 export function defaultReminderChannelFor(level: NotificationLevel = 100): string {
   if (level === 0) return "manar_silent";
-  return level === 100 ? "manar_reminders" : `manar_reminders_v${level}`;
+  return (level === 100 ? "manar_reminders" : `manar_reminders_v${level}`) + nv();
 }
 
-let soundChannelsLevel: NotificationLevel | null = null;
+let soundChannelsLevel: string | null = null;
 
 async function ensureSoundChannels(p: LocalNotificationsPlugin, level: NotificationLevel) {
-  if (soundChannelsLevel === level) return;
+  setChannelVibration(getAdhanSettings().vibrationEnabled);
+  const cacheKey = `${level}${nv()}`;
+  if (soundChannelsLevel === cacheKey) return;
+  const vibration = channelVibrate;
   const levels: NotificationLevel[] = level === 100 || level === 0 ? [100] : [100, level];
-  const pct = (l: NotificationLevel) => (l === 100 ? "" : ` · ${toArabicDigitsLocal(l)}٪`);
+  const pct = (l: NotificationLevel) =>
+    (l === 100 ? "" : ` · ${toArabicDigitsLocal(l)}٪`) + (vibration ? "" : " · بلا اهتزاز");
   const channels: Parameters<LocalNotificationsPlugin["createChannel"]>[0][] = [];
   for (const l of levels) {
     for (const t of REMINDER_TONES) {
@@ -634,7 +662,7 @@ async function ensureSoundChannels(p: LocalNotificationsPlugin, level: Notificat
         importance: 3,
         visibility: 1,
         sound: `${leveledRaw(rawResourceName(t.url), l)}.mp3`,
-        vibration: true,
+        vibration,
       });
     }
     for (const c of Object.values(PRAYER_APPROACH_CLIPS)) {
@@ -645,7 +673,7 @@ async function ensureSoundChannels(p: LocalNotificationsPlugin, level: Notificat
         importance: 3,
         visibility: 1,
         sound: `${leveledRaw(rawResourceName(c.url), l)}.mp3`,
-        vibration: true,
+        vibration,
       });
     }
     for (const [id, snd] of Object.entries(SEASON_SOUNDS) as [SeasonSoundId, SeasonSound][]) {
@@ -656,10 +684,10 @@ async function ensureSoundChannels(p: LocalNotificationsPlugin, level: Notificat
         importance: 3,
         visibility: 1,
         sound: `${leveledRaw(rawResourceName(snd.url), l)}.mp3`,
-        vibration: true,
+        vibration,
       });
     }
-    if (l !== 100) {
+    if (l !== 100 || !vibration) {
       // `manar_reminders` نفسها تُنشأ أصلياً (ManarChannels) ولا تُمسّ.
       channels.push({
         id: defaultReminderChannelFor(l),
@@ -667,8 +695,8 @@ async function ensureSoundChannels(p: LocalNotificationsPlugin, level: Notificat
         description: "تذكير قبل دخول وقت الصلاة",
         importance: 3,
         visibility: 1,
-        sound: `segment_takbir_v${l}.mp3`,
-        vibration: true,
+        sound: l === 100 ? "segment_takbir.mp3" : `segment_takbir_v${l}.mp3`,
+        vibration,
       });
     }
   }
@@ -698,14 +726,14 @@ async function ensureSoundChannels(p: LocalNotificationsPlugin, level: Notificat
           await p.deleteChannel({ id: c.id }).catch(() => {});
           continue;
         }
-        const m = LEVEL_CHANNEL.exec(c.id);
-        if (m && Number(m[1]) !== level) await p.deleteChannel({ id: c.id }).catch(() => {});
+        const suffixed = LEVEL_CHANNEL.test(c.id) || NV_CHANNEL.test(c.id);
+        if (suffixed && !wanted.has(c.id)) await p.deleteChannel({ id: c.id }).catch(() => {});
       }
     } catch {
       /* ignore */
     }
   }
-  soundChannelsLevel = ok ? level : null;
+  soundChannelsLevel = ok ? cacheKey : null;
 }
 
 function toArabicDigitsLocal(n: number): string {
@@ -801,6 +829,7 @@ async function syncNativePrayerScheduleNow(
         iqama: s.iqamaVolume,
         reminder: effectiveVolume(s, "reminder"),
         raiseAlarm: s.raisePhoneAlarm,
+        vibrate: s.vibrationEnabled,
       });
     } catch {
       /* نسخة أصلية أقدم بلا هذه الدالة: يبقى التشغيل بكامل الصوت كما كان */
@@ -859,6 +888,28 @@ async function syncNativePrayerScheduleNow(
             extra: { kind: "reminder", prayer, minutes: m },
           });
         });
+      }
+
+      /* «تذكير الفجر»: إعدادٌ مستقلّ عن التنبيهات العامة، على قناة مقطع الفجر. */
+      const fm = prayer === "fajr" ? fajrReminderMinutesFor(s) : null;
+      if (fm !== null) {
+        const t = at - fm * 60_000;
+        if (t > now) {
+          const clip = approachClipFor(s.reminderSound, prayer);
+          const fallback = channelOr(defaultReminderChannelFor(level), "manar_reminders");
+          const ch = clip
+            ? channelOr(prayerApproachChannelFor(clip.url, level), fallback)
+            : fallback;
+          reminders.push({
+            id: idFor(d, pi, 2, FAJR_REMINDER_EXTRA),
+            title: FAJR_REMINDER_TITLE,
+            body: fajrReminderBody(fm),
+            schedule: { at: new Date(t), allowWhileIdle: true },
+            smallIcon: "ic_stat_manar",
+            channelId: s.silentMode || !s.soundEnabled ? "manar_silent" : ch,
+            extra: { kind: "reminder", prayer, minutes: fm, fajrReminder: true },
+          });
+        }
       }
     });
   }
