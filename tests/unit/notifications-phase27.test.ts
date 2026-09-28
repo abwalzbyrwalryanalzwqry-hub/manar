@@ -93,10 +93,10 @@ describe("التنبيه قبل الصلاة", () => {
       "src/lib/native-notifications.ts",
       "src/components/manar/adhan-provider.tsx",
     ]) {
-      const src = read(f);
-      expect(src).toContain("prePrayerBody(m, prayerLabelOn(");
-      expect(src).not.toContain("دقيقة على صلاة");
+      expect(read(f)).not.toContain("دقيقة على صلاة");
     }
+    // منذ المرحلة ٢٨ يُبنى التنبيه قبل الصلاة في الجدول الموحّد وحده.
+    expect(read("src/lib/prayer-schedule.ts")).toContain("body: prePrayerBody(m, label)");
   });
 });
 

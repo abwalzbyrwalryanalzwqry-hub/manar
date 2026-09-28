@@ -88,10 +88,9 @@ describe("ع١ — تذكير الفجر صار تذكيراً حقيقياً", 
   });
 
   it("يُجدوَل أصلياً ويُطلَق في الويب", () => {
-    const ln = read("src/lib/native-notifications.ts");
-    expect(ln).toContain("fajrReminderMinutesFor(s)");
-    expect(ln).toContain("FAJR_REMINDER_EXTRA");
-    expect(read("src/components/manar/adhan-provider.tsx")).toContain("fajrReminderMinutesFor(s)");
+    // منذ المرحلة ٢٨ في الجدول الموحّد نفسه (الأصلي والويب).
+    expect(read("src/lib/prayer-schedule.ts")).toContain("fajrReminderMinutesFor(s)");
+    expect(read("src/components/manar/adhan-provider.tsx")).toContain('e.role === "fajr_reminder"');
   });
 
   it("الخيارات ١٠/١٥/٢٠/٣٠/٤٥/٦٠ ظاهرة في صفحة الأذان", () => {

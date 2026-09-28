@@ -52,6 +52,11 @@ public final class AdhanScheduler {
     private static final String KEY_EVENTS = "events";
     private static final String KEY_FIRED = "fired";
     private static final String KEY_LAST_SCHEDULED = "last_scheduled";
+    /** منطقة الجهاز الزمنية لحظة حساب الجدول — لتنبيه «تغيّرت منطقتك» بعد السفر. */
+    private static final String KEY_ZONE = "zone";
+    private static final String KEY_ZONE_OFFSET = "zone_offset";
+    /** معرّف إشعار «تغيّرت منطقتك الزمنية» (ضمن ManarNotices، بعيدٌ عن معرّفات الأحداث). */
+    static final int ZONE_NOTICE_EVENT = 99_990;
     private static final String KEY_FAILED_AT = "playback_failed_at";
     private static final String KEY_FAILED_REASON = "playback_failed_reason";
     /** كم مفتاحاً مُطلَقاً نتذكّر — أكثر من يومين من الأحداث بهامشٍ واسع. */
@@ -183,7 +188,11 @@ public final class AdhanScheduler {
         }
 
         persist(context, pending);
-        prefs(context).edit().putLong(KEY_LAST_SCHEDULED, now).apply();
+        prefs(context).edit()
+                .putLong(KEY_LAST_SCHEDULED, now)
+                .putString(KEY_ZONE, java.util.TimeZone.getDefault().getID())
+                .putInt(KEY_ZONE_OFFSET, java.util.TimeZone.getDefault().getOffset(now))
+                .apply();
         int armed = armWindow(context, pending, now);
         android.util.Log.i("ManarSchedule", "stored " + pending.size() + " of " + events.size()
                 + ", armed " + armed + " exact=" + canScheduleExact(context));
@@ -429,5 +438,29 @@ public final class AdhanScheduler {
         } catch (JSONException e) {
             return new ArrayList<>();
         }
+    }
+
+    /**
+     * بعد تغيّر المنطقة الزمنية: الجدول المحفوظ حُسب لمدينةٍ ومنطقةٍ سابقتين. إن
+     * تغيّر فرق التوقيت فعلاً (سفر، لا تغيير اسمٍ لنفس الفرق) وفي الجدول أحداث،
+     * نُنبّه مرّة: «افتح منار لتحديث المواقيت». الأذان يبقى مضبوطاً بلحظاته
+     * المطلقة حتى يُفتح التطبيق.
+     */
+    public static boolean zoneChangedSinceSchedule(Context context) {
+        SharedPreferences p = prefs(context);
+        String zone = p.getString(KEY_ZONE, null);
+        if (zone == null || restore(context).isEmpty()) return false;
+        long now = System.currentTimeMillis();
+        java.util.TimeZone tz = java.util.TimeZone.getDefault();
+        if (zone.equals(tz.getID())) return false;
+        int before = p.getInt(KEY_ZONE_OFFSET, Integer.MIN_VALUE);
+        return before == Integer.MIN_VALUE || before != tz.getOffset(now);
+    }
+
+    public static void postZoneChangedNotice(Context context) {
+        ManarNotices.post(context, ZONE_NOTICE_EVENT, "adhan",
+                "تغيّرت منطقتك الزمنية",
+                "افتح منار لتحديث مواقيت الصلاة حسب موقعك الجديد.",
+                null, false);
     }
 }
