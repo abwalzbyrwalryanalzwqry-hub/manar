@@ -90,6 +90,7 @@ import {
   type NotificationPermissionState,
 } from "@/lib/alert-permissions";
 import { staleIds } from "@/lib/schedule-diff";
+import { PRE_PRAYER_TITLE, minutesAr, prePrayerBody } from "@/lib/notification-text";
 
 type LocalNotificationsPlugin = {
   requestPermissions: () => Promise<{ display: string }>;
@@ -769,9 +770,7 @@ async function registerActions(p: LocalNotificationsPlugin) {
         },
         {
           id: DAILY_REMINDER_ACTIONS,
-          actions: [
-            { id: "snooze", title: `ذكّرني بعد ${toArabicDigitsLocal(SNOOZE_MINUTES)} دقائق` },
-          ],
+          actions: [{ id: "snooze", title: `ذكّرني بعد ${minutesAr(SNOOZE_MINUTES, "gen")}` }],
         },
       ],
     });
@@ -880,8 +879,8 @@ async function syncNativePrayerScheduleNow(
           if (t <= now) return;
           reminders.push({
             id: idFor(d, pi, 2, mi + 1),
-            title: "تذكير الصلاة",
-            body: `تبقى ${m} دقيقة على صلاة ${label}`,
+            title: PRE_PRAYER_TITLE,
+            body: prePrayerBody(m, prayerLabelOn(prayer, date)),
             schedule: { at: new Date(t), allowWhileIdle: true },
             smallIcon: "ic_stat_manar",
             channelId: s.silentMode ? "manar_silent" : approachChannel,

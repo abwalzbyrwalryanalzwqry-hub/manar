@@ -16,6 +16,7 @@ import { computePrayerTimes, type LocationState, type Settings } from "./prayer"
 import { dayKey, prayerDayKey, recordPrayer, shiftDayKey } from "./activity-log";
 import { iqamahTimeFor } from "./prayer-schedule";
 import type { AdhanSettings } from "./adhan-settings";
+import { durationAr } from "./notification-text";
 
 export const JUMUAH_KEY = "manar.jumuah.v1";
 export const JUMUAH_EVENT = "manar:jumuah";
@@ -356,11 +357,7 @@ export function planJumuahReminders(o: {
   return out.sort((a, b) => a.at.getTime() - b.at.getTime());
 }
 
-const AR = (n: number) => String(n).replace(/\d/g, (x) => "٠١٢٣٤٥٦٧٨٩"[Number(x)]);
-
+/** مدة التنبيه المبكر: «ساعة»، «ساعة ونصف»، «ساعتان»، «٤٥ دقيقة». */
 export function minutesWord(m: number): string {
-  if (m === 60) return "ساعة";
-  if (m === 120) return "ساعتان";
-  if (m === 90) return "ساعة ونصف";
-  return `${AR(m)} دقيقة`;
+  return durationAr(m);
 }

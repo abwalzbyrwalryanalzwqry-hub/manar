@@ -26,6 +26,7 @@
 
 import { formatArTime, toArabicDigits } from "./format";
 import { displayPrefs } from "./display-prefs";
+import { minutesAr } from "./notification-text";
 import {
   computePrayerTimes,
   PRAYER_LABELS,
@@ -137,12 +138,7 @@ function hhmm(d: Date): string {
   return formatArTime(d) + suffix;
 }
 
-export function minutesAr(m: number): string {
-  if (m === 1) return "دقيقة واحدة";
-  if (m === 2) return "دقيقتان";
-  if (m >= 3 && m <= 10) return `${AR(m)} دقائق`;
-  return `${AR(m)} دقيقة`;
-}
+export { minutesAr } from "./notification-text";
 
 export type BuildOptions = {
   settings: AdhanSettings;

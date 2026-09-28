@@ -15,6 +15,7 @@ import { dayKey } from "@/lib/activity-log";
 import { ampmAr, formatCountdown, formatHHMM, toArabicDigits } from "@/lib/format";
 import { formatHijriAr } from "@/lib/format";
 import { useHijriAdjust } from "@/lib/hijri";
+import { durationAr } from "@/lib/notification-text";
 import {
   EARLY_OPTIONS,
   JUMUAH_DEEDS,
@@ -143,7 +144,7 @@ function JumuahScreen() {
           label="إقامة الجمعة"
           sub={
             t.iqamaAt
-              ? `بعد الأذان بـ${toArabicDigits(adhan.jumuahIqamaOffset)} دقيقة`
+              ? `بعد الأذان بـ${durationAr(adhan.jumuahIqamaOffset, "gen")}`
               : "مطفأة من إعدادات الإقامة"
           }
           value={time(t.iqamaAt)}

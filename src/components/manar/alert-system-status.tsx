@@ -19,6 +19,7 @@ import {
   type NativeAdhanStatus,
 } from "@/lib/native-notifications";
 import { adhanVerdict } from "@/lib/alert-permissions";
+import { agoAr } from "@/lib/notification-text";
 
 type Row = { label: string; on: boolean; detail: string; feminine: boolean };
 
@@ -54,15 +55,7 @@ function rowsFor(s: AdhanSettings): Row[] {
   ];
 }
 
-function relTime(ms: number): string {
-  const diff = Math.max(0, Date.now() - ms);
-  const m = Math.round(diff / 60_000);
-  if (m < 1) return "الآن";
-  if (m < 60) return `قبل ${toArabicDigits(m)} د`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `قبل ${toArabicDigits(h)} س`;
-  return `قبل ${toArabicDigits(Math.round(h / 24))} يوم`;
-}
+const relTime = (ms: number) => agoAr(ms);
 
 /** «آخر تعذّر قبل كذا» إن كان خلال الأيام السبعة الماضية وبعد آخر منحٍ للإذن. */
 function recentFailure(n: NativeAdhanStatus): string | null {
