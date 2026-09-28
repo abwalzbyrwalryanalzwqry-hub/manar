@@ -14,9 +14,11 @@ import { toArabicDigits } from "@/lib/format";
 import {
   isNativeShell,
   nativeAdhanStatus,
+  openNativeNotificationSettings,
   requestExactAlarms,
   type NativeAdhanStatus,
 } from "@/lib/native-notifications";
+import { adhanVerdict } from "@/lib/alert-permissions";
 
 type Row = { label: string; on: boolean; detail: string; feminine: boolean };
 
@@ -60,6 +62,15 @@ function relTime(ms: number): string {
   const h = Math.round(m / 60);
   if (h < 24) return `قبل ${toArabicDigits(h)} س`;
   return `قبل ${toArabicDigits(Math.round(h / 24))} يوم`;
+}
+
+/** «آخر تعذّر قبل كذا» إن كان خلال الأيام السبعة الماضية وبعد آخر منحٍ للإذن. */
+function recentFailure(n: NativeAdhanStatus): string | null {
+  const at = n.playbackFailedAt ?? 0;
+  if (!at || Date.now() - at > 7 * 86_400_000) return null;
+  // مُنح الإذن بعد التعذّر: السبب زال، فلا نُبقي التحذير.
+  if (n.playbackFailedReason === "background_start" && adhanVerdict(n) === "ok") return null;
+  return `آخر تعذّر ${relTime(at)}`;
 }
 
 export function AlertSystemStatus({ settings }: { settings: AdhanSettings }) {
@@ -130,20 +141,43 @@ export function AlertSystemStatus({ settings }: { settings: AdhanSettings }) {
             إعادة الجدولة تلقائية: عند فتح التطبيق وتغيير الإعدادات وإعادة التشغيل
           </div>
           {native.notificationsAllowed === false && (
-            <div className="mt-2 rounded-xl bg-destructive/10 px-3 py-2 text-destructive">
-              الإشعارات معطّلة لمنار من إعدادات النظام — لن يظهر أيّ تنبيه.
-            </div>
+            <button
+              onClick={() =>
+                void openNativeNotificationSettings().then(() =>
+                  nativeAdhanStatus().then(setNative),
+                )
+              }
+              className="mt-2 flex w-full items-center justify-between gap-2 rounded-xl bg-destructive/10 px-3 py-2 text-right text-destructive"
+            >
+              <span>الإشعارات معطّلة لمنار من إعدادات النظام — لن يظهر أيّ تنبيه مكتوب.</span>
+              <span className="shrink-0 font-medium">فتح الإعدادات</span>
+            </button>
           )}
-          {!native.exactAlarms && (
+          {adhanVerdict(native) !== "ok" && (
             <button
               onClick={() =>
                 void requestExactAlarms().then(() => nativeAdhanStatus().then(setNative))
               }
-              className="mt-2 flex w-full items-center justify-between rounded-xl border border-gold/40 bg-gold/10 px-3 py-2 text-right text-foreground"
+              className={`mt-2 flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-right ${
+                adhanVerdict(native) === "silent"
+                  ? "border-destructive/40 bg-destructive/10 text-destructive"
+                  : "border-gold/40 bg-gold/10 text-foreground"
+              }`}
             >
-              <span>إذن «المنبّهات والتذكيرات» غير ممنوح — قد يتأخّر الأذان والإقامة دقائق</span>
+              <span>
+                {adhanVerdict(native) === "silent"
+                  ? "إذن «المنبّهات والتذكيرات» غير ممنوح — لن يُسمع الأذان والتطبيق مغلق، يصل إشعاراً مكتوباً فقط"
+                  : "إذن «المنبّهات والتذكيرات» غير ممنوح — قد يتأخّر الأذان والإقامة دقائق"}
+              </span>
               <span className="shrink-0 text-primary">منح</span>
             </button>
+          )}
+          {recentFailure(native) && (
+            <div className="mt-2 rounded-xl bg-destructive/10 px-3 py-2 text-destructive">
+              {native.playbackFailedReason === "background_start"
+                ? `${recentFailure(native)}: منع النظام صوت الأذان لغياب إذن المنبّهات الدقيقة، فوصل إشعاراً مكتوباً.`
+                : `${recentFailure(native)}: تعذّر تشغيل صوت الأذان، فوصل إشعاراً مكتوباً.`}
+            </div>
           )}
         </div>
       )}

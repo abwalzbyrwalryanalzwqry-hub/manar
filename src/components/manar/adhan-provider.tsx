@@ -176,7 +176,11 @@ export function AdhanProvider() {
     if (!isNativeShell()) return;
     void attachNativeActionListener(() => stopAdhan());
     void syncNativePrayerSchedule(location, calc);
+    /* عند الظهور فقط: `visibilitychange` يُطلق أيضاً لحظة الذهاب إلى الخلفية،
+     * وهي اللحظة التي يُنهي فيها النظام التطبيقات عادةً — مزامنةٌ تبدأ حينها قد
+     * تُقطع في منتصفها. الطلبات المتقاربة تُدمج في مزامنة واحدة. */
     const onResume = () => {
+      if (document.visibilityState !== "visible") return;
       void syncNativePrayerSchedule(location, calc);
     };
     document.addEventListener("resume", onResume);
