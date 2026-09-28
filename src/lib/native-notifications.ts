@@ -30,13 +30,7 @@
 
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
-import {
-  computePrayerTimes,
-  PRAYER_ORDER,
-  PRAYER_LABELS,
-  type LocationState,
-  type Settings,
-} from "@/lib/prayer";
+import { computePrayerTimes, type LocationState, type Settings } from "@/lib/prayer";
 import {
   effectiveVolume,
   getAdhanSettings,
@@ -48,6 +42,8 @@ import {
   rawResourceName as rawName,
   SCHEDULE_DAYS_AHEAD,
   ADHAN_DAYS_AHEAD,
+  LN_CAP,
+  renewPlan,
   type ManarAlarmEvent,
 } from "@/lib/prayer-schedule";
 import {
@@ -64,12 +60,8 @@ import { dayKey, readLog } from "@/lib/activity-log";
 import { jumuahTimeline, planJumuahReminders, readJumuah } from "@/lib/jumuah";
 import { getIqamahSound } from "@/lib/iqamah-library";
 import { resolveIqamaForPrayer } from "@/lib/adhan-settings";
-import {
-  FAJR_REMINDER_TITLE,
-  fajrReminderBody,
-  fajrReminderMinutesFor,
-  prayerLabelOn,
-} from "@/lib/prayer-schedule";
+import { prayerLabelOn } from "@/lib/prayer-schedule";
+import { readSakinah } from "@/lib/sakinah";
 import type { PrayerKey } from "@/lib/prayer";
 import { PRAYER_APPROACH_CLIPS, approachClipFor } from "@/lib/prayer-approach-audio";
 import { getHijriAdjust } from "@/lib/hijri";
@@ -90,7 +82,7 @@ import {
   type NotificationPermissionState,
 } from "@/lib/alert-permissions";
 import { staleIds } from "@/lib/schedule-diff";
-import { PRE_PRAYER_TITLE, minutesAr, prePrayerBody } from "@/lib/notification-text";
+import { minutesAr } from "@/lib/notification-text";
 
 type LocalNotificationsPlugin = {
   requestPermissions: () => Promise<{ display: string }>;
@@ -413,14 +405,6 @@ const JUMUAH_ID_BASE = DAILY_ID_BASE + 60000;
 
 function seasonIdFor(dayIndex: number, slot: "morning" | "evening") {
   return SEASON_ID_BASE + dayIndex * 10 + (slot === "morning" ? 0 : 1);
-}
-
-/** Stable, collision-free id per (day, prayer, kind). */
-/** خانة «تذكير الفجر» في idFor — بعيدة عن خانات دقائق التنبيه (١..٤). */
-export const FAJR_REMINDER_EXTRA = 9;
-
-function idFor(dayIndex: number, prayerIndex: number, kind: number, extra = 0) {
-  return ID_BASE + dayIndex * 100 + prayerIndex * 10 + kind + extra * 1000;
 }
 
 /** اسم مورد أندرويد لصوت مضمَّن — التحويل نفسه في `sync-android-raw-audio.mjs`. */
@@ -765,10 +749,6 @@ async function registerActions(p: LocalNotificationsPlugin) {
     await p.registerActionTypes({
       types: [
         {
-          id: "STOP_ADHAN",
-          actions: [{ id: "stop", title: "إيقاف الأذان", destructive: true }],
-        },
-        {
           id: DAILY_REMINDER_ACTIONS,
           actions: [{ id: "snooze", title: `ذكّرني بعد ${minutesAr(SNOOZE_MINUTES, "gen")}` }],
         },
@@ -844,74 +824,26 @@ async function syncNativePrayerScheduleNow(
 
   const now = Date.now();
   const reminders: unknown[] = [];
-  /* الأذان والإقامة وتنبيهاتها: جدول واحد من دالّة نقيّة بمفاتيح فريدة. */
-  const adhanEvents: ManarAdhanEvent[] = buildPrayerAlarms({
-    settings: s,
-    location,
-    calc,
-    now,
-    days: ADHAN_DAYS_AHEAD,
-  });
-
-  for (let d = 0; d < DAYS_AHEAD; d++) {
-    const date = new Date();
-    date.setHours(12, 0, 0, 0);
-    date.setDate(date.getDate() + d);
-    const times = computePrayerTimes(location, calc, date);
-
-    PRAYER_ORDER.forEach((prayer, pi) => {
-      if (prayer === "sunrise") return;
-      const per = s.perPrayer[prayer];
-      const at = times[prayer].getTime();
-      const label = PRAYER_LABELS[prayer].ar;
-
-      // Pre-prayer reminders — ordinary short notifications.
-      if (s.remindersEnabled && per.reminder) {
-        /* صوت التنبيه قبل الصلاة من حزمة «اقتراب الصلاة» وحدها؛ الافتراضي يبقى
-         * على قناته القديمة `manar_reminders` كما كان. */
-        const clip = approachClipFor(s.reminderSound, prayer);
-        const fallback = channelOr(defaultReminderChannelFor(level), "manar_reminders");
-        const approachChannel = clip
-          ? channelOr(prayerApproachChannelFor(clip.url, level), fallback)
-          : fallback;
-        s.reminderMinutes.forEach((m, mi) => {
-          const t = at - m * 60_000;
-          if (t <= now) return;
-          reminders.push({
-            id: idFor(d, pi, 2, mi + 1),
-            title: PRE_PRAYER_TITLE,
-            body: prePrayerBody(m, prayerLabelOn(prayer, date)),
-            schedule: { at: new Date(t), allowWhileIdle: true },
-            smallIcon: "ic_stat_manar",
-            channelId: s.silentMode ? "manar_silent" : approachChannel,
-            extra: { kind: "reminder", prayer, minutes: m },
-          });
-        });
-      }
-
-      /* «تذكير الفجر»: إعدادٌ مستقلّ عن التنبيهات العامة، على قناة مقطع الفجر. */
-      const fm = prayer === "fajr" ? fajrReminderMinutesFor(s) : null;
-      if (fm !== null) {
-        const t = at - fm * 60_000;
-        if (t > now) {
-          const clip = approachClipFor(s.reminderSound, prayer);
-          const fallback = channelOr(defaultReminderChannelFor(level), "manar_reminders");
-          const ch = clip
-            ? channelOr(prayerApproachChannelFor(clip.url, level), fallback)
-            : fallback;
-          reminders.push({
-            id: idFor(d, pi, 2, FAJR_REMINDER_EXTRA),
-            title: FAJR_REMINDER_TITLE,
-            body: fajrReminderBody(fm),
-            schedule: { at: new Date(t), allowWhileIdle: true },
-            smallIcon: "ic_stat_manar",
-            channelId: s.silentMode || !s.soundEnabled ? "manar_silent" : ch,
-            extra: { kind: "reminder", prayer, minutes: fm, fajrReminder: true },
-          });
-        }
-      }
+  /* الأذان والإقامة والتنبيه قبل الصلاة و«تذكير الفجر»: جدول واحد من دالّة
+   * نقيّة بمفاتيح فريدة، يُسلَّم للطبقة الأصلية بنافذتها المتحركة (٤٨ ساعة
+   * مضبوطة من ٣٠ يوماً محفوظة). كان التنبيه قبل الصلاة هنا في LocalNotifications
+   * لسبعة أيام وحدها، فيسكت بعد أسبوع والأذان باقٍ. */
+  const reminderChannel = (prayer: PrayerKey) => {
+    if (s.silentMode || !s.soundEnabled) return "manar_silent";
+    const clip = approachClipFor(s.reminderSound, prayer);
+    const fallback = channelOr(defaultReminderChannelFor(level), "manar_reminders");
+    return clip ? channelOr(prayerApproachChannelFor(clip.url, level), fallback) : fallback;
+  };
+  const buildAdhan = (renew?: { day: number; body: string }) =>
+    buildPrayerAlarms({
+      settings: s,
+      location,
+      calc,
+      now,
+      days: ADHAN_DAYS_AHEAD,
+      reminderChannel,
+      renew,
     });
-  }
 
   /* ---------- تذكيرات الأذكار والوِرد ---------- */
 
@@ -1009,6 +941,22 @@ async function syncNativePrayerScheduleNow(
   } catch (e) {
     console.error("[manar] تعذّر حساب تنبيهات الجمعة", e);
   }
+
+  /* حدّ أعلى لـLocalNotifications: كل إشعارٍ منبّهٌ في النظام، وحدّ أندرويد
+   * ٥٠٠ للتطبيق كله (مع نافذة الأذان وسكينة). الأقرب أولاً. */
+  if (reminders.length > LN_CAP) {
+    reminders.sort(
+      (a, b) =>
+        (a as { schedule: { at: Date } }).schedule.at.getTime() -
+        (b as { schedule: { at: Date } }).schedule.at.getTime(),
+    );
+    reminders.length = LN_CAP;
+  }
+
+  /* تنبيه التجديد يسبق نهاية أقصر جدولٍ فعّال، لا نهاية جدول الأذان وحده. */
+  const adhanEvents: ManarAdhanEvent[] = buildAdhan(
+    renewPlan({ lnItems: reminders.length, sakinah: readSakinah().enabled }),
+  );
 
   let scheduled = 0;
   let alarms = 0;
@@ -1197,34 +1145,54 @@ export async function testIqamaNow(prayer: PrayerKey): Promise<boolean> {
   }
 }
 
-/* النقر على تذكير أذكار/وِرد يفتح صفحته، وزرّ «ذكّرني لاحقاً» يؤجّله. مستمع
- * واحد طوال عمر التطبيق؛ وحدث النقر الذي فتح التطبيق من الإغلاق تحتفظ به
- * الإضافة الأصلية حتى يُسجَّل المستمع فيُسلَّم له. لا يمسّ بقية التنبيهات. */
-let reminderTapAttached = false;
+/* مستمع نقرٍ واحد طوال عمر التطبيق لكل إشعارات LocalNotifications، يوزّع حسب
+ * `extra.kind`. كانت أربعة مستمعين منفصلين للحدث نفسه، أحدها («إيقاف الأذان» القديم)
+ * لإجراءٍ لا يحمله أي إشعار ويُسجَّل من جديد مع كل تغيّر في الموقع. وحدث النقر
+ * الذي فتح التطبيق من الإغلاق تحتفظ به الإضافة الأصلية حتى يُسجَّل المستمع. */
+let tapAttached = false;
 let reminderTapHandler: ((route: ReminderRoute) => void) | null = null;
+let seasonTapHandler: ((seasonId: string) => void) | null = null;
 
+/** يوزّع حدث نقرٍ واحد على معالجه — مُصدَّر للاختبار. */
+export function dispatchNotificationTap(e: unknown): void {
+  const extra = (e as { notification?: { extra?: { kind?: string } } })?.notification?.extra;
+  const actionId = (e as { actionId?: string })?.actionId;
+  if (extra?.kind === "jumuah") {
+    if (actionId === "tap") reminderTapHandler?.("/jumuah" as ReminderRoute);
+    return;
+  }
+  const season = seasonIdFromNotificationTap(e);
+  if (season) {
+    seasonTapHandler?.(season);
+    return;
+  }
+  const action = reminderActionFromTap(e);
+  if (!action) return;
+  if (action.type === "open") reminderTapHandler?.(action.route);
+  else void snoozeDailyReminder(action.reminder);
+}
+
+async function ensureTapListener() {
+  const p = plugin();
+  if (!p || tapAttached) return;
+  tapAttached = true;
+  try {
+    await p.addListener("localNotificationActionPerformed", dispatchNotificationTap);
+  } catch {
+    tapAttached = false;
+  }
+}
+
+/** النقر على تذكير أذكار/وِرد يفتح صفحته، و«ذكّرني لاحقاً» يؤجّله؛ والجمعة قسمها. */
 export async function attachReminderTapListener(onOpen: (route: ReminderRoute) => void) {
   reminderTapHandler = onOpen;
-  const p = plugin();
-  if (!p || reminderTapAttached) return;
-  reminderTapAttached = true;
-  try {
-    await p.addListener("localNotificationActionPerformed", (e) => {
-      /* تنبيهات الجمعة تفتح قسمها. */
-      const extra = (e as { actionId?: string; notification?: { extra?: { kind?: string } } })
-        ?.notification?.extra;
-      if (extra?.kind === "jumuah" && (e as { actionId?: string }).actionId === "tap") {
-        reminderTapHandler?.("/jumuah" as ReminderRoute);
-        return;
-      }
-      const action = reminderActionFromTap(e);
-      if (!action) return;
-      if (action.type === "open") reminderTapHandler?.(action.route);
-      else void snoozeDailyReminder(action.reminder);
-    });
-  } catch {
-    reminderTapAttached = false;
-  }
+  await ensureTapListener();
+}
+
+/** النقر على تنبيه موسم يفتح صفحة الموسم. */
+export async function attachSeasonTapListener(onOpen: (seasonId: string) => void) {
+  seasonTapHandler = onOpen;
+  await ensureTapListener();
 }
 
 /** Cancels every native alarm and notification Manar owns. */
@@ -1247,43 +1215,5 @@ export async function cancelNativeSchedule(): Promise<void> {
     if (ours.length) await p.cancel({ notifications: ours.map((n) => ({ id: n.id })) });
   } catch {
     /* ignore */
-  }
-}
-
-/** Wire the "إيقاف الأذان" action to the existing audio engine. */
-export async function attachNativeActionListener(onStop: () => void) {
-  const p = plugin();
-  if (!p) return;
-  try {
-    await p.addListener("localNotificationActionPerformed", (e) => {
-      const action = (e as { actionId?: string }).actionId;
-      if (action === "stop") {
-        void stopNativeAdhan();
-        onStop();
-      }
-    });
-  } catch {
-    /* ignore */
-  }
-}
-
-/* النقر على تنبيه موسم يفتح صفحة الموسم. مستمع واحد طوال عمر التطبيق؛ وحدث
- * النقر الذي فتح التطبيق من الإغلاق تحتفظ به الإضافة الأصلية حتى يُسجَّل
- * المستمع فيُسلَّم له. لا يمسّ بقية أنواع التنبيهات. */
-let seasonTapAttached = false;
-let seasonTapHandler: ((seasonId: string) => void) | null = null;
-
-export async function attachSeasonTapListener(onOpen: (seasonId: string) => void) {
-  seasonTapHandler = onOpen;
-  const p = plugin();
-  if (!p || seasonTapAttached) return;
-  seasonTapAttached = true;
-  try {
-    await p.addListener("localNotificationActionPerformed", (e) => {
-      const id = seasonIdFromNotificationTap(e);
-      if (id) seasonTapHandler?.(id);
-    });
-  } catch {
-    seasonTapAttached = false;
   }
 }

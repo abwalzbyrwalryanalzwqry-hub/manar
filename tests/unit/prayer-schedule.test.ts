@@ -190,7 +190,7 @@ describe("منع التكرار (الاختبارات ١٥–١٨)", () => {
   it("صيغة المفتاح: fajr_iqamah_2026_09_23", () => {
     expect(week.some((e) => e.key === "fajr_iqamah_2026_09_23")).toBe(true);
     expect(week.some((e) => e.key === "fajr_adhan_2026_09_23")).toBe(true);
-    for (const e of week) expect(e.key).toMatch(/^[a-z]+_[a-z_]+_\d{4}_\d{2}_\d{2}$/);
+    for (const e of week) expect(e.key).toMatch(/^[a-z]+_[a-z_]+(?:\d+m)?_\d{4}_\d{2}_\d{2}$/);
   });
 
   it("إعادة البناء تُنتج القائمة نفسها بالمعرّفات نفسها", () => {
@@ -210,7 +210,7 @@ describe("منع التكرار (الاختبارات ١٥–١٨)", () => {
   });
 
   it("ثلاثون يوماً للأذان، ولا أحداث في الماضي", () => {
-    expect(SCHEDULE_DAYS_AHEAD).toBe(7);
+    expect(SCHEDULE_DAYS_AHEAD).toBe(14);
     expect(ADHAN_DAYS_AHEAD).toBe(30);
     // ٣٠ يوماً بتقويم الجهاز: ٢٩ أو ٣٠ يوماً كاملة من صلوات صنعاء حسب فرق المنطقة.
     const n = byRole(week, "adhan").length;

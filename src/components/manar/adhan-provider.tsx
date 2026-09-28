@@ -14,7 +14,6 @@
  */
 
 import { useEffect, useRef } from "react";
-import { computePrayerTimes, PRAYER_ORDER, PRAYER_LABELS } from "@/lib/prayer";
 import { useLocation, useSettings } from "@/lib/prayer";
 import {
   getAdhanSettings,
@@ -23,21 +22,9 @@ import {
   effectiveVolume,
 } from "@/lib/adhan-settings";
 import { playAdhan, playIqama, playReminder, vibrate, stopAdhan } from "@/lib/adhan-sound";
-import {
-  isNativeShell,
-  syncNativePrayerSchedule,
-  attachNativeActionListener,
-} from "@/lib/native-notifications";
+import { isNativeShell, syncNativePrayerSchedule } from "@/lib/native-notifications";
 import { approachClipFor } from "@/lib/prayer-approach-audio";
-import {
-  FAJR_REMINDER_TITLE,
-  buildPrayerAlarms,
-  fajrReminderBody,
-  fajrReminderMinutesFor,
-  prayerLabelOn,
-  type ManarAlarmEvent,
-} from "@/lib/prayer-schedule";
-import { PRE_PRAYER_TITLE, prePrayerBody } from "@/lib/notification-text";
+import { buildPrayerAlarms, type ManarAlarmEvent } from "@/lib/prayer-schedule";
 import { play as enginePlay } from "@/lib/audio-engine";
 import { dayKey as logDayKey, readLog } from "@/lib/activity-log";
 
@@ -83,65 +70,6 @@ export function AdhanProvider() {
         firedRef.current.clear();
         lastDayRef.current = dk;
       }
-      const times = computePrayerTimes(location, calc, now);
-
-      for (const p of PRAYER_ORDER) {
-        if (p === "sunrise") continue;
-        const at = times[p].getTime();
-        const diffSec = Math.round((at - now.getTime()) / 1000);
-        const per = s.perPrayer[p];
-
-        // Reminders
-        if (s.remindersEnabled && per.reminder) {
-          for (const m of s.reminderMinutes) {
-            if (Math.abs(diffSec - m * 60) <= 1) {
-              const k = `${dk}:${p}:rem:${m}`;
-              if (!firedRef.current.has(k)) {
-                firedRef.current.add(k);
-                notify(PRE_PRAYER_TITLE, prePrayerBody(m, prayerLabelOn(p, now)));
-                if (s.soundEnabled && !s.silentMode) {
-                  const clip = approachClipFor(s.reminderSound, p);
-                  if (clip) {
-                    enginePlay(clip.url, {
-                      volume: effectiveVolume(s, "reminder"),
-                      usage: "notification",
-                      silentOnMissing: true,
-                      label: clip.name,
-                    });
-                  } else {
-                    playReminder({
-                      volume: effectiveVolume(s, "reminder"),
-                      usage: "notification",
-                      silentOnMissing: true,
-                    });
-                  }
-                }
-                if (s.vibrationEnabled) vibrate([120, 80, 120]);
-              }
-            }
-          }
-        }
-      }
-
-      /* «تذكير الفجر» — الإعداد نفسه الذي تُجدوَل منه المنبّهات الأصلية. */
-      const fm = fajrReminderMinutesFor(s);
-      if (fm !== null) {
-        const diffSec = Math.round((times.fajr.getTime() - now.getTime()) / 1000);
-        const k = `${dk}:fajr:fajr-reminder:${fm}`;
-        if (Math.abs(diffSec - fm * 60) <= 1 && !firedRef.current.has(k)) {
-          firedRef.current.add(k);
-          notify(FAJR_REMINDER_TITLE, fajrReminderBody(fm));
-          if (s.soundEnabled && !s.silentMode) {
-            playReminder({
-              volume: effectiveVolume(s, "reminder"),
-              usage: "notification",
-              silentOnMissing: true,
-            });
-          }
-          if (s.vibrationEnabled) vibrate([120, 80, 120]);
-        }
-      }
-
       /* الأذان والإقامة وتنبيهاتهما — من الجدول الموحّد نفسه الذي تُسلَّم منه
        * المنبّهات الأصلية، فيتطابق السلوك بين الويب وأندرويد. كل حدث بمفتاحه
        * الفريد يُطلق مرّة واحدة. */
@@ -170,6 +98,19 @@ export function AdhanProvider() {
               ? [200, 100, 200]
               : [120, 80, 120],
         );
+      }
+      /* التنبيه قبل الصلاة و«تذكير الفجر»: مقطع «اقتراب الصلاة» على مسار الإشعارات. */
+      if (e.role === "reminder" || e.role === "fajr_reminder") {
+        if (!s.soundEnabled || s.silentMode) return;
+        const clip = approachClipFor(s.reminderSound, e.prayer);
+        const opts = {
+          volume: effectiveVolume(s, "reminder"),
+          usage: "notification" as const,
+          silentOnMissing: true,
+        };
+        if (clip) enginePlay(clip.url, { ...opts, label: clip.name });
+        else playReminder(opts);
+        return;
       }
       if (!e.sound) return; // صامت أو إشعار نصّي
       if (e.role === "fajr_first_adhan") {
@@ -201,7 +142,6 @@ export function AdhanProvider() {
      even when the app is closed. No-op in the browser. */
   useEffect(() => {
     if (!isNativeShell()) return;
-    void attachNativeActionListener(() => stopAdhan());
     void syncNativePrayerSchedule(location, calc);
     /* عند الظهور فقط: `visibilitychange` يُطلق أيضاً لحظة الذهاب إلى الخلفية،
      * وهي اللحظة التي يُنهي فيها النظام التطبيقات عادةً — مزامنةٌ تبدأ حينها قد

@@ -36,9 +36,20 @@ public final class ManarChannels {
 
     /** قناة تنبيه الأذان/الإقامة المكتوب بحسب إعداد «الاهتزاز» في منار. */
     public static String notice(Context context, String kind) {
+        // التنبيه قبل الصلاة يحمل معرّف قناته كاملاً (manar_approach_…، manar_silent)
+        // كما أنشأتها المزامنة بصوت مقطعها ودرجتها واهتزازها.
+        if (kind != null && kind.startsWith("manar_")) return existing(context, kind);
         boolean vibrate = ManarVolumes.vibrate(context);
         if ("iqama".equals(kind)) return vibrate ? IQAMA : IQAMA_NV;
         return vibrate ? ADHAN : ADHAN_NV;
+    }
+
+    /** القناة إن كانت موجودة، وإلا قناة التذكيرات العامة — لا إشعار يسقط بصمت. */
+    static String existing(Context context, String id) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return id;
+        NotificationManager nm = context.getSystemService(NotificationManager.class);
+        if (nm == null || nm.getNotificationChannel(id) != null) return id;
+        return REMINDERS;
     }
 
     /** هل القناة إحدى قنوات الأذان/الإقامة الأصلية (تتجاوز «عدم الإزعاج» دائماً)؟ */

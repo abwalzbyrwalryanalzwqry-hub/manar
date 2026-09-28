@@ -26,7 +26,7 @@
 
 import { formatArTime, toArabicDigits } from "./format";
 import { displayPrefs } from "./display-prefs";
-import { minutesAr } from "./notification-text";
+import { PRE_PRAYER_TITLE, minutesAr, prePrayerBody } from "./notification-text";
 import {
   computePrayerTimes,
   PRAYER_LABELS,
@@ -35,7 +35,12 @@ import {
   type PrayerKey,
   type Settings,
 } from "./prayer";
-import { resolveAdhanForPrayer, resolveIqamaForPrayer, type AdhanSettings } from "./adhan-settings";
+import {
+  REMINDER_OPTIONS,
+  resolveAdhanForPrayer,
+  resolveIqamaForPrayer,
+  type AdhanSettings,
+} from "./adhan-settings";
 import { adhanVariantUrl } from "./adhan-sound";
 import { getIqamahSound } from "./iqamah-library";
 
@@ -48,6 +53,10 @@ export type AlarmRole =
   | "prayer_notice"
   | "iqamah_reminder"
   | "iqamah"
+  /** التنبيه قبل الصلاة بدقائق `minutes` (منذ المرحلة ٢٨ في الجدول الأصلي نفسه). */
+  | "reminder"
+  /** «تذكير الفجر» المستقلّ. */
+  | "fajr_reminder"
   /** «افتح منار لتجديد المواقيت» قبل نفاد الجدول المضبوط. */
   | "renew";
 
@@ -65,16 +74,51 @@ export type ManarAlarmEvent = {
   kind: AlarmKind;
   role: AlarmRole;
   prayer: PrayerKey;
-  /** قناة الإشعار لحدث «notice». */
-  channel?: "adhan" | "iqama";
+  /**
+   * قناة الإشعار لحدث «notice»: "adhan"/"iqama" لقناتي الصلاة (باهتزازٍ أو
+   * بدونه حسب الإعداد)، أو معرّف قناة تذكيرٍ كامل (`manar_approach_…`).
+   */
+  channel?: "adhan" | "iqama" | (string & {});
   /** بعد انتهاء الأذان يبقى إشعار دخول الوقت (إن كان مفعّلاً). */
   notice?: boolean;
   /** مقطعٌ يُشغَّل بعد الصوت مباشرة (التثويب بعد أذان الفجر) — اسم مورد res/raw. */
   follow?: string;
+  /** دقائق التنبيه قبل الصلاة (لـ`reminder` و`fajr_reminder`). */
+  minutes?: number;
 };
 
-/** مدى تذكيرات LocalNotifications (قبل الصلاة، الأذكار، المواسم). */
-export const SCHEDULE_DAYS_AHEAD = 7;
+/**
+ * مدى LocalNotifications (الأذكار والوِرد، المواسم، الجمعة). كان ٧ أيام؛ صار ١٤
+ * بحدٍّ أعلى `LN_CAP`. التنبيه قبل الصلاة خرج منها إلى الجدول الأصلي (٣٠ يوماً).
+ */
+export const SCHEDULE_DAYS_AHEAD = 14;
+/** أقصى عدد إشعارات LocalNotifications مضبوطة معاً (حدّ أندرويد ٥٠٠ للتطبيق). */
+export const LN_CAP = 240;
+/** مدى فترات «سكينة» — يطابق الافتراضي في `computeSakinahWindows`. */
+export const SAKINAH_DAYS_AHEAD = 7;
+
+/**
+ * متى يُنبَّه «افتح منار لتجديد المواقيت»: قبل نهاية أقصر جدولٍ فعّال بيومين.
+ * بلا سكينة ولا تذكيرات LocalNotifications يبقى على جدول الأذان (undefined).
+ */
+export function renewPlan(o: {
+  lnItems: number;
+  sakinah: boolean;
+}): { day: number; body: string } | undefined {
+  if (o.sakinah) {
+    return {
+      day: SAKINAH_DAYS_AHEAD - 2,
+      body: "فترات «سكينة» المحفوظة على جوالك تنتهي بعد يومين. افتح التطبيق مرة ليُحسب ما بعدها.",
+    };
+  }
+  if (o.lnItems > 0) {
+    return {
+      day: SCHEDULE_DAYS_AHEAD - 2,
+      body: "تذكيرات الأذكار والمواسم المحفوظة على جوالك تنتهي بعد يومين. افتح التطبيق مرة ليُحسب ما بعدها.",
+    };
+  }
+  return undefined;
+}
 
 /**
  * مدى جدول الأذان والإقامة المسلَّم لـ`AdhanScheduler`. يُحفظ كله على الجهاز،
@@ -90,7 +134,16 @@ const ROLE_CODE: Record<AlarmRole, number> = {
   prayer_notice: 4,
   iqamah_reminder: 5,
   renew: 6,
+  /* ١٠..١٣ بحسب خانة الدقائق في REMINDER_OPTIONS — انظر reminderSlot. */
+  reminder: 10,
+  fajr_reminder: 20,
 };
+
+/** خانة ثابتة لكل مدة تنبيه (٥، ١٠، ١٥، ٣٠) — فلا يتغيّر المعرّف بترتيب الاختيار. */
+export function reminderSlot(m: number): number {
+  const i = REMINDER_OPTIONS.indexOf(m as never);
+  return i >= 0 ? i : 4 + (Math.abs(Math.round(m)) % 5);
+}
 
 /**
  * اسم مورد أندرويد لصوتٍ مضمَّن. `res/raw` لا يقبل إلا [a-z0-9_]، فـ
@@ -116,8 +169,9 @@ export function dateKey(d: Date): string {
   return `${d.getFullYear()}_${pad(d.getMonth() + 1)}_${pad(d.getDate())}`;
 }
 
-export function eventKey(prayer: PrayerKey, role: AlarmRole, day: Date): string {
-  return `${prayer}_${role}_${dateKey(day)}`;
+export function eventKey(prayer: PrayerKey, role: AlarmRole, day: Date, minutes?: number): string {
+  const r = minutes === undefined ? role : `${role}${minutes}m`;
+  return `${prayer}_${r}_${dateKey(day)}`;
 }
 
 /** رقم اليوم المحلي منذ ١٩٧٠ — مستقلّ عن الساعة وعن التوقيت الصيفي. */
@@ -126,8 +180,10 @@ function localDayNumber(d: Date): number {
 }
 
 /** معرّف رقمي فريد ضمن أيّ نافذة ≤ ١٠٠ يوم. */
-export function eventId(prayer: PrayerKey, role: AlarmRole, day: Date): number {
-  return (localDayNumber(day) % 100) * 1000 + PRAYER_ORDER.indexOf(prayer) * 100 + ROLE_CODE[role];
+export function eventId(prayer: PrayerKey, role: AlarmRole, day: Date, slot = 0): number {
+  return (
+    (localDayNumber(day) % 100) * 1000 + PRAYER_ORDER.indexOf(prayer) * 100 + ROLE_CODE[role] + slot
+  );
 }
 
 /* الأرقام ونظام الساعة يتبعان اختيار المستخدم (`display-prefs`). */
@@ -147,6 +203,13 @@ export type BuildOptions = {
   /** لحظة البناء (ميلي ثانية) — الأحداث الماضية تُستبعد. */
   now: number;
   days?: number;
+  /**
+   * قناة التنبيه قبل الصلاة كما أنشأتها المزامنة (صوت المقطع، الدرجة، الاهتزاز).
+   * الافتراضي `manar_reminders`؛ الويب لا يستعملها.
+   */
+  reminderChannel?: (prayer: PrayerKey) => string;
+  /** يوم تنبيه التجديد (فهرس من اليوم) ونصّه — الافتراضي قبل نهاية `days` بيومين. */
+  renew?: { day: number; body: string };
 };
 
 /** صلاة الظهر يوم الجمعة (بالتوقيت المحلي لليوم نفسه) هي صلاة الجمعة. */
@@ -297,6 +360,42 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
         });
       }
 
+      /* ---------------- التنبيه قبل الصلاة و«تذكير الفجر» ----------------
+       * كانت تُضبط في LocalNotifications لسبعة أيام وحدها؛ صارت في الجدول
+       * الأصلي نفسه بنافذته المتحركة، فتمتد ثلاثين يوماً كالأذان. */
+      const channel = o.reminderChannel?.(prayer) ?? "manar_reminders";
+      if (s.remindersEnabled && per.reminder) {
+        for (const m of new Set(s.reminderMinutes)) {
+          if (!(m > 0)) continue;
+          push({
+            id: eventId(prayer, "reminder", day, reminderSlot(m)),
+            key: eventKey(prayer, "reminder", day, m),
+            role: "reminder",
+            prayer,
+            at: adhanAt.getTime() - m * 60_000,
+            sound: "",
+            title: PRE_PRAYER_TITLE,
+            body: prePrayerBody(m, label),
+            kind: "notice",
+            channel,
+            minutes: m,
+          });
+        }
+      }
+      const fm = prayer === "fajr" ? fajrReminderMinutesFor(s) : null;
+      if (fm !== null) {
+        push({
+          ...base("fajr_reminder"),
+          at: adhanAt.getTime() - fm * 60_000,
+          sound: "",
+          title: FAJR_REMINDER_TITLE,
+          body: fajrReminderBody(fm),
+          kind: "notice",
+          channel,
+          minutes: fm,
+        });
+      }
+
       /* ---------------- الإقامة وتنبيهها ---------------- */
       const iqamaAt = per.iqama ? iqamahTimeFor(s, prayer, adhanAt) : null;
       if (!iqamaAt) continue;
@@ -340,7 +439,7 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
   if (days >= 2 && byKey.size > 0) {
     const day = new Date(now);
     day.setHours(12, 0, 0, 0);
-    day.setDate(day.getDate() + days - 2);
+    day.setDate(day.getDate() + Math.min(days - 2, o.renew?.day ?? days - 2));
     const isha = computePrayerTimes(location, calc, day).isha;
     push({
       id: eventId("isha", "renew", day),
@@ -350,7 +449,9 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
       at: isha.getTime() + 30 * 60_000,
       sound: "",
       title: "افتح منار لتجديد مواقيت الصلاة",
-      body: "جدول الأذان المحفوظ على جوالك ينتهي بعد يومين. افتح التطبيق مرة ليُحسب الشهر القادم.",
+      body:
+        o.renew?.body ??
+        "جدول الأذان المحفوظ على جوالك ينتهي بعد يومين. افتح التطبيق مرة ليُحسب الشهر القادم.",
       kind: "notice",
       channel: "adhan",
     });

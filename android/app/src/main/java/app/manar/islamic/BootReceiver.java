@@ -11,7 +11,8 @@ import android.content.Intent;
  * timezone / clock changes as invalidating absolute times. This receiver
  * restores the persisted schedule immediately, so the user does not have to open
  * the app for the next Adhan to fire. The app additionally re-syncs the full
- * seven-day schedule on its next launch.
+ * schedule on its next launch. بعد تغيّر المنطقة الزمنية فعلاً يصل إشعار
+ * «تغيّرت منطقتك الزمنية» يطلب فتح منار لتحديث المواقيت.
  */
 public class BootReceiver extends BroadcastReceiver {
 
@@ -35,6 +36,10 @@ public class BootReceiver extends BroadcastReceiver {
                 ManarChannels.ensure(context);
                 android.util.Log.i("ManarSchedule", "re-arm after " + action);
                 AdhanScheduler.rearm(context);
+                if (Intent.ACTION_TIMEZONE_CHANGED.equals(action)
+                        && AdhanScheduler.zoneChangedSinceSchedule(context)) {
+                    AdhanScheduler.postZoneChangedNotice(context);
+                }
                 // وسكينة معها: فترةٌ محفوظة بلا منبّه هي ميزة مُعطّلة في الحقيقة.
                 SakinahLog.add(
                         context,
