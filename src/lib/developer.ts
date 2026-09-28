@@ -14,12 +14,8 @@ export const DEVELOPER = {
   /** الصيغة الدولية للاتصال وواتساب — رمز اليمن ٩٦٧ مع الرقم نفسه. */
   phoneIntl: "967776343551",
   address: "اليمن _ إب _ جوبلة",
+  /** البريد الرسمي الوحيد للتواصل: «عن التطبيق» والخصوصية والشروط تقرأ منه. */
   email: "zoqriidris@gmail.com",
-  emailAlt: "old-contact@example.invalid",
-  /** «موقعنا» في صفحة «عن التطبيق». */
-  siteEmail: "zbyrzwqr@gmail.com",
-  /** «تواصل معنا» في صفحة «عن التطبيق». */
-  contactEmail: "old-contact@example.invalid",
   whatsapp: "@rzleelzr",
   telegram: "rzleelzr",
   facebookName: "إدريس الزوقري",

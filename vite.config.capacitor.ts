@@ -2,10 +2,13 @@
 // Produces a fully static SPA in dist/client (with index.html) that runs
 // inside the native WebView with zero server involvement.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import pkg from "./package.json" with { type: "json" };
 
 export default defineConfig({
   nitro: false,
   vite: {
+    /* رقم الإصدار من package.json — انظر src/lib/app-version.ts. */
+    define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     build: {
       /* هدف بناء متحفّظ لمتصفّح أندرويد المدمج.
        *

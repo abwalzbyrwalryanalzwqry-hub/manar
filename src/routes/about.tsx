@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Icon, icons, Screen, ScreenHeader, SectionLabel, Mark } from "@/components/manar/shell";
 import { DeveloperCard } from "@/components/manar/developer-card";
 import { toast } from "sonner";
 import { copyText, DEVELOPER, openContact } from "@/lib/developer";
-import { rateApp, shareApp } from "@/lib/app-store";
+import { PUBLISHED_ON_PLAY, rateApp, shareApp } from "@/lib/app-store";
+import { BUILD_VERSION, formatAppVersion, readAppVersion } from "@/lib/app-version";
 
 export const Route = createFileRoute("/about")({
   head: () => ({ meta: [{ title: "عن التطبيق — منار" }] }),
@@ -11,6 +13,7 @@ export const Route = createFileRoute("/about")({
 });
 
 function About() {
+  const version = useAppVersion();
   return (
     <Screen>
       <ScreenHeader title="عن التطبيق" backTo="/more" />
@@ -24,9 +27,11 @@ function About() {
             </div>
             <h2 className="mt-5 font-display text-4xl font-light">منار</h2>
             <p className="mt-1 text-xs text-white/70">نور يهديك في كل وقت</p>
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] backdrop-blur">
-              الإصدار 1.0.0
-            </div>
+            {version && (
+              <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] backdrop-blur">
+                الإصدار <span dir="ltr">{version}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -48,18 +53,15 @@ function About() {
       <SectionLabel>روابط</SectionLabel>
       <div className="space-y-2 px-5">
         <LinkRow
-          icon={icons.globe}
-          l="موقعنا"
-          v={DEVELOPER.siteEmail}
-          onClick={() => void mail(DEVELOPER.siteEmail)}
-        />
-        <LinkRow
           icon={icons.mail}
           l="تواصل معنا"
-          v={DEVELOPER.contactEmail}
-          onClick={() => void mail(DEVELOPER.contactEmail)}
+          v={DEVELOPER.email}
+          onClick={() => void mail(DEVELOPER.email)}
         />
-        <LinkRow icon={icons.star} l="قيّم التطبيق" v="Google Play" onClick={() => void rate()} />
+        {/* يظهر بعد النشر فقط؛ قبله يفتح الرابط صفحة غير موجودة في المتجر. */}
+        {PUBLISHED_ON_PLAY && (
+          <LinkRow icon={icons.star} l="قيّم التطبيق" v="Google Play" onClick={() => void rate()} />
+        )}
         <LinkRow icon={icons.share} l="شارك التطبيق" v="" onClick={() => void share()} />
       </div>
 
@@ -78,6 +80,25 @@ function About() {
       </div>
     </Screen>
   );
+}
+
+/**
+ * رقم الإصدار: يبدأ بما ضُمِّن وقت البناء (مطابق بين الخادم والعميل فلا خطأ
+ * Hydration)، ثم يُستبدل بعد الترطيب بما يعيده النظام على أندرويد مع رقم البناء.
+ */
+function useAppVersion(): string {
+  const [version, setVersion] = useState(BUILD_VERSION);
+  useEffect(() => {
+    let alive = true;
+    void readAppVersion().then((v) => {
+      const text = formatAppVersion(v);
+      if (alive && text) setVersion(text);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return version;
 }
 
 async function rate() {
@@ -118,7 +139,8 @@ function LinkRow({
       </span>
       <span className="flex-1 text-right text-sm font-medium">{l}</span>
       <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-        <span className="truncate" dir="ltr">
+        {/* البريد يُعرض كاملاً من اليسار لليمين، ويلتف عند الحاجة بدل أن يُقصّ. */}
+        <span className="min-w-0 break-all text-left" dir="ltr">
           {v}
         </span>
         <span className="rotate-180">

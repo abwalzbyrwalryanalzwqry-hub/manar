@@ -1,12 +1,18 @@
 /* منار — تقييم التطبيق ومشاركته.
  *
- * منار منشور على Google Play فقط. على أندرويد يُفتح المتجر بنيّة النظام
+ * منار يُنشر على Google Play فقط. على أندرويد يُفتح المتجر بنيّة النظام
  * (`market://` ثم رابط الويب بديلاً)، وعلى الويب يُفتح رابط Play نفسه.
  */
 
 import { Capacitor } from "@capacitor/core";
 import { openExternalNative } from "./native-notifications";
 import { copyText } from "./developer";
+
+/**
+ * هل صفحة منار في Google Play منشورة؟ ما دامت `false` يُخفى «قيّم التطبيق»،
+ * لأن رابط التقييم يفتح صفحة غير موجودة. تُقلب إلى `true` في إصدار النشر.
+ */
+export const PUBLISHED_ON_PLAY = false;
 
 export const APP_ID = "app.manar.islamic";
 export const PLAY_URL = `https://play.google.com/store/apps/details?id=${APP_ID}`;
