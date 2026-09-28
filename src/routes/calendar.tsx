@@ -23,6 +23,7 @@ import {
   toHijri,
   upcomingOccasions,
   useHijriAdjust,
+  hijriDisplayDate,
   type CalendarCell,
 } from "@/lib/hijri";
 import { computePrayerTimes, useLocation, useSettings } from "@/lib/prayer";
@@ -134,6 +135,8 @@ function CalendarScreen() {
     () => computePrayerTimes(location, calc, today),
     [location, calc, today],
   );
+  /* معاينة الإزاحة تتبع «اليوم الهجري عند المغرب» كما تعرضه الرئيسية الآن. */
+  const nowHijri = toHijri(hijriDisplayDate(new Date(), todayTimes.maghrib, atMaghrib), adjust);
 
   return (
     <Screen>
@@ -433,8 +436,8 @@ function CalendarScreen() {
                 التاريخ الهجري لليوم بعد التعديل
               </div>
               <div className="mt-1 font-display text-xl font-medium">
-                {toArabicDigits(todayHijri.day)} {hijriMonthName(todayHijri.month)}{" "}
-                {toArabicDigits(todayHijri.year)}هـ
+                {toArabicDigits(nowHijri.day)} {hijriMonthName(nowHijri.month)}{" "}
+                {toArabicDigits(nowHijri.year)}هـ
               </div>
             </div>
 
