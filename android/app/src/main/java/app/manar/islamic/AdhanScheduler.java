@@ -103,14 +103,21 @@ public final class AdhanScheduler {
         public final String follow;
         /** {@link NoticeMeta} نصّاً: المسار، و«صلّيت»، و«ذكّرني لاحقاً»، أو "". */
         public final String meta;
+        /**
+         * أولوية المنبّه (المرحلة ٣٢): يُضبط بـ{@code setAlarmClock} لا
+         * {@code setExactAndAllowWhileIdle}. انظر {@link #armExact}.
+         */
+        public final boolean priority;
 
         Event(int id, String key, long atMillis, String sound, String title, String body,
               String kind, String channel, boolean notice) {
-            this(id, key, atMillis, sound, title, body, kind, channel, notice, "", "");
+            this(id, key, atMillis, sound, title, body, kind, channel, notice, "", "",
+                    defaultPriority(kind));
         }
 
         Event(int id, String key, long atMillis, String sound, String title, String body,
-              String kind, String channel, boolean notice, String follow, String meta) {
+              String kind, String channel, boolean notice, String follow, String meta,
+              boolean priority) {
             this.id = id;
             this.key = key == null || key.isEmpty() ? (kind + "_" + id) : key;
             this.atMillis = atMillis;
@@ -122,6 +129,7 @@ public final class AdhanScheduler {
             this.notice = notice;
             this.follow = follow == null ? "" : follow;
             this.meta = meta == null ? "" : meta;
+            this.priority = priority;
         }
 
         static Event fromJson(JSONObject o) {
@@ -136,7 +144,11 @@ public final class AdhanScheduler {
                     o.optString("channel", ""),
                     o.optBoolean("notice", false),
                     o.optString("follow", ""),
-                    metaOf(o));
+                    metaOf(o),
+                    // جدولٌ محفوظ قبل المرحلة ٣٢ بلا الحقل: الأذان والإقامة بأولوية.
+                    o.has("priority")
+                            ? o.optBoolean("priority", false)
+                            : defaultPriority(o.optString("kind", KIND_ADHAN)));
         }
 
         /** الويب يرسل meta كائناً، والمحفوظ نصّاً — كلاهما يُقبل. */
@@ -158,8 +170,14 @@ public final class AdhanScheduler {
                     .put("channel", channel)
                     .put("notice", notice)
                     .put("follow", follow)
-                    .put("meta", meta);
+                    .put("meta", meta)
+                    .put("priority", priority);
         }
+    }
+
+    /** بلا تحديدٍ من الويب: الأذان والإقامة وحدهما بأولوية المنبّه. */
+    static boolean defaultPriority(String kind) {
+        return KIND_ADHAN.equals(kind) || KIND_IQAMA.equals(kind);
     }
 
     public static List<Event> parse(JSONArray array) {
@@ -210,9 +228,11 @@ public final class AdhanScheduler {
                 .apply();
         int armed = armWindow(context, pending, now);
         ManarLog.add(context, ManarLog.SCHEDULED, "",
-                pending.size() + "/" + armed + (canScheduleExact(context) ? "/exact" : "/inexact"));
+                pending.size() + "/" + armed + (canScheduleExact(context) ? "/exact" : "/inexact")
+                        + "/" + lastClockArmed);
         android.util.Log.i("ManarSchedule", "stored " + pending.size() + " of " + events.size()
-                + ", armed " + armed + " exact=" + canScheduleExact(context));
+                + ", armed " + armed + " (clock " + lastClockArmed + ") exact="
+                + canScheduleExact(context));
         return pending.size();
     }
 
@@ -238,6 +258,7 @@ public final class AdhanScheduler {
         long windowEnd = now + ARM_WINDOW_MS;
         boolean beyond = false;
         int armed = 0;
+        lastClockArmed = 0;
         for (Event e : pending) {
             if (e.atMillis <= now || fired.contains(e.key)) continue;
             if (e.atMillis > windowEnd) {
@@ -246,7 +267,7 @@ public final class AdhanScheduler {
             }
             PendingIntent pi = pendingIntentFor(context, e, PendingIntent.FLAG_UPDATE_CURRENT);
             if (pi == null) continue;
-            setAlarm(am, e.atMillis, pi, true);
+            if (MODE_CLOCK.equals(armExact(context, am, e.atMillis, pi, e.priority))) lastClockArmed++;
             armed++;
         }
 
@@ -254,25 +275,70 @@ public final class AdhanScheduler {
         if (beyond && topUp != null) {
             // غير دقيق عمداً: لا يحتاج إذن المنبّهات الدقيقة، والنافذة (٤٨ ساعة)
             // أوسع كثيراً من أي تأخير يفرضه وضع توفير الطاقة.
-            setAlarm(am, now + TOP_UP_EVERY_MS, topUp, false);
+            setInexact(am, now + TOP_UP_EVERY_MS, topUp);
         } else if (topUp != null) {
             am.cancel(topUp);
         }
         return armed;
     }
 
-    private static void setAlarm(AlarmManager am, long at, PendingIntent pi, boolean exact) {
-        try {
-            if (exact && (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || am.canScheduleExactAlarms())) {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
-            } else {
-                // Without the exact-alarm permission the OS would reject the
-                // exact call outright; an inexact alarm still fires, just later.
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
-            }
-        } catch (SecurityException ignored) {
-            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+    /* ------------------------ ضبط المنبّه (المرحلة ٣٢) ------------------------ */
+
+    public static final String MODE_CLOCK = "clock";
+    public static final String MODE_EXACT = "exact";
+    public static final String MODE_INEXACT = "inexact";
+
+    /** رمز طلب نيّة «عرض المنبّه» (النقر على أيقونة المنبّه في شريط الحالة). */
+    private static final int SHOW_REQUEST = REQUEST_BASE - 2;
+
+    /** كم حدثاً ضُبط بأولوية المنبّه في آخر {@link #armWindow} — للسجل. */
+    private static int lastClockArmed = 0;
+
+    /**
+     * يضبط منبّه حدثٍ بأدقّ طريقة يسمح بها النظام، ويُرجع ما استُعمل.
+     *
+     * <p><b>لماذا setAlarmClock للأذان والإقامة:</b> في وضع Doze لا يُطلق
+     * {@code setExactAndAllowWhileIdle} أكثر من منبّهٍ واحد كل ٩ دقائق تقريباً
+     * للتطبيق (وقد تطول المدة إلى ١٥ دقيقة). وأحداث الصلاة متقاربة بطبيعتها:
+     * الأذان ثم تنبيه الإقامة ثم الإقامة بعد ٥–١٠ دقائق في المغرب. فكانت الإقامة
+     * تتأخّر والهاتف ساكن على الطاولة. {@code setAlarmClock} لا يخضع لهذا الحدّ،
+     * ويُخرج النظام الجهاز من Doze قبيله، فتصل ما بعده من تنبيهات في موعدها.
+     * أثره الظاهر: أيقونة منبّه في شريط الحالة و«المنبّه القادم» على شاشة القفل،
+     * ولهذا هو إعدادٌ يُطفأ («أولوية المنبّه» في مركز التنبيهات).
+     *
+     * <p>السلّم: أولوية ← setAlarmClock؛ ثم دقيق ← setExactAndAllowWhileIdle؛ ثم
+     * غير دقيق ← setAndAllowWhileIdle (بلا إذن المنبّهات الدقيقة، يصل متأخّراً).
+     */
+    static String armExact(Context context, AlarmManager am, long at, PendingIntent pi,
+                           boolean priority) {
+        boolean exactAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+                || am.canScheduleExactAlarms();
+        if (!exactAllowed) {
+            // بلا إذن المنبّهات الدقيقة يرفض النظام الطريقتين الأوليين أصلاً.
+            setInexact(am, at, pi);
+            return MODE_INEXACT;
         }
+        if (priority) {
+            try {
+                PendingIntent show = ManarNotices.openIntent(context, SHOW_REQUEST, "/prayer");
+                am.setAlarmClock(new AlarmManager.AlarmClockInfo(at, show), pi);
+                return MODE_CLOCK;
+            } catch (RuntimeException e) {
+                // SecurityException أو قيدٌ من الشركة المصنّعة: ننزل درجة لا أكثر.
+                android.util.Log.w("ManarSchedule", "setAlarmClock failed, falling back", e);
+            }
+        }
+        try {
+            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+            return MODE_EXACT;
+        } catch (SecurityException ignored) {
+            setInexact(am, at, pi);
+            return MODE_INEXACT;
+        }
+    }
+
+    private static void setInexact(AlarmManager am, long at, PendingIntent pi) {
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
     }
 
     private static PendingIntent topUpIntent(Context context, int extraFlags) {

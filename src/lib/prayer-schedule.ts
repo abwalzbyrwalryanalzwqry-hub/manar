@@ -89,7 +89,27 @@ export type ManarAlarmEvent = {
   minutes?: number;
   /** ما يرافق الإشعار في أندرويد (`NoticeMeta.java`). */
   meta?: NoticeMeta;
+  /**
+   * أولوية المنبّه (المرحلة ٣٢): أندرويد يضبطه بـ`setAlarmClock` فلا يتأخّر في
+   * وضع Doze. انظر `AdhanScheduler.armExact` و`PRIORITY_ROLES`.
+   */
+  priority?: boolean;
 };
+
+/**
+ * الأدوار التي تُضبط بأولوية المنبّه حين يكون `alarmClockPriority` مفعّلاً:
+ * لحظة الصلاة نفسها وما يلتصق بها. في Doze لا يُطلق أندرويد منبّهات
+ * `setExactAndAllowWhileIdle` أكثر من مرة كل ~٩ دقائق للتطبيق، والأذان وتنبيه
+ * الإقامة والإقامة تقع كلها خلال دقائق — فكانت الإقامة تتأخّر.
+ * التذكيرات قبل الصلاة والأذكار وتنبيه التجديد تبقى منبّهات دقيقة عادية.
+ */
+export const PRIORITY_ROLES: ReadonlySet<AlarmRole> = new Set<AlarmRole>([
+  "fajr_first_adhan",
+  "adhan",
+  "prayer_notice",
+  "iqamah_reminder",
+  "iqamah",
+]);
 
 /**
  * مسار النقر، وزرّ «صلّيت» (الصلاة ويومها بصيغة سجل النشاط)، و«ذكّرني لاحقاً».
@@ -324,10 +344,12 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
   const byKey = new Map<string, ManarAlarmEvent>();
   const soundOn = s.soundEnabled && !s.silentMode;
 
+  const priorityOn = s.alarmClockPriority !== false;
   const push = (e: ManarAlarmEvent) => {
     if (e.at <= now) return;
     // المفتاح نفسه لا يُضاف مرّتين أبداً — الأوّل يبقى.
-    if (!byKey.has(e.key)) byKey.set(e.key, e);
+    if (!byKey.has(e.key))
+      byKey.set(e.key, { ...e, priority: priorityOn && PRIORITY_ROLES.has(e.role) });
   };
 
   for (let d = 0; d < days; d++) {

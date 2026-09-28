@@ -144,7 +144,8 @@ describe("ت١ — تجربة شاملة", () => {
     const p = java("ManarAdhanPlugin");
     expect(p).toContain("public void testAlarm(PluginCall call)");
     expect(p).toContain('call.getInt("seconds", 60)');
-    expect(p).toContain("setExactAndAllowWhileIdle");
+    // المرحلة ٣٢: سلّم الضبط نفسه للأذان المجدول (setAlarmClock ← دقيق ← غير دقيق).
+    expect(p).toContain("AdhanScheduler.armExact(context, am, at, pi, priority)");
     expect(p).toContain("AdhanAlarmReceiver.ACTION_FIRE");
     expect(read("src/lib/native-notifications.ts")).toContain("seconds: 60");
   });

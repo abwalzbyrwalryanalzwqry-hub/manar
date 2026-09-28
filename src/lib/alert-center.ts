@@ -94,10 +94,11 @@ export function describeLogEvent(e: AlertLogEvent): string {
   const what = describeAlertKey(e.key);
   switch (e.type) {
     case "scheduled": {
-      const [stored, armed, mode] = e.detail.split("/");
+      const [stored, armed, mode, clock] = e.detail.split("/");
+      const clockN = Number(clock) || 0;
       return `ضُبط الجدول: ${toArabicDigits(stored ?? "0")} حدثاً، ${toArabicDigits(armed ?? "0")} في النافذة${
         mode === "inexact" ? " (غير دقيقة)" : ""
-      }`;
+      }${clockN > 0 ? `، منها ${toArabicDigits(clockN)} بأولوية المنبّه` : ""}`;
     }
     case "fired": {
       const late = Number(e.detail.split("/")[1] ?? 0);
@@ -122,6 +123,7 @@ export function describeLogEvent(e: AlertLogEvent): string {
     case "zone_changed":
       return `تغيّرت المنطقة الزمنية إلى ${e.detail}`;
     case "test_scheduled":
+      if (e.detail === "clock") return "ضُبطت تجربة شاملة بأولوية المنبّه";
       return e.detail === "exact"
         ? "ضُبطت تجربة شاملة بمنبّه دقيق"
         : "ضُبطت تجربة شاملة بمنبّه غير دقيق — قد تتأخّر";
