@@ -51,8 +51,12 @@ public class AdhanAlarmReceiver extends BroadcastReceiver {
 
         if (!AdhanScheduler.markFired(context, key)) {
             Log.w("ManarSchedule", "duplicate fire ignored: " + key);
+            ManarLog.add(context, ManarLog.DUPLICATE, key, "");
             return;
         }
+        long scheduledAt = intent.getLongExtra(AdhanScheduler.EXTRA_AT, 0L);
+        long lateSec = scheduledAt > 0 ? (System.currentTimeMillis() - scheduledAt) / 1000L : 0L;
+        ManarLog.add(context, ManarLog.FIRED, key, kind + "/" + lateSec);
         Log.i("ManarSchedule", "fire " + key + " kind=" + kind);
 
         String metaJson = intent.getStringExtra(AdhanService.EXTRA_META);
@@ -82,6 +86,8 @@ public class AdhanAlarmReceiver extends BroadcastReceiver {
             Log.e("ManarSchedule", "could not start playback for " + key, e);
             boolean blocked = !ManarPermissions.canStartPlaybackFromAlarm(context);
             AdhanScheduler.recordPlaybackFailure(context,
+                    blocked ? ManarPermissions.REASON_BACKGROUND_START : ManarPermissions.REASON_OTHER);
+            ManarLog.add(context, ManarLog.PLAYBACK_FAILED, key,
                     blocked ? ManarPermissions.REASON_BACKGROUND_START : ManarPermissions.REASON_OTHER);
             String channelKind = AdhanScheduler.KIND_IQAMA.equals(kind) ? "iqama" : "adhan";
             if (blocked) {

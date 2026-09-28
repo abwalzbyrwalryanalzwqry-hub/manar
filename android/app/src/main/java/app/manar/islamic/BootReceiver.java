@@ -36,9 +36,12 @@ public class BootReceiver extends BroadcastReceiver {
                 ManarChannels.ensure(context);
                 android.util.Log.i("ManarSchedule", "re-arm after " + action);
                 AdhanScheduler.rearm(context);
+                ManarLog.add(context, ManarLog.REARMED, "", action);
                 if (Intent.ACTION_TIMEZONE_CHANGED.equals(action)
                         && AdhanScheduler.zoneChangedSinceSchedule(context)) {
                     AdhanScheduler.postZoneChangedNotice(context);
+                    ManarLog.add(context, ManarLog.ZONE_CHANGED, "",
+                            java.util.TimeZone.getDefault().getID());
                 }
                 // وسكينة معها: فترةٌ محفوظة بلا منبّه هي ميزة مُعطّلة في الحقيقة.
                 SakinahLog.add(

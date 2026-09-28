@@ -1,5 +1,6 @@
 package app.manar.islamic;
 
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -412,6 +413,8 @@ public class ManarAdhanPlugin extends Plugin {
         if (next != null) {
             result.put("nextKey", next.key);
             result.put("nextAt", next.atMillis);
+            result.put("nextTitle", next.title);
+            result.put("nextKind", next.kind);
         }
         long failedAt = AdhanScheduler.playbackFailedAt(context);
         if (failedAt > 0) {
@@ -544,6 +547,111 @@ public class ManarAdhanPlugin extends Plugin {
         data.put("route", route);
         notifyListeners("manarOpenRoute", data, true);
     }
+
+    /** سجل التنبيهات (آخر ٢٠٠ حدث) — المرحلة ٣٠. */
+    @PluginMethod
+    public void alertLog(PluginCall call) {
+        JSObject result = new JSObject();
+        try {
+            result.put("events", new com.getcapacitor.JSArray(ManarLog.read(getContext()).toString()));
+        } catch (Exception e) {
+            result.put("events", new com.getcapacitor.JSArray());
+        }
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void clearAlertLog(PluginCall call) {
+        ManarLog.clear(getContext());
+        call.resolve();
+    }
+
+    /**
+     * أهمية كل قناة لمنار: قناةٌ أطفأها المستخدم من إعدادات النظام (IMPORTANCE_NONE)
+     * تُسقط تنبيهاتها بصمت، فتعرضها الواجهة بوضوح.
+     */
+    @PluginMethod
+    public void channelStatus(PluginCall call) {
+        JSObject result = new JSObject();
+        com.getcapacitor.JSArray list = new com.getcapacitor.JSArray();
+        android.app.NotificationManager nm =
+                getContext().getSystemService(android.app.NotificationManager.class);
+        result.put("notificationsAllowed", nm != null && nm.areNotificationsEnabled());
+        if (nm != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ManarChannels.ensure(getContext());
+            for (android.app.NotificationChannel c : nm.getNotificationChannels()) {
+                if (!c.getId().startsWith("manar_")) continue;
+                JSObject o = new JSObject();
+                o.put("id", c.getId());
+                o.put("name", String.valueOf(c.getName()));
+                o.put("importance", c.getImportance());
+                o.put("blocked", c.getImportance() == android.app.NotificationManager.IMPORTANCE_NONE);
+                list.put(o);
+            }
+        }
+        result.put("channels", list);
+        call.resolve(result);
+    }
+
+    /**
+     * «تجربة شاملة»: أذانٌ حقيقي بعد {@code seconds} (٦٠ افتراضياً) عبر AlarmManager
+     * والمسار نفسه الذي يسلكه الأذان المجدول: المستقبِل ثم الخدمة الأمامية. يُغلق
+     * المستخدم التطبيق ويطفئ الشاشة، ثم يقرأ النتيجة في سجل التنبيهات.
+     */
+    @PluginMethod
+    public void testAlarm(PluginCall call) {
+        Context context = getContext();
+        int seconds = Math.max(10, Math.min(600, call.getInt("seconds", 60)));
+        long at = System.currentTimeMillis() + seconds * 1000L;
+        String key = "test_" + at;
+        String meta = new NoticeMeta("/notifications", "", "", 0).toJson();
+        Intent fire = new Intent(context, AdhanAlarmReceiver.class)
+                .setAction(AdhanAlarmReceiver.ACTION_FIRE)
+                .setData(Uri.parse("manar://test/" + at))
+                .putExtra(AdhanService.EXTRA_SOUND, call.getString("sound", ""))
+                .putExtra(AdhanService.EXTRA_TITLE, call.getString("title", "تجربة منار"))
+                .putExtra(AdhanService.EXTRA_BODY, call.getString("body", "هكذا يصل الأذان والتطبيق مغلق"))
+                .putExtra(AdhanService.EXTRA_KIND, AdhanScheduler.KIND_ADHAN)
+                .putExtra(AdhanService.EXTRA_KEY, key)
+                .putExtra(AdhanService.EXTRA_CHANNEL, "adhan")
+                .putExtra(AdhanService.EXTRA_NOTICE, true)
+                .putExtra(AdhanService.EXTRA_META, meta)
+                .putExtra(AdhanScheduler.EXTRA_AT, at)
+                .putExtra(AdhanScheduler.EXTRA_EVENT_ID, TEST_EVENT_ID);
+        PendingIntent pi = PendingIntent.getBroadcast(context, TEST_EVENT_ID, fire,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        android.app.AlarmManager am =
+                (android.app.AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        boolean exact = AdhanScheduler.canScheduleExact(context);
+        JSObject result = new JSObject();
+        if (am == null) {
+            result.put("scheduled", false);
+            call.resolve(result);
+            return;
+        }
+        try {
+            if (exact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // المسار نفسه للأذان المجدول: منبّه دقيق يسمح ببدء الخدمة الأمامية.
+                am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pi);
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                am.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pi);
+            } else {
+                am.setExact(android.app.AlarmManager.RTC_WAKEUP, at, pi);
+            }
+        } catch (SecurityException e) {
+            am.set(android.app.AlarmManager.RTC_WAKEUP, at, pi);
+            exact = false;
+        }
+        ManarLog.add(context, ManarLog.TEST_SCHEDULED, key, exact ? "exact" : "inexact");
+        result.put("scheduled", true);
+        result.put("key", key);
+        result.put("at", at);
+        result.put("exact", exact);
+        call.resolve(result);
+    }
+
+    /** خانة ٩٩٩ من كتلة اليوم ٩٩ — خارج خانات الصلوات والتذكيرات وتنبيه المنطقة. */
+    private static final int TEST_EVENT_ID = 99_999;
 
     /** طابور «صلّيت» من الإشعارات — يُعاد ويُفرَّغ؛ الويب يدمجه في سجل النشاط. */
     @PluginMethod

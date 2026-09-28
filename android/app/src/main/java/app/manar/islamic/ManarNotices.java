@@ -114,6 +114,7 @@ public final class ManarNotices {
         ManarChannels.ensure(context);
         if (!nm.areNotificationsEnabled()) {
             Log.w("ManarSchedule", "notifications disabled — notice dropped: " + title);
+            ManarLog.add(context, ManarLog.NOTICE_DROPPED, String.valueOf(eventId), "disabled");
             return;
         }
 
