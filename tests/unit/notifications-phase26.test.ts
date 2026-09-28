@@ -227,7 +227,7 @@ describe("م٤/م٥ — التركيز والإيقاف", () => {
   });
   it("الإيقاف يُبقي إشعار دخول الوقت صامتاً", () => {
     expect(svc).toMatch(
-      /private void stopEverything[\s\S]*?currentWantsNotice[\s\S]*?ManarNotices\.post\([\s\S]*?true\);/,
+      /private void stopEverything[\s\S]*?currentWantsNotice[\s\S]*?ManarNotices\.post\([\s\S]*?true, currentMeta\);/,
     );
   });
 });

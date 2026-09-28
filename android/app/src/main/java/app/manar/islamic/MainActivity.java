@@ -6,6 +6,9 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
 
+    /** مسارٌ داخلي يفتحه النقر على إشعار (/prayer، /azkar …) — تسلّمه الإضافة للويب. */
+    public static final String EXTRA_ROUTE = "manar_route";
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // Registered before super.onCreate so the bridge exposes it on the very

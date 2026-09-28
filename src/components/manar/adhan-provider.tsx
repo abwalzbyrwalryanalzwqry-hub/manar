@@ -22,7 +22,11 @@ import {
   effectiveVolume,
 } from "@/lib/adhan-settings";
 import { playAdhan, playIqama, playReminder, vibrate, stopAdhan } from "@/lib/adhan-sound";
-import { isNativeShell, syncNativePrayerSchedule } from "@/lib/native-notifications";
+import {
+  isNativeShell,
+  mergeNativePrayed,
+  syncNativePrayerSchedule,
+} from "@/lib/native-notifications";
 import { approachClipFor } from "@/lib/prayer-approach-audio";
 import { buildPrayerAlarms, type ManarAlarmEvent } from "@/lib/prayer-schedule";
 import { play as enginePlay } from "@/lib/audio-engine";
@@ -142,12 +146,15 @@ export function AdhanProvider() {
      even when the app is closed. No-op in the browser. */
   useEffect(() => {
     if (!isNativeShell()) return;
+    /* «صلّيت» من الإشعار والتطبيق مغلق يدخل سجل النشاط قبل المزامنة. */
+    void mergeNativePrayed();
     void syncNativePrayerSchedule(location, calc);
     /* عند الظهور فقط: `visibilitychange` يُطلق أيضاً لحظة الذهاب إلى الخلفية،
      * وهي اللحظة التي يُنهي فيها النظام التطبيقات عادةً — مزامنةٌ تبدأ حينها قد
      * تُقطع في منتصفها. الطلبات المتقاربة تُدمج في مزامنة واحدة. */
     const onResume = () => {
       if (document.visibilityState !== "visible") return;
+      void mergeNativePrayed();
       void syncNativePrayerSchedule(location, calc);
     };
     document.addEventListener("resume", onResume);

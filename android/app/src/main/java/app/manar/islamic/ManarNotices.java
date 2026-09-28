@@ -38,7 +38,8 @@ public final class ManarNotices {
      * وزرّ «إصلاح» يفتح شاشة «المنبّهات والتذكيرات» لمنار.
      */
     public static void postPlaybackBlocked(
-            Context context, int eventId, String channelKind, String title, String body) {
+            Context context, int eventId, String channelKind, String title, String body,
+            NoticeMeta meta) {
         String why = "لم يُشغَّل صوت "
                 + ("iqama".equals(channelKind) ? "الإقامة" : "الأذان")
                 + ": اسمح لمنار بالمنبّهات الدقيقة.";
@@ -49,7 +50,7 @@ public final class ManarNotices {
                 ManarPermissions.exactAlarmSettingsIntent(context),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         postInternal(context, eventId, channelKind, title, text, "لم يُسمع الصوت", false,
-                fix, "إصلاح");
+                fix, "إصلاح", meta);
     }
 
     public static void post(
@@ -60,7 +61,40 @@ public final class ManarNotices {
             String body,
             String subText,
             boolean silent) {
-        postInternal(context, eventId, channelKind, title, body, subText, silent, null, null);
+        postInternal(context, eventId, channelKind, title, body, subText, silent, null, null,
+                NoticeMeta.NONE);
+    }
+
+    public static void post(
+            Context context,
+            int eventId,
+            String channelKind,
+            String title,
+            String body,
+            String subText,
+            boolean silent,
+            NoticeMeta meta) {
+        postInternal(context, eventId, channelKind, title, body, subText, silent, null, null, meta);
+    }
+
+    /** معرّف إشعار الحدث — لإزالته من زرّ «صلّيت» أو «ذكّرني لاحقاً». */
+    static int notificationId(int eventId) {
+        return ID_BASE + Math.max(0, eventId);
+    }
+
+    /** نيّة فتح التطبيق على مسار (افتراضياً شاشة الصلاة لتنبيهات الصلاة). */
+    static PendingIntent openIntent(Context context, int requestCode, String route) {
+        Intent open = new Intent(context, MainActivity.class)
+                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        String safe = NoticeMeta.safeRoute(route);
+        if (!safe.isEmpty()) {
+            open.putExtra(MainActivity.EXTRA_ROUTE, safe);
+            // بيانات مميّزة لكل مسار: الإضافات وحدها لا تميّز النيّات عند المقارنة.
+            open.setData(android.net.Uri.parse("manar://open" + safe));
+        }
+        return PendingIntent.getActivity(context, requestCode, open,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     private static void postInternal(
@@ -72,7 +106,9 @@ public final class ManarNotices {
             String subText,
             boolean silent,
             PendingIntent action,
-            String actionLabel) {
+            String actionLabel,
+            NoticeMeta meta) {
+        if (meta == null) meta = NoticeMeta.NONE;
         NotificationManager nm = context.getSystemService(NotificationManager.class);
         if (nm == null) return;
         ManarChannels.ensure(context);
@@ -82,10 +118,10 @@ public final class ManarNotices {
         }
 
         String channel = ManarChannels.notice(context, channelKind);
-        Intent open = new Intent(context, MainActivity.class)
-                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent openPi = PendingIntent.getActivity(
-                context, 4, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        int id = notificationId(eventId);
+        boolean prayerChannel = !(channelKind != null && channelKind.startsWith("manar_"));
+        String route = !meta.route.isEmpty() ? meta.route : (prayerChannel ? "/prayer" : "");
+        PendingIntent openPi = openIntent(context, id, route);
 
         NotificationCompat.Builder b = new NotificationCompat.Builder(context, channel)
                 .setSmallIcon(R.drawable.ic_stat_manar)
@@ -103,9 +139,37 @@ public final class ManarNotices {
             b.setStyle(new NotificationCompat.BigTextStyle().bigText(body));
         }
         if (action != null && actionLabel != null) b.addAction(0, actionLabel, action);
+        // «صلّيت» يسجّل الصلاة دون فتح التطبيق.
+        if (meta.canMarkPrayed()) {
+            Intent prayed = new Intent(context, ManarActionReceiver.class)
+                    .setAction(ManarActionReceiver.ACTION_PRAYED)
+                    .setData(android.net.Uri.parse("manar://prayed/" + id))
+                    .putExtra(ManarActionReceiver.EXTRA_NOTIFICATION_ID, id)
+                    .putExtra(ManarActionReceiver.EXTRA_PRAYER, meta.prayer)
+                    .putExtra(ManarActionReceiver.EXTRA_DAY, meta.prayedDay);
+            b.addAction(0, "صلّيت", PendingIntent.getBroadcast(context, id, prayed,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        }
+        // «ذكّرني لاحقاً» بمستقبِلٍ أصلي — لا يفتح التطبيق.
+        if (meta.snooze > 0) {
+            Intent snooze = new Intent(context, ManarActionReceiver.class)
+                    .setAction(ManarActionReceiver.ACTION_SNOOZE)
+                    .setData(android.net.Uri.parse("manar://snooze-action/" + id))
+                    .putExtra(ManarActionReceiver.EXTRA_NOTIFICATION_ID, id)
+                    .putExtra(AdhanScheduler.EXTRA_EVENT_ID, eventId)
+                    .putExtra(AdhanService.EXTRA_TITLE, title)
+                    .putExtra(AdhanService.EXTRA_BODY, body)
+                    .putExtra(AdhanService.EXTRA_CHANNEL, channelKind)
+                    .putExtra(ManarActionReceiver.EXTRA_META, meta.toJson());
+            b.addAction(0, "ذكّرني بعد " + ManarText.minutesGen(meta.snooze),
+                    PendingIntent.getBroadcast(context, id, snooze,
+                            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        }
+        // تنبيهات الصلاة الواحدة (الأذان، الإقامة، دخول الوقت) في مجموعة واحدة.
+        if (!meta.prayer.isEmpty()) b.setGroup("manar_prayer_" + meta.prayer);
         Notification n = b.build();
         try {
-            nm.notify(ID_BASE + Math.max(0, eventId), n);
+            nm.notify(id, n);
         } catch (SecurityException e) {
             Log.w("ManarSchedule", "notification permission revoked", e);
         }

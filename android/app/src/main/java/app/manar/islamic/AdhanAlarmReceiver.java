@@ -55,8 +55,10 @@ public class AdhanAlarmReceiver extends BroadcastReceiver {
         }
         Log.i("ManarSchedule", "fire " + key + " kind=" + kind);
 
+        String metaJson = intent.getStringExtra(AdhanService.EXTRA_META);
+        NoticeMeta meta = NoticeMeta.parse(metaJson);
         if (AdhanScheduler.KIND_NOTICE.equals(kind)) {
-            ManarNotices.post(context, eventId, channel, title, body, null, false);
+            ManarNotices.post(context, eventId, channel, title, body, null, false, meta);
             return;
         }
 
@@ -70,7 +72,8 @@ public class AdhanAlarmReceiver extends BroadcastReceiver {
                     key,
                     eventId,
                     intent.getBooleanExtra(AdhanService.EXTRA_NOTICE, false),
-                    intent.getStringExtra(AdhanService.EXTRA_FOLLOW));
+                    intent.getStringExtra(AdhanService.EXTRA_FOLLOW),
+                    metaJson);
         } catch (Exception e) {
             // أندرويد ١٢+ يرفض بدء خدمة أمامية من الخلفية إن لم يكن المنبّه دقيقاً
             // ولم يُستثنَ التطبيق من تحسين البطارية — وهذا هو الوضع الافتراضي بعد
@@ -82,9 +85,9 @@ public class AdhanAlarmReceiver extends BroadcastReceiver {
                     blocked ? ManarPermissions.REASON_BACKGROUND_START : ManarPermissions.REASON_OTHER);
             String channelKind = AdhanScheduler.KIND_IQAMA.equals(kind) ? "iqama" : "adhan";
             if (blocked) {
-                ManarNotices.postPlaybackBlocked(context, eventId, channelKind, title, body);
+                ManarNotices.postPlaybackBlocked(context, eventId, channelKind, title, body, meta);
             } else {
-                ManarNotices.post(context, eventId, channelKind, title, body, null, false);
+                ManarNotices.post(context, eventId, channelKind, title, body, null, false, meta);
             }
         }
     }

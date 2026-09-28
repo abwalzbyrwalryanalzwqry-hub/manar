@@ -28,6 +28,7 @@
  * never from the network.
  */
 
+import { applyPrayed } from "@/lib/prayed-queue";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { computePrayerTimes, type LocationState, type Settings } from "@/lib/prayer";
@@ -43,6 +44,9 @@ import {
   SCHEDULE_DAYS_AHEAD,
   ADHAN_DAYS_AHEAD,
   LN_CAP,
+  DAILY_EVENT_MAX,
+  dailyEventId,
+  dateKey,
   renewPlan,
   type ManarAlarmEvent,
 } from "@/lib/prayer-schedule";
@@ -209,6 +213,8 @@ type ManarAdhanPlugin = {
   requestExactAlarmPermission: () => Promise<{ granted: boolean; opened?: boolean }>;
   requestIgnoreBatteryOptimizations: () => Promise<{ granted: boolean; opened?: boolean }>;
   openNotificationSettings: () => Promise<void>;
+  /** طابور «صلّيت» من الإشعارات (المرحلة ٢٩) — يُعاد ويُفرَّغ. */
+  takePrayed?: () => Promise<{ items: unknown }>;
   /* صوت منار */
   muteAudio: () => Promise<void>;
   audioState: () => Promise<ManarAudioSnapshot>;
@@ -392,10 +398,6 @@ const DAILY_ID_BASE = ID_BASE + 100000;
  * ألغت المزامنةُ (التي تجري فور عودة التطبيق) التذكيرَ المؤجَّل نفسه. */
 const SNOOZE_ID_BASE = DAILY_ID_BASE + 100000;
 const TEST_ID = SNOOZE_ID_BASE + 99;
-
-function dailyIdFor(dayIndex: number, reminderIndex: number) {
-  return DAILY_ID_BASE + dayIndex * 100 + reminderIndex;
-}
 
 /* تنبيهات «مواسم منار» داخل مدى التذكيرات نفسه (فتُلغى وتُعاد جدولتها معه)،
  * لكن بإزاحة لا تتقاطع مع معرّفات الأذكار والوِرد (dayIndex * 100 + ri). */
@@ -851,16 +853,36 @@ async function syncNativePrayerScheduleNow(
   /* تذكير اليوم يُتخطّى إن أُنجز عمله قبل موعده (سجل النشاط اليومي). */
   const todayLog = readLog().days[dayKey(new Date(now))];
   const done = { wird: todayLog?.wird ?? [], chapters: todayLog?.chapters };
+  /* في الجدول الأصلي منذ المرحلة ٢٩ (٣٠ يوماً): «ذكّرني لاحقاً» بمستقبِلٍ أصلي
+   * لا يفتح التطبيق، والنقر يفتح صفحة التذكير. */
   const planned = planDailyReminders(daily, {
     now,
-    days: DAYS_AHEAD,
+    days: ADHAN_DAYS_AHEAD,
     timesFor: (date) => computePrayerTimes(location, calc, date),
     done,
   });
   const dailyUrl = (r: DailyReminder) =>
     s.silentMode || !s.soundEnabled || level === 0 ? "" : toneUrl(r.tone);
+  const dailyEvents: ManarAdhanEvent[] = [];
   for (const { reminder: r, index, dayIndex, at } of planned) {
-    reminders.push(dailyNotification(r, dailyIdFor(dayIndex, index), at, dailyUrl(r), level));
+    if (index >= DAILY_EVENT_MAX) continue;
+    const day = new Date(now);
+    day.setHours(12, 0, 0, 0);
+    day.setDate(day.getDate() + dayIndex);
+    const ln = dailyNotification(r, 0, at, dailyUrl(r), level);
+    dailyEvents.push({
+      id: dailyEventId(day, index),
+      key: `daily_${index}_${dateKey(day)}`,
+      at: at.getTime(),
+      sound: "",
+      title: ln.title,
+      body: ln.body,
+      kind: "notice",
+      role: "daily",
+      prayer: "fajr",
+      channel: ln.channelId,
+      meta: { route: r.route, snooze: SNOOZE_MINUTES },
+    });
   }
 
   /* ---------- تنبيهات مواسم منار (اختيارية، محلية بالكامل) ---------- */
@@ -954,9 +976,10 @@ async function syncNativePrayerScheduleNow(
   }
 
   /* تنبيه التجديد يسبق نهاية أقصر جدولٍ فعّال، لا نهاية جدول الأذان وحده. */
-  const adhanEvents: ManarAdhanEvent[] = buildAdhan(
-    renewPlan({ lnItems: reminders.length, sakinah: readSakinah().enabled }),
-  );
+  const adhanEvents: ManarAdhanEvent[] = [
+    ...buildAdhan(renewPlan({ lnItems: reminders.length, sakinah: readSakinah().enabled })),
+    ...dailyEvents,
+  ].sort((a, b) => a.at - b.at || a.id - b.id);
 
   let scheduled = 0;
   let alarms = 0;
@@ -1215,5 +1238,56 @@ export async function cancelNativeSchedule(): Promise<void> {
     if (ours.length) await p.cancel({ notifications: ours.map((n) => ({ id: n.id })) });
   } catch {
     /* ignore */
+  }
+}
+
+/* ------------------- شاشة القفل: «صلّيت» ومسار النقر (المرحلة ٢٩) ------------------- */
+
+/**
+ * يدمج طابور «صلّيت» الأصلي في سجل النشاط. يُستدعى عند الإقلاع والعودة إلى
+ * التطبيق ومع حدث `manarPrayed` حين تكون الواجهة حيّة. يعيد عدد المسجَّل.
+ */
+export async function mergeNativePrayed(): Promise<number> {
+  const p = adhanPlugin();
+  if (!p?.takePrayed) return 0;
+  try {
+    const { items } = await p.takePrayed();
+    return applyPrayed(items);
+  } catch {
+    return 0;
+  }
+}
+
+/** مسارات يفتحها نقر إشعارٍ أصلي — داخلية فقط. */
+export function isNotificationRoute(v: unknown): v is string {
+  return (
+    typeof v === "string" &&
+    v.startsWith("/") &&
+    !v.startsWith("//") &&
+    !v.includes(":") &&
+    v.length <= 120
+  );
+}
+
+let routeListenerAttached = false;
+
+/**
+ * نقر إشعار أصلي (دخول الوقت، الإقامة، تذكير أذكار) ← مساره. الأصلي يحتفظ
+ * بالحدث حتى يُسجَّل المستمع، فيصل حتى إن فُتح التطبيق من الإغلاق.
+ */
+export async function attachNativeRouteListener(onRoute: (route: string) => void): Promise<void> {
+  const p = adhanPlugin();
+  if (!p || routeListenerAttached) return;
+  routeListenerAttached = true;
+  try {
+    await p.addListener("manarOpenRoute", (e) => {
+      const route = (e as { route?: unknown })?.route;
+      if (isNotificationRoute(route)) onRoute(route);
+    });
+    await p.addListener("manarPrayed", () => {
+      void mergeNativePrayed();
+    });
+  } catch {
+    routeListenerAttached = false;
   }
 }

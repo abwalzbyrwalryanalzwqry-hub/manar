@@ -10,7 +10,7 @@ import { useEffect } from "react";
 import { useRouter } from "@tanstack/react-router";
 
 import { isNativeApp } from "@/lib/native-shell";
-import { attachReminderTapListener } from "@/lib/native-notifications";
+import { attachNativeRouteListener, attachReminderTapListener } from "@/lib/native-notifications";
 
 export function ReminderTapBridge() {
   const router = useRouter();
@@ -18,6 +18,10 @@ export function ReminderTapBridge() {
     if (!isNativeApp()) return;
     void attachReminderTapListener((route) => {
       /* بعض الوجهات فيها استعلام (`/azkar/27?time=evening`) فتُمرَّر كرابط كامل. */
+      void router.navigate({ href: route });
+    });
+    /* إشعارات الجدول الأصلي (دخول الوقت، الإقامة، الأذكار): المسار من الأصلي. */
+    void attachNativeRouteListener((route) => {
       void router.navigate({ href: route });
     });
   }, [router]);

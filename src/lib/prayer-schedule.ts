@@ -57,6 +57,8 @@ export type AlarmRole =
   | "reminder"
   /** «تذكير الفجر» المستقلّ. */
   | "fajr_reminder"
+  /** تذكير أذكار/وِرد (يبنيه `native-notifications.ts`، معرّفه من `dailyEventId`). */
+  | "daily"
   /** «افتح منار لتجديد المواقيت» قبل نفاد الجدول المضبوط. */
   | "renew";
 
@@ -85,7 +87,25 @@ export type ManarAlarmEvent = {
   follow?: string;
   /** دقائق التنبيه قبل الصلاة (لـ`reminder` و`fajr_reminder`). */
   minutes?: number;
+  /** ما يرافق الإشعار في أندرويد (`NoticeMeta.java`). */
+  meta?: NoticeMeta;
 };
+
+/**
+ * مسار النقر، وزرّ «صلّيت» (الصلاة ويومها بصيغة سجل النشاط)، و«ذكّرني لاحقاً».
+ * يطابق `NoticeMeta.java`.
+ */
+export type NoticeMeta = {
+  route?: string;
+  prayer?: PrayerKey;
+  prayedDay?: string;
+  snooze?: number;
+};
+
+/** يوم الصلاة بصيغة سجل النشاط (`2026-09-23`). */
+export function logDayKey(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 /**
  * مدى LocalNotifications (الأذكار والوِرد، المواسم، الجمعة). كان ٧ أيام؛ صار ١٤
@@ -137,6 +157,7 @@ const ROLE_CODE: Record<AlarmRole, number> = {
   /* ١٠..١٣ بحسب خانة الدقائق في REMINDER_OPTIONS — انظر reminderSlot. */
   reminder: 10,
   fajr_reminder: 20,
+  daily: 0,
 };
 
 /** خانة ثابتة لكل مدة تنبيه (٥، ١٠، ١٥، ٣٠) — فلا يتغيّر المعرّف بترتيب الاختيار. */
@@ -177,6 +198,17 @@ export function eventKey(prayer: PrayerKey, role: AlarmRole, day: Date, minutes?
 /** رقم اليوم المحلي منذ ١٩٧٠ — مستقلّ عن الساعة وعن التوقيت الصيفي. */
 function localDayNumber(d: Date): number {
   return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000);
+}
+
+/**
+ * تذكيرات الأذكار والوِرد في الجدول الأصلي نفسه (منذ المرحلة ٢٩): الخانات
+ * ٦٠٠..٩٤٩ من كتلة اليوم، بعد خانات الصلوات (٠..٥٢٠) وقبل ٩٩٠ (تغيّر المنطقة).
+ */
+export const DAILY_EVENT_BASE = 600;
+export const DAILY_EVENT_MAX = 350;
+
+export function dailyEventId(day: Date, index: number): number {
+  return (localDayNumber(day) % 100) * 1000 + DAILY_EVENT_BASE + index;
 }
 
 /** معرّف رقمي فريد ضمن أيّ نافذة ≤ ١٠٠ يوم. */
@@ -318,6 +350,9 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
         role,
         prayer,
       });
+      /* دخول الوقت والإقامة: النقر يفتح شاشة الصلاة، و«صلّيت» يسجّلها ليومها. */
+      const prayedMeta: NoticeMeta = { route: "/prayer", prayer, prayedDay: logDayKey(day) };
+      const openPrayer: NoticeMeta = { route: "/prayer" };
 
       /* ---------------- الأذان الأول للفجر ---------------- */
       if (prayer === "fajr" && s.adhanEnabled && per.adhan && s.fajrFirstAdhanEnabled) {
@@ -329,6 +364,7 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
           title: "الأذان الأول للفجر",
           body: `${location.city} · يتبقى ${minutesAr(offset)} على أذان الفجر`,
           kind: "adhan",
+          meta: openPrayer,
         });
       }
 
@@ -343,6 +379,7 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
           body: `${location.city} · أذان ${label}`,
           kind: "adhan",
           notice: s.prayerNoticeEnabled,
+          meta: prayedMeta,
           /* التثويب يُسلسَل بعد أذان الفجر في الخدمة الأصلية نفسها (مشغّلٌ واحد). */
           ...(prayer === "fajr" && soundOn && s.fajrTathweebEnabled
             ? { follow: rawResourceName(adhanVariantUrl(s.fajrTathweebAudio)) }
@@ -357,6 +394,7 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
           body: `${location.city} · ${hhmm(adhanAt)}`,
           kind: "notice",
           channel: "adhan",
+          meta: prayedMeta,
         });
       }
 
@@ -379,6 +417,7 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
             kind: "notice",
             channel,
             minutes: m,
+            meta: openPrayer,
           });
         }
       }
@@ -393,6 +432,7 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
           kind: "notice",
           channel,
           minutes: fm,
+          meta: openPrayer,
         });
       }
 
@@ -413,6 +453,7 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
             body: `تبقى ${minutesAr(m)} على إقامة الصلاة · ${hhmm(iqamaAt)}`,
             kind: "notice",
             channel: "iqama",
+            meta: openPrayer,
           });
         }
       }
@@ -426,6 +467,7 @@ export function buildPrayerAlarms(o: BuildOptions): ManarAlarmEvent[] {
           title: `إقامة ${iqamaLabel}`,
           body: "حان موعد إقامة الصلاة الآن",
           kind: "iqama",
+          meta: prayedMeta,
         });
       }
     }
