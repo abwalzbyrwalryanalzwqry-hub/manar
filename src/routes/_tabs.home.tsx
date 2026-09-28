@@ -1,4 +1,5 @@
 import { prayerLabelOn } from "@/lib/prayer-schedule";
+import { ZoneMismatchBanner } from "@/components/manar/zone-mismatch-banner";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -20,7 +21,7 @@ import { formatSecondsAr, useDailyHadith, useDailyVerse, useLocalDay } from "@/l
 import { toggleBookmark, useBookmarks } from "@/lib/quran/bookmarks";
 import { formatRangeAr } from "@/lib/quran/format";
 import { PRAYER_LABELS, usePrayerSchedule } from "@/lib/prayer";
-import { useHijriAdjust } from "@/lib/hijri";
+import { hijriDisplayDate, useHijriAdjust } from "@/lib/hijri";
 import {
   ampmAr,
   formatCountdown,
@@ -39,7 +40,7 @@ export const Route = createFileRoute("/_tabs/home")({
 });
 
 function Home() {
-  const { adjust: hijriAdjust } = useHijriAdjust();
+  const { adjust: hijriAdjust, atMaghrib } = useHijriAdjust();
   const [sheet, setSheet] = useState(false);
   const [askedOnce, setAskedOnce] = useState(false);
   const [hadithOpen, setHadithOpen] = useState(false);
@@ -59,6 +60,7 @@ function Home() {
     next,
     remainingMs,
     progress,
+    today,
   } = usePrayerSchedule();
 
   // Auto-prompt for location once on first launch
@@ -78,6 +80,7 @@ function Home() {
   return (
     <Screen>
       <StatusBar />
+      <ZoneMismatchBanner />
 
       {/* HERO */}
       <div className="px-4 pt-3 animate-fade-up">
@@ -143,7 +146,9 @@ function Home() {
           <div className="relative mt-6 flex justify-between border-t border-white/15 pt-4">
             <div>
               <div className="text-[9px] uppercase tracking-[0.3em] text-white/50">هجري</div>
-              <div className="mt-0.5 text-sm font-medium">{formatHijriAr(now, hijriAdjust)}</div>
+              <div className="mt-0.5 text-sm font-medium">
+                {formatHijriAr(hijriDisplayDate(now, today.maghrib, atMaghrib), hijriAdjust)}
+              </div>
             </div>
             <div className="text-right">
               <div className="text-[9px] uppercase tracking-[0.3em] text-white/50">ميلادي</div>

@@ -217,6 +217,8 @@ type ManarAdhanPlugin = {
   requestExactAlarmPermission: () => Promise<{ granted: boolean; opened?: boolean }>;
   requestIgnoreBatteryOptimizations: () => Promise<{ granted: boolean; opened?: boolean }>;
   openNotificationSettings: () => Promise<void>;
+  /** إعدادات التاريخ والوقت (المرحلة ٣٣). اختياري: نسخٌ أقدم بلا الدالة. */
+  openDateSettings?: () => Promise<{ opened: boolean }>;
   /* مركز التنبيهات (المرحلة ٣٠) */
   alertLog?: () => Promise<{ events: AlertLogEvent[] }>;
   clearAlertLog?: () => Promise<void>;
@@ -551,6 +553,17 @@ export async function openNativeNotificationSettings(): Promise<void> {
     await p.openNotificationSettings();
   } catch {
     /* ignore */
+  }
+}
+
+/** يفتح إعدادات التاريخ والوقت في أندرويد؛ false خارجه أو إن تعذّر. */
+export async function openNativeDateSettings(): Promise<boolean> {
+  const p = adhanPlugin();
+  if (!p?.openDateSettings) return false;
+  try {
+    return (await p.openDateSettings()).opened;
+  } catch {
+    return false;
   }
 }
 

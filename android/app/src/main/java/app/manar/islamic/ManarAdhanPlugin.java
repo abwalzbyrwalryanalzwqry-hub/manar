@@ -508,6 +508,30 @@ public class ManarAdhanPlugin extends Plugin {
     }
 
     /**
+     * إعدادات التاريخ والوقت في النظام (المرحلة ٣٣) — حين لا تطابق منطقة الجهاز
+     * الزمنية موقعه. بعض الشركات تُخفي الشاشة، فنرجع إلى الإعدادات العامة.
+     */
+    @PluginMethod
+    public void openDateSettings(PluginCall call) {
+        Context context = getContext();
+        JSObject result = new JSObject();
+        try {
+            context.startActivity(new Intent(Settings.ACTION_DATE_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            result.put("opened", true);
+        } catch (Exception e) {
+            try {
+                context.startActivity(new Intent(Settings.ACTION_SETTINGS)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                result.put("opened", true);
+            } catch (Exception ignored) {
+                result.put("opened", false);
+            }
+        }
+        call.resolve(result);
+    }
+
+    /**
      * حالة الصوت تُبَلَّغ إلى الواجهة حين تكون حيّة، فيظهر «إيقاف الصوت» داخل
      * التطبيق بلا استطلاعٍ متكرّر ولا مؤقّت يعمل بلا حاجة.
      */

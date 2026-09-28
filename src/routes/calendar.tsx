@@ -55,7 +55,7 @@ const FASTING_TONE = {
 } as const;
 
 function CalendarScreen() {
-  const { adjust, setAdjust } = useHijriAdjust();
+  const { adjust, setAdjust, atMaghrib, setAtMaghrib } = useHijriAdjust();
   const { location } = useLocation();
   const { settings: calc } = useSettings();
 
@@ -400,6 +400,33 @@ function CalendarScreen() {
                 </button>
               ))}
             </div>
+
+            <button
+              type="button"
+              role="switch"
+              aria-checked={atMaghrib}
+              onClick={() => setAtMaghrib(!atMaghrib)}
+              className="mt-5 flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-right shadow-soft"
+            >
+              <div className="flex-1">
+                <div className="text-sm font-medium">اليوم الهجري يبدأ عند المغرب</div>
+                <div className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                  بعد غروب الشمس تعرض الرئيسية والمواقيت والويدجت تاريخ الغد الهجري. التقويم الشهري
+                  يبقى بالأيام المدنية.
+                </div>
+              </div>
+              <span
+                className={`relative h-6 w-11 shrink-0 rounded-full transition ${
+                  atMaghrib ? "gradient-primary" : "bg-muted"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                    atMaghrib ? "right-0.5" : "right-[22px]"
+                  }`}
+                />
+              </span>
+            </button>
 
             <div className="mt-5 rounded-2xl border border-border bg-secondary/40 p-4 text-center">
               <div className="text-[10px] text-muted-foreground">

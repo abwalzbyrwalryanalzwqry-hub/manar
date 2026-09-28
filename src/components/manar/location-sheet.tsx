@@ -25,7 +25,7 @@ export function LocationSheet({
   onClose: () => void;
   onPick: (loc: LocationState) => void;
   onUseGps: () => void;
-  status: "idle" | "requesting" | "granted" | "denied" | "unsupported";
+  status: "idle" | "requesting" | "granted" | "denied" | "unsupported" | "failed";
   error: string | null;
 }) {
   const [q, setQ] = useState("");
@@ -112,7 +112,7 @@ export function LocationSheet({
             <Icon d={icons.location} size={16} />
             {status === "requesting" ? "جاري تحديد الموقع…" : "استخدم موقعي الحالي"}
           </button>
-          {error && (status === "denied" || status === "unsupported") && (
+          {error && (status === "denied" || status === "unsupported" || status === "failed") && (
             <p className="mt-2 text-center text-[11px] text-destructive">
               {error} — يمكنك اختيار منطقتك يدوياً.
             </p>

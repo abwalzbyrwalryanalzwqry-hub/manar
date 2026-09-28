@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { UQ_EPOCH_DAY, UQ_FIRST_YEAR, UQ_LAST_YEAR, UQ_MONTH_BITS } from "./hijri-table";
 
 export type HijriDate = {
   year: number;
@@ -60,13 +61,53 @@ export function setHijriAdjust(value: number) {
   window.dispatchEvent(new CustomEvent(EVT_ADJUST));
 }
 
+/* ------------------------------------------------------------------ */
+/*  بداية اليوم الهجري عند المغرب (المرحلة ٣٣)                          */
+/* ------------------------------------------------------------------ */
+
+const LS_AT_MAGHRIB = "manar.hijri.at-maghrib.v1";
+
+/** اليوم الهجري يبدأ شرعاً بغروب الشمس. مطفأ افتراضياً: التقويم المدني أشيع. */
+export function getHijriAtMaghrib(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(LS_AT_MAGHRIB) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setHijriAtMaghrib(on: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    if (on) window.localStorage.setItem(LS_AT_MAGHRIB, "1");
+    else window.localStorage.removeItem(LS_AT_MAGHRIB);
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new CustomEvent(EVT_ADJUST));
+}
+
+/**
+ * التاريخ الميلادي الذي يُحوَّل لعرض «اليوم الهجري» الآن: بعد مغرب اليوم —
+ * والخيار مفعّل — هو الغد. التقويم الشهري والمناسبات تبقى بالأيام المدنية.
+ */
+export function hijriDisplayDate(now: Date, maghrib: Date | null | undefined, atMaghrib: boolean) {
+  if (!atMaghrib || !maghrib || now.getTime() < maghrib.getTime()) return now;
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 12);
+}
+
 /** يقرأ الإزاحة ويعيد الرسم عند تغييرها من أي شاشة. */
 export function useHijriAdjust() {
   // نبدأ من 0 على الخادم وفي أول رسم حتى يتطابق الترطيب، ثم نقرأ المحفوظ.
   const [adjust, setAdjust] = useState<HijriAdjust>(0);
+  const [atMaghrib, setAtMaghribState] = useState(false);
 
   useEffect(() => {
-    const sync = () => setAdjust(getHijriAdjust());
+    const sync = () => {
+      setAdjust(getHijriAdjust());
+      setAtMaghribState(getHijriAtMaghrib());
+    };
     sync();
     window.addEventListener(EVT_ADJUST, sync);
     window.addEventListener("storage", sync);
@@ -76,7 +117,12 @@ export function useHijriAdjust() {
     };
   }, []);
 
-  return { adjust, setAdjust: (v: number) => setHijriAdjust(v) };
+  return {
+    adjust,
+    setAdjust: (v: number) => setHijriAdjust(v),
+    atMaghrib,
+    setAtMaghrib: (on: boolean) => setHijriAtMaghrib(on),
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -116,6 +162,14 @@ function shiftDays(date: Date, days: number): Date {
  */
 export function toHijri(date: Date, adjust: number = 0): HijriDate {
   const target = shiftDays(utcNoon(date), adjust);
+  if (hijriEngine() === "table") {
+    const fromTable = tableHijri(Math.floor(target.getTime() / MS_PER_DAY));
+    if (fromTable) return fromTable;
+  }
+  return intlHijri(target);
+}
+
+function intlHijri(target: Date): HijriDate {
   const parts = hijriFormatter().formatToParts(target);
   let year = 0;
   let month = 1;
@@ -126,6 +180,82 @@ export function toHijri(date: Date, adjust: number = 0): HijriDate {
     else if (p.type === "day") day = Number(p.value.replace(/[^\d]/g, ""));
   }
   return { year, month, day };
+}
+
+/* ------------------------------------------------------------------ */
+/*  الجدول الاحتياطي (المرحلة ٣٣)                                      */
+/* ------------------------------------------------------------------ */
+
+/* بعض WebView في أندرويد تُشحن ببيانات ICU مختصرة: `Intl` يقبل
+ * «islamic-umalqura» ولا يرمي خطأً، لكنه يُرجع التاريخ الميلادي بصمت (السنة
+ * ٢٠٢٦ بدل ١٤٤٨). فنفحص المحرّك مرة واحدة على تواريخ معروفة، ونستعمل جدول أم
+ * القرى المضمَّن (`hijri-table.ts`، مولَّد من ICU نفسه) إن لم يطابق. */
+
+let monthLengths: Uint8Array | null = null;
+let monthStarts: Int32Array | null = null;
+
+function decodeTable(): { starts: Int32Array; count: number } {
+  if (!monthStarts) {
+    const bin = atob(UQ_MONTH_BITS);
+    const count = (UQ_LAST_YEAR - UQ_FIRST_YEAR + 1) * 12;
+    monthLengths = new Uint8Array(count);
+    monthStarts = new Int32Array(count + 1);
+    monthStarts[0] = UQ_EPOCH_DAY;
+    for (let i = 0; i < count; i++) {
+      const bit = (bin.charCodeAt(i >> 3) >> (i & 7)) & 1;
+      monthLengths[i] = bit ? 30 : 29;
+      monthStarts[i + 1] = monthStarts[i] + monthLengths[i];
+    }
+  }
+  return { starts: monthStarts, count: monthStarts.length - 1 };
+}
+
+/** يوم UTC (أيام منذ ١٩٧٠) → هجري من الجدول، أو null خارج ١٣٠٠–١٦٠٠هـ. */
+export function tableHijri(epochDay: number): HijriDate | null {
+  const { starts, count } = decodeTable();
+  if (epochDay < starts[0] || epochDay >= starts[count]) return null;
+  let lo = 0;
+  let hi = count - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (starts[mid] <= epochDay) lo = mid;
+    else hi = mid - 1;
+  }
+  return {
+    year: UQ_FIRST_YEAR + Math.floor(lo / 12),
+    month: (lo % 12) + 1,
+    day: epochDay - starts[lo] + 1,
+  };
+}
+
+/** تواريخ مرجعية: ١ محرّم ١٤٤٧ = ٢٦ يونيو ٢٠٢٥، ١ رمضان ١٤٤٧ = ١٨ فبراير ٢٠٢٦. */
+const PROBES: [number, HijriDate][] = [
+  [Date.UTC(2025, 5, 26, 12), { year: 1447, month: 1, day: 1 }],
+  [Date.UTC(2026, 1, 18, 12), { year: 1447, month: 9, day: 1 }],
+];
+
+let engine: "intl" | "table" | null = null;
+
+/** أيّ محرّك يحسب الهجري على هذا الجهاز. يُفحص مرة واحدة. */
+export function hijriEngine(): "intl" | "table" {
+  if (engine) return engine;
+  try {
+    const ok = PROBES.every(([t, want]) => {
+      const got = intlHijri(new Date(t));
+      return got.year === want.year && got.month === want.month && got.day === want.day;
+    });
+    engine = ok ? "intl" : "table";
+  } catch {
+    engine = "table";
+  }
+  if (engine === "table") console.warn("[manar] Intl لا يدعم أم القرى هنا — الجدول المضمَّن");
+  return engine;
+}
+
+/** للاختبارات فقط: فرض محرّك (أو null لإعادة الفحص). */
+export function __setHijriEngineForTests(e: "intl" | "table" | null) {
+  engine = e;
+  formatter = null;
 }
 
 /* ------------------------------------------------------------------ */

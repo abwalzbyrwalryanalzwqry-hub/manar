@@ -23,7 +23,7 @@ import { useWidgetOptions, WIDGET_REFRESH_EVENT } from "@/lib/widget-settings";
 export function WidgetSync() {
   const { location } = useLocation();
   const { settings } = useSettings();
-  const { adjust: hijriAdjust } = useHijriAdjust();
+  const { adjust: hijriAdjust, atMaghrib } = useHijriAdjust();
   const day = useLocalDay();
   const { options } = useWidgetOptions();
   /* «تحديث الويدجت الآن» من شاشة الويدجت: يزيد العدّاد فيُعاد بناء اللقطة. */
@@ -61,6 +61,7 @@ export function WidgetSync() {
         settings,
         from,
         hijriAdjust,
+        hijriAtMaghrib: atMaghrib,
         verses,
         options,
       });
@@ -73,7 +74,7 @@ export function WidgetSync() {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [location, settings, hijriAdjust, day, options, refreshTick]);
+  }, [location, settings, hijriAdjust, atMaghrib, day, options, refreshTick]);
 
   return null;
 }
