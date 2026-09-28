@@ -2,6 +2,10 @@
  *
  * تجمع بين القاعدة العربية الكاملة (`arab-places.ts`) والمدن العالمية
  * (`cities.ts`) في فهرس واحد مسطّح، وتبنيه مرةً واحدةً عند أول استعمال.
+ *
+ * وقاعدة المدن العالمية الكبرى (`world-cities.ts`، نحو ٢٣٠٠ مدينة من GeoNames
+ * بمنطقتها الزمنية) تُحمَّل كسولاً بـ`loadWorldCities()` — ٤٧ ك.ب مضغوطة لا
+ * يحتاجها من لم يفتح البحث ولم يطلب GPS.
  */
 
 import { ARAB_COUNTRIES } from "@/lib/arab-places";
@@ -24,6 +28,8 @@ export type Place = {
   countryKey: string;
   /** السكان بالآلاف — لترتيب البحث وترجيح الاستدلال العكسي. */
   pop: number;
+  /** منطقة IANA الزمنية حين يعرفها المصدر (المدن العالمية). */
+  tz?: string;
 };
 
 /**
@@ -55,6 +61,48 @@ function stripAl(s: string): string {
 }
 
 let cache: Place[] | null = null;
+let world: Place[] | null = null;
+let worldLoading: Promise<void> | null = null;
+
+/** هل حُمّلت قاعدة المدن العالمية؟ */
+export function worldCitiesLoaded(): boolean {
+  return world !== null;
+}
+
+/**
+ * يحمّل قاعدة المدن العالمية مرةً واحدة ويضمّها إلى الفهرس. آمنة للاستدعاء
+ * المتكرّر؛ وإن فشل التحميل (نادر في حزمة محلية) بقي الفهرس الأساسي يعمل.
+ */
+export function loadWorldCities(): Promise<void> {
+  if (world) return Promise.resolve();
+  worldLoading ??= import("@/lib/world-cities")
+    .then((m) => {
+      const countries = m.WORLD_COUNTRIES.map(([, name]) => ({ name, key: normalizeAr(name) }));
+      world = m.WORLD_CITIES.map(([name, lat, lng, pop, ci, ti]) => ({
+        city: name,
+        country: countries[ci].name,
+        lat,
+        lng,
+        kind: "city" as const,
+        key: normalizeAr(name),
+        countryKey: countries[ci].key,
+        pop,
+        tz: m.WORLD_TIME_ZONES[ti],
+      }));
+      cache = null;
+    })
+    .catch(() => {
+      worldLoading = null;
+    });
+  return worldLoading;
+}
+
+/** للاختبارات فقط: يعيد الفهرس إلى ما قبل تحميل المدن العالمية. */
+export function __resetWorldCitiesForTests(): void {
+  world = null;
+  worldLoading = null;
+  cache = null;
+}
 
 export function allPlaces(): Place[] {
   if (cache) return cache;
@@ -110,6 +158,29 @@ export function allPlaces(): Place[] {
     });
   }
 
+  /* المدن العالمية الكبرى: ما طابق مدينةً مضمَّنة (الاسم نفسه على بُعد أقلّ من
+   * ٥٠ كم) لا يتكرّر، بل يمنحها منطقته الزمنية. وأسماء الدول قد تختلف بين
+   * القاعدتين («أمريكا» و«الولايات المتحدة»)، فالمطابقة بالمسافة لا بالدولة. */
+  if (world) {
+    const byKey = new Map<string, Place[]>();
+    for (const p of out) {
+      const list = byKey.get(p.key);
+      if (list) list.push(p);
+      else byKey.set(p.key, [p]);
+    }
+    for (const w of world) {
+      const dup = byKey.get(w.key)?.find((p) => haversineKm(p.lat, p.lng, w.lat, w.lng) < 50);
+      if (dup) {
+        if (!dup.tz && dup.kind === "city") dup.tz = w.tz;
+        /* ووزنها الافتراضي (٥٠٠ ألف) يُستبدل بسكانها الحقيقيين، فلا تسبق
+         * «لوساكا» «لوس أنجلوس» في البحث. */
+        if (dup.kind === "city") dup.pop = Math.max(dup.pop, w.pop);
+        continue;
+      }
+      out.push({ ...w });
+    }
+  }
+
   cache = out;
   return out;
 }
@@ -156,7 +227,14 @@ export function searchPlaces(query: string, limit = 60): Place[] {
 }
 
 export function toLocation(p: Place, source: LocationState["source"] = "manual"): LocationState {
-  return { city: p.city, country: p.country, lat: p.lat, lng: p.lng, source };
+  return {
+    city: p.city,
+    country: p.country,
+    lat: p.lat,
+    lng: p.lng,
+    source,
+    ...(p.tz ? { tz: p.tz } : {}),
+  };
 }
 
 /* --------------------- الاستدلال العكسي دون إنترنت --------------------- */

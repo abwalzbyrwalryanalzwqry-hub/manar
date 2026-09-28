@@ -7,7 +7,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   // مولَّد آلياً من GeoNames — سطر واحد ضخم، لا معنى لتدقيق تنسيقه
-  { ignores: ["dist", ".output", ".vinxi", "src/lib/arab-places.ts"] },
+  { ignores: ["dist", ".output", ".vinxi", "src/lib/arab-places.ts", "src/lib/world-cities.ts"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

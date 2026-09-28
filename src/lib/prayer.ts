@@ -393,11 +393,14 @@ export function useLocation() {
         /* أولاً بلا إنترنت: نسمّي الموقع من القاعدة المضمَّنة (٣٤٣ محافظة
          * و٢٤٢٨ مدينة عربية)، فيعمل التحديد التلقائي كاملاً في وضع الطيران
          * أو بشبكة ضعيفة. ثم نُحسّن الاسم عبر الشبكة إن كانت متاحة فعلاً. */
-        const { nearestPlace } = await import("@/lib/places");
+        const { nearestPlace, loadWorldCities } = await import("@/lib/places");
+        /* المدن العالمية الكبرى تسمّي الموقع خارج العالم العربي وتعطيه منطقته
+         * الزمنية الدقيقة حتى في الدول متعدّدة المناطق. */
+        await loadWorldCities();
         const near = nearestPlace(pos.coords.latitude, pos.coords.longitude);
         let city = near?.city ?? "موقعي الحالي";
         let country = near?.country ?? location.country;
-        let tz: string | undefined;
+        let tz: string | undefined = near?.tz;
         const online = typeof navigator === "undefined" || navigator.onLine !== false;
         if (online) {
           try {
@@ -413,7 +416,8 @@ export function useLocation() {
               city = a.city || a.town || a.village || a.county || a.state || city;
               country = a.country || country;
               const { timeZoneForCountryCode } = await import("@/lib/place-timezone");
-              tz = timeZoneForCountryCode(a.country_code) ?? undefined;
+              /* منطقة المدينة القريبة أدقّ من منطقة الدولة (أمريكا، روسيا…). */
+              tz = tz ?? timeZoneForCountryCode(a.country_code) ?? undefined;
             }
           } catch {
             /* keep the offline city name */
