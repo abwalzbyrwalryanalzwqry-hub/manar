@@ -18,6 +18,9 @@ import { requestNotificationPermission } from "@/components/manar/adhan-provider
 import { adhanVariantLabel } from "@/lib/adhan-sound";
 import { play } from "@/lib/audio-engine";
 import { isNativeShell } from "@/lib/native-notifications";
+import { missingPermissions, verdictMessage } from "@/lib/alert-permissions";
+import { AlertPermissionRows } from "@/components/manar/alert-permissions-card";
+import { useAlertPermissions } from "@/lib/use-alert-permissions";
 import {
   PRAYER_APPROACH_CLIPS,
   PRAYER_APPROACH_SOUNDS,
@@ -33,9 +36,13 @@ function Notifications() {
   const { settings, update, updateDeep } = useAdhanSettings();
   const [perm, setPerm] = useState<NotificationPermission | "unsupported">("default");
   const [showPermSheet, setShowPermSheet] = useState(false);
+  /* داخل أندرويد: الأذونات من النظام نفسه. واجهة `Notification` غير موجودة في
+   * WebView، فكانت البطاقة تقول هناك «المتصفح لا يدعم الإشعارات». */
+  const { perms: nativePerms, refresh: refreshPerms } = useAlertPermissions();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (isNativeShell()) return;
     if (!("Notification" in window)) {
       setPerm("unsupported");
       return;
@@ -88,31 +95,57 @@ function Notifications() {
       <div className="px-4 animate-fade-up">
         <div className="gradient-hero relative overflow-hidden rounded-[28px] p-5 text-white shadow-elegant">
           <Arabesque className="absolute -left-10 -top-10 h-56 w-56 text-white/15" />
-          <div className="relative flex items-center gap-4">
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15">
-              <Icon d={icons.bell} size={22} />
-            </span>
-            <div className="flex-1">
-              <div className="font-display text-base">إذن الإشعارات</div>
-              <div className="text-[11px] text-white/70">
-                {perm === "granted" && "مفعّل — ستصلك تنبيهات الأذان والإقامة"}
-                {perm === "denied" && "تم رفض الإذن — فعّله من إعدادات المتصفح"}
-                {perm === "default" && "لم يتم منح الإذن بعد"}
-                {perm === "unsupported" && "المتصفح لا يدعم الإشعارات"}
+          {nativePerms ? (
+            <div className="relative">
+              <div className="flex items-center gap-4">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15">
+                  <Icon d={icons.bell} size={22} />
+                </span>
+                <div className="flex-1">
+                  <div className="font-display text-base">أذونات التنبيه</div>
+                  <div className="text-[11px] leading-relaxed text-white/80">
+                    {verdictMessage(nativePerms) ??
+                      (missingPermissions(nativePerms).length
+                        ? "الأذان يصل في وقته — ويُستحسن استثناء منار من تحسين البطارية"
+                        : "كل شيء جاهز — يصل الأذان والتنبيهات والتطبيق مغلق")}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4">
+                <AlertPermissionRows
+                  perms={nativePerms}
+                  tone="hero"
+                  onChanged={() => void refreshPerms()}
+                />
               </div>
             </div>
-            {perm === "default" && (
-              <button
-                onClick={() => setShowPermSheet(true)}
-                className="rounded-full bg-white/20 px-3 py-1.5 text-[11px] backdrop-blur"
-              >
-                تفعيل
-              </button>
-            )}
-            {perm === "granted" && (
-              <span className="rounded-full bg-white/20 px-3 py-1 text-[10px]">✓ مفعّل</span>
-            )}
-          </div>
+          ) : (
+            <div className="relative flex items-center gap-4">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15">
+                <Icon d={icons.bell} size={22} />
+              </span>
+              <div className="flex-1">
+                <div className="font-display text-base">إذن الإشعارات</div>
+                <div className="text-[11px] text-white/70">
+                  {perm === "granted" && "مفعّل — تصلك التنبيهات والصفحة مفتوحة في المتصفح"}
+                  {perm === "denied" && "تم رفض الإذن — فعّله من إعدادات المتصفح"}
+                  {perm === "default" && "لم يتم منح الإذن بعد"}
+                  {perm === "unsupported" && "المتصفح لا يدعم الإشعارات"}
+                </div>
+              </div>
+              {perm === "default" && (
+                <button
+                  onClick={() => setShowPermSheet(true)}
+                  className="rounded-full bg-white/20 px-3 py-1.5 text-[11px] backdrop-blur"
+                >
+                  تفعيل
+                </button>
+              )}
+              {perm === "granted" && (
+                <span className="rounded-full bg-white/20 px-3 py-1 text-[10px]">✓ مفعّل</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -401,7 +434,7 @@ function Notifications() {
                 <span className="mt-1 text-primary">
                   <Icon d={icons.check} size={14} />
                 </span>{" "}
-                يعمل بدون اتصال بالإنترنت
+                يعمل بدون اتصال بالإنترنت، والصفحة مفتوحة في المتصفح
               </li>
             </ul>
             <div className="flex gap-2">

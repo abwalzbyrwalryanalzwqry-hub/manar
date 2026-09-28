@@ -30,6 +30,28 @@ public final class ManarNotices {
 
     private ManarNotices() {}
 
+    /** طلب «إصلاح» في إشعار تعذّر التشغيل — بعيد عن طلب فتح التطبيق (4). */
+    private static final int REQUEST_FIX = 5;
+
+    /**
+     * إشعار الصلاة حين منع النظام صوت الأذان: العنوان نفسه، وسطر يشرح السبب،
+     * وزرّ «إصلاح» يفتح شاشة «المنبّهات والتذكيرات» لمنار.
+     */
+    public static void postPlaybackBlocked(
+            Context context, int eventId, String channelKind, String title, String body) {
+        String why = "لم يُشغَّل صوت "
+                + ("iqama".equals(channelKind) ? "الإقامة" : "الأذان")
+                + ": اسمح لمنار بالمنبّهات الدقيقة.";
+        String text = body == null || body.isEmpty() ? why : body + "\n" + why;
+        PendingIntent fix = PendingIntent.getActivity(
+                context,
+                REQUEST_FIX,
+                ManarPermissions.exactAlarmSettingsIntent(context),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        postInternal(context, eventId, channelKind, title, text, "لم يُسمع الصوت", false,
+                fix, "إصلاح");
+    }
+
     public static void post(
             Context context,
             int eventId,
@@ -38,6 +60,19 @@ public final class ManarNotices {
             String body,
             String subText,
             boolean silent) {
+        postInternal(context, eventId, channelKind, title, body, subText, silent, null, null);
+    }
+
+    private static void postInternal(
+            Context context,
+            int eventId,
+            String channelKind,
+            String title,
+            String body,
+            String subText,
+            boolean silent,
+            PendingIntent action,
+            String actionLabel) {
         NotificationManager nm = context.getSystemService(NotificationManager.class);
         if (nm == null) return;
         ManarChannels.ensure(context);
@@ -64,6 +99,10 @@ public final class ManarNotices {
                 .setSilent(silent)
                 .setAutoCancel(true);
         if (subText != null && !subText.isEmpty()) b.setSubText(subText);
+        if (body != null && body.contains("\n")) {
+            b.setStyle(new NotificationCompat.BigTextStyle().bigText(body));
+        }
+        if (action != null && actionLabel != null) b.addAction(0, actionLabel, action);
         Notification n = b.build();
         try {
             nm.notify(ID_BASE + Math.max(0, eventId), n);

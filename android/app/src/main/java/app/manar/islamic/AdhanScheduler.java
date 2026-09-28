@@ -52,6 +52,8 @@ public final class AdhanScheduler {
     private static final String KEY_EVENTS = "events";
     private static final String KEY_FIRED = "fired";
     private static final String KEY_LAST_SCHEDULED = "last_scheduled";
+    private static final String KEY_FAILED_AT = "playback_failed_at";
+    private static final String KEY_FAILED_REASON = "playback_failed_reason";
     /** كم مفتاحاً مُطلَقاً نتذكّر — أكثر من يومين من الأحداث بهامشٍ واسع. */
     private static final int FIRED_MEMORY = 96;
 
@@ -287,6 +289,25 @@ public final class AdhanScheduler {
         if (key == null) return null;
         for (Event e : restore(context)) if (key.equals(e.key)) return e;
         return null;
+    }
+
+    /**
+     * يُسجَّل تعذّر تشغيل صوت الأذان أو الإقامة، فتعرضه بطاقة الحالة بسببه بدل
+     * أن يمرّ صامتاً. {@code commit}: نحن داخل مستقبِل قد يُنهى بعده مباشرة.
+     */
+    public static void recordPlaybackFailure(Context context, String reason) {
+        prefs(context).edit()
+                .putLong(KEY_FAILED_AT, System.currentTimeMillis())
+                .putString(KEY_FAILED_REASON, reason == null ? "" : reason)
+                .commit();
+    }
+
+    public static long playbackFailedAt(Context context) {
+        return prefs(context).getLong(KEY_FAILED_AT, 0L);
+    }
+
+    public static String playbackFailedReason(Context context) {
+        return prefs(context).getString(KEY_FAILED_REASON, "");
     }
 
     public static long lastScheduledAt(Context context) {

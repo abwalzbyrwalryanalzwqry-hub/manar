@@ -4,7 +4,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
-import android.os.PowerManager;
 import android.provider.Settings;
 
 import com.getcapacitor.JSObject;
@@ -413,6 +412,11 @@ public class ManarAdhanPlugin extends Plugin {
             result.put("nextKey", next.key);
             result.put("nextAt", next.atMillis);
         }
+        long failedAt = AdhanScheduler.playbackFailedAt(context);
+        if (failedAt > 0) {
+            result.put("playbackFailedAt", failedAt);
+            result.put("playbackFailedReason", AdhanScheduler.playbackFailedReason(context));
+        }
         result.put("sdk", Build.VERSION.SDK_INT);
         call.resolve(result);
     }
@@ -521,9 +525,7 @@ public class ManarAdhanPlugin extends Plugin {
     }
 
     private static boolean isIgnoringBatteryOptimizations(Context context) {
-        PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-        if (pm == null) return false;
-        return pm.isIgnoringBatteryOptimizations(context.getPackageName());
+        return ManarPermissions.batteryUnrestricted(context);
     }
 
     private static void openAppSettings(Context context) {

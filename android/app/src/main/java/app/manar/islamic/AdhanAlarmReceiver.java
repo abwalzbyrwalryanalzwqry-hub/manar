@@ -71,17 +71,20 @@ public class AdhanAlarmReceiver extends BroadcastReceiver {
                     eventId,
                     intent.getBooleanExtra(AdhanService.EXTRA_NOTICE, false));
         } catch (Exception e) {
-            // أندرويد ١٢+ قد يرفض بدء خدمة أمامية من الخلفية إن لم يكن المنبّه
-            // دقيقاً (إذن المنبّهات مسحوب). لا انهيار: يبقى التنبيه المكتوب.
+            // أندرويد ١٢+ يرفض بدء خدمة أمامية من الخلفية إن لم يكن المنبّه دقيقاً
+            // ولم يُستثنَ التطبيق من تحسين البطارية — وهذا هو الوضع الافتراضي بعد
+            // تثبيت جديد على أندرويد ١٤+. لا انهيار، ولا صمتٌ مبهم: إشعار يقول
+            // لماذا لم يُسمع الأذان، بزرّ يفتح شاشة الإذن مباشرة.
             Log.e("ManarSchedule", "could not start playback for " + key, e);
-            ManarNotices.post(
-                    context,
-                    eventId,
-                    AdhanScheduler.KIND_IQAMA.equals(kind) ? "iqama" : "adhan",
-                    title,
-                    body,
-                    null,
-                    false);
+            boolean blocked = !ManarPermissions.canStartPlaybackFromAlarm(context);
+            AdhanScheduler.recordPlaybackFailure(context,
+                    blocked ? ManarPermissions.REASON_BACKGROUND_START : ManarPermissions.REASON_OTHER);
+            String channelKind = AdhanScheduler.KIND_IQAMA.equals(kind) ? "iqama" : "adhan";
+            if (blocked) {
+                ManarNotices.postPlaybackBlocked(context, eventId, channelKind, title, body);
+            } else {
+                ManarNotices.post(context, eventId, channelKind, title, body, null, false);
+            }
         }
     }
 }

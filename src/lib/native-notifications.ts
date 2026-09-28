@@ -79,6 +79,12 @@ import {
   type SeasonSoundId,
 } from "@/lib/seasons/sounds";
 import { seasonIdFromNotificationTap } from "@/lib/seasons/notification-route";
+import {
+  normalizeDisplayPermission,
+  type AlertPermissions,
+  type NotificationPermissionState,
+} from "@/lib/alert-permissions";
+import { staleIds } from "@/lib/schedule-diff";
 
 type LocalNotificationsPlugin = {
   requestPermissions: () => Promise<{ display: string }>;
@@ -118,6 +124,9 @@ export type NativeAdhanStatus = {
   lastScheduledAt?: number;
   nextKey?: string;
   nextAt?: number;
+  /** آخر مرة تعذّر فيها تشغيل صوت الأذان أو الإقامة (ميلي ثانية)، وسببها. */
+  playbackFailedAt?: number;
+  playbackFailedReason?: string;
 };
 
 /** نتيجة آخر مزامنة للجدول — تعرضها الواجهة في بطاقة الحالة. */
@@ -406,6 +415,10 @@ function idFor(dayIndex: number, prayerIndex: number, kind: number, extra = 0) {
 /** اسم مورد أندرويد لصوت مضمَّن — التحويل نفسه في `sync-android-raw-audio.mjs`. */
 export const rawResourceName = rawName;
 
+/**
+ * يطلب إذن الإشعارات — لا يُستدعى إلا من فعلٍ صريح للمستخدم (زرّ، تجربة، شريحة
+ * التعريف). المزامنة لا تطلبه أبداً: كانت تطلبه مع كل فتح بلا سياق.
+ */
 export async function ensureNativePermission(): Promise<boolean> {
   const p = plugin();
   if (!p) return false;
@@ -417,6 +430,56 @@ export async function ensureNativePermission(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** حالة إذن الإشعارات دون طلبه. */
+export async function notificationPermission(): Promise<NotificationPermissionState> {
+  const p = plugin();
+  if (!p) return "unsupported";
+  try {
+    return normalizeDisplayPermission((await p.checkPermissions()).display);
+  } catch {
+    return "unsupported";
+  }
+}
+
+/**
+ * «السماح بالإشعارات»: يطلب الإذن إن كان النظام ما زال يعرض الحوار، وإلا
+ * (رُفض من قبل أو حظره النظام) يفتح إعدادات إشعارات منار مباشرة.
+ */
+export async function requestNotificationAccess(): Promise<NotificationPermissionState> {
+  const before = await notificationPermission();
+  if (before === "granted" || before === "unsupported") return before;
+  if (before === "prompt") {
+    const p = plugin();
+    try {
+      const r = normalizeDisplayPermission((await p!.requestPermissions()).display);
+      if (r === "granted") return r;
+    } catch {
+      /* نفتح الإعدادات أدناه */
+    }
+  }
+  await openNativeNotificationSettings();
+  return notificationPermission();
+}
+
+/** الأذونات الثلاثة معاً (داخل أندرويد فقط). */
+export async function readAlertPermissions(): Promise<AlertPermissions | null> {
+  if (!isNativeShell()) return null;
+  const [notifications, status] = await Promise.all([
+    notificationPermission(),
+    nativeAdhanStatus(),
+  ]);
+  if (!status) return null;
+  return {
+    notifications:
+      status.notificationsAllowed === false && notifications === "granted"
+        ? "denied"
+        : notifications,
+    exactAlarms: status.exactAlarms,
+    batteryUnrestricted: status.batteryUnrestricted,
+    sdk: status.sdk,
+  };
 }
 
 /** Exact-alarm + battery state, so the UI can nudge the user when needed. */
@@ -696,14 +759,25 @@ async function registerActions(p: LocalNotificationsPlugin) {
  * @returns the number of scheduled items (adhan + iqama + reminders).
  */
 let syncChain: Promise<unknown> = Promise.resolve();
+/* طلبٌ ينتظر دوره ولم يبدأ بعد: الطلبات اللاحقة تنضمّ إليه بأحدث المعاملات
+ * بدل أن تصطفّ خلفه. العودة إلى التطبيق كانت تُطلق ثلاث مزامنات متتالية. */
+let queued: { location: LocationState; calc: Settings; run: Promise<number> } | null = null;
 
-/* المزامنة تُلغي المُجدوَل ثم تُعيد جدولته؛ مزامنتان متداخلتان قد تُلغي إحداهما
- * ما جدولته الأخرى. نُسلسلها في طابور واحد. */
+/* مزامنتان متداخلتان قد تُلغي إحداهما ما جدولته الأخرى، فتُسلسَل في طابور واحد،
+ * ويُدمج كل ما يصل قبل أن يبدأ الدور التالي في مزامنة واحدة. */
 export function syncNativePrayerSchedule(location: LocationState, calc: Settings): Promise<number> {
-  const run = syncChain.then(
-    () => syncNativePrayerScheduleNow(location, calc),
-    () => syncNativePrayerScheduleNow(location, calc),
-  );
+  if (queued) {
+    queued.location = location;
+    queued.calc = calc;
+    return queued.run;
+  }
+  const start = () => {
+    const args = queued!;
+    queued = null;
+    return syncNativePrayerScheduleNow(args.location, args.calc);
+  };
+  const run = syncChain.then(start, start);
+  queued = { location, calc, run };
   syncChain = run.catch(() => 0);
   return run;
 }
@@ -732,8 +806,9 @@ async function syncNativePrayerScheduleNow(
       /* نسخة أصلية أقدم بلا هذه الدالة: يبقى التشغيل بكامل الصوت كما كان */
     }
   }
-  if (!(await ensureNativePermission())) return 0;
-
+  /* لا شرط على إذن الإشعارات هنا: الأذان يُسمع بلا هذا الإذن، وكان رفضه يُبقي
+   * جدولاً قديماً يعمل ٣٠ يوماً (أذانٌ أُطفئ يظلّ يُسمع). التذكيرات تُضبط كذلك،
+   * فتظهر بمجرد منح الإذن، ويُلغى منها ما لم يعد مطلوباً. */
   const p = plugin();
   const level = notificationLevel(s);
   if (p) await registerActions(p);
@@ -902,15 +977,14 @@ async function syncNativePrayerScheduleNow(
   }
 
   if (p) {
-    // Clear our previous reminder notifications only (ids in our own range).
+    /* الجديد أولاً ثم حذف ما لم يعد مطلوباً: ضبطُ معرّفٍ قائم يستبدله. كان
+     * «إلغاء الكل ثم الضبط» يُسقط التذكيرات كلها إن أنهى النظام التطبيق بين
+     * الخطوتين. */
+    let pendingIds: number[] | null = null;
     try {
-      const pending = await p.getPending();
-      const ours = pending.notifications.filter(
-        (n) => n.id >= ID_BASE && n.id < DAILY_ID_BASE + 100000,
-      );
-      if (ours.length) await p.cancel({ notifications: ours.map((n) => ({ id: n.id })) });
+      pendingIds = (await p.getPending()).notifications.map((n) => n.id);
     } catch {
-      /* ignore */
+      pendingIds = null;
     }
     if (reminders.length) {
       try {
@@ -918,6 +992,17 @@ async function syncNativePrayerScheduleNow(
         scheduled += reminders.length;
       } catch {
         /* ignore */
+      }
+    }
+    if (pendingIds) {
+      const nextIds = reminders.map((r) => (r as { id: number }).id);
+      const stale = staleIds(pendingIds, nextIds, ID_BASE, SNOOZE_ID_BASE);
+      if (stale.length) {
+        try {
+          await p.cancel({ notifications: stale.map((id) => ({ id })) });
+        } catch {
+          /* ignore */
+        }
       }
     }
   }
