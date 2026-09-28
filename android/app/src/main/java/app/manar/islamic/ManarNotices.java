@@ -81,7 +81,7 @@ public final class ManarNotices {
             return;
         }
 
-        String channel = "iqama".equals(channelKind) ? ManarChannels.IQAMA : ManarChannels.ADHAN;
+        String channel = ManarChannels.notice(context, channelKind);
         Intent open = new Intent(context, MainActivity.class)
                 .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent openPi = PendingIntent.getActivity(

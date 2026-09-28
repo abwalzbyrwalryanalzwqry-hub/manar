@@ -69,7 +69,8 @@ public class AdhanAlarmReceiver extends BroadcastReceiver {
                     kind,
                     key,
                     eventId,
-                    intent.getBooleanExtra(AdhanService.EXTRA_NOTICE, false));
+                    intent.getBooleanExtra(AdhanService.EXTRA_NOTICE, false),
+                    intent.getStringExtra(AdhanService.EXTRA_FOLLOW));
         } catch (Exception e) {
             // أندرويد ١٢+ يرفض بدء خدمة أمامية من الخلفية إن لم يكن المنبّه دقيقاً
             // ولم يُستثنَ التطبيق من تحسين البطارية — وهذا هو الوضع الافتراضي بعد

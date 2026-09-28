@@ -34,6 +34,18 @@ public final class ManarVolumes {
                 .apply();
     }
 
+    /** إعداد «الاهتزاز» في منار: يحكم اهتزاز الأذان والإقامة وتنبيهاتهما المكتوبة. */
+    public static void saveVibrate(Context context, boolean vibrate) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("vibrate", vibrate)
+                .apply();
+    }
+
+    public static boolean vibrate(Context context) {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("vibrate", true);
+    }
+
     /** هل يرفع منار صوت المنبّه في الجوال مؤقتاً وقت الأذان والإقامة؟ */
     public static boolean raiseAlarm(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("raiseAlarm", false);

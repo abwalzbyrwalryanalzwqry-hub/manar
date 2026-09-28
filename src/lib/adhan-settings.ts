@@ -139,6 +139,8 @@ export type AdhanSettings = {
   fajrTathweebEnabled: boolean;
   fajrTathweebAudio: AdhanVariant; // dedicated audio for tathweeb
   fajrReminderEnabled: boolean;
+  /** دقائق «تذكير الفجر» قبل أذان الفجر (FAJR_REMINDER_OPTIONS). */
+  fajrReminderMinutes: number;
 
   /* Reminders */
   remindersEnabled: boolean;
@@ -209,7 +211,10 @@ const DEFAULTS: AdhanSettings = {
   fajrSecondAdhanAudio: "asset:fajr-dossary-second",
   fajrTathweebEnabled: true,
   fajrTathweebAudio: "asset:tathweeb-madinah",
-  fajrReminderEnabled: true,
+  /* كان المفتاح ظاهراً مفعّلاً ولا يفعل شيئاً؛ صار تذكيراً حقيقياً، فيبدأ مطفأً
+   * حتى لا يُفاجأ أحدٌ بإشعارٍ جديد قبل الفجر. */
+  fajrReminderEnabled: false,
+  fajrReminderMinutes: 30,
   remindersEnabled: true,
   reminderMinutes: [15, 5],
   reminderSound: DEFAULT_PRAYER_APPROACH_SOUND,
@@ -240,6 +245,34 @@ const DEFAULTS: AdhanSettings = {
     isha: { adhan: true, reminder: true, iqama: true },
   },
 };
+
+/** خيارات «تذكير الفجر» ومدة «الأذان الأول» بالدقائق. */
+export const FAJR_REMINDER_OPTIONS = [10, 15, 20, 30, 45, 60] as const;
+export const FAJR_FIRST_ADHAN_OPTIONS = [10, 15, 20, 30, 45, 60] as const;
+
+function minutesIn(v: unknown, min: number, max: number, fb: number): number {
+  if (v === null || v === "" || typeof v === "boolean") return fb;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= min && n <= max ? Math.round(n) : fb;
+}
+
+/** هل هذه قشرة أندرويد الأصلية؟ (بلا استيراد Capacitor هنا). */
+function nativeShell(): boolean {
+  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+  return cap?.isNativePlatform?.() === true;
+}
+
+/**
+ * ترحيل المرحلة ٢٦: إعداداتٌ كانت تُعرض ولا تعمل صارت تعمل. من حُفظت إعداداته
+ * قبلها (بلا `fajrReminderMinutes`) نُبقي له ما كان يعيشه فعلاً:
+ * «تذكير الفجر» مطفأ، و«التثويب» مطفأ في أندرويد (لم يكن يُسلسَل هناك قط).
+ */
+function migratePhase26(parsed: Record<string, unknown>): Partial<AdhanSettings> {
+  if (parsed.fajrReminderMinutes !== undefined) return {};
+  const out: Partial<AdhanSettings> = { fajrReminderEnabled: false };
+  if (nativeShell()) out.fajrTathweebEnabled = false;
+  return out;
+}
 
 /* ----------------------------- Storage ------------------------------ */
 
@@ -278,6 +311,19 @@ function read(): AdhanSettings {
       reminderSound: normalizeApproachSound(parsed.reminderSound),
       ...readVolumes(parsed),
       raisePhoneAlarm: parsed.raisePhoneAlarm === true,
+      fajrFirstAdhanOffset: minutesIn(
+        parsed.fajrFirstAdhanOffset,
+        1,
+        90,
+        DEFAULTS.fajrFirstAdhanOffset,
+      ),
+      fajrReminderMinutes: minutesIn(
+        parsed.fajrReminderMinutes,
+        1,
+        120,
+        DEFAULTS.fajrReminderMinutes,
+      ),
+      ...migratePhase26(parsed),
     };
   } catch {
     return DEFAULTS;

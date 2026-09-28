@@ -19,6 +19,12 @@ public final class ManarChannels {
 
     public static final String ADHAN = "manar_adhan";
     public static final String IQAMA = "manar_iqama";
+    /**
+     * نسختا الأذان والإقامة بلا اهتزاز. اهتزاز القناة لا يتغيّر بعد إنشائها، فمن
+     * أطفأ «الاهتزاز» في منار تُنشر تنبيهاته على هاتين القناتين (انظر {@link #notice}).
+     */
+    public static final String ADHAN_NV = "manar_adhan_nv";
+    public static final String IQAMA_NV = "manar_iqama_nv";
     public static final String REMINDERS = "manar_reminders";
     public static final String SILENT = "manar_silent";
     /** Ongoing notification shown while the Adhan is actually playing. */
@@ -27,6 +33,18 @@ public final class ManarChannels {
     public static final String SAKINAH = "manar_sakinah";
 
     private ManarChannels() {}
+
+    /** قناة تنبيه الأذان/الإقامة المكتوب بحسب إعداد «الاهتزاز» في منار. */
+    public static String notice(Context context, String kind) {
+        boolean vibrate = ManarVolumes.vibrate(context);
+        if ("iqama".equals(kind)) return vibrate ? IQAMA : IQAMA_NV;
+        return vibrate ? ADHAN : ADHAN_NV;
+    }
+
+    /** هل القناة إحدى قنوات الأذان/الإقامة الأصلية (تتجاوز «عدم الإزعاج» دائماً)؟ */
+    public static boolean isPrayerChannel(String id) {
+        return ADHAN.equals(id) || IQAMA.equals(id) || ADHAN_NV.equals(id) || IQAMA_NV.equals(id);
+    }
 
     public static void ensure(Context context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
@@ -54,6 +72,22 @@ public final class ManarChannels {
         // كالأذان: الإقامة تُسمع أثناء «سكينة» وعدم الإزعاج (صوتها من AdhanService).
         iqama.setBypassDnd(true);
         nm.createNotificationChannel(iqama);
+
+        NotificationChannel adhanNv =
+                new NotificationChannel(ADHAN_NV, "الأذان · بلا اهتزاز", NotificationManager.IMPORTANCE_HIGH);
+        adhanNv.setDescription("تنبيه دخول وقت الصلاة حين يكون الاهتزاز مطفأً في منار");
+        adhanNv.setSound(null, null);
+        adhanNv.enableVibration(false);
+        adhanNv.setBypassDnd(true);
+        nm.createNotificationChannel(adhanNv);
+
+        NotificationChannel iqamaNv =
+                new NotificationChannel(IQAMA_NV, "الإقامة · بلا اهتزاز", NotificationManager.IMPORTANCE_HIGH);
+        iqamaNv.setDescription("تنبيه الإقامة حين يكون الاهتزاز مطفأً في منار");
+        iqamaNv.setSound(null, null);
+        iqamaNv.enableVibration(false);
+        iqamaNv.setBypassDnd(true);
+        nm.createNotificationChannel(iqamaNv);
 
         NotificationChannel reminders =
                 new NotificationChannel(REMINDERS, "التذكيرات", NotificationManager.IMPORTANCE_DEFAULT);

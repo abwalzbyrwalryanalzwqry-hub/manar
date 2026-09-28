@@ -29,7 +29,13 @@ import {
   attachNativeActionListener,
 } from "@/lib/native-notifications";
 import { approachClipFor } from "@/lib/prayer-approach-audio";
-import { buildPrayerAlarms, type ManarAlarmEvent } from "@/lib/prayer-schedule";
+import {
+  FAJR_REMINDER_TITLE,
+  buildPrayerAlarms,
+  fajrReminderBody,
+  fajrReminderMinutesFor,
+  type ManarAlarmEvent,
+} from "@/lib/prayer-schedule";
 import { play as enginePlay } from "@/lib/audio-engine";
 import { dayKey as logDayKey, readLog } from "@/lib/activity-log";
 
@@ -112,6 +118,25 @@ export function AdhanProvider() {
               }
             }
           }
+        }
+      }
+
+      /* «تذكير الفجر» — الإعداد نفسه الذي تُجدوَل منه المنبّهات الأصلية. */
+      const fm = fajrReminderMinutesFor(s);
+      if (fm !== null) {
+        const diffSec = Math.round((times.fajr.getTime() - now.getTime()) / 1000);
+        const k = `${dk}:fajr:fajr-reminder:${fm}`;
+        if (Math.abs(diffSec - fm * 60) <= 1 && !firedRef.current.has(k)) {
+          firedRef.current.add(k);
+          notify(FAJR_REMINDER_TITLE, fajrReminderBody(fm));
+          if (s.soundEnabled && !s.silentMode) {
+            playReminder({
+              volume: effectiveVolume(s, "reminder"),
+              usage: "notification",
+              silentOnMissing: true,
+            });
+          }
+          if (s.vibrationEnabled) vibrate([120, 80, 120]);
         }
       }
 

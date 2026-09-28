@@ -76,6 +76,8 @@ public class AdhanService extends Service
     /** بعد انتهاء الأذان يبقى إشعار دخول الوقت. */
     public static final String EXTRA_NOTICE = "notice";
     static final String EXTRA_EVENT_ID = "event_id";
+    /** مقطعٌ يُسلسَل بعد الصوت الرئيسي (التثويب بعد أذان الفجر). */
+    public static final String EXTRA_FOLLOW = "follow";
 
     private static final int NOTIFICATION_ID = 40990;
     /** تنبيه الصلاة الباقي بعد الكتم — منفصلٌ عن إشعار التحكم. */
@@ -172,11 +174,26 @@ public class AdhanService extends Service
     private String currentKey = "";
     private int currentEventId = 0;
     private boolean currentWantsNotice = false;
+    /** مقطع التثويب المنتظر بعد الأذان الجاري ("" = لا شيء). يُفرَّغ بمجرد تشغيله. */
+    private String currentFollow = "";
+    private float currentVolume = 1f;
+    private boolean currentNotificationUsage = false;
+
+    /**
+     * وضع الرنين و«عدم الإزعاج» لحظة بدء الصوت. تغيّر الصوت يُعدّ ضغطة زرّ ما لم
+     * يتغيّر أحدهما — فوضع الاهتزاز الثابت لا يُعطّل الإيقاف السريع بعد اليوم.
+     */
+    private int startRingerMode = -1;
+    private int startInterruptionFilter = -1;
 
     private final AudioManager.OnAudioFocusChangeListener focusListener = change -> {
         if (change == AudioManager.AUDIOFOCUS_LOSS) {
-            stopEverything();
-        } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+            // تطبيقٌ آخر أخذ الصوت نهائياً: يسكت منار ويبقى تنبيه الصلاة مكتوباً.
+            muteOnly("focus-loss");
+        } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT
+                || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
+            // طلبنا setWillPauseWhenDucked(true): الأذان لا يُخفَض تحت صوتٍ آخر بل
+            // يتوقّف مؤقتاً ثم يُستأنف من موضعه عند عودة التركيز.
             if (player != null && player.isPlaying()) player.pause();
         } else if (change == AudioManager.AUDIOFOCUS_GAIN) {
             if (player != null && !player.isPlaying()) player.start();
@@ -198,6 +215,20 @@ public class AdhanService extends Service
             String key,
             int eventId,
             boolean notice) {
+        play(context, sound, title, body, kind, key, eventId, notice, null);
+    }
+
+    /** مثل السابق مع مقطعٍ يُسلسَل بعد الصوت الرئيسي (التثويب). */
+    public static void play(
+            Context context,
+            String sound,
+            String title,
+            String body,
+            String kind,
+            String key,
+            int eventId,
+            boolean notice,
+            @Nullable String follow) {
         Intent intent = new Intent(context, AdhanService.class)
                 .setAction(ACTION_PLAY)
                 .putExtra(EXTRA_SOUND, sound)
@@ -207,7 +238,8 @@ public class AdhanService extends Service
                 .putExtra(EXTRA_VOLUME, -1f)
                 .putExtra(EXTRA_KEY, key)
                 .putExtra(EXTRA_EVENT_ID, eventId)
-                .putExtra(EXTRA_NOTICE, notice);
+                .putExtra(EXTRA_NOTICE, notice)
+                .putExtra(EXTRA_FOLLOW, follow == null ? "" : follow);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(intent);
         } else {
@@ -329,6 +361,10 @@ public class AdhanService extends Service
                 ? intent.getStringExtra(EXTRA_KEY) : "";
         currentEventId = intent != null ? intent.getIntExtra(EXTRA_EVENT_ID, 0) : 0;
         currentWantsNotice = intent != null && intent.getBooleanExtra(EXTRA_NOTICE, false);
+        String follow = intent != null ? intent.getStringExtra(EXTRA_FOLLOW) : null;
+        currentFollow = follow == null ? "" : follow.trim();
+        currentVolume = volume;
+        currentNotificationUsage = notificationUsage;
 
         // The notification must be posted before anything else can fail, or
         // Android kills the service for starting foreground too late.
@@ -381,8 +417,11 @@ public class AdhanService extends Service
             return START_NOT_STICKY;
         }
 
+        currentNotificationUsage = notificationUsage;
+        snapshotQuietMode();
         acquireWakeLock();
         if (!startPlayback(sound, volume, notificationUsage)) return START_NOT_STICKY;
+        vibrateIfWanted(kind);
         updatePlaybackState(true, title, body, kind);
         publish("iqama".equals(kind) ? STATE_PLAYING_IQAMA : STATE_PLAYING_AZAN, kind, title);
         return START_NOT_STICKY;
@@ -461,8 +500,8 @@ public class AdhanService extends Service
     private void postSilentNotice() {
         NotificationManager nm = getSystemService(NotificationManager.class);
         if (nm == null) return;
-        String channel = "iqama".equals(currentNoticeKind) ? ManarChannels.IQAMA : ManarChannels.ADHAN;
         if ("preview".equals(currentNoticeKind)) return;
+        String channel = ManarChannels.notice(this, currentNoticeKind);
 
         Intent open = new Intent(this, MainActivity.class)
                 .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -730,15 +769,59 @@ public class AdhanService extends Service
      */
     private boolean quietModeChanging() {
         try {
-            if (audioManager != null && audioManager.getRingerMode() != AudioManager.RINGER_MODE_NORMAL) {
-                return true;
-            }
+            int ringer = audioManager != null ? audioManager.getRingerMode() : -1;
             NotificationManager nm = getSystemService(NotificationManager.class);
-            return nm != null
-                    && nm.getCurrentInterruptionFilter() != NotificationManager.INTERRUPTION_FILTER_ALL
-                    && nm.getCurrentInterruptionFilter() != NotificationManager.INTERRUPTION_FILTER_UNKNOWN;
+            int filter = nm != null ? nm.getCurrentInterruptionFilter() : -1;
+            // كان الشرط «الرنين ليس عادياً» وحده، فمن يُبقي جواله على الاهتزاز
+            // دائماً لم يكن زرّ الصوت يُسكت أذانه أبداً. العبرة بالتغيّر منذ البدء.
+            return ringer != startRingerMode || filter != startInterruptionFilter;
         } catch (Throwable t) {
             return true;
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private static void vibrateLegacy(android.os.Vibrator v, long[] pattern) {
+        v.vibrate(pattern, -1);
+    }
+
+    private void snapshotQuietMode() {
+        try {
+            startRingerMode = audioManager != null ? audioManager.getRingerMode() : -1;
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            startInterruptionFilter = nm != null ? nm.getCurrentInterruptionFilter() : -1;
+        } catch (Throwable t) {
+            startRingerMode = -1;
+            startInterruptionFilter = -1;
+        }
+    }
+
+    /**
+     * إعداد «الاهتزاز» في منار: نبضةٌ واحدة مع بدء الأذان أو الإقامة المجدولين.
+     * قناة التشغيل صامتة بلا اهتزاز، فكان الإعداد لا يصل إلى الأذان أصلاً.
+     */
+    private void vibrateIfWanted(String kind) {
+        if ("preview".equals(kind) || currentKey.isEmpty() || !ManarVolumes.vibrate(this)) return;
+        try {
+            android.os.Vibrator v;
+            if (Build.VERSION.SDK_INT >= 31) {
+                android.os.VibratorManager vm = getSystemService(android.os.VibratorManager.class);
+                v = vm != null ? vm.getDefaultVibrator() : null;
+            } else {
+                v = (android.os.Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            }
+            if (v == null || !v.hasVibrator()) return;
+            long[] pattern = "iqama".equals(kind)
+                    ? new long[] {0, 200, 100, 200}
+                    : new long[] {0, 300, 120, 300, 120, 600};
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                v.vibrate(android.os.VibrationEffect.createWaveform(pattern, -1),
+                        new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build());
+            } else {
+                vibrateLegacy(v, pattern);
+            }
+        } catch (Throwable t) {
+            android.util.Log.w("ManarAudio", "vibration unavailable", t);
         }
     }
 
@@ -908,6 +991,7 @@ public class AdhanService extends Service
     /** كتم: يُسكت صوت منار فوراً ويُبقي تنبيه الصلاة. */
     private void muteOnly(String by) {
         boolean wasSounding = player != null;
+        currentFollow = "";
         if (wasSounding) android.util.Log.i("ManarAudio", "muted by=" + by + " key=" + currentKey);
         releasePlayer();
         abandonFocus();
@@ -924,7 +1008,9 @@ public class AdhanService extends Service
     }
 
     private void stopEverything() {
-        if (player != null) android.util.Log.i("ManarAudio", "stopped by=user key=" + currentKey);
+        boolean wasSounding = player != null;
+        if (wasSounding) android.util.Log.i("ManarAudio", "stopped by=user key=" + currentKey);
+        currentFollow = "";
         releasePlayer();
         abandonFocus();
         releaseWakeLock();
@@ -935,11 +1021,29 @@ public class AdhanService extends Service
         }
         publish(STATE_STOPPED, currentNoticeKind, currentNoticeTitle);
         stopForegroundOnly();
+        // الإيقاف يُنهي الصوت لا خبرَ دخول الوقت: يبقى إشعاره (إن كان مفعّلاً) صامتاً.
+        if (wasSounding && currentWantsNotice && !"preview".equals(currentNoticeKind)
+                && !currentKey.isEmpty()) {
+            ManarNotices.post(this, currentEventId, "adhan",
+                    currentNoticeTitle, currentNoticeBody, null, true);
+        }
         stopSelfSafely();
     }
 
     @Override
     public void onCompletion(MediaPlayer mp) {
+        // التثويب بعد أذان الفجر: مشغّلٌ واحد يُستبدل بالتالي، والتركيز والخدمة
+        // الأمامية وإشعار التحكم باقية، فالكتم والإيقاف يشملانه كالأذان نفسه.
+        if (!currentFollow.isEmpty() && player != null) {
+            String next = currentFollow;
+            currentFollow = "";
+            releasePlayer();
+            android.util.Log.i("ManarAudio", "chain follow=" + next + " key=" + currentKey);
+            if (startPlayback(next, currentVolume, currentNotificationUsage)) return;
+            // فشل التثويب لا يُعدّ فشلاً للأذان الذي سُمع كاملاً: failSafely أوقفت
+            // كل شيء ونشرت التنبيه المكتوب.
+            return;
+        }
         releasePlayer();
         abandonFocus();
         releaseWakeLock();

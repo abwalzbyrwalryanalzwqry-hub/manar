@@ -257,6 +257,7 @@ public class ManarAdhanPlugin extends Plugin {
                 call.getDouble("iqama", 1d),
                 call.getDouble("reminder", 1d),
                 Boolean.TRUE.equals(call.getBoolean("raiseAlarm", false)));
+        ManarVolumes.saveVibrate(getContext(), !Boolean.FALSE.equals(call.getBoolean("vibrate", true)));
         call.resolve();
     }
 

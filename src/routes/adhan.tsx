@@ -11,6 +11,8 @@ import {
 import {
   ADHAN_LIBRARY,
   ADJUSTABLE_PRAYERS,
+  FAJR_FIRST_ADHAN_OPTIONS,
+  FAJR_REMINDER_OPTIONS,
   TATHWEEB_LIBRARY,
   useAdhanSettings,
   effectiveVolume,
@@ -26,6 +28,8 @@ import {
   type AdhanVariant,
 } from "@/lib/adhan-sound";
 import { PRAYER_LABELS, type PrayerKey } from "@/lib/prayer";
+import { toArabicDigits } from "@/lib/format";
+import { minutesAr } from "@/lib/prayer-schedule";
 
 export const Route = createFileRoute("/adhan")({
   head: () => ({ meta: [{ title: "مكتبة الأذان — منار" }] }),
@@ -311,26 +315,80 @@ function AdhanLibrary() {
         />
         <Toggle
           label="الأذان الأول للفجر"
-          hint={`تنبيه قبل الفجر بـ ${settings.fajrFirstAdhanOffset} دقيقة`}
+          hint={`قبل أذان الفجر بـ${minutesAr(settings.fajrFirstAdhanOffset)}`}
           on={settings.fajrFirstAdhanEnabled}
           onToggle={() => update({ fajrFirstAdhanEnabled: !settings.fajrFirstAdhanEnabled })}
         />
+        {settings.fajrFirstAdhanEnabled && (
+          <MinuteChips
+            label="موعد الأذان الأول قبل الفجر"
+            options={FAJR_FIRST_ADHAN_OPTIONS}
+            value={settings.fajrFirstAdhanOffset}
+            onChange={(m) => update({ fajrFirstAdhanOffset: m })}
+          />
+        )}
         <Toggle
           label="تثويب الفجر — الصلاة خير من النوم"
-          hint="يُلحَق بأذان الفجر"
+          hint="مقطع «الصلاة خير من النوم» يُشغَّل بعد أذان الفجر مباشرة — أطفئه إن كان تسجيل أذانك يتضمّنه"
           on={settings.fajrTathweebEnabled}
           onToggle={() => update({ fajrTathweebEnabled: !settings.fajrTathweebEnabled })}
         />
         <Toggle
           label="تذكير الفجر"
-          hint="تنبيه ناعم قبل صلاة الفجر"
+          hint={`إشعار قبل أذان الفجر بـ${minutesAr(settings.fajrReminderMinutes)} للاستعداد`}
           on={settings.fajrReminderEnabled}
           onToggle={() => update({ fajrReminderEnabled: !settings.fajrReminderEnabled })}
         />
+        {settings.fajrReminderEnabled && (
+          <MinuteChips
+            label="موعد تذكير الفجر"
+            options={FAJR_REMINDER_OPTIONS}
+            value={settings.fajrReminderMinutes}
+            onChange={(m) => update({ fajrReminderMinutes: m })}
+          />
+        )}
       </div>
 
       <div className="h-4" />
     </Screen>
+  );
+}
+
+function MinuteChips({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: readonly number[];
+  value: number;
+  onChange: (m: number) => void;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="grid grid-cols-6 gap-1.5 px-1">
+      {options.map((m) => {
+        const active = value === m;
+        return (
+          <button
+            key={m}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            aria-label={`قبل ${minutesAr(m)}`}
+            onClick={() => onChange(m)}
+            className={`rounded-xl border py-2 text-center shadow-soft transition ${
+              active
+                ? "border-transparent gradient-primary text-primary-foreground shadow-glow"
+                : "border-border bg-card"
+            }`}
+          >
+            <div className="font-display text-base tabular-nums">{toArabicDigits(m)}</div>
+            <div className="text-[9px] opacity-80">دقيقة</div>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -347,6 +405,9 @@ function Toggle({
 }) {
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={on}
       onClick={onToggle}
       className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5 text-right shadow-soft"
     >
