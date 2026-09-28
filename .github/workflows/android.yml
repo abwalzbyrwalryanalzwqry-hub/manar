@@ -32,11 +32,15 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
+      # التاريخ كاملاً: versionCode = عدد الالتزامات (android/app/build.gradle).
+      # النسخة السطحية الافتراضية تعطي ١ لكل بناء.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       # Capacitor 7 و AGP الحالي يحتاجان JDK 21 — وهو ما يضبطه build.gradle.
@@ -86,6 +90,22 @@ jobs:
         if: steps.signing.outputs.signed != 'true'
         working-directory: android
         run: ./gradlew --no-daemon assembleDebug
+
+      # التقرير الكامل لفحص أندرويد. لا يوقف البناء بعد (المرحلة ٣١): يُراجَع أول
+      # تقرير ثم يُشدَّد. الأخطاء القاتلة وحدها توقف بناء الإصدار (lintVitalRelease).
+      - name: فحص أندرويد (تقرير)
+        continue-on-error: true
+        working-directory: android
+        run: ./gradlew --no-daemon lintDebug
+
+      - name: رفع تقرير الفحص
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: manar-android-lint-${{ github.sha }}
+          path: android/app/build/reports/lint-results-*.*
+          retention-days: 14
+          if-no-files-found: ignore
 
       - name: حذف المفتاح
         if: always()

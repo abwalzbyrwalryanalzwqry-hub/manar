@@ -50,3 +50,8 @@ android/*.jks
 # ملفات بايثون المؤقتة
 __pycache__/
 *.pyc
+
+# ملف قفل واحد: package-lock.json (يستعمله CI بـ npm ci). محرّر Lovable يولّد
+# bun.lock محلياً، فلا يُرفع حتى لا يتباين القفلان مرة أخرى (المرحلة ٣١).
+bun.lock
+bun.lockb
