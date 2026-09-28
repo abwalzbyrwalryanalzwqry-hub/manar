@@ -385,7 +385,7 @@ public class AdhanService extends Service
         if (quiet != null && (quiet.muteAdhan || "none".equals(quiet.filter))
                 && !"preview".equals(kind)) {
             SakinahLog.add(this, SakinahLog.ADHAN_MUTED, quiet.prayer, kind);
-            postSilentNotice();
+            postSilentNotice(REASON_SAKINAH);
             publish(STATE_MUTED, kind, title);
             stopForegroundOnly();
             stopSelfSafely();
@@ -395,7 +395,9 @@ public class AdhanService extends Service
         // مستوى الصوت صفر يعني صمتاً مقصوداً: يبقى التنبيه المكتوب وحده.
         if (sound == null || sound.trim().isEmpty() || volume <= 0.001f) {
             // Silent mode: the notification alone is the reminder.
-            if (!"preview".equals(kind)) postSilentNotice();
+            if (!"preview".equals(kind)) {
+                postSilentNotice(sound == null || sound.trim().isEmpty() ? REASON_SILENT : REASON_VOLUME);
+            }
             publish(STATE_MUTED, kind, title);
             stopForegroundOnly();
             stopSelfSafely();
@@ -410,7 +412,7 @@ public class AdhanService extends Service
         }
 
         if (!requestFocus(notificationUsage)) {
-            postSilentNotice();
+            postSilentNotice(REASON_FOCUS);
             publish(STATE_MUTED, kind, title);
             stopForegroundOnly();
             stopSelfSafely();
@@ -497,7 +499,17 @@ public class AdhanService extends Service
      * <p>الكتم يُسكت الصوت ولا يُلغي التنبيه ولا الأذان القادم ولا الميزة —
      * فنُبقي إشعاراً نصيّاً على قناة الأذان بلا صوت.
      */
-    private void postSilentNotice() {
+    /*
+     * لماذا لم يُسمع الصوت — النصوص نفسها في SILENCE_REASONS
+     * (src/lib/notification-text.ts). كان كل صمتٍ يقول «تم كتم الصوت».
+     */
+    static final String REASON_USER = "أُسكت الصوت";
+    static final String REASON_SAKINAH = "مكتوم في فترة «سكينة»";
+    static final String REASON_SILENT = "الصوت مطفأ في منار";
+    static final String REASON_VOLUME = "مستوى الصوت في منار صفر";
+    static final String REASON_FOCUS = "الجوال مشغول بمكالمة أو صوت آخر";
+
+    private void postSilentNotice(String reason) {
         NotificationManager nm = getSystemService(NotificationManager.class);
         if (nm == null) return;
         if ("preview".equals(currentNoticeKind)) return;
@@ -512,8 +524,8 @@ public class AdhanService extends Service
                 .setSmallIcon(R.drawable.ic_stat_manar)
                 .setColor(0xFFC9A227)
                 .setContentTitle(currentNoticeTitle)
-                .setContentText(currentNoticeBody.isEmpty() ? "تم كتم الصوت" : currentNoticeBody)
-                .setSubText("تم كتم الصوت")
+                .setContentText(currentNoticeBody.isEmpty() ? reason : currentNoticeBody)
+                .setSubText(reason)
                 .setContentIntent(openPi)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -1001,7 +1013,7 @@ public class AdhanService extends Service
                     .setState(PlaybackStateCompat.STATE_STOPPED, 0, 1f)
                     .build());
         }
-        if (wasSounding) postSilentNotice();
+        if (wasSounding) postSilentNotice("focus-loss".equals(by) ? REASON_FOCUS : REASON_USER);
         publish(STATE_MUTED, currentNoticeKind, currentNoticeTitle);
         stopForegroundOnly();
         stopSelfSafely();

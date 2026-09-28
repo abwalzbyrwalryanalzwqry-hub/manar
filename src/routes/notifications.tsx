@@ -14,6 +14,7 @@ import { AlertSystemStatus } from "@/components/manar/alert-system-status";
 import { iqamahLabel } from "@/lib/iqamah-library";
 import { PRAYER_LABELS, PRAYER_ORDER, type PrayerKey } from "@/lib/prayer";
 import { toArabicDigits } from "@/lib/format";
+import { minutesAr, minutesUnit } from "@/lib/notification-text";
 import { requestNotificationPermission } from "@/components/manar/adhan-provider";
 import { adhanVariantLabel } from "@/lib/adhan-sound";
 import { play } from "@/lib/audio-engine";
@@ -191,7 +192,7 @@ function Notifications() {
         <Toggle
           icon={icons.bell}
           label="تنبيه قبل الإقامة"
-          hint={`إشعار نصّي قبل الإقامة — ${toArabicDigits(settings.iqamaReminderMinutes)} دقائق`}
+          hint={`إشعار نصّي قبل الإقامة بـ${minutesAr(settings.iqamaReminderMinutes, "gen")}`}
           on={settings.iqamaReminderEnabled}
           onToggle={() => update({ iqamaReminderEnabled: !settings.iqamaReminderEnabled })}
         />
@@ -274,7 +275,7 @@ function Notifications() {
                 }`}
               >
                 <div className="font-display text-xl tabular-nums">{toArabicDigits(m)}</div>
-                <div className="text-[10px] opacity-80">دقيقة</div>
+                <div className="text-[10px] opacity-80">{minutesUnit(m)}</div>
               </button>
             );
           })}

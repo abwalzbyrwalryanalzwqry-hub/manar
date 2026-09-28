@@ -34,8 +34,10 @@ import {
   buildPrayerAlarms,
   fajrReminderBody,
   fajrReminderMinutesFor,
+  prayerLabelOn,
   type ManarAlarmEvent,
 } from "@/lib/prayer-schedule";
+import { PRE_PRAYER_TITLE, prePrayerBody } from "@/lib/notification-text";
 import { play as enginePlay } from "@/lib/audio-engine";
 import { dayKey as logDayKey, readLog } from "@/lib/activity-log";
 
@@ -96,7 +98,7 @@ export function AdhanProvider() {
               const k = `${dk}:${p}:rem:${m}`;
               if (!firedRef.current.has(k)) {
                 firedRef.current.add(k);
-                notify("تذكير الصلاة", `تبقى ${m} دقيقة على صلاة ${PRAYER_LABELS[p].ar}`);
+                notify(PRE_PRAYER_TITLE, prePrayerBody(m, prayerLabelOn(p, now)));
                 if (s.soundEnabled && !s.silentMode) {
                   const clip = approachClipFor(s.reminderSound, p);
                   if (clip) {
