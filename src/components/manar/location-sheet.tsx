@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon, icons } from "@/components/manar/shell";
-import { arabCountryNames, regionsOf, searchPlaces, toLocation, type Place } from "@/lib/places";
+import {
+  arabCountryNames,
+  loadWorldCities,
+  regionsOf,
+  searchPlaces,
+  toLocation,
+  worldCitiesLoaded,
+  type Place,
+} from "@/lib/places";
 import { toArabicDigits } from "@/lib/format";
 import type { LocationState } from "@/lib/prayer";
 
@@ -25,7 +33,7 @@ export function LocationSheet({
   onClose: () => void;
   onPick: (loc: LocationState) => void;
   onUseGps: () => void;
-  status: "idle" | "requesting" | "granted" | "denied" | "unsupported";
+  status: "idle" | "requesting" | "granted" | "denied" | "unsupported" | "failed";
   error: string | null;
 }) {
   const [q, setQ] = useState("");
@@ -38,7 +46,24 @@ export function LocationSheet({
     }
   }, [open]);
 
-  const results = useMemo(() => (q.trim() ? searchPlaces(q) : []), [q]);
+  /* المدن العالمية تُحمَّل عند فتح اللوحة لا مع التطبيق؛ وحين تصل يُعاد البحث. */
+  const [worldReady, setWorldReady] = useState(worldCitiesLoaded);
+  useEffect(() => {
+    if (!open || worldReady) return;
+    let alive = true;
+    void loadWorldCities().then(() => {
+      if (alive) setWorldReady(worldCitiesLoaded());
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open, worldReady]);
+
+  const results = useMemo(
+    () => (q.trim() ? searchPlaces(q) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- worldReady يغيّر محتوى الفهرس
+    [q, worldReady],
+  );
   const countries = useMemo(() => arabCountryNames(), []);
   const regions = useMemo(
     () => (view.level === "countries" ? [] : regionsOf(view.country)),
@@ -112,7 +137,7 @@ export function LocationSheet({
             <Icon d={icons.location} size={16} />
             {status === "requesting" ? "جاري تحديد الموقع…" : "استخدم موقعي الحالي"}
           </button>
-          {error && (status === "denied" || status === "unsupported") && (
+          {error && (status === "denied" || status === "unsupported" || status === "failed") && (
             <p className="mt-2 text-center text-[11px] text-destructive">
               {error} — يمكنك اختيار منطقتك يدوياً.
             </p>

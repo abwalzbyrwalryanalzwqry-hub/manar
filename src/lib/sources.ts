@@ -102,4 +102,24 @@ export const SOURCES: SourceGroup[] = [
       },
     ],
   },
+  {
+    titleAr: "المواقع",
+    items: [
+      {
+        titleAr: "GeoNames",
+        usedForAr:
+          "محافظات الدول العربية ومدنها، ونحو ٢٣٠٠ مدينة عالمية كبرى بأسمائها العربية ومناطقها الزمنية — مضمّنة في التطبيق لاختيار الموقع وتسميته بدون إنترنت.",
+        byAr: "geonames.org",
+        licenseAr: "CC BY 4.0 — يُذكر المصدر، وقد اختُصرت البيانات وحُوِّلت",
+        url: "https://www.geonames.org/",
+      },
+      {
+        titleAr: "OpenStreetMap Nominatim",
+        usedForAr: "تحسين اسم المدينة عند تحديد الموقع تلقائياً، إن كان الإنترنت متاحاً.",
+        byAr: "© مساهمو OpenStreetMap",
+        licenseAr: "ODbL 1.0",
+        url: "https://www.openstreetmap.org/copyright",
+      },
+    ],
+  },
 ];

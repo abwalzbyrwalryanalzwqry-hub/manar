@@ -19,6 +19,7 @@ export const BACKUP_KEYS: string[] = [
   "manar.appearance.v1",
   "manar.display.v1",
   "manar.hijri.adjust.v1",
+  "manar.hijri.at-maghrib.v1",
   "manar.widget.v1",
   "manar.user.name.v1",
   /* الصلاة والموقع */
@@ -57,6 +58,7 @@ export const DEVICE_ONLY_KEYS = new Set([
   "manar.quran.search.recent.v1", // سجل بحث محلي
   "manar.backup.last-export.v1", // تاريخ آخر تصدير من هذا الجهاز
   "manar.more.usage.v1", // «الأكثر استخداماً» في المزيد: عادة هذا الجهاز
+  "manar.zone-banner.dismissed.v1", // شارة المنطقة الزمنية التي أخفاها المستخدم على هذا الجهاز
   "manar.method-suggest.v1", // اقتراحات طريقة الحساب التي رفضها المستخدم على هذا الجهاز
 ]);
 
@@ -70,6 +72,7 @@ export const LEGACY_KEYS = ["manar.sync.meta.v1", "manar-guest-mode"];
 export const KEY_EVENTS: Record<string, string> = {
   "manar.appearance.v1": "manar:appearance",
   "manar.hijri.adjust.v1": "manar:hijri-adjust",
+  "manar.hijri.at-maghrib.v1": "manar:hijri-adjust",
   "manar.widget.v1": "manar:widget-settings",
   "manar.user.name.v1": "manar:user-name",
   "manar.settings.v1": "manar:settings",

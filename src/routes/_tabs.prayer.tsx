@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ZoneMismatchBanner } from "@/components/manar/zone-mismatch-banner";
 import { useState } from "react";
 import {
   Arabesque,
@@ -21,7 +22,7 @@ import {
 import { MethodSuggestCard } from "@/components/manar/method-suggest-card";
 import { useAdhanSettings } from "@/lib/adhan-settings";
 import { formatCountdown, formatHHMM, formatHijriAr, toArabicDigits } from "@/lib/format";
-import { useHijriAdjust } from "@/lib/hijri";
+import { hijriDisplayDate, useHijriAdjust } from "@/lib/hijri";
 import { FARD_PRAYERS, dayKey, prayerDayKey, useActivityLog } from "@/lib/activity-log";
 import { prayerLabelOn } from "@/lib/prayer-schedule";
 import { JUMUAH_DEEDS, isFriday, useJumuah } from "@/lib/jumuah";
@@ -44,7 +45,7 @@ function daysToFridayLabel(key: string): string {
 }
 
 function Prayer() {
-  const { adjust: hijriAdjust } = useHijriAdjust();
+  const { adjust: hijriAdjust, atMaghrib } = useHijriAdjust();
   const { dayRecord, streak, togglePrayer } = useActivityLog();
   const [sheet, setSheet] = useState(false);
   const { settings, updateDeep } = useAdhanSettings();
@@ -91,7 +92,7 @@ function Prayer() {
     <Screen>
       <ScreenHeader
         title="أوقات الصلاة"
-        subtitle={`${location.city} · ${formatHijriAr(now, hijriAdjust)}`}
+        subtitle={`${location.city} · ${formatHijriAr(hijriDisplayDate(now, today.maghrib, atMaghrib), hijriAdjust)}`}
         action={
           <button
             onClick={() => setSheet(true)}
@@ -102,6 +103,7 @@ function Prayer() {
           </button>
         }
       />
+      <ZoneMismatchBanner />
 
       {/* Luxury countdown widget */}
       <div className="px-4 animate-fade-up">

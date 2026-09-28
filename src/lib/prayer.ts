@@ -34,6 +34,11 @@ export type LocationState = {
   city: string;
   country?: string;
   source: "gps" | "manual" | "default";
+  /**
+   * المنطقة الزمنية للموقع (IANA) إن عُرفت يقيناً — من Nominatim عند التحديد
+   * التلقائي. بغيابها تُستنتج من المدينة أو الدولة (`place-timezone.ts`).
+   */
+  tz?: string;
 };
 
 export type CalcMethodKey =
@@ -319,13 +324,37 @@ export function distanceKm(
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
+/**
+ * رابط الاستدلال العكسي من Nominatim. الإحداثيات مقرّبة إلى منزلتين (~١ كم):
+ * اسم المدينة (zoom=10) لا يحتاج أكثر، ولا نرسل موقع المستخدم الدقيق إلى خدمة
+ * خارجية. المواقيت والقبلة تبقى بالإحداثيات الكاملة محلياً.
+ */
+export function nominatimReverseUrl(lat: number, lng: number): string {
+  const r = (v: number) => (Math.round(v * 100) / 100).toFixed(2);
+  return `https://nominatim.openstreetmap.org/reverse?format=json&accept-language=ar&lat=${r(lat)}&lon=${r(lng)}&zoom=10`;
+}
+
+/** رسالة عربية لكل رمز من `GeolocationPositionError`. */
+export function geolocationErrorAr(code: number): string {
+  switch (code) {
+    case 1:
+      return "لم يُمنح إذن الموقع";
+    case 2:
+      return "تعذّر تحديد موقعك — فعّل خدمة الموقع (GPS) وجرّب في مكان مكشوف";
+    case 3:
+      return "استغرق تحديد الموقع وقتاً طويلاً — حاول مرة أخرى";
+    default:
+      return "تعذّر تحديد موقعك";
+  }
+}
+
 export function useLocation() {
   /* نبدأ من الافتراضي لا من التخزين: الخادم لا يرى localStorage، فلو قرأناه في
    * أول رسم على العميل لاختلف الناتج عمّا أرسله الخادم وفشل الترطيب. نقرأ
    * المحفوظ في `useLayoutEffect` — قبل أول رسم للمتصفّح فلا يظهر وميض. */
   const [location, setLocationState] = useState<LocationState>(DEFAULT_LOCATION);
   const [status, setStatus] = useState<
-    "idle" | "requesting" | "granted" | "denied" | "unsupported"
+    "idle" | "requesting" | "granted" | "denied" | "unsupported" | "failed"
   >("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -364,25 +393,31 @@ export function useLocation() {
         /* أولاً بلا إنترنت: نسمّي الموقع من القاعدة المضمَّنة (٣٤٣ محافظة
          * و٢٤٢٨ مدينة عربية)، فيعمل التحديد التلقائي كاملاً في وضع الطيران
          * أو بشبكة ضعيفة. ثم نُحسّن الاسم عبر الشبكة إن كانت متاحة فعلاً. */
-        const { nearestPlace } = await import("@/lib/places");
+        const { nearestPlace, loadWorldCities } = await import("@/lib/places");
+        /* المدن العالمية الكبرى تسمّي الموقع خارج العالم العربي وتعطيه منطقته
+         * الزمنية الدقيقة حتى في الدول متعدّدة المناطق. */
+        await loadWorldCities();
         const near = nearestPlace(pos.coords.latitude, pos.coords.longitude);
         let city = near?.city ?? "موقعي الحالي";
         let country = near?.country ?? location.country;
+        let tz: string | undefined = near?.tz;
         const online = typeof navigator === "undefined" || navigator.onLine !== false;
         if (online) {
           try {
             const ctrl = new AbortController();
             const t = setTimeout(() => ctrl.abort(), 6000);
-            const r = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&accept-language=ar&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=10`,
-              { signal: ctrl.signal },
-            );
+            const r = await fetch(nominatimReverseUrl(pos.coords.latitude, pos.coords.longitude), {
+              signal: ctrl.signal,
+            });
             clearTimeout(t);
             if (r.ok) {
               const j = await r.json();
               const a = j.address ?? {};
               city = a.city || a.town || a.village || a.county || a.state || city;
               country = a.country || country;
+              const { timeZoneForCountryCode } = await import("@/lib/place-timezone");
+              /* منطقة المدينة القريبة أدقّ من منطقة الدولة (أمريكا، روسيا…). */
+              tz = tz ?? timeZoneForCountryCode(a.country_code) ?? undefined;
             }
           } catch {
             /* keep the offline city name */
@@ -395,13 +430,16 @@ export function useLocation() {
           city,
           country,
           source: "gps",
+          ...(tz ? { tz } : {}),
         };
         setLocation(next);
         setStatus("granted");
       },
       (err) => {
-        setStatus("denied");
-        setError(err.message || "تم رفض إذن الموقع");
+        /* رسالة المتصفح إنجليزية («User denied Geolocation»)؛ ونفاد المهلة أو
+         * غياب الإشارة ليسا رفضاً — لا نقول للمستخدم إنه رفض وهو لم يرفض. */
+        setStatus(err.code === 1 ? "denied" : "failed");
+        setError(geolocationErrorAr(err.code));
       },
       { enableHighAccuracy: true, timeout: 12_000, maximumAge: 5 * 60_000 },
     );

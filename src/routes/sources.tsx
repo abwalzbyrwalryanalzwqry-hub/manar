@@ -6,7 +6,10 @@ export const Route = createFileRoute("/sources")({
   head: () => ({
     meta: [
       { title: "المصادر والتراخيص — منار" },
-      { name: "description", content: "مصادر نص القرآن والتفسير والتلاوات في منار وتراخيصها." },
+      {
+        name: "description",
+        content: "مصادر نص القرآن والتفسير والتلاوات والمواقع في منار وتراخيصها.",
+      },
     ],
   }),
   component: SourcesScreen,
@@ -17,7 +20,7 @@ function SourcesScreen() {
     <Screen>
       <ScreenHeader
         title="المصادر والتراخيص"
-        subtitle="نص القرآن والتفسير والتلاوات"
+        subtitle="القرآن والتفسير والتلاوات والمواقع"
         backTo="/about"
       />
 

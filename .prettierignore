@@ -16,3 +16,6 @@ src/lib/wird/hisn-texts.ts
 # بيانات القرآن والتفسير — مُصغَّرة عن قصد: كل بايت إضافي يُحمَّل على الجهاز
 # ويُنقل داخل الـAPK. لا تُنسَّق.
 public/data
+
+# مولَّد آلياً من GeoNames عبر scripts/build-world-cities.py
+src/lib/world-cities.ts

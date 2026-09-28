@@ -43,6 +43,12 @@ export interface WidgetDay {
   date: string;
   weekday: string;
   hijri: string;
+  /**
+   * «اليوم الهجري يبدأ عند المغرب» (المرحلة ٣٣): من هذه اللحظة (مغرب اليوم)
+   * يعرض الويدجت `hijriEvening` — تاريخ الغد الهجري. غائبان والخيار مطفأ.
+   */
+  hijriFrom?: number;
+  hijriEvening?: string;
   prayers: WidgetPrayer[];
   verse: WidgetVerse | null;
 }
@@ -61,6 +67,7 @@ export function buildWidgetSnapshot(input: {
   settings: Settings;
   from: Date;
   hijriAdjust?: number;
+  hijriAtMaghrib?: boolean;
   /** آية كل يوم بمفتاح `YYYY-MM-DD` (قد تنقص بعض الأيام). */
   verses?: Record<string, WidgetVerse | undefined>;
   days?: number;
@@ -82,6 +89,15 @@ export function buildWidgetSnapshot(input: {
       date: key,
       weekday: formatWeekdayAr(date),
       hijri: formatHijriAr(date, input.hijriAdjust ?? 0),
+      ...(input.hijriAtMaghrib
+        ? {
+            hijriFrom: times.maghrib.getTime(),
+            hijriEvening: formatHijriAr(
+              new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1, 12),
+              input.hijriAdjust ?? 0,
+            ),
+          }
+        : {}),
       prayers: WIDGET_PRAYERS.map((p) => {
         const at = times[p];
         const ampm = displayPrefs().clock === "24" ? "" : at.getHours() < 12 ? "ص" : "م";

@@ -186,6 +186,17 @@ public class ManarWidget extends AppWidgetProvider {
                 c.get(Calendar.DAY_OF_MONTH));
     }
 
+    /**
+     * التاريخ الهجري المعروض: بعد مغرب اليوم — إن كان «اليوم الهجري يبدأ عند
+     * المغرب» مفعّلاً في التطبيق (المرحلة ٣٣) — تاريخ الغد الهجري.
+     */
+    static String hijriFor(JSONObject day, long now) {
+        long from = day.optLong("hijriFrom", 0L);
+        String evening = day.optString("hijriEvening", "");
+        if (from > 0 && now >= from && !evening.isEmpty()) return evening;
+        return day.optString("hijri", "");
+    }
+
     /** أول صلاة بعد {@code now} في اللقطة، مع بيانات «اليوم» للعرض. {@code null} إن نفدت. */
     static Pick pick(String json, long now) {
         if (json == null || json.isEmpty()) return null;
@@ -218,7 +229,7 @@ public class ManarWidget extends AppWidgetProvider {
                     out.name = p.optString("name");
                     out.time = p.optString("time");
                     JSONObject shown = todayObj != null ? todayObj : d;
-                    String hijri = shown.optString("hijri", "");
+                    String hijri = hijriFor(shown, now);
                     out.meta = city.isEmpty() ? hijri : hijri + "  ·  " + city;
                     out.hijri = hijri;
                     out.city = city;
