@@ -28,7 +28,13 @@ public final class ManarChannels {
     public static final String REMINDERS = "manar_reminders";
     public static final String SILENT = "manar_silent";
     /** Ongoing notification shown while the Adhan is actually playing. */
-    public static final String PLAYBACK = "manar_playback";
+    /**
+     * إشعار التشغيل الجاري. كان «manar_playback» بأهمية منخفضة فلا يظهر منبثقاً
+     * على شاشة القفل، ولا تتغيّر أهمية قناةٍ بعد إنشائها — فقناةٌ جديدة عالية
+     * الأهمية بلا صوت ولا اهتزاز، وتُحذف القديمة.
+     */
+    public static final String PLAYBACK = "manar_playback_v2";
+    static final String PLAYBACK_LEGACY = "manar_playback";
     /** إشعار «سكينة» الجاري وأخبار تعذّرها — صامتٌ دائماً. */
     public static final String SAKINAH = "manar_sakinah";
 
@@ -119,12 +125,16 @@ public final class ManarChannels {
         nm.createNotificationChannel(silent);
 
         NotificationChannel playback =
-                new NotificationChannel(PLAYBACK, "تشغيل الأذان", NotificationManager.IMPORTANCE_LOW);
+                new NotificationChannel(PLAYBACK, "تشغيل الأذان", NotificationManager.IMPORTANCE_HIGH);
         playback.setDescription("إشعار التحكم أثناء تشغيل الأذان");
         playback.setSound(null, null);
         playback.enableVibration(false);
         playback.setShowBadge(false);
+        playback.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
         nm.createNotificationChannel(playback);
+        if (nm.getNotificationChannel(PLAYBACK_LEGACY) != null) {
+            nm.deleteNotificationChannel(PLAYBACK_LEGACY);
+        }
 
         // سكينة تُسكت الهاتف، فلا يصحّ أن يكون إشعارها هو أوّل ما يُزعج:
         // أهميّة منخفضة، بلا صوت ولا اهتزاز، ولا يحمل شارة.

@@ -517,11 +517,50 @@ public class ManarAdhanPlugin extends Plugin {
             data.put("title", title);
             notifyListeners("manarAudioState", data);
         });
+        ManarActionReceiver.prayedListener = (prayer, day) -> {
+            JSObject data = new JSObject();
+            data.put("prayer", prayer);
+            data.put("day", day);
+            notifyListeners("manarPrayed", data);
+        };
+        // فتح التطبيق من الإغلاق بنقر إشعار: يُحتفظ بالحدث حتى يسجّل الويب مستمعه.
+        if (getActivity() != null) deliverRoute(getActivity().getIntent());
+    }
+
+    /** نقر إشعار والتطبيق يعمل: {@code singleTop} يوصل النيّة هنا. */
+    @Override
+    protected void handleOnNewIntent(Intent intent) {
+        super.handleOnNewIntent(intent);
+        deliverRoute(intent);
+    }
+
+    private void deliverRoute(@androidx.annotation.Nullable Intent intent) {
+        if (intent == null) return;
+        String route = NoticeMeta.safeRoute(intent.getStringExtra(MainActivity.EXTRA_ROUTE));
+        // لا يُعاد عند إعادة إنشاء النشاط (تدوير الشاشة).
+        intent.removeExtra(MainActivity.EXTRA_ROUTE);
+        if (route.isEmpty()) return;
+        JSObject data = new JSObject();
+        data.put("route", route);
+        notifyListeners("manarOpenRoute", data, true);
+    }
+
+    /** طابور «صلّيت» من الإشعارات — يُعاد ويُفرَّغ؛ الويب يدمجه في سجل النشاط. */
+    @PluginMethod
+    public void takePrayed(PluginCall call) {
+        JSObject result = new JSObject();
+        try {
+            result.put("items", new com.getcapacitor.JSArray(PrayedQueue.take(getContext()).toString()));
+        } catch (Exception e) {
+            result.put("items", new com.getcapacitor.JSArray());
+        }
+        call.resolve(result);
     }
 
     @Override
     protected void handleOnDestroy() {
         AdhanService.setStateListener(null);
+        ManarActionReceiver.prayedListener = null;
         super.handleOnDestroy();
     }
 

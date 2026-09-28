@@ -98,14 +98,16 @@ public final class AdhanScheduler {
         public final boolean notice;
         /** مقطعٌ يُشغَّل بعد الصوت الرئيسي مباشرة (التثويب بعد أذان الفجر)، أو "". */
         public final String follow;
+        /** {@link NoticeMeta} نصّاً: المسار، و«صلّيت»، و«ذكّرني لاحقاً»، أو "". */
+        public final String meta;
 
         Event(int id, String key, long atMillis, String sound, String title, String body,
               String kind, String channel, boolean notice) {
-            this(id, key, atMillis, sound, title, body, kind, channel, notice, "");
+            this(id, key, atMillis, sound, title, body, kind, channel, notice, "", "");
         }
 
         Event(int id, String key, long atMillis, String sound, String title, String body,
-              String kind, String channel, boolean notice, String follow) {
+              String kind, String channel, boolean notice, String follow, String meta) {
             this.id = id;
             this.key = key == null || key.isEmpty() ? (kind + "_" + id) : key;
             this.atMillis = atMillis;
@@ -116,6 +118,7 @@ public final class AdhanScheduler {
             this.channel = channel == null ? "" : channel;
             this.notice = notice;
             this.follow = follow == null ? "" : follow;
+            this.meta = meta == null ? "" : meta;
         }
 
         static Event fromJson(JSONObject o) {
@@ -129,7 +132,15 @@ public final class AdhanScheduler {
                     o.optString("kind", KIND_ADHAN),
                     o.optString("channel", ""),
                     o.optBoolean("notice", false),
-                    o.optString("follow", ""));
+                    o.optString("follow", ""),
+                    metaOf(o));
+        }
+
+        /** الويب يرسل meta كائناً، والمحفوظ نصّاً — كلاهما يُقبل. */
+        private static String metaOf(JSONObject o) {
+            JSONObject m = o.optJSONObject("meta");
+            if (m != null) return NoticeMeta.parse(m.toString()).toJson();
+            return NoticeMeta.parse(o.optString("meta", "")).toJson();
         }
 
         JSONObject toJson() throws JSONException {
@@ -143,7 +154,8 @@ public final class AdhanScheduler {
                     .put("kind", kind)
                     .put("channel", channel)
                     .put("notice", notice)
-                    .put("follow", follow);
+                    .put("follow", follow)
+                    .put("meta", meta);
         }
     }
 
@@ -408,6 +420,7 @@ public final class AdhanScheduler {
                 .putExtra(AdhanService.EXTRA_CHANNEL, e.channel)
                 .putExtra(AdhanService.EXTRA_NOTICE, e.notice)
                 .putExtra(AdhanService.EXTRA_FOLLOW, e.follow)
+                .putExtra(AdhanService.EXTRA_META, e.meta)
                 .putExtra(EXTRA_EVENT_ID, e.id);
 
         return PendingIntent.getBroadcast(

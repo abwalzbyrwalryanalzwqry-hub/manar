@@ -78,10 +78,10 @@ public class AdhanService extends Service
     static final String EXTRA_EVENT_ID = "event_id";
     /** مقطعٌ يُسلسَل بعد الصوت الرئيسي (التثويب بعد أذان الفجر). */
     public static final String EXTRA_FOLLOW = "follow";
+    /** {@link NoticeMeta} نصّاً: مسار النقر و«صلّيت». */
+    public static final String EXTRA_META = "meta";
 
     private static final int NOTIFICATION_ID = 40990;
-    /** تنبيه الصلاة الباقي بعد الكتم — منفصلٌ عن إشعار التحكم. */
-    private static final int NOTICE_ID = 40995;
 
     /* --------------------- حالة الصوت المركزية --------------------- */
 
@@ -176,6 +176,7 @@ public class AdhanService extends Service
     private boolean currentWantsNotice = false;
     /** مقطع التثويب المنتظر بعد الأذان الجاري ("" = لا شيء). يُفرَّغ بمجرد تشغيله. */
     private String currentFollow = "";
+    private NoticeMeta currentMeta = NoticeMeta.NONE;
     private float currentVolume = 1f;
     private boolean currentNotificationUsage = false;
 
@@ -229,6 +230,20 @@ public class AdhanService extends Service
             int eventId,
             boolean notice,
             @Nullable String follow) {
+        play(context, sound, title, body, kind, key, eventId, notice, follow, null);
+    }
+
+    public static void play(
+            Context context,
+            String sound,
+            String title,
+            String body,
+            String kind,
+            String key,
+            int eventId,
+            boolean notice,
+            @Nullable String follow,
+            @Nullable String meta) {
         Intent intent = new Intent(context, AdhanService.class)
                 .setAction(ACTION_PLAY)
                 .putExtra(EXTRA_SOUND, sound)
@@ -239,7 +254,8 @@ public class AdhanService extends Service
                 .putExtra(EXTRA_KEY, key)
                 .putExtra(EXTRA_EVENT_ID, eventId)
                 .putExtra(EXTRA_NOTICE, notice)
-                .putExtra(EXTRA_FOLLOW, follow == null ? "" : follow);
+                .putExtra(EXTRA_FOLLOW, follow == null ? "" : follow)
+                .putExtra(EXTRA_META, meta == null ? "" : meta);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(intent);
         } else {
@@ -363,6 +379,7 @@ public class AdhanService extends Service
         currentWantsNotice = intent != null && intent.getBooleanExtra(EXTRA_NOTICE, false);
         String follow = intent != null ? intent.getStringExtra(EXTRA_FOLLOW) : null;
         currentFollow = follow == null ? "" : follow.trim();
+        currentMeta = NoticeMeta.parse(intent != null ? intent.getStringExtra(EXTRA_META) : null);
         currentVolume = volume;
         currentNotificationUsage = notificationUsage;
 
@@ -449,10 +466,9 @@ public class AdhanService extends Service
     }
 
     private Notification buildNotification(String title, String body, String kind) {
-        Intent open = new Intent(this, MainActivity.class)
-                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent openPi = PendingIntent.getActivity(
-                this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        // النقر يفتح شاشة الصلاة لا الصفحة الأخيرة؛ والمعاينة تبقى حيث هي.
+        PendingIntent openPi = ManarNotices.openIntent(this, 0,
+                "preview".equals(kind) ? "" : (currentMeta.route.isEmpty() ? "/prayer" : currentMeta.route));
 
         PendingIntent stopPi = PendingIntent.getService(
                 this,
@@ -510,33 +526,13 @@ public class AdhanService extends Service
     static final String REASON_FOCUS = "الجوال مشغول بمكالمة أو صوت آخر";
 
     private void postSilentNotice(String reason) {
-        NotificationManager nm = getSystemService(NotificationManager.class);
-        if (nm == null) return;
         if ("preview".equals(currentNoticeKind)) return;
-        String channel = ManarChannels.notice(this, currentNoticeKind);
-
-        Intent open = new Intent(this, MainActivity.class)
-                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent openPi = PendingIntent.getActivity(
-                this, 3, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-        Notification n = new NotificationCompat.Builder(this, channel)
-                .setSmallIcon(R.drawable.ic_stat_manar)
-                .setColor(0xFFC9A227)
-                .setContentTitle(currentNoticeTitle)
-                .setContentText(currentNoticeBody.isEmpty() ? reason : currentNoticeBody)
-                .setSubText(reason)
-                .setContentIntent(openPi)
-                .setCategory(NotificationCompat.CATEGORY_REMINDER)
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setSilent(true)
-                .setAutoCancel(true)
-                .build();
-        try {
-            nm.notify(NOTICE_ID, n);
-        } catch (SecurityException ignored) {
-            // إذن الإشعارات مسحوب
-        }
+        // إشعار الحدث نفسه (بمعرّفه): مسار النقر و«صلّيت» والمجموعة، وسبب الصمت.
+        ManarNotices.post(this, currentEventId,
+                "iqama".equals(currentNoticeKind) ? "iqama" : "adhan",
+                currentNoticeTitle,
+                currentNoticeBody.isEmpty() ? reason : currentNoticeBody,
+                reason, true, currentMeta);
     }
 
     private static AudioAttributes attributes(boolean notificationUsage) {
@@ -664,7 +660,7 @@ public class AdhanService extends Service
         if (scheduled) {
             ManarNotices.post(this, currentEventId,
                     "iqama".equals(currentNoticeKind) ? "iqama" : "adhan",
-                    currentNoticeTitle, currentNoticeBody, null, false);
+                    currentNoticeTitle, currentNoticeBody, null, false, currentMeta);
         }
     }
 
@@ -1037,7 +1033,7 @@ public class AdhanService extends Service
         if (wasSounding && currentWantsNotice && !"preview".equals(currentNoticeKind)
                 && !currentKey.isEmpty()) {
             ManarNotices.post(this, currentEventId, "adhan",
-                    currentNoticeTitle, currentNoticeBody, null, true);
+                    currentNoticeTitle, currentNoticeBody, null, true, currentMeta);
         }
         stopSelfSafely();
     }
@@ -1065,7 +1061,7 @@ public class AdhanService extends Service
         // الأذان سُمِع للتوّ. إشعار التحكم أُزيل مع انتهاء الخدمة الأمامية.
         if (currentWantsNotice && !"preview".equals(currentNoticeKind)) {
             ManarNotices.post(this, currentEventId, "adhan",
-                    currentNoticeTitle, currentNoticeBody, null, true);
+                    currentNoticeTitle, currentNoticeBody, null, true, currentMeta);
         }
         android.util.Log.i("ManarAudio", "completed key=" + currentKey);
         stopSelfSafely();

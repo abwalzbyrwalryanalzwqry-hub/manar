@@ -67,6 +67,11 @@
             android:name=".AdhanAlarmReceiver"
             android:exported="false" />
 
+        <!-- أزرار الإشعارات التي لا تفتح التطبيق: «صلّيت» و«ذكّرني لاحقاً». -->
+        <receiver
+            android:name=".ManarActionReceiver"
+            android:exported="false" />
+
         <!-- فترات «سكينة»: منبّه للبداية وآخر للنهاية، وزرّ «إيقاف الآن». -->
         <receiver
             android:name=".SakinahReceiver"
