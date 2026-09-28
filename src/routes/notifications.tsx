@@ -11,6 +11,7 @@ import {
 import { REMINDER_OPTIONS, effectiveVolume, useAdhanSettings } from "@/lib/adhan-settings";
 import { VolumeLevelsCard } from "@/components/manar/volume-levels-card";
 import { AlertSystemStatus } from "@/components/manar/alert-system-status";
+import { AlertCenterCard } from "@/components/manar/alert-center-card";
 import { iqamahLabel } from "@/lib/iqamah-library";
 import { PRAYER_LABELS, PRAYER_ORDER, type PrayerKey } from "@/lib/prayer";
 import { toArabicDigits } from "@/lib/format";
@@ -152,6 +153,10 @@ function Notifications() {
 
       <div className="mt-4 px-4">
         <AlertSystemStatus settings={settings} />
+      </div>
+
+      <div className="mt-3 px-4">
+        <AlertCenterCard settings={settings} />
       </div>
 
       {/* Master controls — كل مرحلة مستقلّة: تعطيل الأذان لا يُعطّل الإقامة */}

@@ -82,6 +82,9 @@ public final class AdhanScheduler {
     /** إشعار نصّي بلا صوت: دخول الوقت حين يكون الأذان معطّلاً، أو «اقتربت الإقامة». */
     public static final String KIND_NOTICE = "notice";
 
+    /** موعد الحدث المجدول في المنبّه — ليحسب السجل كم تأخّر الإطلاق. */
+    public static final String EXTRA_AT = "at";
+
     /** One scheduled Adhan / Iqama / notice event. */
     public static final class Event {
         public final int id;
@@ -206,6 +209,8 @@ public final class AdhanScheduler {
                 .putInt(KEY_ZONE_OFFSET, java.util.TimeZone.getDefault().getOffset(now))
                 .apply();
         int armed = armWindow(context, pending, now);
+        ManarLog.add(context, ManarLog.SCHEDULED, "",
+                pending.size() + "/" + armed + (canScheduleExact(context) ? "/exact" : "/inexact"));
         android.util.Log.i("ManarSchedule", "stored " + pending.size() + " of " + events.size()
                 + ", armed " + armed + " exact=" + canScheduleExact(context));
         return pending.size();
@@ -421,6 +426,7 @@ public final class AdhanScheduler {
                 .putExtra(AdhanService.EXTRA_NOTICE, e.notice)
                 .putExtra(AdhanService.EXTRA_FOLLOW, e.follow)
                 .putExtra(AdhanService.EXTRA_META, e.meta)
+                .putExtra(EXTRA_AT, e.atMillis)
                 .putExtra(EXTRA_EVENT_ID, e.id);
 
         return PendingIntent.getBroadcast(

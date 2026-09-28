@@ -46,6 +46,7 @@ public class ManarActionReceiver extends BroadcastReceiver {
             String day = intent.getStringExtra(EXTRA_DAY);
             if (prayer == null || day == null) return;
             PrayedQueue.add(context, prayer, day);
+            ManarLog.add(context, ManarLog.PRAYED, prayer, day);
             Log.i("ManarSchedule", "prayed " + prayer + " " + day);
             if (nm != null && notificationId != 0) nm.cancel(notificationId);
             PrayedListener l = prayedListener;
@@ -74,6 +75,7 @@ public class ManarActionReceiver extends BroadcastReceiver {
                     .putExtra(AdhanService.EXTRA_BODY, intent.getStringExtra(AdhanService.EXTRA_BODY))
                     .putExtra(AdhanService.EXTRA_CHANNEL, intent.getStringExtra(AdhanService.EXTRA_CHANNEL))
                     .putExtra(AdhanService.EXTRA_META, meta.toJson())
+                    .putExtra(AdhanScheduler.EXTRA_AT, at)
                     .putExtra(AdhanScheduler.EXTRA_EVENT_ID, eventId);
             PendingIntent pi = PendingIntent.getBroadcast(context, 0, fire,
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -90,6 +92,7 @@ public class ManarActionReceiver extends BroadcastReceiver {
                     am.setExact(AlarmManager.RTC_WAKEUP, at, pi);
                 }
                 Log.i("ManarSchedule", "snoozed " + eventId + " for " + minutes + "m");
+                ManarLog.add(context, ManarLog.SNOOZED, String.valueOf(eventId), String.valueOf(minutes));
             } catch (SecurityException e) {
                 am.set(AlarmManager.RTC_WAKEUP, at, pi);
             }

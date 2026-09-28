@@ -527,6 +527,7 @@ public class AdhanService extends Service
 
     private void postSilentNotice(String reason) {
         if ("preview".equals(currentNoticeKind)) return;
+        ManarLog.add(this, ManarLog.SILENCED, currentKey, reason);
         // إشعار الحدث نفسه (بمعرّفه): مسار النقر و«صلّيت» والمجموعة، وسبب الصمت.
         ManarNotices.post(this, currentEventId,
                 "iqama".equals(currentNoticeKind) ? "iqama" : "adhan",

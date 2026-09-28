@@ -29,6 +29,7 @@
  */
 
 import { applyPrayed } from "@/lib/prayed-queue";
+import type { AlertLogEvent, ChannelInfo } from "@/lib/alert-center";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { computePrayerTimes, type LocationState, type Settings } from "@/lib/prayer";
@@ -63,7 +64,8 @@ import {
 import { dayKey, readLog } from "@/lib/activity-log";
 import { jumuahTimeline, planJumuahReminders, readJumuah } from "@/lib/jumuah";
 import { getIqamahSound } from "@/lib/iqamah-library";
-import { resolveIqamaForPrayer } from "@/lib/adhan-settings";
+import { resolveAdhanForPrayer, resolveIqamaForPrayer } from "@/lib/adhan-settings";
+import { adhanVariantUrl } from "@/lib/adhan-sound";
 import { prayerLabelOn } from "@/lib/prayer-schedule";
 import { readSakinah } from "@/lib/sakinah";
 import type { PrayerKey } from "@/lib/prayer";
@@ -126,6 +128,8 @@ export type NativeAdhanStatus = {
   lastScheduledAt?: number;
   nextKey?: string;
   nextAt?: number;
+  nextTitle?: string;
+  nextKind?: string;
   /** آخر مرة تعذّر فيها تشغيل صوت الأذان أو الإقامة (ميلي ثانية)، وسببها. */
   playbackFailedAt?: number;
   playbackFailedReason?: string;
@@ -213,6 +217,16 @@ type ManarAdhanPlugin = {
   requestExactAlarmPermission: () => Promise<{ granted: boolean; opened?: boolean }>;
   requestIgnoreBatteryOptimizations: () => Promise<{ granted: boolean; opened?: boolean }>;
   openNotificationSettings: () => Promise<void>;
+  /* مركز التنبيهات (المرحلة ٣٠) */
+  alertLog?: () => Promise<{ events: AlertLogEvent[] }>;
+  clearAlertLog?: () => Promise<void>;
+  channelStatus?: () => Promise<{ notificationsAllowed: boolean; channels: ChannelInfo[] }>;
+  testAlarm?: (o: {
+    sound: string;
+    title?: string;
+    body?: string;
+    seconds?: number;
+  }) => Promise<{ scheduled: boolean; key?: string; at?: number; exact?: boolean }>;
   /** طابور «صلّيت» من الإشعارات (المرحلة ٢٩) — يُعاد ويُفرَّغ. */
   takePrayed?: () => Promise<{ items: unknown }>;
   /* صوت منار */
@@ -1289,5 +1303,64 @@ export async function attachNativeRouteListener(onRoute: (route: string) => void
     });
   } catch {
     routeListenerAttached = false;
+  }
+}
+
+/* ------------------- مركز التنبيهات (المرحلة ٣٠) ------------------- */
+
+export async function nativeAlertLog(): Promise<AlertLogEvent[]> {
+  const p = adhanPlugin();
+  if (!p?.alertLog) return [];
+  try {
+    const { events } = await p.alertLog();
+    return Array.isArray(events) ? events : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function clearNativeAlertLog(): Promise<void> {
+  try {
+    await adhanPlugin()?.clearAlertLog?.();
+  } catch {
+    /* لا شيء */
+  }
+}
+
+export async function nativeChannelStatus(): Promise<ChannelInfo[]> {
+  const p = adhanPlugin();
+  if (!p?.channelStatus) return [];
+  try {
+    const { channels } = await p.channelStatus();
+    return Array.isArray(channels) ? channels : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * «تجربة شاملة»: أذان الظهر المختار بعد دقيقة، بالمسار الأصلي نفسه. `null`
+ * خارج أندرويد أو إن تعذّر الضبط.
+ */
+export async function scheduleFullTest(): Promise<{
+  key: string;
+  at: number;
+  exact: boolean;
+} | null> {
+  const p = adhanPlugin();
+  if (!p?.testAlarm || !(await ensureNativePermission())) return null;
+  const s = getAdhanSettings();
+  const soundOn = s.soundEnabled && !s.silentMode;
+  try {
+    const r = await p.testAlarm({
+      sound: soundOn ? rawResourceName(adhanVariantUrl(resolveAdhanForPrayer(s, "dhuhr"))) : "",
+      title: "تجربة شاملة — منار",
+      body: "هكذا يصل الأذان والتطبيق مغلق",
+      seconds: 60,
+    });
+    if (!r.scheduled || !r.key || !r.at) return null;
+    return { key: r.key, at: r.at, exact: !!r.exact };
+  } catch {
+    return null;
   }
 }
