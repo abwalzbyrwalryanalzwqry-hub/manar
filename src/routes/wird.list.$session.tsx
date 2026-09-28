@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useAnnouncer } from "@/components/manar/live-announcer";
 import { counterAnnouncement } from "@/lib/azkar/a11y";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Icon, icons, Screen, ScreenHeader } from "@/components/manar/shell";
 import { WirdProgressBar } from "@/components/manar/wird-progress";
 import { toArabicDigits } from "@/lib/format";

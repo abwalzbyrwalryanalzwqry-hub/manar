@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Icon, icons, Mark, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
 import { computePrayerTimes, PRAYER_LABELS, useLocation, useSettings, useNow } from "@/lib/prayer";
 import { useHijriAdjust } from "@/lib/hijri";

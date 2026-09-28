@@ -8,7 +8,7 @@ import {
 } from "@/lib/adhan-settings";
 import { playAdhan, playIqama } from "@/lib/adhan-sound";
 import { play, stop } from "@/lib/audio-engine";
-import { toArabicDigits, formatPercent } from "@/lib/format";
+import { formatPercent } from "@/lib/format";
 import {
   getPhoneAlarmVolume,
   isNativeShell,

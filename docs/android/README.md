@@ -46,9 +46,9 @@ in `capacitor.config.ts` at the emitted client directory before `cap sync`.
 
 ```bash
 npm install @capacitor/core @capacitor/android @capacitor/cli \
-        @capacitor/local-notifications @capacitor/app @capacitor/device \
+        @capacitor/local-notifications @capacitor/app \
         @capacitor/preferences @capacitor/splash-screen @capacitor/status-bar \
-        @capacitor/geolocation @capacitor-community/media-session \
+        @capacitor-community/media-session \
         @capawesome/capacitor-background-task
 ```
 
@@ -60,7 +60,7 @@ npm install @capacitor/core @capacitor/android @capacitor/cli \
 | Background audio + audio focus        | foreground service + `AudioManager` focus request                                  |
 | Media session (lock-screen controls)  | `@capacitor-community/media-session`                                               |
 | Local persistence                     | `localStorage` (WebView) + `@capacitor/preferences` for native-side schedule state |
-| Location                              | `@capacitor/geolocation`                                                           |
+| Location                              | `navigator.geolocation` (Capacitor's WebView asks for the manifest permissions)    |
 
 Keep the boundary clean: the web UI writes settings, the native scheduler reads
 them and owns alarms/audio.

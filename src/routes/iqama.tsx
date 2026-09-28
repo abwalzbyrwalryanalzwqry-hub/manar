@@ -9,7 +9,7 @@ import {
   SectionLabel,
 } from "@/components/manar/shell";
 import { AlertSystemStatus } from "@/components/manar/alert-system-status";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import {
   ADJUSTABLE_PRAYERS,
   DEFAULT_IQAMA,

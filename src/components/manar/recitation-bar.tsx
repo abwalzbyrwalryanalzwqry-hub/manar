@@ -8,7 +8,7 @@
 
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import { Icon, icons } from "@/components/manar/shell";
 import { useRecitationPlayer } from "@/hooks/use-recitation-player";

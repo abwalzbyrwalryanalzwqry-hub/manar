@@ -1,7 +1,7 @@
 /* منار — قراءة أذونات التنبيه وإصلاحها (للمكوّن `AlertPermissionRows`). */
 
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import { adhanVerdict, type AlertPermissions, type PermissionKey } from "@/lib/alert-permissions";
 import {
