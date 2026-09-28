@@ -33,8 +33,8 @@ Android SDK + JDK 17.
 ## 2. Static client build for the native shell
 
 ```bash
-bun install
-bun run build          # emits the client bundle
+npm ci
+npm run build         # emits the client bundle
 npx cap sync android   # copies web assets + plugins into android/
 ```
 
@@ -45,7 +45,7 @@ in `capacitor.config.ts` at the emitted client directory before `cap sync`.
 ## 3. Native plugins to install (matching the required capabilities)
 
 ```bash
-bun add @capacitor/core @capacitor/android @capacitor/cli \
+npm install @capacitor/core @capacitor/android @capacitor/cli \
         @capacitor/local-notifications @capacitor/app @capacitor/device \
         @capacitor/preferences @capacitor/splash-screen @capacitor/status-bar \
         @capacitor/geolocation @capacitor-community/media-session \

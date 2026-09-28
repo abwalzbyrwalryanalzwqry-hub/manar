@@ -21,37 +21,55 @@ if (keystorePropertiesFile.exists()) {
  *
  * كان `versionCode 1` مكتوباً يدوياً في كل الفروع؛ وGoogle Play يرفض أي
  * حزمة رقمها ليس أعلى ممّا سبق، فكان كل تحديث يلزمه تعديل يدوي منسيً.
- * الأولوية هنا:
- *   ١) MANAR_VERSION_CODE  — تجاوز صريح عند الحاجة.
- *   ٢) GITHUB_RUN_NUMBER   — داخل GitHub Actions: يزيد مع كل بناء ولا يرجع.
- *   ٣) عدد الالتزامات على الفرع — متزايد طبعاً مع تاريخ المستودع.
- *   ٤) 1 — ملاذ أخير (شجرة بلا Git، كما في بعض أرشيفات المصدر).
+ * مصدر واحد للرقم في كل بيئة: **عدد الالتزامات حتى HEAD**. البناء المحلي وبناء
+ * GitHub Actions يعطيان الرقم نفسه للالتزام نفسه، ويزيد مع كل دمج في main.
+ *
+ * لماذا حُذف GITHUB_RUN_NUMBER (المرحلة ٣١): رقم التشغيل خاصٌّ بكل ملف سير عمل
+ * ويبدأ من ١، بينما عدد الالتزامات كان ٤٦٨ حين كان رقم التشغيل ١٢٥. فحزمة
+ * مبنية محلياً (٤٦٨) ثم حزمة من CI (١٢٦) = رقم يتراجع، ويرفضها Google Play.
+ *
+ * الأولوية:
+ *   ١) MANAR_VERSION_CODE — تجاوز صريح (رقم صحيح موجب) عند الحاجة.
+ *   ٢) عدد الالتزامات — يتطلّب تاريخاً كاملاً؛ في CI: `fetch-depth: 0`.
+ *   ٣) 1 — ملاذ للتجربة فقط (شجرة بلا Git أو نسخة سطحية)، مع تحذير.
+ *      في بناء الإصدار (MANAR_REQUIRE_RELEASE_SIGNING=true) يتوقف البناء بدل
+ *      أن يُخرج حزمة برقم خاطئ.
  *
  * و`versionName` يُقرأ من package.json ليبقى مصدر واحد للرقم بين الويب والتطبيق.
  */
 // ProcessBuilder وليس Project.exec: الأخير مهجور في Gradle الحديث ويكسر ذاكرة
 // التهيئة (configuration cache).
-def gitCommitCount = {
+def runGit = { List<String> args ->
     try {
-        def proc = new ProcessBuilder('git', 'rev-list', '--count', 'HEAD')
+        def proc = new ProcessBuilder(['git'] + args)
             .directory(rootProject.projectDir.parentFile)
             .redirectErrorStream(true)
             .start()
         def out = proc.inputStream.text.trim()
         proc.waitFor()
-        return proc.exitValue() == 0 && out.isInteger() ? out.toInteger() : 0
+        return proc.exitValue() == 0 ? out : null
     } catch (Exception ignored) {
-        return 0
+        return null
     }
 }
 
 def resolvedVersionCode = {
-    def explicit = System.getenv("MANAR_VERSION_CODE")
-    if (explicit?.isInteger()) return explicit.toInteger()
-    def run = System.getenv("GITHUB_RUN_NUMBER")
-    if (run?.isInteger()) return run.toInteger()
-    def commits = gitCommitCount()
-    return commits > 0 ? commits : 1
+    def strict = (System.getenv("MANAR_REQUIRE_RELEASE_SIGNING") ?: "").toBoolean()
+    def explicit = System.getenv("MANAR_VERSION_CODE")?.trim()
+    if (explicit) {
+        if (explicit.isInteger() && explicit.toInteger() > 0) return explicit.toInteger()
+        throw new GradleException("Manar: MANAR_VERSION_CODE يجب أن يكون رقماً صحيحاً موجباً، والقيمة '${explicit}'.")
+    }
+    // نسخة سطحية (checkout افتراضي بعمق ١) تعطي عدداً خاطئاً صغيراً.
+    def shallow = runGit(['rev-parse', '--is-shallow-repository']) == 'true'
+    def count = runGit(['rev-list', '--count', 'HEAD'])
+    if (!shallow && count?.isInteger() && count.toInteger() > 0) return count.toInteger()
+    def why = shallow ? "النسخة سطحية (استعمل fetch-depth: 0 أو git fetch --unshallow)" : "لا تاريخ Git"
+    if (strict) {
+        throw new GradleException("Manar: تعذّر حساب versionCode — ${why}. عيّن MANAR_VERSION_CODE أو اجلب التاريخ كاملاً.")
+    }
+    logger.warn("Manar: versionCode=1 لأن ${why}. هذه الحزمة للتجربة فقط.")
+    return 1
 }()
 
 def resolvedVersionName = {
@@ -173,9 +191,17 @@ android {
         }
     }
 
+    /* المرحلة ٣١: كان الفحص مطفأً كلياً. الآن:
+     * - بناء الإصدار يشغّل lintVitalRelease ويتوقف على الأخطاء «القاتلة» وحدها
+     *   (تعطّل مؤكد عند التشغيل: مورد مفقود، إذن ناقص، واجهة غير موجودة…).
+     * - التقرير الكامل (`./gradlew lintDebug`) يُرفع أثراً في CI للمراجعة، ولا
+     *   يوقف البناء بعد؛ يُشدَّد بعد مراجعة أول تقرير. */
     lint {
-        abortOnError false
-        checkReleaseBuilds false
+        abortOnError true
+        checkReleaseBuilds true
+        warningsAsErrors false
+        htmlReport true
+        xmlReport true
     }
 }
 
