@@ -29,8 +29,10 @@ export type SeasonCycle =
       kind: "monthly";
       startDay: number;
       endDay: number | "last";
-      /** أشهر لا يظهر فيها (مثلاً البيض في ذي الحجة: ١٣ من أيام التشريق). */
+      /** أشهر لا يظهر فيها (مثلاً البيض في رمضان: صيامه فرض). */
       skipMonths?: number[];
+      /** أيام مختلفة لشهر بعينه (البيض في ذي الحجة: ١٤–١٥ لأن ١٣ من التشريق). */
+      monthDays?: Record<number, { startDay: number; endDay: number | "last" }>;
     }
   | {
       kind: "weekly";
@@ -136,6 +138,11 @@ export type SeasonReminder = {
   slot: SeasonReminderSlot;
   title: string;
   body: string;
+  /**
+   * نصّ بديل حين يكون تذكير الكهف مفعّلاً في قسم الجمعة، فلا يصل التذكير
+   * بالكهف مرتين (المواسم + الجمعة).
+   */
+  bodyWithoutKahf?: string;
 };
 
 export type Season = {

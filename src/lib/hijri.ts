@@ -362,13 +362,21 @@ export const OCCASIONS: Occasion[] = [
   {
     id: "mawlid",
     title: "المولد النبوي",
-    note: "ذكرى مولد النبي ﷺ",
+    note: "١٢ ربيع الأول على المشهور، والتاريخ مختلف فيه",
     kind: "event",
     month: 3,
     day: 12,
   },
-  { id: "isra", title: "الإسراء والمعراج", note: "٢٧ رجب", kind: "event", month: 7, day: 27 },
-  { id: "nisf-shaban", title: "ليلة النصف من شعبان", kind: "blessed", month: 8, day: 15 },
+  {
+    id: "isra",
+    title: "الإسراء والمعراج",
+    note: "٢٧ رجب على المشهور، والتاريخ مختلف فيه",
+    kind: "event",
+    month: 7,
+    day: 27,
+  },
+  /* بلا وسم «وقت فاضل»: قواعد محتوى المواسم لا تُثبت فضيلة بلا دليل متفق عليه. */
+  { id: "nisf-shaban", title: "النصف من شعبان", kind: "event", month: 8, day: 15 },
   {
     id: "ramadan",
     title: "غرّة رمضان",
@@ -381,29 +389,24 @@ export const OCCASIONS: Occasion[] = [
   {
     id: "last-ten",
     title: "العشر الأواخر",
-    note: "ليالي القدر المرجّحة",
+    /* ليلة القدر لا تُحدَّد (قاعدة المواسم): تُتحرّى في العشر كلها. والعشر حتى
+     * آخر الشهر، ٢٩ كان أو ٣٠. */
+    note: "تُتحرّى فيها ليلة القدر",
     kind: "blessed",
     month: 9,
     day: 21,
-    span: 9,
-  },
-  {
-    id: "qadr",
-    title: "ليلة القدر (مرجّحة)",
-    note: "٢٧ رمضان",
-    kind: "blessed",
-    month: 9,
-    day: 27,
+    span: 10,
   },
   { id: "eid-fitr", title: "عيد الفطر", note: "غرّة شوّال", kind: "eid", month: 10, day: 1 },
   {
     id: "shawwal-six",
     title: "ست من شوّال",
-    note: "صيام مسنون بعد العيد",
+    /* في شوال كله بعد يوم العيد، لا في ٢–٧ وحدها (كما في موسم شوال). */
+    note: "صيام مسنون في شوال بعد يوم العيد",
     kind: "fast",
     month: 10,
     day: 2,
-    span: 6,
+    span: 29,
   },
   {
     id: "hajj-ten",
@@ -436,7 +439,7 @@ export const OCCASIONS: Occasion[] = [
 
 export const OCCASION_TONE: Record<OccasionKind, { dot: string; chip: string; label: string }> = {
   eid: { dot: "bg-rose-400", chip: "gradient-night", label: "عيد" },
-  blessed: { dot: "bg-gold", chip: "gradient-gold", label: "ليلة فاضلة" },
+  blessed: { dot: "bg-gold", chip: "gradient-gold", label: "وقت فاضل" },
   fast: { dot: "bg-emerald-500", chip: "gradient-primary", label: "صيام" },
   event: { dot: "bg-primary", chip: "gradient-primary", label: "مناسبة" },
 };

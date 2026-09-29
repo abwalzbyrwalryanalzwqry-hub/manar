@@ -42,6 +42,7 @@ import {
   getSeasonState,
   importantDaysOf,
   isSeasonNotifyOn,
+  reminderTimes,
 } from "@/lib/seasons/engine";
 import {
   defaultGoal,
@@ -293,7 +294,7 @@ function SeasonDetail({ season, st, now }: { season: Season; st: SeasonState; no
       )}
 
       <PlanSection season={season} st={st} now={now} />
-      <RemindersSection season={season} />
+      <RemindersSection season={season} st={st} now={now} />
 
       {season.references.length > 0 && (
         <>
@@ -608,7 +609,7 @@ function PlanSection({ season, st, now }: { season: Season; st: SeasonState; now
 
 /* ------------------------------ التذكيرات ------------------------------ */
 
-function RemindersSection({ season }: { season: Season }) {
+function RemindersSection({ season, st, now }: { season: Season; st: SeasonState; now: Date }) {
   const { store, setSeasonNotify } = useSeasonsStore();
   if (!season.reminders.length) return null;
   const on = isSeasonNotifyOn(season, store.notify);
@@ -651,9 +652,15 @@ function RemindersSection({ season }: { season: Season }) {
             <span className="text-primary">أوقات كل المواسم</span>
           </Link>
         )}
-        <ul className="space-y-1 px-1 text-[11px] leading-relaxed text-muted-foreground">
-          {season.reminders.map((r) => (
-            <li key={r.id}>• {r.body}</li>
+        <ul className="space-y-1.5 px-1 text-[11px] leading-relaxed text-muted-foreground">
+          {reminderTimes(st.instance, store.notify, now).map(({ reminder: r, at, past }) => (
+            <li key={r.id} className={past ? "opacity-50" : ""}>
+              <span className="text-foreground">
+                {formatWeekdayAr(at)} {formatGregorianAr(at)} ·{" "}
+                {timeAr({ hour: at.getHours(), minute: at.getMinutes() })}
+              </span>
+              <span className="block">{r.body}</span>
+            </li>
           ))}
         </ul>
       </div>
