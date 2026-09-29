@@ -932,6 +932,9 @@ async function syncNativePrayerScheduleNow(
       DAYS_AHEAD,
       getHijriAdjust(),
       readSeasonNotifyPrefs(),
+      undefined,
+      /* تذكير الكهف في قسم الجمعة يُغني عن ذكره في تذكير موسم الجمعة. */
+      { jumuahKahf: readJumuah().prefs.remindKahf },
     );
     /* لكل تنبيه موسمي صوته من حزمة المواسم (seasons/sounds.ts)؛ وإن تعذّرت
      * قناته فالاحتياطي العام، ثم قناة التنبيهات العامة. */

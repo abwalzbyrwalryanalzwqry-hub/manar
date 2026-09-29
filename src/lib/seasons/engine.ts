@@ -19,6 +19,7 @@ import type {
   Season,
   SeasonInstance,
   SeasonPhase,
+  SeasonReminder,
   SeasonReminderSlot,
   SeasonState,
 } from "./types";
@@ -124,7 +125,8 @@ function computeInstancesAround(season: Season, today: Date, adjust: number): Se
     const pushMonth = (delta: number) => {
       const { year, month } = addHijriMonths(h.year, h.month, delta);
       if (c.skipMonths?.includes(month)) return;
-      out.push(monthInstance(season, year, month, c.startDay, c.endDay, adjust));
+      const days = c.monthDays?.[month] ?? c;
+      out.push(monthInstance(season, year, month, days.startDay, days.endDay, adjust));
     };
     for (let delta = -2; delta <= 2; delta++) pushMonth(delta);
     for (let delta = 3; delta <= MONTHLY_MAX_AHEAD && !hasUpcoming(); delta++) pushMonth(delta);
@@ -383,6 +385,8 @@ export function seasonNotificationsBetween(
   adjust: number,
   prefs: SeasonNotifyPrefs,
   defs: Season[] = SEASONS,
+  /** تذكير الكهف مفعّل في قسم الجمعة؟ فتُستعمل نصوص المواسم بلا الكهف. */
+  opts: { jumuahKahf?: boolean } = {},
 ): PlannedSeasonNotification[] {
   if (!prefs.enabled) return [];
   const active = defs.filter((s) => s.enabled && s.reminders.length && isSeasonNotifyOn(s, prefs));
@@ -412,7 +416,7 @@ export function seasonNotificationsBetween(
               slot: r.slot,
               at,
               title: r.title,
-              body: r.body,
+              body: (opts.jumuahKahf && r.bodyWithoutKahf) || r.body,
             },
           };
         }
@@ -422,6 +426,28 @@ export function seasonNotificationsBetween(
     if (best.evening) out.push(best.evening.n);
   }
   return out;
+}
+
+/** موعد كل تذكير في نسخة موسم معيّنة (لقائمة التذكيرات في صفحة الموسم). */
+export type ReminderSlotTime = {
+  reminder: SeasonReminder;
+  at: Date;
+  past: boolean;
+};
+
+export function reminderTimes(
+  instance: SeasonInstance,
+  prefs: Pick<SeasonNotifyPrefs, "morning" | "evening">,
+  now: Date,
+): ReminderSlotTime[] {
+  return instance.season.reminders
+    .map((reminder) => {
+      const at = noon(addDays(instance.startDate, refOffset(reminder.at, instance.length)));
+      const t = reminder.slot === "morning" ? prefs.morning : prefs.evening;
+      at.setHours(t.hour, t.minute, 0, 0);
+      return { reminder, at, past: at.getTime() <= now.getTime() };
+    })
+    .sort((a, b) => a.at.getTime() - b.at.getTime());
 }
 
 export function hijriLabel(h: HijriYMD, monthName: (m: number) => string): string {

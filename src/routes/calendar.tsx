@@ -262,7 +262,7 @@ function CalendarScreen() {
 
           <div className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-2 border-t border-border pt-4 text-[10px] text-muted-foreground">
             <Legend dot={OCCASION_TONE.event.dot} label="مناسبة" />
-            <Legend dot={OCCASION_TONE.blessed.dot} label="ليلة فاضلة" />
+            <Legend dot={OCCASION_TONE.blessed.dot} label="وقت فاضل" />
             <Legend dot={OCCASION_TONE.eid.dot} label="عيد" />
             <Legend dot={OCCASION_TONE.fast.dot} label="صيام مسنون" />
           </div>

@@ -19,6 +19,13 @@ const MUSLIM = "صحيح مسلم";
 const AGREED = "متفق عليه";
 
 const H = {
+  /* صيغة تكبير مأثورة عن الصحابة (لا حديث مرفوع فيها). */
+  takbirForm: {
+    kind: "note",
+    text: "من صيغ التكبير المأثورة عن ابن مسعود رضي الله عنه: «اللهُ أكبرُ، اللهُ أكبرُ، لا إلهَ إلا اللهُ، واللهُ أكبرُ، اللهُ أكبرُ، وللهِ الحمدُ».",
+    source: "مصنف ابن أبي شيبة، وصحّح إسناده الألباني في إرواء الغليل (٣/١٢٥)",
+  },
+
   // أحاديث موجودة في ملف «حديث اليوم» — تُقرأ منه ولا تُكرَّر.
   ramadanFasting: { kind: "hadith-ref", id: 20 },
   ramadanToRamadan: { kind: "hadith-ref", id: 21 },
@@ -83,9 +90,10 @@ const H = {
   },
   qadrDua: {
     kind: "hadith",
-    text: "قُلْتُ يَا رَسُولَ اللَّهِ أَرَأَيْتَ إِنْ عَلِمْتُ أَىُّ لَيْلَةٍ لَيْلَةُ الْقَدْرِ مَا أَقُولُ فِيهَا قَالَ: «قُولِي اللَّهُمَّ إِنَّكَ عَفُوٌّ كَرِيمٌ تُحِبُّ الْعَفْوَ فَاعْفُ عَنِّي»",
+    text: "قُلْتُ يَا رَسُولَ اللَّهِ أَرَأَيْتَ إِنْ عَلِمْتُ أَىُّ لَيْلَةٍ لَيْلَةُ الْقَدْرِ مَا أَقُولُ فِيهَا قَالَ: «قُولِي اللَّهُمَّ إِنَّكَ عَفُوٌّ تُحِبُّ الْعَفْوَ فَاعْفُ عَنِّي»",
     narrator: "عائشة رضي الله عنها",
     source: "جامع الترمذي",
+    // لفظة «كريم» ليست في أصول الترمذي الخطية ولا عند من نقل عنه (نبّه عليها الألباني).
     grade: "قال الترمذي: حسن صحيح",
   },
   zakatFitr: {
@@ -151,7 +159,7 @@ const H = {
   },
   tashreeq: {
     kind: "hadith",
-    text: "أَيَّامُ التَّشْرِيقِ أَيَّامُ أَكْلٍ وَشُرْبٍ",
+    text: "أَيَّامُ التَّشْرِيقِ أَيَّامُ أَكْلٍ وَشُرْبٍ وَذِكْرٍ لِلَّهِ",
     narrator: "نبيشة الهذلي رضي الله عنه",
     source: MUSLIM,
   },
@@ -163,7 +171,7 @@ const H = {
   },
   fridayHour: {
     kind: "hadith",
-    text: "فِيهِ سَاعَةٌ لاَ يُوَافِقُهَا عَبْدٌ مُسْلِمٌ، وَهْوَ قَائِمٌ يُصَلِّي، يَسْأَلُ اللَّهَ تَعَالَى شَيْئًا إِلاَّ أَعْطَاهُ إِيَّاهُ",
+    text: "أَنَّ رَسُولَ اللَّهِ صلى الله عليه وسلم ذَكَرَ يَوْمَ الْجُمُعَةِ فَقَالَ: «فِيهِ سَاعَةٌ لاَ يُوَافِقُهَا عَبْدٌ مُسْلِمٌ، وَهْوَ قَائِمٌ يُصَلِّي، يَسْأَلُ اللَّهَ تَعَالَى شَيْئًا إِلاَّ أَعْطَاهُ إِيَّاهُ»، وَأَشَارَ بِيَدِهِ يُقَلِّلُهَا",
     narrator: "أبو هريرة رضي الله عنه",
     source: AGREED,
   },
@@ -295,7 +303,7 @@ const ramadan: Season = {
       subtitle: "قد تكون الليلة ليلة العيد — العبرة بإعلان بلدك",
       from: { fromEnd: 0 },
       to: { fromEnd: 0 },
-      content: [H.zakatFitr, ANNOUNCE_NOTE],
+      content: [H.zakatFitr, H.takbirForm, ANNOUNCE_NOTE],
       panels: ["fasting-times", "night-times"],
     },
     {
@@ -454,11 +462,25 @@ const ramadan: Season = {
       body: "قد يكون غدًا أول أيام رمضان، والعبرة بإعلان بلدك.",
     },
     {
+      id: "first",
+      at: 1,
+      slot: "morning",
+      title: "أول أيام رمضان",
+      body: "اليوم أول أيام رمضان. تقبّل الله صيامكم.",
+    },
+    {
       id: "last-ten",
       at: 20,
       slot: "evening",
       title: "العشر الأواخر",
       body: "بدأت العشر الأواخر.",
+    },
+    {
+      id: "zakat-fitr",
+      at: { fromEnd: -1 },
+      slot: "evening",
+      title: "زكاة الفطر",
+      body: "زكاة الفطر: يجوز إخراجها قبل العيد بيوم أو يومين، وآخر وقتها قبل صلاة العيد.",
     },
   ],
   notificationSettings: { defaultEnabled: true },
@@ -518,7 +540,15 @@ const shaban: Season = {
     },
   ],
   educationalContent: [],
-  reminders: [],
+  reminders: [
+    {
+      id: "first",
+      at: 1,
+      slot: "morning",
+      title: "شهر شعبان",
+      body: "دخل شعبان: شهر يُكثر فيه الصيام، وفرصة لقضاء ما فات من رمضان.",
+    },
+  ],
   notificationSettings: { defaultEnabled: true },
   references: ["صحيح البخاري وصحيح مسلم"],
 };
@@ -661,7 +691,7 @@ const dhulHijjah: Season = {
       subtitle: "الحادي عشر والثاني عشر والثالث عشر",
       from: 11,
       to: 13,
-      content: [{ kind: "ayah", surah: 2, from: 203 }, H.tashreeq],
+      content: [{ kind: "ayah", surah: 2, from: 203 }, H.tashreeq, H.takbirForm],
     },
   ],
   importantDays: [
@@ -748,6 +778,13 @@ const dhulHijjah: Season = {
       slot: "evening",
       title: "يوم عرفة",
       body: "غدًا يوم عرفة.",
+    },
+    {
+      id: "arafah",
+      at: 9,
+      slot: "morning",
+      title: "يوم عرفة",
+      body: "اليوم يوم عرفة: صيامه لغير الحاج، والإكثار من الدعاء.",
     },
     {
       id: "adha-eve",
@@ -905,6 +942,13 @@ const muharram: Season = {
       title: "تاسوعاء وعاشوراء",
       body: "غدًا التاسع من المحرّم، وبعده يوم عاشوراء.",
     },
+    {
+      id: "ashura",
+      at: 10,
+      slot: "morning",
+      title: "يوم عاشوراء",
+      body: "اليوم عاشوراء، يُستحب صيامه.",
+    },
   ],
   notificationSettings: { defaultEnabled: true },
   references: [...REFS_CORE],
@@ -969,6 +1013,7 @@ const friday: Season = {
       slot: "evening",
       title: "غدًا الجمعة",
       body: "غدًا الجمعة: سورة الكهف والإكثار من الصلاة على النبي ﷺ.",
+      bodyWithoutKahf: "غدًا الجمعة: الإكثار من الصلاة على النبي ﷺ.",
     },
     {
       id: "day",
@@ -976,6 +1021,7 @@ const friday: Season = {
       slot: "morning",
       title: "يوم الجمعة",
       body: "سورة الكهف والصلاة على النبي ﷺ والدعاء.",
+      bodyWithoutKahf: "الصلاة على النبي ﷺ والدعاء، والتبكير إلى الصلاة.",
     },
   ],
   notificationSettings: { defaultEnabled: false },
@@ -1064,11 +1110,18 @@ const whiteDays: Season = {
   id: "white-days",
   title: "الأيام البيض",
   shortTitle: "الأيام البيض",
-  description: "الثالث عشر والرابع عشر والخامس عشر من كل شهر هجري.",
+  description:
+    "الثالث عشر والرابع عشر والخامس عشر من كل شهر هجري. وفي ذي الحجة يُصام الرابع عشر والخامس عشر، لأن الثالث عشر من أيام التشريق.",
   type: "recurring",
   icon: "sparkle",
-  // رمضان صيامه فرض، و١٣ ذي الحجة من أيام التشريق التي لا تُصام.
-  cycle: { kind: "monthly", startDay: 13, endDay: 15, skipMonths: [9, 12] },
+  // رمضان صيامه فرض؛ وفي ذي الحجة ١٣ من أيام التشريق فيبقى ١٤ و١٥.
+  cycle: {
+    kind: "monthly",
+    startDay: 13,
+    endDay: 15,
+    skipMonths: [9],
+    monthDays: { 12: { startDay: 14, endDay: 15 } },
+  },
   priority: 30,
   enabled: true,
   phases: [
@@ -1096,7 +1149,7 @@ const whiteDays: Season = {
       at: -1,
       slot: "evening",
       title: "الأيام البيض",
-      body: "غدًا أول الأيام البيض (١٣ من الشهر الهجري).",
+      body: "غدًا أول الأيام البيض من الشهر الهجري.",
     },
   ],
   notificationSettings: { defaultEnabled: false },
