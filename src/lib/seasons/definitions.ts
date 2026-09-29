@@ -331,7 +331,7 @@ const ramadan: Season = {
       id: "qada",
       title: "قضاء ما فات من صيام",
       hint: "لمن عليه أيام من رمضان الماضي",
-      goal: { frequency: "count", target: 3 },
+      goal: { frequency: "count", fasting: true, target: 3 },
       phases: ["before", "prep"],
     },
     {
@@ -344,7 +344,7 @@ const ramadan: Season = {
     {
       id: "fast",
       title: "صيام اليوم",
-      goal: { frequency: "daily" },
+      goal: { frequency: "daily", fasting: true },
       phases: ["start", "days", "last-ten", "eid-night"],
     },
     {
@@ -498,13 +498,13 @@ const shaban: Season = {
     {
       id: "fast",
       title: "صيام ما تيسّر من شعبان",
-      goal: { frequency: "count", target: 4 },
+      goal: { frequency: "count", fasting: true, target: 4 },
       phases: ["month"],
     },
     {
       id: "qada",
       title: "قضاء ما فات من رمضان الماضي",
-      goal: { frequency: "count", target: 3 },
+      goal: { frequency: "count", fasting: true, target: 3 },
     },
     {
       id: "khatmah",
@@ -559,7 +559,7 @@ const shawwal: Season = {
       title: "صيام ست من شوال",
       hint: "سجّل كل يوم تصومه",
       // بعد يوم العيد — صوم يوم الفطر منهيّ عنه.
-      goal: { frequency: "count", target: 6, trackPhases: ["six"] },
+      goal: { frequency: "count", fasting: true, target: 6, trackPhases: ["six"] },
     },
     {
       id: "prayers",
@@ -599,6 +599,7 @@ const dhulHijjah: Season = {
   id: "dhul-hijjah",
   title: "عشر ذي الحجة",
   shortTitle: "ذو الحجة",
+  ofTitle: "ذي الحجة",
   description: "أيام العشر ويوم عرفة وعيد الأضحى وأيام التشريق.",
   type: "worship",
   icon: "sun",
@@ -700,7 +701,7 @@ const dhulHijjah: Season = {
     {
       id: "arafah-fast",
       title: "صيام يوم عرفة لغير الحاج",
-      goal: { frequency: "once", trackPhases: ["arafah"] },
+      goal: { frequency: "once", fasting: true, trackPhases: ["arafah"] },
       phases: ["before", "ten", "tarwiyah", "arafah"],
     },
     {
@@ -764,6 +765,7 @@ const hajj: Season = {
   id: "hajj",
   title: "موسم الحج",
   shortTitle: "الحج",
+  ofTitle: "موسم الحج",
   description: "أيام المناسك من يوم التروية إلى آخر أيام التشريق.",
   type: "occasion",
   icon: "location",
@@ -872,13 +874,13 @@ const muharram: Season = {
     {
       id: "ashura",
       title: "صيام تاسوعاء وعاشوراء",
-      goal: { frequency: "count", target: 2, trackPhases: ["ashura"] },
+      goal: { frequency: "count", fasting: true, target: 2, trackPhases: ["ashura"] },
       phases: ["new-year", "month", "ashura"],
     },
     {
       id: "fast",
       title: "صيام ما تيسّر من المحرم",
-      goal: { frequency: "count", target: 3 },
+      goal: { frequency: "count", fasting: true, target: 3 },
     },
     {
       id: "qiyam",
@@ -1007,7 +1009,9 @@ const mondayThursday: Season = {
     },
   ],
   importantDays: [],
-  recommendedActions: [{ id: "fast", title: "الصيام لمن أراد", goal: { frequency: "once" } }],
+  recommendedActions: [
+    { id: "fast", title: "الصيام لمن أراد", goal: { frequency: "once", fasting: true } },
+  ],
   educationalContent: [],
   reminders: [
     {
@@ -1079,7 +1083,11 @@ const whiteDays: Season = {
   ],
   importantDays: [],
   recommendedActions: [
-    { id: "fast", title: "صيام الأيام البيض", goal: { frequency: "count", target: 3 } },
+    {
+      id: "fast",
+      title: "صيام الأيام البيض",
+      goal: { frequency: "count", fasting: true, target: 3 },
+    },
   ],
   educationalContent: [],
   reminders: [

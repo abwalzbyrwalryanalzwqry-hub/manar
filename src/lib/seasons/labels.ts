@@ -1,14 +1,24 @@
 /* مواسم منار — نصوص الحالة (بلا واجهة، قابلة للاختبار). */
 
-import { toArabicDigits } from "@/lib/format";
-import type { SeasonState } from "./types";
+import { countedNoun, toArabicDigits } from "@/lib/format";
+import type { Season, SeasonState } from "./types";
 
-/** «يوم واحد / يومان / ٣ أيام / ١١ يومًا» — صيغة العدد العربية. */
+/** «يوم واحد / يومان / ٣ أيام / ١١ يومًا / ١٠٠ يوم» — صيغة العدد العربية. */
 export function daysAr(n: number): string {
   if (n === 1) return "يوم واحد";
   if (n === 2) return "يومان";
-  if (n >= 3 && n <= 10) return `${toArabicDigits(n)} أيام`;
-  return `${toArabicDigits(n)} يومًا`;
+  return `${toArabicDigits(n)} ${dayUnit(n)}`;
+}
+
+/** كلمة «يوم» بعد رقم مكتوب: ١ يوم، ٢ يومان، ٣ أيام، ١١ يومًا، ١٠٠ يوم. */
+export function dayUnit(n: number): string {
+  if (n === 2) return "يومان";
+  return countedNoun(n, "يوم", "أيام", "يومًا");
+}
+
+/** اسم الموسم بعد حرف جرّ أو مضافاً إليه: «من ذي الحجة»، «على رمضان». */
+export function seasonOf(s: Season): string {
+  return s.ofTitle ?? s.shortTitle;
 }
 
 /** سطر الحالة: جارٍ / قادم / انتهى — بصياغة هادئة. */
@@ -16,12 +26,11 @@ export function statusLine(st: SeasonState): string {
   const s = st.instance.season;
   if (st.status === "current") {
     if (st.instance.length === 1) return `اليوم: ${s.title}.`;
-    const name = s.cycle.kind === "annual" && s.id === "ramadan" ? "رمضان" : "الموسم";
-    return `اليوم ${toArabicDigits(st.dayNumber ?? 1)} من ${name}.`;
+    return `اليوم ${toArabicDigits(st.dayNumber ?? 1)} من ${seasonOf(s)}.`;
   }
   if (st.status === "upcoming") {
     if (st.daysUntil === 1) return `غدًا ${s.shortTitle}.`;
-    return `بقي ${daysAr(st.daysUntil)} على ${s.shortTitle}.`;
+    return `بقي ${daysAr(st.daysUntil)} على ${seasonOf(s)}.`;
   }
   return "انتهى الموسم.";
 }

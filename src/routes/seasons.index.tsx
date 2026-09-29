@@ -12,9 +12,11 @@ import {
 } from "@/components/manar/shell";
 import { Switch } from "@/components/manar/season-parts";
 import { daysAr, phaseLabel, remainingLine, statusLine } from "@/lib/seasons/labels";
-import { formatGregorianAr, formatHijriAr, toArabicDigits } from "@/lib/format";
-import { hijriMonthName, useHijriAdjust } from "@/lib/hijri";
-import { activeSeasonNotifyCount, seasonsOverview } from "@/lib/seasons/engine";
+import { countAr, formatGregorianAr, formatHijriAr, toArabicDigits } from "@/lib/format";
+import { hijriDisplayDate, hijriMonthName, useHijriAdjust } from "@/lib/hijri";
+import { computePrayerTimes, useLocation, useNow, useSettings } from "@/lib/prayer";
+import { SEASONS } from "@/lib/seasons/definitions";
+import { activeSeasonNotifyCount, isSeasonNotifyOn, seasonsOverview } from "@/lib/seasons/engine";
 import { useSeasonToday, useSeasonsStore } from "@/lib/seasons/store";
 import { SEASON_TYPE_LABEL, type SeasonState } from "@/lib/seasons/types";
 
@@ -56,7 +58,8 @@ function SeasonsPage() {
 function SeasonsContent({ now }: { now: Date }) {
   const { adjust } = useHijriAdjust();
   const [showPast, setShowPast] = useState(false);
-  const { store, patchNotify } = useSeasonsStore();
+  const { store, patchNotify, setSeasonNotify } = useSeasonsStore();
+  const headerDate = useHeaderHijri(adjust);
   const ov = useMemo(() => seasonsOverview(now, adjust), [now, adjust]);
   const featured = ov.featured;
   const others = [...ov.current, ...ov.around].filter(
@@ -68,7 +71,7 @@ function SeasonsContent({ now }: { now: Date }) {
     <Screen>
       <ScreenHeader
         title="مواسم منار"
-        subtitle={`${formatHijriAr(now, adjust)} · ${formatGregorianAr(now)}`}
+        subtitle={`${headerDate} · ${formatGregorianAr(now)}`}
         backTo="/more"
       />
 
@@ -187,18 +190,120 @@ function SeasonsContent({ now }: { now: Date }) {
             <div className="text-sm font-medium">تنبيهات المواسم</div>
             <div className="text-[11px] text-muted-foreground">
               {store.notify.enabled
-                ? `مفعّلة لـ ${toArabicDigits(notifyCount)} مواسم · تعمل دون إنترنت`
+                ? notifyCount > 0
+                  ? `مفعّلة: ${countAr(notifyCount, "موسم", "موسمان", "مواسم")} · تعمل دون إنترنت`
+                  : "لا موسم مفعّل"
                 : "متوقفة"}
             </div>
           </div>
           <Switch on={store.notify.enabled} />
         </button>
+
+        {store.notify.enabled && (
+          <>
+            {/* أوقات التذكير — إعداد واحد لكل المواسم */}
+            <div className="grid grid-cols-2 gap-2">
+              <TimeField
+                label="تذكير الصباح"
+                value={store.notify.morning}
+                onChange={(t) => patchNotify({ morning: t })}
+              />
+              <TimeField
+                label="تذكير المساء"
+                value={store.notify.evening}
+                onChange={(t) => patchNotify({ evening: t })}
+              />
+            </div>
+
+            {/* كل المواسم في مكان واحد */}
+            <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
+              {notifySeasons.map((s, i) => {
+                const on = isSeasonNotifyOn(s, store.notify);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    role="switch"
+                    aria-checked={on}
+                    onClick={() => setSeasonNotify(s.id, !on)}
+                    className={`flex w-full items-center gap-3 p-3 text-right ${
+                      i > 0 ? "border-t border-border" : ""
+                    }`}
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-primary">
+                      <Icon d={icons[s.icon]} size={16} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-medium">{s.title}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {countAr(s.reminders.length, "تذكير", "تذكيران", "تذكيرات")}
+                      </div>
+                    </div>
+                    <Switch on={on} />
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
         <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">
-          تنبيه واحد كحد أقصى صباحًا ومساءً. يمكنك اختيار المواسم وأوقات التنبيه من صفحة كل موسم.
+          تنبيه واحد كحد أقصى صباحًا ومساءً، والموسم الأعلى أولوية يتقدّم عند التزامن.
         </p>
       </div>
     </Screen>
   );
+}
+
+/** المواسم التي لها تذكيرات — لقائمة التفعيل. */
+const notifySeasons = SEASONS.filter((s) => s.enabled && s.reminders.length > 0);
+
+function toHHMM(t: { hour: number; minute: number }) {
+  return `${String(t.hour).padStart(2, "0")}:${String(t.minute).padStart(2, "0")}`;
+}
+
+function TimeField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: { hour: number; minute: number };
+  onChange: (t: { hour: number; minute: number }) => void;
+}) {
+  return (
+    <label className="rounded-2xl border border-border bg-card p-3 text-center">
+      <span className="block text-[10px] text-muted-foreground">{label}</span>
+      <input
+        type="time"
+        value={toHHMM(value)}
+        onChange={(e) => {
+          if (!e.target.value) return;
+          const [h, m] = e.target.value.split(":").map(Number);
+          onChange({ hour: h || 0, minute: m || 0 });
+        }}
+        className="mt-1 w-full bg-transparent text-center text-sm tabular-nums outline-none"
+      />
+    </label>
+  );
+}
+
+/**
+ * التاريخ الهجري في العنوان كما في الرئيسية والتقويم: بعد المغرب هو الغد إن
+ * اختار المستخدم «بداية اليوم الهجري عند المغرب». يُحدَّث كل دقيقة، ومواقيت
+ * اليوم تُحسب مرة لليوم. (حساب المواسم نفسه يبقى باليوم المدني.)
+ */
+function useHeaderHijri(adjust: number): string {
+  const { atMaghrib } = useHijriAdjust();
+  const now = useNow(60_000);
+  const { location } = useLocation();
+  const { settings } = useSettings();
+  const dayStamp = now.toDateString();
+  const maghrib = useMemo(
+    () =>
+      atMaghrib ? computePrayerTimes(location, settings, new Date(dayStamp), adjust).maghrib : null,
+    [atMaghrib, location, settings, dayStamp, adjust],
+  );
+  return formatHijriAr(hijriDisplayDate(now, maghrib, atMaghrib), adjust);
 }
 
 function FeaturedCard({ st }: { st: SeasonState }) {

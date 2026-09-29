@@ -99,6 +99,8 @@ export type SeasonAction = {
      * فالاحتساب في مراحل الظهور (`phases`)، وإن غابت فالموسم كله.
      */
     trackPhases?: string[];
+    /** هدف صيام: لا يُسجَّل في يوم يُنهى عن صومه (العيدان وأيام التشريق). */
+    fasting?: boolean;
   };
   /** يظهر في هذه المراحل فقط؛ إن غاب يظهر طوال الموسم. */
   phases?: string[];
@@ -140,6 +142,11 @@ export type Season = {
   id: string;
   title: string;
   shortTitle: string;
+  /**
+   * الاسم بعد حرف جرّ أو مضاف إليه («اليوم ٥ من ذي الحجة»، «بقي ٣ أيام على
+   * ذي الحجة»، «تذكيرات ذي الحجة») إن اختلف عن `shortTitle`.
+   */
+  ofTitle?: string;
   description: string;
   type: SeasonType;
   icon: IconKey;

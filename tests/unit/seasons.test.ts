@@ -283,7 +283,7 @@ describe("نصوص الحالة", () => {
     expect(daysAr(11)).toBe("١١ يومًا");
     const r = S("ramadan");
     expect(statusLine(getSeasonState(r, H(1447, 9, 4))!)).toBe("اليوم ٤ من رمضان.");
-    expect(statusLine(getSeasonState(S("shawwal"), H(1447, 10, 4))!)).toBe("اليوم ٤ من الموسم.");
+    expect(statusLine(getSeasonState(S("shawwal"), H(1447, 10, 4))!)).toBe("اليوم ٤ من شوال.");
     expect(statusLine(getSeasonState(r, H(1447, 10, 3))!)).toBe("انتهى الموسم.");
   });
 });
