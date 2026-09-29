@@ -4,7 +4,15 @@ import { Icon, icons, SectionLabel } from "@/components/manar/shell";
 import { FARD_PRAYERS } from "@/lib/activity-log";
 import { toArabicDigits } from "@/lib/format";
 import { PRAYER_LABELS } from "@/lib/prayer";
-import { adjustQada, makeUpQada, qadaTotal, useQada, type FardKey } from "@/lib/qada";
+import {
+  adjustQada,
+  adjustQadaFasts,
+  makeUpFast,
+  makeUpQada,
+  qadaTotal,
+  useQada,
+  type FardKey,
+} from "@/lib/qada";
 
 export function QadaCard() {
   const { store, commit } = useQada();
@@ -75,6 +83,43 @@ export function QadaCard() {
             </button>
           </div>
         ))}
+        {/* قضاء الصيام (مواسم منار): يُطرح منه تلقائياً ما يُسجَّل في خطة شعبان ورمضان */}
+        <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-soft">
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">أيام الصيام</span>
+            <span className="block text-[10px] text-muted-foreground">
+              قضيت {toArabicDigits(store.fastsMadeUp)}
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={() => commit((s) => adjustQadaFasts(s, -1))}
+            disabled={store.fasts === 0}
+            aria-label="إنقاص أيام الصيام دون احتساب قضاء"
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-border disabled:opacity-30"
+          >
+            <Icon d={icons.minus} size={14} />
+          </button>
+          <span className="w-12 text-center font-display text-lg tabular-nums">
+            {toArabicDigits(store.fasts)}
+          </span>
+          <button
+            type="button"
+            onClick={() => commit((s) => adjustQadaFasts(s, 1))}
+            aria-label="إضافة يوم صيام فائت"
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-border"
+          >
+            <Icon d={icons.plus} size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={() => commit(makeUpFast)}
+            disabled={store.fasts === 0}
+            className="gradient-primary rounded-xl px-3 py-2 text-[11px] font-medium text-primary-foreground shadow-glow disabled:opacity-40"
+          >
+            قضيت
+          </button>
+        </div>
         <p className="px-1 text-[10px] leading-relaxed text-muted-foreground">
           «+» يضيف فائتة، و«−» يصحّح خطأ العدّ، و«قضيت» يطرح واحدة ويحسبها في مجموع ما قضيت.
         </p>

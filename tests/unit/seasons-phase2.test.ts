@@ -39,7 +39,7 @@ const EMPTY: ActivityLog = { bestStreak: 0, days: {} };
 /* ------------------------------ ٢.١ ------------------------------ */
 
 describe("٢.١ الإنجاز لا يُعيد جدولة الإشعارات", () => {
-  const base: SeasonsStore = { notify: DEFAULT_NOTIFY, plans: {} };
+  const base: SeasonsStore = { notify: DEFAULT_NOTIFY, plans: {}, templates: {} };
 
   it("تغيير الخطة وحدها ← حدث الخطة", () => {
     const next: SeasonsStore = {

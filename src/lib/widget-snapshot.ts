@@ -20,6 +20,7 @@ import {
   type Settings,
 } from "./prayer";
 import { DEFAULT_WIDGET_OPTIONS, type WidgetOptions } from "./widget-settings";
+import { widgetSeasonLine } from "./seasons/widget-line";
 
 /** أيام اللقطة: الويدجت يعرض المواقيت شهراً دون فتح التطبيق. */
 export const WIDGET_DAYS = 30;
@@ -49,6 +50,8 @@ export interface WidgetDay {
    */
   hijriFrom?: number;
   hijriEvening?: string;
+  /** سطر الموسم الجاري («اليوم ١٢ من رمضان · الإفطار ٦:٢١ م»)، إن وُجد. */
+  season?: string;
   prayers: WidgetPrayer[];
   verse: WidgetVerse | null;
 }
@@ -85,6 +88,16 @@ export function buildWidgetSnapshot(input: {
     );
     const times = computePrayerTimes(input.location, input.settings, date);
     const key = dayKey(date);
+    const clock = (at: Date) => {
+      const ampm = displayPrefs().clock === "24" ? "" : at.getHours() < 12 ? "ص" : "م";
+      return ampm ? `${formatArTime(at)} ${ampm}` : formatArTime(at);
+    };
+    let season: string | undefined;
+    try {
+      season = widgetSeasonLine(date, input.hijriAdjust ?? 0, clock(times.maghrib));
+    } catch {
+      /* خطأ في المواسم لا يمنع الويدجت */
+    }
     days.push({
       date: key,
       weekday: formatWeekdayAr(date),
@@ -98,15 +111,15 @@ export function buildWidgetSnapshot(input: {
             ),
           }
         : {}),
+      ...(season ? { season } : {}),
       prayers: WIDGET_PRAYERS.map((p) => {
         const at = times[p];
-        const ampm = displayPrefs().clock === "24" ? "" : at.getHours() < 12 ? "ص" : "م";
         return {
           key: p,
           /* يوم الجمعة: «الجمعة» بدل «الظهر» كما في التطبيق والإشعارات. */
           name: p === "dhuhr" && date.getDay() === 5 ? "الجمعة" : PRAYER_LABELS[p].ar,
           at: at.getTime(),
-          time: ampm ? `${formatArTime(at)} ${ampm}` : formatArTime(at),
+          time: clock(at),
         };
       }),
       verse: input.verses?.[key] ?? null,

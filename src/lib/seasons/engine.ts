@@ -9,6 +9,7 @@ import {
   fastingInfo,
   fromHijri,
   hijriEngine,
+  hijriOverridesRev,
   hijriMonthLength,
   toHijri,
 } from "@/lib/hijri";
@@ -94,7 +95,7 @@ export function instancesAround(season: Season, date: Date, adjust = 0): SeasonI
   /* مخزَّن: النظرة العامة تستدعيها ثلاث مرات لكل موسم، وجدولة التنبيهات مرة لكل
    * موسم في كل يوم من الأفق — وكل استدعاء يحوّل بين الهجري والميلادي مرات. الدالة
    * نقية، فالمفتاح (الموسم، اليوم، الإزاحة، محرّك الهجري) يكفي. النتيجة للقراءة. */
-  const key = `${ymd(today)}|${today.getTimezoneOffset()}|${adjust}|${hijriEngine()}`;
+  const key = `${ymd(today)}|${today.getTimezoneOffset()}|${adjust}|${hijriEngine()}|${hijriOverridesRev()}`;
   let perSeason = instanceCache.get(season);
   if (!perSeason) {
     perSeason = new Map();
@@ -194,6 +195,25 @@ export function getSeasonState(season: Season, date: Date, adjust = 0): SeasonSt
   const recent = [...list].reverse().find((s) => s.status === "ended" && s.daysSinceEnd <= trail);
   if (recent) return recent;
   return list.find((s) => s.status === "upcoming") ?? list[list.length - 1] ?? null;
+}
+
+/**
+ * حالة نسخة بعينها من الموسم بتاريخ بدايتها `YYYY-MM-DD` (صفوف «المواسم
+ * الماضية» تفتح النسخة التي انتهت لا القادمة). null إن لم توجد.
+ */
+export function instanceStateAt(
+  season: Season,
+  startKey: string,
+  now: Date,
+  adjust = 0,
+): SeasonState | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(startKey);
+  if (!m) return null;
+  const at = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12);
+  const inst = instancesAround(season, at, adjust).find(
+    (i) => i.key === `${season.id}@${startKey}`,
+  );
+  return inst ? stateOf(inst, now) : null;
 }
 
 export function nextInstance(season: Season, date: Date, adjust = 0): SeasonInstance | null {

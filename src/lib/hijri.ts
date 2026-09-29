@@ -97,16 +97,234 @@ export function hijriDisplayDate(now: Date, maghrib: Date | null | undefined, at
   return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 12);
 }
 
+/* ------------------------------------------------------------------ */
+/*  تأكيد دخول الشهر (مواسم منار، ٤.١)                                  */
+/* ------------------------------------------------------------------ */
+
+/* الإزاحة العامة تنقل كل الأشهر معاً، لكن بداية رمضان والعيد تختلف بين البلدان
+ * في أشهر بعينها. فيحفظ المستخدم «أُعلن دخول الشهر يوم كذا» لشهر واحد، ويتقدّم
+ * ذلك على الحساب في ذلك الشهر، وتتبعه الأشهر التالية حتى يعود طولها ٢٩/٣٠ إلى
+ * أم القرى. المفتاح «السنة-الشهر» الهجري، والقيمة يوم UTC (أيام منذ ١٩٧٠) لأول
+ * يوم فيه. */
+
+const LS_MONTH_STARTS = "manar.hijri.month-starts.v1";
+/** حدّ أعلى للتأكيدات المحفوظة: الأقدم يُحذف (يكفي لسنتين). */
+const MAX_MONTH_STARTS = 24;
+
+let monthStartCache: Map<number, number> | null = null;
+let monthStartRev = 0;
+
+/** رقم مراجعة التأكيدات — يدخل في مفاتيح التخزين المؤقت للحسابات. */
+export function hijriOverridesRev(): number {
+  return monthStartRev;
+}
+
+function monthIndex(year: number, month: number): number {
+  return year * 12 + (month - 1);
+}
+
+function readMonthStarts(): Map<number, number> {
+  if (monthStartCache) return monthStartCache;
+  const map = new Map<number, number>();
+  try {
+    const raw = typeof window === "undefined" ? null : window.localStorage.getItem(LS_MONTH_STARTS);
+    monthStartRaw = raw;
+    const obj = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+    for (const [k, v] of Object.entries(obj)) {
+      const m = /^(\d{4})-(\d{2})$/.exec(k);
+      if (!m || typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) continue;
+      const [y, mo, d] = v.split("-").map(Number);
+      map.set(monthIndex(Number(m[1]), Number(m[2])), Date.UTC(y, mo - 1, d) / MS_PER_DAY);
+    }
+  } catch {
+    /* تالف ← بلا تأكيدات */
+  }
+  monthStartCache = map;
+  return map;
+}
+
+function writeMonthStarts(map: Map<number, number>) {
+  const keys = [...map.keys()].sort((a, b) => a - b);
+  while (keys.length > MAX_MONTH_STARTS) map.delete(keys.shift()!);
+  const obj: Record<string, string> = {};
+  for (const [idx, day] of [...map.entries()].sort((a, b) => a[0] - b[0])) {
+    const y = Math.floor(idx / 12);
+    const m = (idx % 12) + 1;
+    obj[`${y}-${String(m).padStart(2, "0")}`] = new Date(day * MS_PER_DAY)
+      .toISOString()
+      .slice(0, 10);
+  }
+  monthStartCache = map;
+  monthStartRev += 1;
+  if (typeof window === "undefined") return;
+  try {
+    const raw = map.size ? JSON.stringify(obj) : null;
+    if (raw) window.localStorage.setItem(LS_MONTH_STARTS, raw);
+    else window.localStorage.removeItem(LS_MONTH_STARTS);
+    monthStartRaw = raw;
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new CustomEvent(EVT_ADJUST));
+}
+
+/** يُعاد قراءة التأكيدات إن تغيّر المحفوظ (استعادة نسخة احتياطية، نافذة أخرى). */
+function reloadHijriMonthStarts() {
+  if (typeof window === "undefined") return;
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(LS_MONTH_STARTS);
+  } catch {
+    /* ignore */
+  }
+  if (raw === monthStartRaw) return;
+  monthStartRaw = raw;
+  monthStartCache = null;
+  monthStartRev += 1;
+}
+
+let monthStartRaw: string | null | undefined;
+if (typeof window !== "undefined") {
+  window.addEventListener(EVT_ADJUST, reloadHijriMonthStarts);
+  window.addEventListener("storage", reloadHijriMonthStarts);
+}
+
+/** التأكيدات المحفوظة: [{year, month, start}] مرتّبة. */
+export function hijriMonthStarts(): { year: number; month: number; start: Date }[] {
+  return [...readMonthStarts().entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([idx, day]) => {
+      const u = new Date(day * MS_PER_DAY);
+      return {
+        year: Math.floor(idx / 12),
+        month: (idx % 12) + 1,
+        start: new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate(), 12),
+      };
+    });
+}
+
+/** هل للشهر تأكيد محفوظ؟ */
+export function hijriMonthConfirmed(year: number, month: number): Date | null {
+  return hijriMonthStarts().find((x) => x.year === year && x.month === month)?.start ?? null;
+}
+
+export type ConfirmMonthResult = { ok: true } | { ok: false; reason: string };
+
+/**
+ * يحفظ «دخل الشهر يوم `start`». يُرفض إن جعل الشهر السابق أقصر من ٢٩ أو أطول
+ * من ٣٠، أو ابتعد أكثر من يومين عن الحساب.
+ */
+export function confirmHijriMonthStart(
+  year: number,
+  month: number,
+  start: Date,
+  adjust: number = getHijriAdjust(),
+): ConfirmMonthResult {
+  const check = checkHijriMonthStart(year, month, start, adjust);
+  if (!check.ok) return check;
+  const map = new Map(readMonthStarts());
+  map.set(monthIndex(year, month), epochDayOf(start));
+  writeMonthStarts(map);
+  return check;
+}
+
+/** هل يصحّ «دخل الشهر يوم `start`»؟ (بلا حفظ — لعرض الخيارات الممكنة فقط.) */
+export function checkHijriMonthStart(
+  year: number,
+  month: number,
+  start: Date,
+  adjust: number = getHijriAdjust(),
+): ConfirmMonthResult {
+  const idx = monthIndex(year, month);
+  const day = epochDayOf(start);
+  const map = new Map(readMonthStarts());
+  map.delete(idx);
+  const computed = startOfMonth(idx, adjust, map);
+  if (Math.abs(day - computed) > 2)
+    return { ok: false, reason: "التاريخ بعيد عن الحساب بأكثر من يومين" };
+  const prevLen = day - startOfMonth(idx - 1, adjust, map);
+  if (prevLen < 29) return { ok: false, reason: "الشهر السابق لا يكون أقل من ٢٩ يومًا" };
+  if (prevLen > 30) return { ok: false, reason: "الشهر السابق لا يزيد على ٣٠ يومًا" };
+  return { ok: true };
+}
+
+/** يلغي تأكيد شهر فيعود للحساب. */
+export function clearHijriMonthStart(year: number, month: number) {
+  const map = new Map(readMonthStarts());
+  if (map.delete(monthIndex(year, month))) writeMonthStarts(map);
+}
+
+/** للاختبارات فقط. */
+export function __resetHijriMonthStartsForTests() {
+  monthStartCache = new Map();
+  monthStartRaw = undefined;
+  monthStartRev += 1;
+}
+
+function epochDayOf(date: Date): number {
+  return Math.floor(utcNoon(date).getTime() / MS_PER_DAY);
+}
+
+/** أول يوم (يوم UTC) لشهر وفق الحساب والإزاحة، بلا تأكيدات. */
+function baseStartOfMonth(idx: number, adjust: number): number {
+  const { starts, count } = decodeTable();
+  const i = idx - UQ_FIRST_YEAR * 12;
+  if (i >= 0 && i < count) return starts[i] - adjust;
+  // خارج الجدول (١٣٠٠–١٦٠٠هـ): تقدير لا يُستعمل عملياً.
+  return Math.round(UQ_EPOCH_DAY + i * 29.530588) - adjust;
+}
+
+/**
+ * أول يوم لشهر مع التأكيدات: المؤكَّد كما هو، وما بعده يتبع الحساب ما دام طول
+ * الشهر السابق ٢٩ أو ٣٠، وإلا يُقصر إلى الحد. التأكيد يؤثر ١٢ شهراً كحد أقصى.
+ */
+function startOfMonth(idx: number, adjust: number, map: Map<number, number>): number {
+  if (map.has(idx)) return map.get(idx)!;
+  let from = -1;
+  for (const k of map.keys()) if (k < idx && k >= idx - 12 && k > from) from = k;
+  if (from < 0) return baseStartOfMonth(idx, adjust);
+  let s = map.get(from)!;
+  for (let k = from + 1; k <= idx; k++) {
+    const b = map.get(k) ?? baseStartOfMonth(k, adjust);
+    s = map.has(k) ? b : Math.min(s + 30, Math.max(s + 29, b));
+  }
+  return s;
+}
+
+/** الهجري مع التأكيدات: الشهر الذي يقع اليوم بين بدايته وبداية تاليه. */
+function hijriWithOverrides(date: Date, adjust: number, base: HijriDate): HijriDate {
+  const map = readMonthStarts();
+  const d = epochDayOf(date);
+  let idx = monthIndex(base.year, base.month);
+  for (let guard = 0; guard < 4; guard++) {
+    const s = startOfMonth(idx, adjust, map);
+    if (d < s) {
+      idx -= 1;
+      continue;
+    }
+    const next = startOfMonth(idx + 1, adjust, map);
+    if (d >= next) {
+      idx += 1;
+      continue;
+    }
+    return { year: Math.floor(idx / 12), month: (idx % 12) + 1, day: d - s + 1 };
+  }
+  return base;
+}
+
 /** يقرأ الإزاحة ويعيد الرسم عند تغييرها من أي شاشة. */
 export function useHijriAdjust() {
   // نبدأ من 0 على الخادم وفي أول رسم حتى يتطابق الترطيب، ثم نقرأ المحفوظ.
   const [adjust, setAdjust] = useState<HijriAdjust>(0);
   const [atMaghrib, setAtMaghribState] = useState(false);
+  /* تتغيّر مع تأكيد دخول شهر، لتدخل في اعتماديات useMemo. */
+  const [rev, setRev] = useState(0);
 
   useEffect(() => {
     const sync = () => {
       setAdjust(getHijriAdjust());
       setAtMaghribState(getHijriAtMaghrib());
+      setRev(hijriOverridesRev());
     };
     sync();
     window.addEventListener(EVT_ADJUST, sync);
@@ -119,6 +337,7 @@ export function useHijriAdjust() {
 
   return {
     adjust,
+    rev,
     setAdjust: (v: number) => setHijriAdjust(v),
     atMaghrib,
     setAtMaghrib: (on: boolean) => setHijriAtMaghrib(on),
@@ -161,6 +380,16 @@ function shiftDays(date: Date, days: number): Date {
  * الميلادي المُحوَّل — وهي الطريقة التي تُنتج نتيجة متّسقة مع طول الأشهر.
  */
 export function toHijri(date: Date, adjust: number = 0): HijriDate {
+  const base = baseHijri(date, adjust);
+  return readMonthStarts().size ? hijriWithOverrides(date, adjust, base) : base;
+}
+
+/** هل يُحسب الهجري مع تأكيدات أشهر؟ (فلا يُعتمد على تنسيق `Intl` المباشر.) */
+export function hasHijriOverrides(): boolean {
+  return readMonthStarts().size > 0;
+}
+
+function baseHijri(date: Date, adjust: number): HijriDate {
   const target = shiftDays(utcNoon(date), adjust);
   if (hijriEngine() === "table") {
     const fromTable = tableHijri(Math.floor(target.getTime() / MS_PER_DAY));

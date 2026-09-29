@@ -22,6 +22,8 @@ export interface WidgetOptions {
   hijri: boolean;
   /** اسم المدينة بجانب التاريخ. */
   city: boolean;
+  /** سطر الموسم («اليوم ١٢ من رمضان · الإفطار ٦:٢١ م») بدل التاريخ الهجري في أيامه. */
+  season: boolean;
   theme: WidgetTheme;
 }
 
@@ -30,6 +32,7 @@ export const DEFAULT_WIDGET_OPTIONS: WidgetOptions = {
   countdown: true,
   hijri: true,
   city: true,
+  season: true,
   theme: "night",
 };
 
@@ -46,6 +49,7 @@ export function normalizeWidgetOptions(raw: unknown): WidgetOptions {
     countdown: bool(o.countdown, DEFAULT_WIDGET_OPTIONS.countdown),
     hijri: bool(o.hijri, DEFAULT_WIDGET_OPTIONS.hijri),
     city: bool(o.city, DEFAULT_WIDGET_OPTIONS.city),
+    season: bool(o.season, DEFAULT_WIDGET_OPTIONS.season),
     theme: o.theme === "emerald" ? "emerald" : "night",
   };
 }

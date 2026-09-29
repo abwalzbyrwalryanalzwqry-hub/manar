@@ -4,6 +4,7 @@ import { toast } from "@/lib/toast";
 import { Icon, icons, Mark, Screen, ScreenHeader, SectionLabel } from "@/components/manar/shell";
 import { computePrayerTimes, PRAYER_LABELS, useLocation, useSettings, useNow } from "@/lib/prayer";
 import { useHijriAdjust } from "@/lib/hijri";
+import { widgetSeasonLine } from "@/lib/seasons/widget-line";
 import { useDailyVerse, useLocalDay } from "@/lib/daily-content";
 import { ampmAr, formatArTime, formatCountdown, formatHijriAr, toArabicDigits } from "@/lib/format";
 import { WIDGET_PRAYERS, widgetVerseText } from "@/lib/widget-snapshot";
@@ -56,6 +57,12 @@ const TOGGLES: {
     icon: icons.calendar,
   },
   { key: "city", label: "اسم المدينة", sub: "بجانب التاريخ", icon: icons.location },
+  {
+    key: "season",
+    label: "الموسم",
+    sub: "«اليوم ١٢ من رمضان · الإفطار» بدل التاريخ في أيام المواسم",
+    icon: icons.sparkle,
+  },
   { key: "verse", label: "آية اليوم", sub: "تتجدّد كل يوم بلا إنترنت", icon: icons.quran },
 ];
 
@@ -273,7 +280,16 @@ function WidgetPreview({ options }: { options: WidgetOptions }) {
   }, [location, settings, dayStamp, now]);
 
   const hijri = formatHijriAr(now, adjust);
-  const metaParts = [options.hijri ? hijri : "", options.city ? location.city : ""].filter(Boolean);
+  const season = useMemo(() => {
+    if (!options.season) return undefined;
+    const t = computePrayerTimes(location, settings, new Date(dayStamp));
+    const ampm = ampmAr(t.maghrib) ? (t.maghrib.getHours() < 12 ? " ص" : " م") : "";
+    return widgetSeasonLine(new Date(dayStamp), adjust, `${formatArTime(t.maghrib)}${ampm}`);
+  }, [options.season, location, settings, dayStamp, adjust]);
+  const metaParts = [
+    season ?? (options.hijri ? hijri : ""),
+    options.city ? location.city : "",
+  ].filter(Boolean);
   const cd = next ? formatCountdown(next.at.getTime() - now.getTime()) : null;
 
   return (

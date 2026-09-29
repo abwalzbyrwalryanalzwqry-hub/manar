@@ -41,15 +41,20 @@ import {
   findSeason,
   getSeasonState,
   importantDaysOf,
+  instanceStateAt,
   isSeasonNotifyOn,
   reminderTimes,
 } from "@/lib/seasons/engine";
+import { KhatmahCard, MonthConfirmCard, SeasonSummaryCard } from "@/components/manar/season-extras";
+import { monthConfirmApplies, summaryApplies } from "@/lib/seasons/extras";
+import { makeUpFast, undoMakeUpFast, useQada } from "@/lib/qada";
 import {
   defaultGoal,
   goalProgress,
   goalTiming,
   isGoalDay,
   nextPhaseTitle,
+  planFor,
   useSeasonToday,
   useSeasonsStore,
   type GoalState,
@@ -64,6 +69,13 @@ import {
 } from "@/lib/seasons/types";
 
 export const Route = createFileRoute("/seasons/$season")({
+  /* `at`: تاريخ بداية نسخة بعينها (صفوف «المواسم الماضية» تفتح النسخة المنتهية). */
+  validateSearch: (search: Record<string, unknown>): { at?: string } => ({
+    at:
+      typeof search.at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(search.at)
+        ? search.at
+        : undefined,
+  }),
   head: ({ params }) => {
     const s = findSeason(params.season);
     return { meta: [{ title: `${s?.title ?? "موسم"} — منار` }] };
@@ -73,13 +85,15 @@ export const Route = createFileRoute("/seasons/$season")({
 
 function SeasonPage() {
   const { season: id } = Route.useParams();
+  const { at } = Route.useSearch();
   const season = findSeason(id);
-  const { adjust } = useHijriAdjust();
+  const { adjust, rev } = useHijriAdjust();
   const now = useSeasonToday();
-  const st = useMemo(
-    () => (season && now ? getSeasonState(season, now, adjust) : null),
-    [season, now, adjust],
-  );
+  const st = useMemo(() => {
+    void rev; // تأكيد دخول شهر يغيّر النسخ
+    if (!season || !now) return null;
+    return (at && instanceStateAt(season, at, now, adjust)) || getSeasonState(season, now, adjust);
+  }, [season, now, adjust, rev, at]);
 
   if (season && !now) {
     return (
@@ -127,10 +141,21 @@ function SeasonPage() {
     );
   }
 
-  return <SeasonDetail season={season} st={st} now={now} />;
+  const pastView = !!at && st.status === "ended" && st.instance.key === `${season.id}@${at}`;
+  return <SeasonDetail season={season} st={st} now={now} pastView={pastView} />;
 }
 
-function SeasonDetail({ season, st, now }: { season: Season; st: SeasonState; now: Date }) {
+function SeasonDetail({
+  season,
+  st,
+  now,
+  pastView,
+}: {
+  season: Season;
+  st: SeasonState;
+  now: Date;
+  pastView: boolean;
+}) {
   const phaseId = st.phase?.id;
   const actions = season.recommendedActions.filter(
     (a) => !a.phases || (phaseId ? a.phases.includes(phaseId) : false),
@@ -152,6 +177,21 @@ function SeasonDetail({ season, st, now }: { season: Season; st: SeasonState; no
         subtitle={SEASON_TYPE_LABEL[season.type]}
         backTo="/seasons"
       />
+
+      {pastView && (
+        <div className="px-4 pb-3">
+          <Link
+            to="/seasons/$season"
+            params={{ season: season.id }}
+            className="flex items-center justify-between rounded-2xl border border-border bg-secondary/60 px-4 py-2.5 text-[11px]"
+          >
+            <span className="text-muted-foreground">
+              نسخة ماضية: {season.shortTitle} {toArabicDigits(st.instance.hijriStart.year)}هـ
+            </span>
+            <span className="font-medium text-primary">الموعد القادم</span>
+          </Link>
+        </div>
+      )}
 
       {/* الرأس: المرحلة، التاريخ، العد التنازلي أو التقدّم */}
       <div className="px-4 animate-fade-up">
@@ -293,7 +333,12 @@ function SeasonDetail({ season, st, now }: { season: Season; st: SeasonState; no
         </>
       )}
 
-      <PlanSection season={season} st={st} now={now} />
+      {!pastView && monthConfirmApplies(st) && <MonthConfirmCard st={st} now={now} />}
+      {summaryApplies(st) && <SeasonSummaryCard st={st} now={now} />}
+      {!pastView && <PlanSection season={season} st={st} now={now} />}
+      {!pastView &&
+        st.status !== "ended" &&
+        season.recommendedActions.some((a) => a.link?.to === "/quran/khatmah") && <KhatmahCard />}
       <RemindersSection season={season} st={st} now={now} />
 
       {season.references.length > 0 && (
@@ -434,7 +479,8 @@ const FREQ_LABEL: Record<GoalFrequency, string> = {
 };
 
 function PlanSection({ season, st, now }: { season: Season; st: SeasonState; now: Date }) {
-  const { store, patchGoal, toggleDone } = useSeasonsStore();
+  const { store, patchGoal, toggleDone, setTemplate } = useSeasonsStore();
+  const qada = useQada();
   const { log } = useActivityLog();
   const { adjust } = useHijriAdjust();
   /* بعد نهاية الموسم تبقى الأهداف التي يومها اليوم فقط (زكاة الفطر يوم العيد). */
@@ -442,7 +488,15 @@ function PlanSection({ season, st, now }: { season: Season; st: SeasonState; now
     (a) => a.goal && (st.status !== "ended" || isGoalDay(a, st.instance, now)),
   );
   const key = st.instance.key;
-  const plan = store.plans[key] ?? {};
+  const plan = planFor(store, key);
+  const recurring = season.cycle.kind !== "annual";
+  const templateOn = !!store.templates[season.id];
+  /* قضاء الصيام (٤.٥): تسجيل يوم في الخطة يطرحه من عدّاد القضاء، وإلغاؤه يعيده. */
+  const toggle = (a: SeasonAction, wasDone: boolean) => {
+    toggleDone(key, a, dayKey(now));
+    if (a.goal?.qada && qada.store.enabled)
+      qada.commit((s) => (wasDone ? undoMakeUpFast(s) : makeUpFast(s)));
+  };
   const phaseId = st.phase?.id;
   const active = goals.filter((a) => plan[a.id]?.enabled);
   const rest = goals.filter((a) => !plan[a.id]?.enabled);
@@ -513,7 +567,7 @@ function PlanSection({ season, st, now }: { season: Season; st: SeasonState; now
                   p.canMark && (
                     <button
                       type="button"
-                      onClick={() => toggleDone(key, a, dayKey(now))}
+                      onClick={() => toggle(a, p.todayDone)}
                       aria-pressed={p.todayDone}
                       className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition active:scale-95 ${
                         p.todayDone ? "gradient-primary text-white" : "bg-secondary text-primary"
@@ -528,6 +582,17 @@ function PlanSection({ season, st, now }: { season: Season; st: SeasonState; now
               {p.canMark && !p.todayDone && !p.complete && (
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   لم تكمل هدف اليوم. يمكنك إكماله لاحقًا.
+                </p>
+              )}
+              {a.goal?.qada && (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  {qada.store.enabled ? (
+                    `في عدّاد القضاء: بقي ${daysAr(qada.store.fasts)}.`
+                  ) : (
+                    <Link to="/statistics" className="text-primary">
+                      فعّل عدّاد القضاء لتعرف ما بقي عليك
+                    </Link>
+                  )}
                 </p>
               )}
               {!p.canMark && !p.todayAuto && !p.blocked && !p.complete && (
@@ -598,6 +663,25 @@ function PlanSection({ season, st, now }: { season: Season; st: SeasonState; now
               return addButton(a, t ? `في ${t}` : null);
             })}
           </>
+        )}
+        {recurring && active.length > 0 && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={templateOn}
+            onClick={() => setTemplate(key, !templateOn)}
+            className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-right"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-medium">
+                احفظ خطتي لكل {season.shortTitle}
+              </span>
+              <span className="block text-[10px] text-muted-foreground">
+                تُفعَّل الأهداف نفسها تلقائيًا في كل مرة
+              </span>
+            </span>
+            <Switch on={templateOn} />
+          </button>
         )}
         {active.length > 0 && (
           <p className="px-1 text-[11px] text-muted-foreground">استمر في رحلتك.</p>

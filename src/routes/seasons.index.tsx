@@ -56,11 +56,14 @@ function SeasonsPage() {
 }
 
 function SeasonsContent({ now }: { now: Date }) {
-  const { adjust } = useHijriAdjust();
+  const { adjust, rev } = useHijriAdjust();
   const [showPast, setShowPast] = useState(false);
   const { store, patchNotify, setSeasonNotify } = useSeasonsStore();
   const headerDate = useHeaderHijri(adjust);
-  const ov = useMemo(() => seasonsOverview(now, adjust), [now, adjust]);
+  const ov = useMemo(() => {
+    void rev; // تأكيد دخول شهر
+    return seasonsOverview(now, adjust);
+  }, [now, adjust, rev]);
   const featured = ov.featured;
   const others = [...ov.current, ...ov.around].filter(
     (s) => s.instance.key !== featured?.instance.key,
@@ -361,6 +364,8 @@ function SeasonRow({
     <Link
       to="/seasons/$season"
       params={{ season: s.id }}
+      /* الماضي يفتح نسخته المنتهية لا القادمة (B17). */
+      search={muted ? { at: st.instance.key.split("@")[1] } : {}}
       className={`flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-soft transition hover:shadow-elegant ${muted ? "opacity-75" : ""}`}
     >
       <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary text-primary">
