@@ -7,14 +7,8 @@
 import { useEffect, useState } from "react";
 import { useLocalDay } from "@/lib/daily-content";
 import { readJson, writeJson } from "@/lib/persistent-storage";
-import {
-  dayKey,
-  shiftDayKey,
-  type ActivityLog,
-  type DayRecord,
-  FARD_PRAYERS,
-} from "@/lib/activity-log";
-import type { SeasonNotifyPrefs } from "./engine";
+import { dayKey, type ActivityLog, type DayRecord, FARD_PRAYERS } from "@/lib/activity-log";
+import { addDays, refOffset, type SeasonNotifyPrefs } from "./engine";
 import type { AutoTrack, GoalFrequency, SeasonAction, SeasonInstance } from "./types";
 
 export const SEASONS_KEY = "manar.seasons.v1";
@@ -188,18 +182,45 @@ export function autoDone(track: AutoTrack, rec: DayRecord | undefined): boolean 
   }
 }
 
+/**
+ * أيام احتساب الهدف (YYYY-MM-DD) داخل نسخة موسم، مرتّبة: اتحاد مراحل الاحتساب
+ * (`goal.trackPhases`، وإلا `phases`)، وإلا أيام الموسم كلها. قد تسبق بداية
+ * الموسم (مرحلة التمهيد: قضاء ما فات قبل رمضان) أو تليها (يوم العيد لزكاة الفطر).
+ */
+export function goalDayKeys(action: SeasonAction, instance: SeasonInstance): string[] {
+  const len = instance.length;
+  const ids = action.goal?.trackPhases ?? action.phases;
+  const offsets = new Set<number>();
+  if (ids?.length) {
+    for (const id of ids) {
+      const p = instance.season.phases.find((x) => x.id === id);
+      if (!p) continue;
+      const from = refOffset(p.from, len);
+      const to = refOffset(p.to, len);
+      for (let o = from; o <= to; o++) offsets.add(o);
+    }
+  }
+  if (!offsets.size) for (let o = 0; o < len; o++) offsets.add(o);
+  return [...offsets].sort((a, b) => a - b).map((o) => dayKey(addDays(instance.startDate, o)));
+}
+
 export type GoalProgress = {
-  /** الأيام المنجزة داخل الموسم حتى اليوم. */
+  /** الأيام المنجزة داخل أيام الاحتساب حتى اليوم. */
   done: number;
-  /** الهدف: أيام الموسم (يومي)، ١ (مرة)، أو العدد المختار. */
+  /** الهدف: أيام الاحتساب (يومي)، ١ (مرة)، أو العدد المختار (بحدّ أيام الاحتساب). */
   target: number;
   todayDone: boolean;
   complete: boolean;
+  /** اليوم من أيام الاحتساب — يُسمح بتسجيل الإنجاز. */
+  canMark: boolean;
+  /** عدد أيام الاحتساب — الحد الأعلى لهدف «عدد أيام». */
+  windowDays: number;
 };
 
 /**
  * تقدّم هدف داخل نسخة موسم: يجمع ما سجّله المستخدم يدوياً مع ما يُستنتج من
- * سجل النشاط الموجود (الصلوات، القرآن، الوِرد) — بلا تتبّع جديد.
+ * سجل النشاط الموجود (الصلوات، القرآن، الوِرد) — بلا تتبّع جديد. لا يُحتسب إلا
+ * ما وقع في أيام احتساب الهدف (`goalDayKeys`).
  */
 export function goalProgress(
   goal: GoalState,
@@ -208,21 +229,37 @@ export function goalProgress(
   log: ActivityLog,
   today: Date = new Date(),
 ): GoalProgress {
-  const startKey = dayKey(instance.startDate);
-  const endKey = dayKey(instance.endDate);
+  const keys = goalDayKeys(action, instance);
+  const window = new Set(keys);
   const todayKey = dayKey(today);
-  const inRange = (k: string) => k >= startKey && k <= endKey;
-  const days = new Set(goal.done.filter(inRange));
+  const days = new Set(goal.done.filter((k) => window.has(k)));
   const auto = action.goal?.auto;
   if (auto) {
-    for (let k = startKey; k <= endKey && k <= todayKey; k = shiftDayKey(k, 1)) {
+    for (const k of keys) {
+      if (k > todayKey) break;
       if (autoDone(auto, log.days[k])) days.add(k);
     }
   }
   const target =
-    goal.frequency === "daily" ? instance.length : goal.frequency === "once" ? 1 : goal.target;
+    goal.frequency === "daily"
+      ? keys.length
+      : goal.frequency === "once"
+        ? 1
+        : Math.min(goal.target, keys.length);
   const done = Math.min(days.size, target);
-  return { done, target, todayDone: days.has(todayKey), complete: done >= target };
+  return {
+    done,
+    target,
+    todayDone: days.has(todayKey),
+    complete: done >= target,
+    canMark: window.has(todayKey),
+    windowDays: keys.length,
+  };
+}
+
+/** هل اليوم من أيام احتساب الهدف؟ (لعرض الخطة في مرحلة ما بعد الموسم كيوم العيد.) */
+export function isGoalDay(action: SeasonAction, instance: SeasonInstance, today: Date): boolean {
+  return goalDayKeys(action, instance).includes(dayKey(today));
 }
 
 /**

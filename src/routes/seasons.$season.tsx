@@ -22,7 +22,13 @@ import {
   toArabicDigits,
 } from "@/lib/format";
 import { hijriMonthName, useHijriAdjust } from "@/lib/hijri";
-import { computeSunnahTimes, PRAYER_LABELS, usePrayerSchedule } from "@/lib/prayer";
+import {
+  computePrayerTimes,
+  computeSunnahTimes,
+  PRAYER_LABELS,
+  usePrayerSchedule,
+} from "@/lib/prayer";
+import { fastingPanelTimes, nightPanelTimes } from "@/lib/seasons/panel-times";
 import {
   findSeason,
   getSeasonState,
@@ -32,6 +38,7 @@ import {
 import {
   defaultGoal,
   goalProgress,
+  isGoalDay,
   useSeasonToday,
   useSeasonsStore,
   type GoalState,
@@ -75,6 +82,23 @@ function SeasonPage() {
           <Skeleton className="h-36 rounded-[28px]" />
           <Skeleton className="h-16 rounded-2xl" />
         </div>
+      </Screen>
+    );
+  }
+
+  if (season && now && !st) {
+    return (
+      <Screen>
+        <ScreenHeader
+          title={season.title}
+          subtitle={SEASON_TYPE_LABEL[season.type]}
+          backTo="/seasons"
+        />
+        <EmptyState
+          icon={icons.calendar}
+          title="لا يوجد موعد قريب لهذا الموسم"
+          hint={season.description}
+        />
       </Screen>
     );
   }
@@ -198,7 +222,9 @@ function SeasonDetail({ season, st, now }: { season: Season; st: SeasonState; no
       )}
 
       {/* لوحات من خدمات التطبيق */}
-      {st.status === "current" && st.phase?.panels?.map((p) => <Panel key={p} kind={p} />)}
+      {st.status === "current" && st.phase?.panels?.length ? (
+        <Panels kinds={st.phase.panels} />
+      ) : null}
 
       {/* التعريف */}
       <SectionLabel>عن الموسم</SectionLabel>
@@ -277,48 +303,75 @@ function SeasonDetail({ season, st, now }: { season: Season; st: SeasonState; no
 
 /* ------------------------------ اللوحات ------------------------------ */
 
-function Panel({ kind }: { kind: SeasonPanel }) {
-  const { today, next, remainingMs } = usePrayerSchedule();
-  if (kind === "fasting-times") {
-    const cd = formatCountdown(remainingMs);
-    return (
-      <div className="mt-4 px-4 animate-fade-up">
-        <div className="grid grid-cols-3 gap-2">
-          <TimeTile
-            label="الإمساك (الفجر)"
-            value={formatArTime(today.fajr)}
-            sub={ampmAr(today.fajr)}
-          />
-          <TimeTile
-            label="الإفطار (المغرب)"
-            value={formatArTime(today.maghrib)}
-            sub={ampmAr(today.maghrib)}
-          />
-          <Link to="/prayer" className="block">
-            <TimeTile label={`حتى ${PRAYER_LABELS[next.key].ar}`} value={cd.compact} />
-          </Link>
-        </div>
-        <p className="mt-2 px-1 text-[10px] text-muted-foreground">
-          من مواقيت الصلاة في التطبيق حسب موقعك وطريقة الحساب المختارة.
-        </p>
-      </div>
-    );
-  }
-  const sunnah = computeSunnahTimes(today);
+/** لوحات الموسم باستدعاء واحد لجدول المواقيت (لا مؤقّت لكل لوحة). */
+function Panels({ kinds }: { kinds: SeasonPanel[] }) {
+  const { now, today, tomorrow, next, remainingMs, location, settings } = usePrayerSchedule();
+  const { adjust } = useHijriAdjust();
+  const dayStamp = today.fajr.toDateString();
+  const needsNight = kinds.includes("night-times");
+  /* جدول الأمس: قبل فجر اليوم تكون الليلة الجارية ليلةَ الأمس. */
+  const yesterday = useMemo(() => {
+    if (!needsNight) return null;
+    const d = new Date(dayStamp);
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - 1);
+    return computePrayerTimes(location, settings, d, adjust);
+  }, [needsNight, dayStamp, location, settings, adjust]);
+
   return (
-    <div className="mt-4 px-4 animate-fade-up">
-      <div className="grid grid-cols-2 gap-2">
-        <TimeTile label="العشاء" value={formatArTime(today.isha)} sub={ampmAr(today.isha)} />
-        <TimeTile
-          label="بداية الثلث الأخير"
-          value={formatArTime(sunnah.lastThirdOfTheNight)}
-          sub={ampmAr(sunnah.lastThirdOfTheNight)}
-        />
-      </div>
-      <p className="mt-2 px-1 text-[10px] text-muted-foreground">
-        الثلث الأخير تقريبي: بين المغرب وفجر الغد.
-      </p>
-    </div>
+    <>
+      {kinds.map((kind) => {
+        if (kind === "fasting-times") {
+          const cd = formatCountdown(remainingMs);
+          const f = fastingPanelTimes(now, today, tomorrow);
+          return (
+            <div key={kind} className="mt-4 px-4 animate-fade-up">
+              <div className="grid grid-cols-3 gap-2">
+                <TimeTile
+                  label={f.forTomorrow ? "إمساك الغد (الفجر)" : "الإمساك (الفجر)"}
+                  value={formatArTime(f.imsak)}
+                  sub={ampmAr(f.imsak)}
+                />
+                <TimeTile
+                  label={f.forTomorrow ? "إفطار الغد (المغرب)" : "الإفطار (المغرب)"}
+                  value={formatArTime(f.iftar)}
+                  sub={ampmAr(f.iftar)}
+                />
+                <Link to="/prayer" className="block">
+                  <TimeTile label={`حتى ${PRAYER_LABELS[next.key].ar}`} value={cd.compact} />
+                </Link>
+              </div>
+              <p className="mt-2 px-1 text-[10px] text-muted-foreground">
+                من مواقيت الصلاة في التطبيق حسب موقعك وطريقة الحساب المختارة.
+              </p>
+            </div>
+          );
+        }
+        const n = nightPanelTimes(
+          now,
+          yesterday ?? today,
+          today,
+          tomorrow,
+          (t) => computeSunnahTimes(t).lastThirdOfTheNight,
+        );
+        return (
+          <div key={kind} className="mt-4 px-4 animate-fade-up">
+            <div className="grid grid-cols-2 gap-2">
+              <TimeTile label="العشاء" value={formatArTime(n.isha)} sub={ampmAr(n.isha)} />
+              <TimeTile
+                label="بداية الثلث الأخير"
+                value={formatArTime(n.lastThird)}
+                sub={ampmAr(n.lastThird)}
+              />
+            </div>
+            <p className="mt-2 px-1 text-[10px] text-muted-foreground">
+              {n.ongoing ? "لليلة الجارية" : "لليلة القادمة"} · الثلث الأخير تقريبي: بين المغرب
+              والفجر.
+            </p>
+          </div>
+        );
+      })}
+    </>
   );
 }
 
@@ -374,15 +427,16 @@ const FREQ_LABEL: Record<GoalFrequency, string> = {
 function PlanSection({ season, st, now }: { season: Season; st: SeasonState; now: Date }) {
   const { store, patchGoal, toggleDone } = useSeasonsStore();
   const { log } = useActivityLog();
-  const goals = season.recommendedActions.filter((a) => a.goal);
-  if (!goals.length || st.status === "ended") return null;
+  /* بعد نهاية الموسم تبقى الأهداف التي يومها اليوم فقط (زكاة الفطر يوم العيد). */
+  const goals = season.recommendedActions.filter(
+    (a) => a.goal && (st.status !== "ended" || isGoalDay(a, st.instance, now)),
+  );
+  if (!goals.length) return null;
 
   const key = st.instance.key;
   const plan = store.plans[key] ?? {};
   const active = goals.filter((a) => plan[a.id]?.enabled);
   const available = goals.filter((a) => !plan[a.id]?.enabled);
-  const todayKeyDate = now;
-  const canMark = st.status === "current";
 
   return (
     <>
@@ -395,7 +449,8 @@ function PlanSection({ season, st, now }: { season: Season; st: SeasonState; now
         )}
         {active.map((a) => {
           const g = plan[a.id] as GoalState;
-          const p = goalProgress(g, a, st.instance, log, todayKeyDate);
+          const p = goalProgress(g, a, st.instance, log, now);
+          const canMark = p.canMark;
           const unit = g.frequency === "once" ? "" : " يومًا";
           return (
             <div key={a.id} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
@@ -431,6 +486,11 @@ function PlanSection({ season, st, now }: { season: Season; st: SeasonState; now
                   لم تكمل هدف اليوم. يمكنك إكماله لاحقًا.
                 </p>
               )}
+              {!canMark && !p.complete && (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  يُسجَّل الإنجاز في أيامه من الموسم.
+                </p>
+              )}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {(Object.keys(FREQ_LABEL) as GoalFrequency[]).map((f) => (
                   <button
@@ -452,19 +512,19 @@ function PlanSection({ season, st, now }: { season: Season; st: SeasonState; now
                     <button
                       type="button"
                       aria-label="إنقاص"
-                      onClick={() => patchGoal(key, a, { target: Math.max(1, g.target - 1) })}
+                      onClick={() => patchGoal(key, a, { target: Math.max(1, p.target - 1) })}
                       className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-primary"
                     >
                       <Icon d={icons.minus} size={12} />
                     </button>
                     <span className="w-6 text-center text-[12px] tabular-nums">
-                      {toArabicDigits(g.target)}
+                      {toArabicDigits(p.target)}
                     </span>
                     <button
                       type="button"
                       aria-label="زيادة"
                       onClick={() =>
-                        patchGoal(key, a, { target: Math.min(st.instance.length, g.target + 1) })
+                        patchGoal(key, a, { target: Math.min(p.windowDays, p.target + 1) })
                       }
                       className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-primary"
                     >

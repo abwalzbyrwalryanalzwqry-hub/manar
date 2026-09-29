@@ -14,9 +14,8 @@ import { Switch } from "@/components/manar/season-parts";
 import { daysAr, phaseLabel, remainingLine, statusLine } from "@/lib/seasons/labels";
 import { formatGregorianAr, formatHijriAr, toArabicDigits } from "@/lib/format";
 import { hijriMonthName, useHijriAdjust } from "@/lib/hijri";
-import { isSeasonNotifyOn, seasonsOverview } from "@/lib/seasons/engine";
+import { activeSeasonNotifyCount, seasonsOverview } from "@/lib/seasons/engine";
 import { useSeasonToday, useSeasonsStore } from "@/lib/seasons/store";
-import { SEASONS } from "@/lib/seasons/definitions";
 import { SEASON_TYPE_LABEL, type SeasonState } from "@/lib/seasons/types";
 
 export const Route = createFileRoute("/seasons/")({
@@ -63,9 +62,7 @@ function SeasonsContent({ now }: { now: Date }) {
   const others = [...ov.current, ...ov.around].filter(
     (s) => s.instance.key !== featured?.instance.key,
   );
-  const notifyCount = SEASONS.filter(
-    (s) => s.reminders.length && isSeasonNotifyOn(s, store.notify),
-  ).length;
+  const notifyCount = activeSeasonNotifyCount(store.notify);
 
   return (
     <Screen>

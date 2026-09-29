@@ -558,7 +558,8 @@ const shawwal: Season = {
       id: "six",
       title: "صيام ست من شوال",
       hint: "سجّل كل يوم تصومه",
-      goal: { frequency: "count", target: 6 },
+      // بعد يوم العيد — صوم يوم الفطر منهيّ عنه.
+      goal: { frequency: "count", target: 6, trackPhases: ["six"] },
     },
     {
       id: "prayers",
@@ -699,7 +700,7 @@ const dhulHijjah: Season = {
     {
       id: "arafah-fast",
       title: "صيام يوم عرفة لغير الحاج",
-      goal: { frequency: "once" },
+      goal: { frequency: "once", trackPhases: ["arafah"] },
       phases: ["before", "ten", "tarwiyah", "arafah"],
     },
     {
@@ -713,7 +714,8 @@ const dhulHijjah: Season = {
       title: "الأضحية لمن أرادها",
       hint: "الذكر عند الذبح في الأذكار",
       link: { to: "/azkar/$chapter", params: { chapter: "127" } },
-      goal: { frequency: "once" },
+      // وقت الذبح: يوم النحر وأيام التشريق.
+      goal: { frequency: "once", trackPhases: ["adha", "tashreeq"] },
       phases: ["before", "ten", "tarwiyah", "arafah", "adha", "tashreeq"],
     },
     {
@@ -870,7 +872,7 @@ const muharram: Season = {
     {
       id: "ashura",
       title: "صيام تاسوعاء وعاشوراء",
-      goal: { frequency: "count", target: 2 },
+      goal: { frequency: "count", target: 2, trackPhases: ["ashura"] },
       phases: ["new-year", "month", "ashura"],
     },
     {
