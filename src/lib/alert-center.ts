@@ -7,6 +7,7 @@
 import { PRAYER_LABELS, type PrayerKey } from "@/lib/prayer";
 import { minutesAr } from "@/lib/notification-text";
 import { toArabicDigits } from "@/lib/format";
+import { activeSeasonNotifyCount } from "@/lib/seasons/engine";
 
 const ROLE_LABELS: Record<string, string> = {
   adhan: "الأذان",
@@ -228,9 +229,8 @@ export function otherAlertRows(o: {
   sakinah: { enabled: boolean };
 }): OtherAlertRow[] {
   const dailyCount = o.daily.enabled ? o.daily.items.filter((i) => i.enabled).length : 0;
-  const seasonCount = o.seasons.enabled
-    ? Object.values(o.seasons.seasons).filter(Boolean).length
-    : 0;
+  /* المواسم المفعّلة افتراضياً (رمضان، ذو الحجة…) تُعدّ أيضاً، لا المحفوظة صراحةً فقط. */
+  const seasonCount = activeSeasonNotifyCount(o.seasons);
   const j = [
     o.jumuah.remindEarly && "التبكير",
     o.jumuah.remindKahf && "الكهف",

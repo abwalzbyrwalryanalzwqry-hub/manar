@@ -71,36 +71,47 @@ function monthInstance(
   return makeInstance(season, start, end, adjust);
 }
 
+/** أبعد مدى يُمدّ إليه البحث عن نسخة قادمة للمتكرر (رمضان كاملاً + العيد وما بعده). */
+const WEEKLY_MAX_AHEAD = 60;
+const MONTHLY_MAX_AHEAD = 4;
+
 /**
- * نُسخ الموسم القريبة من التاريخ، مرتّبة زمنياً. نافذة البحث تكفي لإيجاد
- * السابقة والحالية والقادمة لكل نوع دورة.
+ * نُسخ الموسم القريبة من التاريخ، مرتّبة زمنياً. النافذة الأساسية تكفي لإيجاد
+ * السابقة والحالية والقادمة؛ فإن خلت من نسخة قادمة (مثل الاثنين والخميس طوال
+ * رمضان، أو البيض بعد شهر متخطّى) تُمدّ حتى تُوجد واحدة — فلا يصير الموسم
+ * «غير موجود» في منتصف رمضان.
  */
 export function instancesAround(season: Season, date: Date, adjust = 0): SeasonInstance[] {
   const today = noon(date);
   const h = toHijri(today, adjust);
   const out: SeasonInstance[] = [];
   const c = season.cycle;
+  const hasUpcoming = () => out.some((i) => i.startDate.getTime() > today.getTime());
 
   if (c.kind === "annual") {
     for (const y of [h.year - 1, h.year, h.year + 1]) {
       out.push(monthInstance(season, y, c.month, c.startDay, c.endDay, adjust));
     }
   } else if (c.kind === "monthly") {
-    for (let delta = -2; delta <= 2; delta++) {
+    const pushMonth = (delta: number) => {
       const { year, month } = addHijriMonths(h.year, h.month, delta);
-      if (c.skipMonths?.includes(month)) continue;
+      if (c.skipMonths?.includes(month)) return;
       out.push(monthInstance(season, year, month, c.startDay, c.endDay, adjust));
-    }
+    };
+    for (let delta = -2; delta <= 2; delta++) pushMonth(delta);
+    for (let delta = 3; delta <= MONTHLY_MAX_AHEAD && !hasUpcoming(); delta++) pushMonth(delta);
   } else {
-    for (let delta = -8; delta <= 15; delta++) {
+    const pushDay = (delta: number) => {
       const day = addDays(today, delta);
-      if (!c.weekdays.includes(day.getDay())) continue;
+      if (!c.weekdays.includes(day.getDay())) return;
       if (c.skipWhenFastingFixed) {
         const status = fastingInfo(day, toHijri(day, adjust)).status;
-        if (status === "obligatory" || status === "forbidden") continue;
+        if (status === "obligatory" || status === "forbidden") return;
       }
       out.push(makeInstance(season, day, day, adjust));
-    }
+    };
+    for (let delta = -8; delta <= 15; delta++) pushDay(delta);
+    for (let delta = 16; delta <= WEEKLY_MAX_AHEAD && !hasUpcoming(); delta++) pushDay(delta);
   }
   return out.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
 }
@@ -278,9 +289,25 @@ export type PlannedSeasonNotification = {
   body: string;
 };
 
-export function isSeasonNotifyOn(season: Season, prefs: SeasonNotifyPrefs): boolean {
+export function isSeasonNotifyOn(
+  season: Season,
+  prefs: Pick<SeasonNotifyPrefs, "seasons">,
+): boolean {
   const v = prefs.seasons[season.id];
   return typeof v === "boolean" ? v : season.notificationSettings.defaultEnabled;
+}
+
+/**
+ * عدد المواسم التي تُرسِل تنبيهاتها فعلاً: مفعّلة، لها تذكيرات، ومفعّل تنبيهها
+ * صراحةً أو افتراضياً. صفر إن كان المفتاح العام مطفأً.
+ */
+export function activeSeasonNotifyCount(
+  prefs: Pick<SeasonNotifyPrefs, "enabled" | "seasons">,
+  defs: Season[] = SEASONS,
+): number {
+  if (!prefs.enabled) return 0;
+  return defs.filter((s) => s.enabled && s.reminders.length > 0 && isSeasonNotifyOn(s, prefs))
+    .length;
 }
 
 /**
