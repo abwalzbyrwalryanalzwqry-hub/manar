@@ -20,6 +20,7 @@ export const BACKUP_KEYS: string[] = [
   "manar.display.v1",
   "manar.hijri.adjust.v1",
   "manar.hijri.at-maghrib.v1",
+  "manar.hijri.month-starts.v1",
   "manar.widget.v1",
   "manar.user.name.v1",
   /* الصلاة والموقع */
@@ -44,6 +45,7 @@ export const BACKUP_KEYS: string[] = [
   "manar.khatmah.v1",
   /* المواسم والإحصائيات */
   "manar.seasons.v1",
+  "manar.seasons.history.v1",
   "manar.activity.v1",
   "manar.jumuah.v1",
   "manar.qada.v1",
@@ -73,6 +75,7 @@ export const KEY_EVENTS: Record<string, string> = {
   "manar.appearance.v1": "manar:appearance",
   "manar.hijri.adjust.v1": "manar:hijri-adjust",
   "manar.hijri.at-maghrib.v1": "manar:hijri-adjust",
+  "manar.hijri.month-starts.v1": "manar:hijri-adjust",
   "manar.widget.v1": "manar:widget-settings",
   "manar.user.name.v1": "manar:user-name",
   "manar.settings.v1": "manar:settings",
@@ -92,6 +95,7 @@ export const KEY_EVENTS: Record<string, string> = {
   "manar.wird.progress.v1": "manar:wird-progress",
   "manar.khatmah.v1": "manar:khatmah",
   "manar.seasons.v1": "manar:seasons",
+  "manar.seasons.history.v1": "manar:seasons-history",
   "manar.activity.v1": "manar:activity",
   "manar.display.v1": "manar:display",
   "manar.jumuah.v1": "manar:jumuah",

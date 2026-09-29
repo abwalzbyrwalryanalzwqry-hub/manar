@@ -56,7 +56,7 @@ const FASTING_TONE = {
 } as const;
 
 function CalendarScreen() {
-  const { adjust, setAdjust, atMaghrib, setAtMaghrib } = useHijriAdjust();
+  const { adjust, rev, setAdjust, atMaghrib, setAtMaghrib } = useHijriAdjust();
   const { location } = useLocation();
   const { settings: calc } = useSettings();
 
@@ -82,13 +82,12 @@ function CalendarScreen() {
     month: today.getMonth(),
   });
 
-  const cells = useMemo(
-    () =>
-      mode === "hijri"
-        ? hijriMonthGrid(hijriCursor.year, hijriCursor.month, adjust)
-        : gregorianMonthGrid(gregCursor.year, gregCursor.month, adjust),
-    [mode, hijriCursor, gregCursor, adjust],
-  );
+  const cells = useMemo(() => {
+    void rev; // تأكيد دخول شهر يغيّر الشبكة (مواسم منار ٤.١)
+    return mode === "hijri"
+      ? hijriMonthGrid(hijriCursor.year, hijriCursor.month, adjust)
+      : gregorianMonthGrid(gregCursor.year, gregCursor.month, adjust);
+  }, [mode, hijriCursor, gregCursor, adjust, rev]);
 
   const step = (delta: number) => {
     if (mode === "hijri")
@@ -124,7 +123,10 @@ function CalendarScreen() {
         })();
 
   const selectedCell = cells.find((c) => isSameDay(c.date, selected));
-  const upcoming = useMemo(() => upcomingOccasions(today, adjust, 6), [today, adjust]);
+  const upcoming = useMemo(() => {
+    void rev;
+    return upcomingOccasions(today, adjust, 6);
+  }, [today, adjust, rev]);
 
   const selectedTimes = useMemo(
     () => computePrayerTimes(location, calc, selected),

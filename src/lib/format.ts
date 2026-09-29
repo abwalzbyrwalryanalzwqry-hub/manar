@@ -3,7 +3,7 @@
  * تتبع اختيار المستخدم في `display-prefs`: ساعة ١٢/٢٤ ونوع الأرقام. */
 
 import { displayPrefs } from "./display-prefs";
-import { hijriEngine, hijriMonthName, toHijri } from "./hijri";
+import { hasHijriOverrides, hijriEngine, hijriMonthName, toHijri } from "./hijri";
 
 const AR_DIGITS = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
 
@@ -87,7 +87,7 @@ export function formatGregorianAr(date: Date): string {
  */
 export function formatHijriAr(date: Date, adjust = 0): string {
   /* بلا دعم أم القرى في `Intl` (المرحلة ٣٣): من الجدول المضمَّن بالصيغة نفسها. */
-  if (hijriEngine() === "table") {
+  if (hijriEngine() === "table" || hasHijriOverrides()) {
     const h = toHijri(date, adjust);
     return toArabicDigits(`${h.day} ${hijriMonthName(h.month)} ${h.year} هـ`);
   }

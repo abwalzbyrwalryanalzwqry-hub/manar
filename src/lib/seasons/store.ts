@@ -36,7 +36,14 @@ export type SeasonsStore = {
   notify: SeasonNotifyPrefs;
   /** الخطة لكل نسخة موسم: key → actionId → الهدف. */
   plans: Record<string, Record<string, GoalState>>;
+  /**
+   * قوالب الخطة للمواسم المتكررة (٤.٤): seasonId → actionId → الهدف بلا إنجاز.
+   * نسخة جديدة بلا خطة تبدأ من القالب («خطتي لكل جمعة»).
+   */
+  templates: Record<string, Record<string, GoalTemplate>>;
 };
+
+export type GoalTemplate = Pick<GoalState, "frequency" | "target">;
 
 export const DEFAULT_NOTIFY: SeasonNotifyPrefs = {
   enabled: true,
@@ -45,7 +52,7 @@ export const DEFAULT_NOTIFY: SeasonNotifyPrefs = {
   evening: { hour: 20, minute: 30 },
 };
 
-const DEFAULT_STORE: SeasonsStore = { notify: DEFAULT_NOTIFY, plans: {} };
+const DEFAULT_STORE: SeasonsStore = { notify: DEFAULT_NOTIFY, plans: {}, templates: {} };
 
 /** أقصى عدد نسخ مواسم محفوظة — الأقدم يُحذف حتى لا يكبر التخزين بلا حد. */
 const MAX_PLANS = 40;
@@ -83,7 +90,20 @@ export function normalizeStore(raw: unknown): SeasonsStore {
     }
     plans[key] = out;
   }
+  const templates: SeasonsStore["templates"] = {};
+  for (const [sid, goals] of Object.entries(r.templates ?? {})) {
+    if (!goals || typeof goals !== "object") continue;
+    const out: Record<string, GoalTemplate> = {};
+    for (const [id, g] of Object.entries(goals as Record<string, Partial<GoalTemplate>>)) {
+      out[id] = {
+        frequency: g?.frequency === "once" || g?.frequency === "count" ? g.frequency : "daily",
+        target: Math.max(1, Math.min(60, Math.trunc(Number(g?.target) || 1))),
+      };
+    }
+    templates[sid] = out;
+  }
   return {
+    templates,
     notify: {
       enabled: typeof n.enabled === "boolean" ? n.enabled : DEFAULT_NOTIFY.enabled,
       seasons,
@@ -157,15 +177,28 @@ export function useSeasonsStore() {
 
   const patchGoal = (instanceKey: string, action: SeasonAction, p: Partial<GoalState>) =>
     commit((cur) => {
-      const plan = { ...(cur.plans[instanceKey] ?? {}) };
+      const plan = { ...planFor(cur, instanceKey) };
       const base = plan[action.id] ?? defaultGoal(action);
       plan[action.id] = { ...base, ...p };
-      return { ...cur, plans: { ...cur.plans, [instanceKey]: plan } };
+      const next = { ...cur, plans: { ...cur.plans, [instanceKey]: plan } };
+      /* القالب المحفوظ يتبع تعديل الخطة. */
+      const sid = seasonIdOf(instanceKey);
+      return cur.templates[sid] ? withTemplate(next, sid, plan) : next;
+    });
+
+  /** «احفظ خطتي لكل …»: القالب من الخطة الحالية، أو إلغاؤه. */
+  const setTemplate = (instanceKey: string, on: boolean) =>
+    commit((cur) => {
+      const sid = seasonIdOf(instanceKey);
+      if (on) return withTemplate(cur, sid, planFor(cur, instanceKey));
+      const templates = { ...cur.templates };
+      delete templates[sid];
+      return { ...cur, templates };
     });
 
   const toggleDone = (instanceKey: string, action: SeasonAction, day: string) =>
     commit((cur) => {
-      const plan = { ...(cur.plans[instanceKey] ?? {}) };
+      const plan = { ...planFor(cur, instanceKey) };
       const base = plan[action.id] ?? defaultGoal(action);
       const has = base.done.includes(day);
       plan[action.id] = {
@@ -175,7 +208,31 @@ export function useSeasonsStore() {
       return { ...cur, plans: { ...cur.plans, [instanceKey]: plan } };
     });
 
-  return { store, patchNotify, setSeasonNotify, patchGoal, toggleDone };
+  return { store, patchNotify, setSeasonNotify, patchGoal, toggleDone, setTemplate };
+}
+
+const seasonIdOf = (instanceKey: string) => instanceKey.split("@")[0];
+
+/** خطة نسخة الموسم: المحفوظة، وإلا من قالب الموسم المتكرر إن وُجد. */
+export function planFor(store: SeasonsStore, instanceKey: string): Record<string, GoalState> {
+  const saved = store.plans[instanceKey];
+  if (saved) return saved;
+  const tpl = store.templates[seasonIdOf(instanceKey)];
+  if (!tpl) return {};
+  const out: Record<string, GoalState> = {};
+  for (const [id, g] of Object.entries(tpl)) out[id] = { enabled: true, ...g, done: [] };
+  return out;
+}
+
+function withTemplate(
+  store: SeasonsStore,
+  seasonId: string,
+  plan: Record<string, GoalState>,
+): SeasonsStore {
+  const tpl: Record<string, GoalTemplate> = {};
+  for (const [id, g] of Object.entries(plan))
+    if (g.enabled) tpl[id] = { frequency: g.frequency, target: g.target };
+  return { ...store, templates: { ...store.templates, [seasonId]: tpl } };
 }
 
 export function defaultGoal(action: SeasonAction): GoalState {

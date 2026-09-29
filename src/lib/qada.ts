@@ -20,10 +20,20 @@ export type QadaStore = {
   remaining: Record<FardKey, number>;
   /** مجموع ما قُضي منذ التفعيل. */
   madeUp: number;
+  /** أيام صيام متبقية للقضاء (مواسم منار، ٤.٥). */
+  fasts: number;
+  /** مجموع أيام الصيام المقضية. */
+  fastsMadeUp: number;
 };
 
 const ZERO = { fajr: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 } as Record<FardKey, number>;
-export const DEFAULT_QADA: QadaStore = { enabled: false, remaining: ZERO, madeUp: 0 };
+export const DEFAULT_QADA: QadaStore = {
+  enabled: false,
+  remaining: ZERO,
+  madeUp: 0,
+  fasts: 0,
+  fastsMadeUp: 0,
+};
 
 const clampN = (v: unknown) => {
   const n = Math.floor(Number(v));
@@ -34,7 +44,30 @@ export function normalizeQada(raw: unknown): QadaStore {
   const r = (raw && typeof raw === "object" ? raw : {}) as Partial<QadaStore>;
   const rem = { ...ZERO };
   for (const p of FARD_PRAYERS as FardKey[]) rem[p] = clampN(r.remaining?.[p]);
-  return { enabled: r.enabled === true, remaining: rem, madeUp: clampN(r.madeUp) };
+  return {
+    enabled: r.enabled === true,
+    remaining: rem,
+    madeUp: clampN(r.madeUp),
+    fasts: clampN(r.fasts),
+    fastsMadeUp: clampN(r.fastsMadeUp),
+  };
+}
+
+/** يضيف يوم صيام فائت (+١) أو يصحّح العدّ (−١) بلا احتساب قضاء. */
+export function adjustQadaFasts(s: QadaStore, delta: number): QadaStore {
+  return { ...s, fasts: clampN(s.fasts + delta) };
+}
+
+/** «قضيت يوماً»: ينقص المتبقي ويزيد المقضي. لا شيء إن كان صفراً. */
+export function makeUpFast(s: QadaStore): QadaStore {
+  if (s.fasts <= 0) return s;
+  return { ...s, fasts: s.fasts - 1, fastsMadeUp: clampN(s.fastsMadeUp + 1) };
+}
+
+/** تراجع عن «قضيت يوماً» (إلغاء تسجيله في خطة الموسم). */
+export function undoMakeUpFast(s: QadaStore): QadaStore {
+  if (s.fastsMadeUp <= 0) return s;
+  return { ...s, fasts: clampN(s.fasts + 1), fastsMadeUp: s.fastsMadeUp - 1 };
 }
 
 export function qadaTotal(s: QadaStore): number {
@@ -62,7 +95,7 @@ export function readQada(): QadaStore {
   }
 }
 
-function writeQada(s: QadaStore) {
+export function writeQada(s: QadaStore) {
   try {
     window.localStorage.setItem(QADA_KEY, JSON.stringify(s));
   } catch {

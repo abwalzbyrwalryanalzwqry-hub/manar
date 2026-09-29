@@ -102,7 +102,10 @@ public class ManarWidget extends AppWidgetProvider {
             } else {
                 views.setTextViewText(R.id.widget_prayer, pick.name);
                 views.setTextViewText(R.id.widget_time, pick.time);
-                String meta = opts.hijri ? pick.hijri : "";
+                // سطر الموسم يحلّ محلّ التاريخ الهجري في أيامه (مواسم منار ٤.٧).
+                String meta = opts.season && !pick.season.isEmpty()
+                        ? pick.season
+                        : (opts.hijri ? pick.hijri : "");
                 if (opts.city && !pick.city.isEmpty()) {
                     meta = meta.isEmpty() ? pick.city : meta + "  ·  " + pick.city;
                 }
@@ -144,6 +147,8 @@ public class ManarWidget extends AppWidgetProvider {
         String verse = "";
         String verseRef = "";
         String hijri = "";
+        /** سطر الموسم («اليوم ١٢ من رمضان · الإفطار ٦:٢١ م») إن وُجد لليوم. */
+        String season = "";
         String city = "";
         long at;
     }
@@ -154,6 +159,7 @@ public class ManarWidget extends AppWidgetProvider {
         boolean countdown = true;
         boolean hijri = true;
         boolean city = true;
+        boolean season = true;
         boolean emerald = false;
     }
 
@@ -167,6 +173,7 @@ public class ManarWidget extends AppWidgetProvider {
             o.countdown = opts.optBoolean("countdown", true);
             o.hijri = opts.optBoolean("hijri", true);
             o.city = opts.optBoolean("city", true);
+            o.season = opts.optBoolean("season", true);
             o.emerald = "emerald".equals(opts.optString("theme", "night"));
         } catch (Exception ignored) {
             // لقطة تالفة: الافتراضيات.
@@ -232,6 +239,7 @@ public class ManarWidget extends AppWidgetProvider {
                     String hijri = hijriFor(shown, now);
                     out.meta = city.isEmpty() ? hijri : hijri + "  ·  " + city;
                     out.hijri = hijri;
+                    out.season = shown.optString("season", "");
                     out.city = city;
                     JSONObject verse = shown.optJSONObject("verse");
                     if (verse != null) {

@@ -26,6 +26,13 @@ const H = {
     source: "مصنف ابن أبي شيبة، وصحّح إسناده الألباني في إرواء الغليل (٣/١٢٥)",
   },
 
+  sacredMonths: {
+    kind: "hadith",
+    text: "إِنَّ الزَّمَانَ قَدِ اسْتَدَارَ كَهَيْئَتِهِ يَوْمَ خَلَقَ اللَّهُ السَّمَوَاتِ وَالأَرْضَ، السَّنَةُ اثْنَا عَشَرَ شَهْرًا، مِنْهَا أَرْبَعَةٌ حُرُمٌ، ثَلاَثٌ مُتَوَالِيَاتٌ ذُو الْقَعْدَةِ وَذُو الْحِجَّةِ وَالْمُحَرَّمُ، وَرَجَبُ مُضَرَ الَّذِي بَيْنَ جُمَادَى وَشَعْبَانَ",
+    narrator: "أبو بكرة رضي الله عنه",
+    source: AGREED,
+  },
+
   // أحاديث موجودة في ملف «حديث اليوم» — تُقرأ منه ولا تُكرَّر.
   ramadanFasting: { kind: "hadith-ref", id: 20 },
   ramadanToRamadan: { kind: "hadith-ref", id: 21 },
@@ -339,7 +346,7 @@ const ramadan: Season = {
       id: "qada",
       title: "قضاء ما فات من صيام",
       hint: "لمن عليه أيام من رمضان الماضي",
-      goal: { frequency: "count", fasting: true, target: 3 },
+      goal: { frequency: "count", fasting: true, qada: true, target: 3 },
       phases: ["before", "prep"],
     },
     {
@@ -526,7 +533,7 @@ const shaban: Season = {
     {
       id: "qada",
       title: "قضاء ما فات من رمضان الماضي",
-      goal: { frequency: "count", fasting: true, target: 3 },
+      goal: { frequency: "count", fasting: true, qada: true, target: 3 },
     },
     {
       id: "khatmah",
@@ -1156,6 +1163,62 @@ const whiteDays: Season = {
   references: ["سنن النسائي", AGREED],
 };
 
+/* ------------------------------ الأشهر الحُرُم ------------------------------ */
+
+/* ذو القعدة ورجب: بلا عبادة مخصوصة ولا تنبيهات — تذكير بحرمة الشهر وحده، بأولوية
+ * منخفضة فلا تزاحم غيرها. (ذو الحجة والمحرم من الحُرُم ولهما موسماهما.) */
+const sacredMonth = (
+  id: string,
+  month: number,
+  title: string,
+  shortTitle: string,
+  ofTitle: string,
+  extra: string,
+): Season => ({
+  id,
+  title,
+  shortTitle,
+  ofTitle,
+  description: `أحد الأشهر الحُرُم الأربعة${extra}.`,
+  type: "worship",
+  icon: "moon",
+  cycle: { kind: "annual", month, startDay: 1, endDay: "last" },
+  priority: 20,
+  enabled: true,
+  phases: [
+    {
+      id: "month",
+      title,
+      subtitle: "من الأشهر الحُرُم",
+      from: 1,
+      to: { fromEnd: 0 },
+      content: [{ kind: "ayah", surah: 9, from: 36 }, H.sacredMonths],
+    },
+  ],
+  importantDays: [],
+  recommendedActions: [
+    {
+      id: "no-wrong",
+      title: "اجتناب ظلم النفس بالمعاصي",
+      hint: "﴿فَلَا تَظْلِمُوا فِيهِنَّ أَنفُسَكُمْ﴾",
+    },
+  ],
+  educationalContent: [],
+  reminders: [],
+  notificationSettings: { defaultEnabled: false },
+  references: [AGREED],
+});
+
+const rajab = sacredMonth("rajab", 7, "شهر رجب", "رجب", "رجب", "، بين جمادى وشعبان");
+const dhulQadah = sacredMonth(
+  "dhul-qadah",
+  11,
+  "شهر ذي القعدة",
+  "ذو القعدة",
+  "ذي القعدة",
+  "، وأول الثلاثة المتوالية قبل ذي الحجة والمحرم",
+);
+
 /** كل المواسم — الترتيب هنا لا يهم، الأولوية تحدّد التقدّم. */
 export const SEASONS: Season[] = [
   ramadan,
@@ -1168,4 +1231,6 @@ export const SEASONS: Season[] = [
   mondayThursday,
   monthStart,
   whiteDays,
+  rajab,
+  dhulQadah,
 ];
