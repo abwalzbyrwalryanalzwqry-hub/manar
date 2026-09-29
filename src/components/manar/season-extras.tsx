@@ -45,17 +45,20 @@ export function MonthConfirmCard({ st, now }: { st: SeasonState; now: Date }) {
 
   const { confirmed, options } = useMemo(() => {
     void rev;
-    const opts = [-1, 0, 1].map((d) => {
-      const date = addDays(today, d);
+    /* الخيارات حول بداية الحساب (قبلها بيوم، هي، بعدها بيوم) — الصالح منها فقط. */
+    const computed = st.instance.startDate;
+    const opts = [-1, 0, 1].map((k) => {
+      const date = addDays(computed, k);
+      const d = daysBetween(today, date);
       return {
         d,
         date,
         ok: checkHijriMonthStart(year, month, date, adjust).ok,
-        label: d === -1 ? "دخل أمس" : d === 0 ? "دخل اليوم" : "يبدأ غدًا",
+        label: startLabel(d, date),
       };
     });
     return { confirmed: hijriMonthConfirmed(year, month), options: opts.filter((o) => o.ok) };
-  }, [rev, year, month, adjust, today]);
+  }, [rev, year, month, adjust, today, st.instance.startDate]);
 
   const startOffset = daysBetween(today, st.instance.startDate);
 
@@ -110,6 +113,15 @@ export function MonthConfirmCard({ st, now }: { st: SeasonState; now: Date }) {
       </div>
     </>
   );
+}
+
+/** «دخل أمس» / «دخل اليوم» / «يبدأ غدًا» / «يبدأ بعد غد» / أو التاريخ. */
+function startLabel(d: number, date: Date): string {
+  if (d === -1) return "دخل أمس";
+  if (d === 0) return "دخل اليوم";
+  if (d === 1) return "يبدأ غدًا";
+  if (d === 2) return "يبدأ بعد غد";
+  return `${formatWeekdayAr(date)} ${formatGregorianAr(date)}`;
 }
 
 /* ------------------------------ ٤.٢ ملخص الموسم ------------------------------ */
