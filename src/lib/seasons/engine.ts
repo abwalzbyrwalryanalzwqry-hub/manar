@@ -4,7 +4,14 @@
  * وتعتمد على نظام التقويم الموجود (`@/lib/hijri`) لا على نظام موازٍ. لا شبكة،
  * لا تخزين، لا `window` — فتعمل دون اتصال وتُختبر في بيئة Node. */
 
-import { fastingInfo, fromHijri, hijriMonthLength, toHijri, addHijriMonths } from "@/lib/hijri";
+import {
+  addHijriMonths,
+  fastingInfo,
+  fromHijri,
+  hijriEngine,
+  hijriMonthLength,
+  toHijri,
+} from "@/lib/hijri";
 import { SEASONS } from "./definitions";
 import type {
   DayRef,
@@ -83,6 +90,27 @@ const MONTHLY_MAX_AHEAD = 4;
  */
 export function instancesAround(season: Season, date: Date, adjust = 0): SeasonInstance[] {
   const today = noon(date);
+  /* مخزَّن: النظرة العامة تستدعيها ثلاث مرات لكل موسم، وجدولة التنبيهات مرة لكل
+   * موسم في كل يوم من الأفق — وكل استدعاء يحوّل بين الهجري والميلادي مرات. الدالة
+   * نقية، فالمفتاح (الموسم، اليوم، الإزاحة، محرّك الهجري) يكفي. النتيجة للقراءة. */
+  const key = `${ymd(today)}|${today.getTimezoneOffset()}|${adjust}|${hijriEngine()}`;
+  let perSeason = instanceCache.get(season);
+  if (!perSeason) {
+    perSeason = new Map();
+    instanceCache.set(season, perSeason);
+  }
+  const hit = perSeason.get(key);
+  if (hit) return hit;
+  const out = computeInstancesAround(season, today, adjust);
+  if (perSeason.size >= INSTANCE_CACHE_PER_SEASON) perSeason.clear();
+  perSeason.set(key, out);
+  return out;
+}
+
+const INSTANCE_CACHE_PER_SEASON = 400;
+const instanceCache = new WeakMap<Season, Map<string, SeasonInstance[]>>();
+
+function computeInstancesAround(season: Season, today: Date, adjust: number): SeasonInstance[] {
   const h = toHijri(today, adjust);
   const out: SeasonInstance[] = [];
   const c = season.cycle;
@@ -206,6 +234,12 @@ export type SeasonsOverview = {
 const byPriority = (a: SeasonState, b: SeasonState) =>
   b.instance.season.priority - a.instance.season.priority;
 
+/**
+ * موسم سنوي في تمهيده يتقدّم على موسم سنوي جارٍ أقلّ أولوية حين يقترب إلى هذا
+ * الحد: آخر أسبوع من شعبان يُبرز «الاستعداد لرمضان»، وقبله يبقى شعبان مميّزاً.
+ */
+export const FEATURE_LEAD_DAYS = 7;
+
 export function seasonsOverview(date: Date, adjust = 0, defs: Season[] = SEASONS): SeasonsOverview {
   const enabled = defs.filter((s) => s.enabled);
   const current: SeasonState[] = [];
@@ -235,16 +269,45 @@ export function seasonsOverview(date: Date, adjust = 0, defs: Season[] = SEASONS
     }
   }
 
+  /* موسم شهري يبدأ مع موسم سنوي جارٍ في يومه الأول (بداية الشهر مع غرّة رمضان أو
+   * المحرّم أو يوم العيد) مكرَّرٌ لا يضيف شيئاً. */
+  const annualStarts = new Set(
+    current
+      .filter((s) => s.instance.season.cycle.kind === "annual" && s.dayNumber === 1)
+      .map((s) => s.instance.startDate.getTime()),
+  );
+  const dropMonthly = (s: SeasonState) =>
+    s.instance.season.cycle.kind === "monthly" && annualStarts.has(s.instance.startDate.getTime());
+  for (let i = current.length - 1; i >= 0; i--) if (dropMonthly(current[i])) current.splice(i, 1);
+
+  /* موسم منتهٍ في مرحلة «ما بعده» تطابق مرحلةَ موسم جارٍ (عيد الفطر في رمضان
+   * وشوال معاً) يُحذف: الجاري يعرضها. */
+  const currentPhases = new Set(current.map((s) => s.phase?.title).filter(Boolean));
+  for (let i = around.length - 1; i >= 0; i--) {
+    const a = around[i];
+    if (a.status === "ended" && a.phase && currentPhases.has(a.phase.title)) around.splice(i, 1);
+  }
+
   current.sort(byPriority);
   around.sort(byPriority);
   upcoming.sort((a, b) => a.daysUntil - b.daysUntil || byPriority(a, b));
   recurring.sort((a, b) => a.daysUntil - b.daysUntil || byPriority(a, b));
   past.sort((a, b) => a.daysSinceEnd - b.daysSinceEnd);
 
-  // الموسم المميّز: الجاري السنوي أولاً (رمضان يسبق الجمعة)، ثم ما في التمهيد.
+  /* الموسم المميّز: الجاري السنوي أولاً (رمضان يسبق الجمعة)، ثم ما في التمهيد.
+   * وتمهيد سنوي أعلى أولوية وقريب (≤ FEATURE_LEAD_DAYS) يتقدّم على الجاري. */
   const annualCurrent = current.find((s) => s.instance.season.cycle.kind === "annual");
   const leadIn = around.find((s) => s.status === "upcoming");
-  const featured = annualCurrent ?? leadIn ?? current[0] ?? around[0] ?? null;
+  const annualLeadIn = around.find(
+    (s) => s.status === "upcoming" && s.instance.season.cycle.kind === "annual",
+  );
+  const leadWins =
+    annualCurrent &&
+    annualLeadIn &&
+    annualLeadIn.daysUntil <= FEATURE_LEAD_DAYS &&
+    annualLeadIn.instance.season.priority > annualCurrent.instance.season.priority;
+  const featured =
+    (leadWins ? annualLeadIn : annualCurrent) ?? leadIn ?? current[0] ?? around[0] ?? null;
 
   return {
     current,

@@ -7,7 +7,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   blockedChannelsMessage,
-  countAr,
   describeAlertKey,
   describeLogEvent,
   formatAlertLog,
@@ -17,6 +16,7 @@ import {
   testVerdictText,
   type AlertLogEvent,
 } from "@/lib/alert-center";
+import { countAr } from "@/lib/format";
 
 const root = resolve(__dirname, "../..");
 const read = (p: string) => readFileSync(resolve(root, p), "utf8");

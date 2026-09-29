@@ -105,3 +105,29 @@ export function formatHijriAr(date: Date, adjust = 0): string {
 export function formatWeekdayAr(date: Date): string {
   return new Intl.DateTimeFormat("ar-EG", { weekday: "long" }).format(date);
 }
+
+/* ------------------------------------------------------------------ */
+/*  صيغ العدد العربية                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * المعدود بعد رقم: «٣ أيام»، «١١ يومًا»، «١٠٠ يوم». المفرد والمثنى بلا رقم
+ * يتولّاهما `countAr`؛ هذه للأعداد المكتوبة بالأرقام (عدّاد، «٣ / ١٠ أيام»).
+ * - ٣–١٠ (ومثلها ١٠٣–١١٠): جمع.
+ * - ١١–٩٩: مفرد منصوب.
+ * - المئات فما فوق إن انتهت بـ ٠٠–٠٢: مفرد مجرور.
+ */
+export function countedNoun(n: number, one: string, few: string, accusative = `${one}اً`): string {
+  const mod = Math.abs(n) % 100;
+  if (mod >= 3 && mod <= 10) return few;
+  if (Math.abs(n) >= 100 && mod <= 2) return one;
+  if (n === 1 || n === 2) return one;
+  return accusative;
+}
+
+/** «تذكير واحد»، «تذكيران»، «٣ تذكيرات»، «١١ تذكيراً»، «١٠٠ تذكير». */
+export function countAr(n: number, one: string, two: string, few: string): string {
+  if (n === 1) return `${one} واحد`;
+  if (n === 2) return two;
+  return `${toArabicDigits(n)} ${countedNoun(n, one, few)}`;
+}

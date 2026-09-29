@@ -11,10 +11,18 @@ import {
   Skeleton,
 } from "@/components/manar/shell";
 import { SeasonContentList, SeasonLinkTo, Switch } from "@/components/manar/season-parts";
-import { daysAr, phaseLabel, remainingLine, statusLine } from "@/lib/seasons/labels";
+import {
+  dayUnit,
+  daysAr,
+  phaseLabel,
+  remainingLine,
+  seasonOf,
+  statusLine,
+} from "@/lib/seasons/labels";
 import { dayKey, useActivityLog } from "@/lib/activity-log";
 import {
   ampmAr,
+  countAr,
   formatArTime,
   formatCountdown,
   formatGregorianAr,
@@ -38,7 +46,9 @@ import {
 import {
   defaultGoal,
   goalProgress,
+  goalTiming,
   isGoalDay,
+  nextPhaseTitle,
   useSeasonToday,
   useSeasonsStore,
   type GoalState,
@@ -166,9 +176,7 @@ function SeasonDetail({ season, st, now }: { season: Season; st: SeasonState; no
                     <div className="font-display text-xl font-medium">
                       {toArabicDigits(st.daysUntil)}
                     </div>
-                    <div className="text-[10px] text-muted-foreground">
-                      {st.daysUntil === 1 ? "يوم" : "أيام"}
-                    </div>
+                    <div className="text-[10px] text-muted-foreground">{dayUnit(st.daysUntil)}</div>
                   </>
                 ) : (
                   <span className="text-primary">
@@ -427,16 +435,41 @@ const FREQ_LABEL: Record<GoalFrequency, string> = {
 function PlanSection({ season, st, now }: { season: Season; st: SeasonState; now: Date }) {
   const { store, patchGoal, toggleDone } = useSeasonsStore();
   const { log } = useActivityLog();
+  const { adjust } = useHijriAdjust();
   /* بعد نهاية الموسم تبقى الأهداف التي يومها اليوم فقط (زكاة الفطر يوم العيد). */
   const goals = season.recommendedActions.filter(
     (a) => a.goal && (st.status !== "ended" || isGoalDay(a, st.instance, now)),
   );
-  if (!goals.length) return null;
-
   const key = st.instance.key;
   const plan = store.plans[key] ?? {};
+  const phaseId = st.phase?.id;
   const active = goals.filter((a) => plan[a.id]?.enabled);
-  const available = goals.filter((a) => !plan[a.id]?.enabled);
+  const rest = goals.filter((a) => !plan[a.id]?.enabled);
+  /* المقترح للإضافة: ما يناسب المرحلة الجارية؛ وما تأتي مراحله لاحقاً في «أهداف
+   * قادمة»؛ وما مضت مراحله لا يُقترح (قضاء ما فات لا يُعرض داخل رمضان). */
+  const available = rest.filter((a) => goalTiming(a, st.instance, phaseId, now) === "now");
+  const later = rest.filter((a) => goalTiming(a, st.instance, phaseId, now) === "later");
+  if (!active.length && !available.length && !later.length) return null;
+
+  const addButton = (a: SeasonAction, hint?: string | null) => (
+    <button
+      key={a.id}
+      type="button"
+      onClick={() => patchGoal(key, a, { ...(plan[a.id] ?? defaultGoal(a)), enabled: true })}
+      className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-border p-3 text-right"
+    >
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary text-primary">
+        <Icon d={icons.plus} size={14} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px]">{a.title}</span>
+        {hint && <span className="block text-[10px] text-muted-foreground">{hint}</span>}
+      </span>
+      <span className="text-[10px] text-muted-foreground">
+        {FREQ_LABEL[a.goal?.frequency ?? "daily"]}
+      </span>
+    </button>
+  );
 
   return (
     <>
@@ -449,9 +482,9 @@ function PlanSection({ season, st, now }: { season: Season; st: SeasonState; now
         )}
         {active.map((a) => {
           const g = plan[a.id] as GoalState;
-          const p = goalProgress(g, a, st.instance, log, now);
-          const canMark = p.canMark;
-          const unit = g.frequency === "once" ? "" : " يومًا";
+          const p = goalProgress(g, a, st.instance, log, now, adjust);
+          const unit = g.frequency === "once" ? "" : ` ${dayUnit(p.target)}`;
+          const markDay = nextPhaseTitle(a, st.instance, now, "track");
           return (
             <div key={a.id} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
               <div className="flex items-center gap-3">
@@ -468,27 +501,39 @@ function PlanSection({ season, st, now }: { season: Season; st: SeasonState; now
                     {a.goal?.auto ? " · يُحتسب تلقائيًا من نشاطك" : ""}
                   </div>
                 </div>
-                {canMark && (
-                  <button
-                    type="button"
-                    onClick={() => toggleDone(key, a, dayKey(now))}
-                    aria-pressed={p.todayDone}
-                    className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition active:scale-95 ${
-                      p.todayDone ? "gradient-primary text-white" : "bg-secondary text-primary"
-                    }`}
+                {p.todayAuto ? (
+                  <span
+                    aria-disabled="true"
+                    className="gradient-primary shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium text-white opacity-90"
                   >
-                    {p.todayDone ? "أُنجز اليوم" : "أنجزته اليوم"}
-                  </button>
+                    احتُسب تلقائيًا
+                  </span>
+                ) : (
+                  p.canMark && (
+                    <button
+                      type="button"
+                      onClick={() => toggleDone(key, a, dayKey(now))}
+                      aria-pressed={p.todayDone}
+                      className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition active:scale-95 ${
+                        p.todayDone ? "gradient-primary text-white" : "bg-secondary text-primary"
+                      }`}
+                    >
+                      {p.todayDone ? "أُنجز اليوم" : "أنجزته اليوم"}
+                    </button>
+                  )
                 )}
               </div>
-              {canMark && !p.todayDone && !p.complete && (
+              {p.blocked && <p className="mt-2 text-[11px] text-muted-foreground">{p.blocked}.</p>}
+              {p.canMark && !p.todayDone && !p.complete && (
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   لم تكمل هدف اليوم. يمكنك إكماله لاحقًا.
                 </p>
               )}
-              {!canMark && !p.complete && (
+              {!p.canMark && !p.todayAuto && !p.blocked && !p.complete && (
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  يُسجَّل الإنجاز في أيامه من الموسم.
+                  {markDay
+                    ? `يُسجَّل الإنجاز في: ${markDay}.`
+                    : "يُسجَّل الإنجاز في أيامه من الموسم."}
                 </p>
               )}
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -543,22 +588,16 @@ function PlanSection({ season, st, now }: { season: Season; st: SeasonState; now
             </div>
           );
         })}
-        {available.map((a) => (
-          <button
-            key={a.id}
-            type="button"
-            onClick={() => patchGoal(key, a, { ...(plan[a.id] ?? defaultGoal(a)), enabled: true })}
-            className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-border p-3 text-right"
-          >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary text-primary">
-              <Icon d={icons.plus} size={14} />
-            </span>
-            <span className="flex-1 text-[13px]">{a.title}</span>
-            <span className="text-[10px] text-muted-foreground">
-              {FREQ_LABEL[a.goal?.frequency ?? "daily"]}
-            </span>
-          </button>
-        ))}
+        {available.map((a) => addButton(a))}
+        {later.length > 0 && (
+          <>
+            <p className="px-1 pt-2 text-[11px] font-medium text-muted-foreground">أهداف قادمة</p>
+            {later.map((a) => {
+              const t = nextPhaseTitle(a, st.instance, now);
+              return addButton(a, t ? `في ${t}` : null);
+            })}
+          </>
+        )}
         {active.length > 0 && (
           <p className="px-1 text-[11px] text-muted-foreground">استمر في رحلتك.</p>
         )}
@@ -569,20 +608,12 @@ function PlanSection({ season, st, now }: { season: Season; st: SeasonState; now
 
 /* ------------------------------ التذكيرات ------------------------------ */
 
-function toHHMM(t: { hour: number; minute: number }) {
-  return `${String(t.hour).padStart(2, "0")}:${String(t.minute).padStart(2, "0")}`;
-}
-
-function fromHHMM(v: string) {
-  const [h, m] = v.split(":").map(Number);
-  return { hour: h || 0, minute: m || 0 };
-}
-
 function RemindersSection({ season }: { season: Season }) {
-  const { store, setSeasonNotify, patchNotify } = useSeasonsStore();
+  const { store, setSeasonNotify } = useSeasonsStore();
   if (!season.reminders.length) return null;
   const on = isSeasonNotifyOn(season, store.notify);
   const master = store.notify.enabled;
+  const n = season.reminders.length;
 
   return (
     <>
@@ -600,47 +631,38 @@ function RemindersSection({ season }: { season: Season }) {
             <Icon d={on && master ? icons.bell : icons.bellOff} size={18} />
           </span>
           <div className="flex-1">
-            <div className="text-sm font-medium">تذكيرات {season.shortTitle}</div>
+            <div className="text-sm font-medium">تذكيرات {seasonOf(season)}</div>
             <div className="text-[11px] text-muted-foreground">
               {master
-                ? `${toArabicDigits(season.reminders.length)} تذكيرات هادئة في أيامها فقط`
+                ? `${countAr(n, "تذكير", "تذكيران", "تذكيرات")} في أيامها فقط`
                 : "تنبيهات المواسم متوقفة من صفحة المواسم"}
             </div>
           </div>
           <Switch on={on && master} />
         </button>
         {master && on && (
-          <div className="grid grid-cols-2 gap-2">
-            <label className="rounded-2xl border border-border bg-card p-3 text-center">
-              <span className="block text-[10px] text-muted-foreground">تذكير الصباح</span>
-              <input
-                type="time"
-                value={toHHMM(store.notify.morning)}
-                onChange={(e) =>
-                  e.target.value && patchNotify({ morning: fromHHMM(e.target.value) })
-                }
-                className="mt-1 w-full bg-transparent text-center text-sm tabular-nums outline-none"
-              />
-            </label>
-            <label className="rounded-2xl border border-border bg-card p-3 text-center">
-              <span className="block text-[10px] text-muted-foreground">تذكير المساء</span>
-              <input
-                type="time"
-                value={toHHMM(store.notify.evening)}
-                onChange={(e) =>
-                  e.target.value && patchNotify({ evening: fromHHMM(e.target.value) })
-                }
-                className="mt-1 w-full bg-transparent text-center text-sm tabular-nums outline-none"
-              />
-            </label>
-          </div>
+          <Link
+            to="/seasons"
+            className="flex items-center justify-between rounded-2xl border border-border bg-card p-3 text-[11px] text-muted-foreground"
+          >
+            <span>
+              صباحًا {timeAr(store.notify.morning)} · مساءً {timeAr(store.notify.evening)}
+            </span>
+            <span className="text-primary">أوقات كل المواسم</span>
+          </Link>
         )}
         <ul className="space-y-1 px-1 text-[11px] leading-relaxed text-muted-foreground">
           {season.reminders.map((r) => (
-            <li key={r.id}>• {r.title}</li>
+            <li key={r.id}>• {r.body}</li>
           ))}
         </ul>
       </div>
     </>
   );
+}
+
+function timeAr(t: { hour: number; minute: number }) {
+  const d = new Date(2000, 0, 1, t.hour, t.minute);
+  const suffix = ampmAr(d);
+  return `${formatArTime(d)}${suffix ? ` ${suffix}` : ""}`;
 }

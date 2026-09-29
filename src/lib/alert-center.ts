@@ -6,7 +6,7 @@
 
 import { PRAYER_LABELS, type PrayerKey } from "@/lib/prayer";
 import { minutesAr } from "@/lib/notification-text";
-import { toArabicDigits } from "@/lib/format";
+import { countAr, toArabicDigits } from "@/lib/format";
 import { activeSeasonNotifyCount } from "@/lib/seasons/engine";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -266,13 +266,4 @@ export function otherAlertRows(o: {
       detail: o.sakinah.enabled ? "كتم الجوال وقت الصلاة" : "متوقّفة",
     },
   ];
-}
-
-/** «تذكير واحد»، «تذكيران»، «٣ تذكيرات»، «١١ تذكيراً». */
-export function countAr(n: number, one: string, two: string, few: string): string {
-  if (n === 1) return `${one} واحد`;
-  if (n === 2) return two;
-  const mod = n % 100;
-  if (mod >= 3 && mod <= 10) return `${toArabicDigits(n)} ${few}`;
-  return `${toArabicDigits(n)} ${one}اً`;
 }

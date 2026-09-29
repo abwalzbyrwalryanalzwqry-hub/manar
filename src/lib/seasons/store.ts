@@ -8,11 +8,21 @@ import { useEffect, useState } from "react";
 import { useLocalDay } from "@/lib/daily-content";
 import { readJson, writeJson } from "@/lib/persistent-storage";
 import { dayKey, type ActivityLog, type DayRecord, FARD_PRAYERS } from "@/lib/activity-log";
-import { addDays, refOffset, type SeasonNotifyPrefs } from "./engine";
+import { fastingInfo, toHijri } from "@/lib/hijri";
+import { addDays, daysBetween, noon, refOffset, type SeasonNotifyPrefs } from "./engine";
 import type { AutoTrack, GoalFrequency, SeasonAction, SeasonInstance } from "./types";
 
 export const SEASONS_KEY = "manar.seasons.v1";
+/**
+ * تغيّر يمسّ التنبيهات (التفضيلات، أو استعادة نسخة احتياطية): يُعيد جدولة
+ * إشعارات الجهاز. يستمع له `adhan-provider`.
+ */
 export const SEASONS_EVENT = "manar:seasons";
+/**
+ * تغيّر في الخطة وحدها (إنجاز، هدف، عدد): تتحدّث الواجهة فقط، بلا إعادة جدولة
+ * — إعادة الجدولة تلغي الإشعارات ثم تضبطها، فلا تُطلق مع كل نقرة.
+ */
+export const SEASONS_PLAN_EVENT = "manar:seasons-plan";
 
 export type GoalState = {
   enabled: boolean;
@@ -92,7 +102,15 @@ export function readSeasonNotifyPrefs(): SeasonNotifyPrefs {
   return readSeasonsStore().notify;
 }
 
+/** أيّ حدث يُطلقه تغيير المخزن: التنبيهات إن تغيّرت تفضيلاتها، وإلا الخطة. */
+export function seasonsChangeEvent(prev: SeasonsStore, next: SeasonsStore): string {
+  const a = normalizeStore(prev).notify;
+  const b = normalizeStore(next).notify;
+  return JSON.stringify(a) === JSON.stringify(b) ? SEASONS_PLAN_EVENT : SEASONS_EVENT;
+}
+
 export function writeSeasonsStore(next: SeasonsStore) {
+  const prev = readSeasonsStore();
   const keys = Object.keys(next.plans);
   if (keys.length > MAX_PLANS) {
     // المفتاح ينتهي بتاريخ البداية YYYY-MM-DD — نُبقي الأحدث.
@@ -102,7 +120,8 @@ export function writeSeasonsStore(next: SeasonsStore) {
       .forEach((k) => delete next.plans[k]);
   }
   writeJson(SEASONS_KEY, next);
-  if (typeof window !== "undefined") window.dispatchEvent(new Event(SEASONS_EVENT));
+  if (typeof window !== "undefined")
+    window.dispatchEvent(new Event(seasonsChangeEvent(prev, next)));
 }
 
 export function useSeasonsStore() {
@@ -112,9 +131,11 @@ export function useSeasonsStore() {
     const sync = () => setStore(readSeasonsStore());
     sync();
     window.addEventListener(SEASONS_EVENT, sync);
+    window.addEventListener(SEASONS_PLAN_EVENT, sync);
     window.addEventListener("storage", sync);
     return () => {
       window.removeEventListener(SEASONS_EVENT, sync);
+      window.removeEventListener(SEASONS_PLAN_EVENT, sync);
       window.removeEventListener("storage", sync);
     };
   }, []);
@@ -188,20 +209,67 @@ export function autoDone(track: AutoTrack, rec: DayRecord | undefined): boolean 
  * الموسم (مرحلة التمهيد: قضاء ما فات قبل رمضان) أو تليها (يوم العيد لزكاة الفطر).
  */
 export function goalDayKeys(action: SeasonAction, instance: SeasonInstance): string[] {
+  return phaseOffsets(instance, action.goal?.trackPhases ?? action.phases).map((o) =>
+    dayKey(addDays(instance.startDate, o)),
+  );
+}
+
+/** إزاحات أيام مراحل معيّنة من أول يوم في الموسم، مرتّبة؛ وبلا مراحل: الموسم كله. */
+function phaseOffsets(instance: SeasonInstance, ids: string[] | undefined): number[] {
   const len = instance.length;
-  const ids = action.goal?.trackPhases ?? action.phases;
   const offsets = new Set<number>();
-  if (ids?.length) {
-    for (const id of ids) {
-      const p = instance.season.phases.find((x) => x.id === id);
-      if (!p) continue;
-      const from = refOffset(p.from, len);
-      const to = refOffset(p.to, len);
-      for (let o = from; o <= to; o++) offsets.add(o);
-    }
+  for (const id of ids ?? []) {
+    const p = instance.season.phases.find((x) => x.id === id);
+    if (!p) continue;
+    const from = refOffset(p.from, len);
+    const to = refOffset(p.to, len);
+    for (let o = from; o <= to; o++) offsets.add(o);
   }
   if (!offsets.size) for (let o = 0; o < len; o++) offsets.add(o);
-  return [...offsets].sort((a, b) => a - b).map((o) => dayKey(addDays(instance.startDate, o)));
+  return [...offsets].sort((a, b) => a - b);
+}
+
+/**
+ * موضع العمل من الخطة الآن:
+ * - `now`: يظهر في المرحلة الجارية (أو طوال الموسم) — يُعرض للإضافة.
+ * - `later`: مراحله لم تأتِ بعد — «أهداف قادمة».
+ * - `past`: مضت مراحله — لا يُقترح.
+ */
+export type GoalTiming = "now" | "later" | "past";
+
+export function goalTiming(
+  action: SeasonAction,
+  instance: SeasonInstance,
+  phaseId: string | null | undefined,
+  today: Date,
+): GoalTiming {
+  if (!action.phases?.length) return "now";
+  if (phaseId && action.phases.includes(phaseId)) return "now";
+  const offsets = phaseOffsets(instance, action.phases);
+  const t = daysBetween(instance.startDate, today);
+  if (offsets[0] > t) return "later";
+  if (offsets[offsets.length - 1] < t) return "past";
+  return "now";
+}
+
+/**
+ * عنوان أول مرحلة قادمة للعمل — «العشر الأواخر». `show`: مراحل ظهوره (للأهداف
+ * القادمة)، `track`: مراحل احتسابه (متى يُسجَّل: «يوم عرفة»).
+ */
+export function nextPhaseTitle(
+  action: SeasonAction,
+  instance: SeasonInstance,
+  today: Date,
+  which: "show" | "track" = "show",
+): string | null {
+  const t = daysBetween(instance.startDate, today);
+  const len = instance.length;
+  const ids = which === "track" ? (action.goal?.trackPhases ?? action.phases) : action.phases;
+  const upcoming = (ids ?? [])
+    .map((id) => instance.season.phases.find((p) => p.id === id))
+    .filter((p): p is NonNullable<typeof p> => !!p && refOffset(p.from, len) > t)
+    .sort((a, b) => refOffset(a.from, len) - refOffset(b.from, len));
+  return upcoming[0]?.title ?? null;
 }
 
 export type GoalProgress = {
@@ -215,6 +283,10 @@ export type GoalProgress = {
   canMark: boolean;
   /** عدد أيام الاحتساب — الحد الأعلى لهدف «عدد أيام». */
   windowDays: number;
+  /** إنجاز اليوم مستنتَج من سجل النشاط (لا يُلغى بالنقر). */
+  todayAuto: boolean;
+  /** سبب منع التسجيل اليوم (صيام في يوم منهيّ عنه)، وإلا null. */
+  blocked: string | null;
 };
 
 /**
@@ -228,18 +300,25 @@ export function goalProgress(
   instance: SeasonInstance,
   log: ActivityLog,
   today: Date = new Date(),
+  adjust = 0,
 ): GoalProgress {
   const keys = goalDayKeys(action, instance);
   const window = new Set(keys);
   const todayKey = dayKey(today);
   const days = new Set(goal.done.filter((k) => window.has(k)));
   const auto = action.goal?.auto;
+  let todayAuto = false;
   if (auto) {
     for (const k of keys) {
       if (k > todayKey) break;
-      if (autoDone(auto, log.days[k])) days.add(k);
+      if (autoDone(auto, log.days[k])) {
+        days.add(k);
+        if (k === todayKey) todayAuto = true;
+      }
     }
   }
+  const inWindow = window.has(todayKey);
+  const blocked = inWindow ? fastingBlocked(action, today, adjust) : null;
   const target =
     goal.frequency === "daily"
       ? keys.length
@@ -252,9 +331,19 @@ export function goalProgress(
     target,
     todayDone: days.has(todayKey),
     complete: done >= target,
-    canMark: window.has(todayKey),
+    canMark: inWindow && !todayAuto && !blocked,
     windowDays: keys.length,
+    todayAuto,
+    blocked,
   };
+}
+
+/** صيام في يوم يُنهى عن صومه (العيدان وأيام التشريق): سبب المنع، وإلا null. */
+export function fastingBlocked(action: SeasonAction, date: Date, adjust = 0): string | null {
+  if (!action.goal?.fasting) return null;
+  const d = noon(date);
+  const info = fastingInfo(d, toHijri(d, adjust));
+  return info.status === "forbidden" ? `لا يُصام ${info.reason ?? "هذا اليوم"}` : null;
 }
 
 /** هل اليوم من أيام احتساب الهدف؟ (لعرض الخطة في مرحلة ما بعد الموسم كيوم العيد.) */
