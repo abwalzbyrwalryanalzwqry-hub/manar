@@ -8,7 +8,7 @@
 # (am kill — كما يفعل النظام، لا «إيقاف إجباري»)، والشاشة مطفأة.
 #
 #   أ) نسخة التصحيح (المستقبِل الاختباري + الشيفرة الأصلية نفسها):
-#      ١. فكّ كامل وتشغيل لكل تسجيلات الإقامة الـ١٩ من res/raw.
+#      ١. فكّ كامل وتشغيل لكل تسجيلات الإقامة المضمَّنة في res/raw.
 #      ٢. تدفّق: أذان ← تنبيه قبل الإقامة ← إقامة، ومنع التكرار، وصوت واحد فقط.
 #      ٣. إعادة الضبط بالمفاتيح نفسها بعد إطلاقها: لا يُطلق شيء مرّتين.
 #      ٤. مورد مفقود: لا انهيار، لا صوت بديل، إشعار مكتوب.
@@ -151,9 +151,13 @@ for _ in $(seq 1 180); do
   grep -q DECODE_DONE "$OUT/decode.txt" && break
   sleep 2
 done
-expect "فكّ ترميز كامل لكل ملف إقامة (MediaCodec)" "$OUT/decode.txt" "DECODE iqamah_[0-9]{2} OK" 19
-expect "تشغيل كل ملف إقامة (MediaPlayer)" "$OUT/decode.txt" "PLAY iqamah_[0-9]{2} OK" 19
-expect "خلاصة الفكّ والتشغيل" "$OUT/decode.txt" "DECODE_DONE pass=19 fail=0"
+# العدد المتوقع من مكتبة الإقامة في المستودع (حُذفت iqamah_01…07 عمدًا، فلا رقم ثابت).
+IQ=$(ls public/audio/iqamah | grep -cE "^iqamah_[0-9]{2}\." || true)
+[ "$IQ" -gt 0 ] || fail "لا ملفات في public/audio/iqamah"
+expect "كل ملفات الإقامة مضمَّنة في res/raw" "$OUT/decode.txt" "DECODE_LIST count=${IQ}\b"
+expect "فكّ ترميز كامل لكل ملف إقامة (MediaCodec)" "$OUT/decode.txt" "DECODE iqamah_[0-9]{2} OK" "$IQ"
+expect "تشغيل كل ملف إقامة (MediaPlayer)" "$OUT/decode.txt" "PLAY iqamah_[0-9]{2} OK" "$IQ"
+expect "خلاصة الفكّ والتشغيل" "$OUT/decode.txt" "DECODE_DONE pass=$IQ fail=0"
 grep -E "FAIL|DECODE_DONE" "$OUT/decode.txt" | head -8 | sed 's/^/DIAG decode: /' >> "$OUT/diag.txt" || true
 
 # ---- ٢. التدفّق الكامل والتطبيق مغلق والشاشة مطفأة ----
@@ -318,7 +322,7 @@ expect "زرّ الصوت والشاشة مضاءة يُسكت الإقامة" "
 expect "زرّ التشغيل والشاشة مضاءة يُسكت الإقامة" "$Q" "muted by=power-key key=t_q2_iqamah" 1
 expect "زرّ التشغيل والشاشة مطفأة يُسكت الأذان" "$Q" "muted by=power-key key=t_q3_adhan" 1
 expect "لا صوت يكمل بعد الإيقاف" "$Q" "completed key=t_q[1-4]_" 0
-expect "يبقى تنبيه الصلاة مكتوباً بعد الإسكات" "$OUT/quick-notifications.txt" "id=40995"
+expect "يبقى تنبيه الصلاة مكتوباً بعد الإسكات" "$OUT/quick-notifications.txt" "id=30930[1-4]"
 expect_no_crash "الإيقاف السريع: لا انهيار" "$Q"
 
 # ---- ٥. إعادة تشغيل الجهاز ----
