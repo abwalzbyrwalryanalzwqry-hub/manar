@@ -124,7 +124,7 @@ function BookmarksScreen() {
                 {tagLabel(b.tag)}
               </span>
               <span className="text-[10px] tabular-nums text-muted-foreground">
-                صفحة {toArabicDigits(b.page)} · جزء {toArabicDigits(b.juz)}
+                صفحة {toArabicDigits(b.page)}، جزء {toArabicDigits(b.juz)}
               </span>
             </div>
 
@@ -134,7 +134,7 @@ function BookmarksScreen() {
               className="mt-2 block"
             >
               <div className="text-[11px] text-muted-foreground">
-                سورة {SURAH_META[b.surah - 1].nameAr} · الآية {toArabicDigits(b.ayah)}
+                سورة {SURAH_META[b.surah - 1].nameAr}، الآية {toArabicDigits(b.ayah)}
               </div>
               <p className="mt-1.5 line-clamp-3 font-quran text-[16px] leading-[2]">{b.text}</p>
             </Link>
@@ -307,7 +307,7 @@ function EditDialog({ bookmark, onClose }: { bookmark: Bookmark | null; onClose:
         <DialogHeader className="text-right">
           <DialogTitle className="font-display text-lg">
             {bookmark
-              ? `سورة ${SURAH_META[bookmark.surah - 1].nameAr} · الآية ${toArabicDigits(bookmark.ayah)}`
+              ? `سورة ${SURAH_META[bookmark.surah - 1].nameAr}، الآية ${toArabicDigits(bookmark.ayah)}`
               : ""}
           </DialogTitle>
         </DialogHeader>

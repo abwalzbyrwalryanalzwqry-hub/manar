@@ -34,6 +34,7 @@ export {
 export {
   quranSearchService,
   searchSurahNames,
+  parseAyahRef,
   readRecentSearches,
   pushRecentSearch,
   clearRecentSearches,

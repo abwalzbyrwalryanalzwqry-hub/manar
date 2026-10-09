@@ -12,70 +12,25 @@ import {
 import { useKeepAwake } from "@/hooks/use-keep-awake";
 import { useReadingPrefs } from "@/lib/quran/reading-prefs";
 import { SURAH_META } from "@/lib/quran/metadata";
-import {
-  ayahAudioUrl,
-  needsBasmalaIntro,
-  useRecitationPrefs,
-  type Reciter,
-} from "@/lib/quran/recitations";
-import { localAyahSrc, localBasmalaSrc } from "@/lib/quran/recitation-offline";
+import { ayahAudioUrl, needsBasmalaIntro, useRecitationPrefs } from "@/lib/quran/recitations";
+import { localBasmalaSrc } from "@/lib/quran/recitation-offline";
+import { isAbort, resolveSrc } from "@/lib/quran/recitation-source";
 import { toArabicDigits } from "@/lib/quran/format";
+import {
+  ayahCount,
+  isRangeEnd,
+  nextTrack,
+  normalizeRange,
+  sleepStopsBefore,
+  type PlayerRange,
+  type PlayerTrack,
+  type SleepTimer,
+} from "@/lib/quran/recitation-queue";
 
-export interface PlayerTrack {
-  surah: number;
-  ayah: number;
-}
-
-/** مقطع يُكرَّر: من آية إلى آية في سورة واحدة، عدداً من المرات. */
-export interface PlayerRange {
-  surah: number;
-  from: number;
-  to: number;
-  /** عدد مرات تلاوة المقطع كاملاً (٠ = بلا حدّ). */
-  times: number;
-}
+export type { PlayerRange, PlayerTrack, SleepTimer } from "@/lib/quran/recitation-queue";
+export { nextTrack } from "@/lib/quran/recitation-queue";
 
 export type PlayerStatus = "idle" | "loading" | "playing" | "paused" | "error";
-
-function ayahCount(surah: number): number {
-  return SURAH_META[Math.min(114, Math.max(1, surah)) - 1].ayatCount;
-}
-
-/** مقاطعة التشغيل بتحميل مصدر جديد ليست خطأً حقيقياً. */
-function isAbort(e: unknown): boolean {
-  return e instanceof DOMException && e.name === "AbortError";
-}
-
-function resolveSrc(
-  reciter: Reciter,
-  surah: number,
-  ayah: number,
-): { src: string; offline: boolean } {
-  const local = localAyahSrc(reciter.folder, surah, ayah);
-  if (local) return { src: local, offline: true };
-  return { src: ayahAudioUrl(reciter, surah, ayah), offline: false };
-}
-
-/**
- * الآية التالية بعد `cur` حسب المقطع المكرَّر والتلاوة المتصلة، أو null عند النهاية.
- * `loopsDone` عدد مرات إتمام المقطع حتى الآن.
- */
-export function nextTrack(
-  cur: PlayerTrack,
-  opts: { continuous: boolean; range: PlayerRange | null; loopsDone: number },
-): PlayerTrack | null {
-  const { range } = opts;
-  if (range && cur.surah === range.surah && cur.ayah >= range.from && cur.ayah <= range.to) {
-    if (cur.ayah < range.to) return { surah: cur.surah, ayah: cur.ayah + 1 };
-    if (range.times === 0 || opts.loopsDone + 1 < range.times) {
-      return { surah: range.surah, ayah: range.from };
-    }
-    return null;
-  }
-  if (cur.ayah < ayahCount(cur.surah)) return { surah: cur.surah, ayah: cur.ayah + 1 };
-  if (!opts.continuous || cur.surah >= 114) return null;
-  return { surah: cur.surah + 1, ayah: 1 };
-}
 
 /**
  * Verse-by-verse recitation player.
@@ -103,6 +58,8 @@ function useRecitationPlayerEngine() {
   const [offline, setOffline] = useState(false);
   const [position, setPosition] = useState({ current: 0, duration: 0 });
   const [range, setRangeState] = useState<PlayerRange | null>(null);
+  const sleepRef = useRef<SleepTimer>(null);
+  const [sleep, setSleepState] = useState<SleepTimer>(null);
 
   // Keep a ref in sync so the `ended` handler always sees the live track.
   useEffect(() => {
@@ -247,7 +204,11 @@ function useRecitationPlayerEngine() {
       const cur = trackRef.current;
       if (!cur) return;
       if (playPending()) return;
-      if (prefs.repeat === "ayah" && repeatsRef.current < Math.max(1, prefs.repeatCount) - 1) {
+      const r = rangeRef.current;
+      // داخل المقطع: تكرار كل آية حسب المقطع، وخارجه حسب تفضيل «تكرار الآية».
+      const perAyah =
+        r?.ayahTimes ?? (prefs.repeat === "ayah" ? Math.max(1, prefs.repeatCount) : 1);
+      if (repeatsRef.current < perAyah - 1) {
         repeatsRef.current += 1;
         audio.currentTime = 0;
         void audio.play().catch(() => setStatus("paused"));
@@ -258,13 +219,18 @@ function useRecitationPlayerEngine() {
         startTrack({ surah: cur.surah, ayah: 1 });
         return;
       }
-      const r = rangeRef.current;
       const nxt = nextTrack(cur, {
         continuous: prefs.continuous,
         range: r,
         loopsDone: loopsRef.current,
       });
-      if (r && cur.ayah === r.to && cur.surah === r.surah) loopsRef.current += 1;
+      if (r && isRangeEnd(cur, r)) loopsRef.current += 1;
+      if (sleepStopsBefore(sleepRef.current, cur, nxt)) {
+        sleepRef.current = null;
+        setSleepState(null);
+        setStatus("paused");
+        return;
+      }
       if (!nxt) {
         if (r) {
           rangeRef.current = null;
@@ -319,7 +285,7 @@ function useRecitationPlayerEngine() {
     if (!ms || !cur) return;
     try {
       ms.metadata = new MediaMetadata({
-        title: `سورة ${SURAH_META[cur.surah - 1].nameAr} · الآية ${toArabicDigits(cur.ayah)}`,
+        title: `سورة ${SURAH_META[cur.surah - 1].nameAr}، الآية ${toArabicDigits(cur.ayah)}`,
         artist: reciter.nameAr,
         album: "منار — القرآن الكريم",
       });
@@ -342,21 +308,53 @@ function useRecitationPlayerEngine() {
     [startTrack],
   );
 
-  /** يتلو المقطع من `from` إلى `to` ويكرّره `times` مرة (٠ = بلا حدّ). */
+  /**
+   * يتلو المقطع من `from` إلى `to` ويكرّره `times` مرة (٠ = بلا حدّ).
+   * `extra.toSurah` يمدّ المقطع إلى سورة لاحقة، و`extra.ayahTimes` يكرّر كل آية فيه.
+   */
   const playRange = useCallback(
-    (surah: number, from: number, to: number, times: number) => {
-      const max = ayahCount(surah);
-      const a = Math.min(max, Math.max(1, Math.min(from, to)));
-      const b = Math.min(max, Math.max(1, Math.max(from, to)));
-      const r: PlayerRange = { surah, from: a, to: b, times: Math.max(0, Math.trunc(times)) };
+    (
+      surah: number,
+      from: number,
+      to: number,
+      times: number,
+      extra: { toSurah?: number; ayahTimes?: number } = {},
+    ) => {
+      const r = normalizeRange({ surah, from, to, times, ...extra });
       rangeRef.current = r;
       loopsRef.current = 0;
       repeatsRef.current = 0;
       setRangeState(r);
-      startTrack({ surah, ayah: a });
+      startTrack({ surah: r.surah, ayah: r.from });
     },
     [startTrack],
   );
+
+  /** مؤقّت النوم: دقائق، أو «نهاية السورة»، أو null للإلغاء. */
+  const setSleep = useCallback((value: number | "surah" | null) => {
+    const timer: SleepTimer =
+      value === null
+        ? null
+        : value === "surah"
+          ? { kind: "surah" }
+          : { kind: "minutes", minutes: value, until: Date.now() + value * 60_000 };
+    sleepRef.current = timer;
+    setSleepState(timer);
+  }, []);
+
+  // المؤقّت بالدقائق يوقف التلاوة في موعده ولو في منتصف آية طويلة.
+  useEffect(() => {
+    if (sleep?.kind !== "minutes") return;
+    const id = window.setTimeout(
+      () => {
+        audioRef.current?.pause();
+        sleepRef.current = null;
+        setSleepState(null);
+      },
+      Math.max(0, sleep.until - Date.now()),
+    );
+    return () => window.clearTimeout(id);
+  }, [sleep]);
 
   const clearRange = useCallback(() => {
     rangeRef.current = null;
@@ -386,6 +384,8 @@ function useRecitationPlayerEngine() {
     rangeRef.current = null;
     loopsRef.current = 0;
     setRangeState(null);
+    sleepRef.current = null;
+    setSleepState(null);
     if (preloadRef.current) preloadRef.current.src = "";
     setStatus("idle");
     setTrack(null);
@@ -409,6 +409,8 @@ function useRecitationPlayerEngine() {
       isBusy,
       reciter,
       range,
+      sleep,
+      setSleep,
       play,
       playRange,
       clearRange,
@@ -430,6 +432,8 @@ function useRecitationPlayerEngine() {
       range,
       reciter,
       seek,
+      setSleep,
+      sleep,
       status,
       stop,
       toggle,

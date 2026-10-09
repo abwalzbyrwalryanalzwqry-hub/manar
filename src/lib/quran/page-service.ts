@@ -10,9 +10,9 @@
 
 import { hasBasmalaHeader } from "./basmala";
 import { SURAH_META } from "./metadata";
-import { HIZB_META } from "./juz-metadata";
 import { PAGE_STARTS } from "./structure-data";
 import { loadMushaf15Page, type Mushaf15Page } from "./mushaf15";
+import { hizbOfPage, juzOfPage } from "./page-math";
 import { quranTextService } from "./text-service";
 import type { AyahText } from "./text-types";
 
@@ -62,17 +62,20 @@ export function surahIdsOnPage(pageInput: number): number[] {
   return ids;
 }
 
-/** Hizb (1..60) that is in effect at the given page, when derivable. */
+/** Hizb (1..60) that is in effect at the given page (shared rule in `page-math`). */
 export function hizbForPage(page: number): number | undefined {
-  let found: number | undefined;
-  for (const h of HIZB_META) {
-    if (h.startPage <= page) found = h.id;
-    else break;
-  }
-  return found;
+  return hizbOfPage(page);
 }
 
+/** أقصى عدد صفحات مركّبة في الذاكرة (LRU). */
+const PAGE_CACHE_MAX = 40;
 const pageCache = new Map<number, MushafPage>();
+
+function rememberPage(page: number, value: MushafPage) {
+  pageCache.delete(page);
+  pageCache.set(page, value);
+  while (pageCache.size > PAGE_CACHE_MAX) pageCache.delete(pageCache.keys().next().value as number);
+}
 const inflight = new Map<number, Promise<MushafPage>>();
 
 export class QuranPageService {
@@ -112,15 +115,15 @@ export class QuranPageService {
           });
         }
 
-        const juz = segments[0]?.ayahs[0]?.j ?? 1;
+        // الجزء الساري في الصفحة بالقاعدة نفسها في كل الشاشات (آخر جزء بدأ فيها أو قبلها).
         const result: MushafPage = {
           page,
-          juz,
+          juz: juzOfPage(page),
           hizb: hizbForPage(page),
           segments,
           layout,
         };
-        pageCache.set(page, result);
+        rememberPage(page, result);
         return result;
       } finally {
         // يُحذف في كل الأحوال: الفشل لا يُحفظ، فتنجح إعادة المحاولة.
@@ -132,8 +135,11 @@ export class QuranPageService {
     return p;
   }
 
-  getCached(page: number): MushafPage | undefined {
-    return pageCache.get(clampPage(page));
+  getCached(pageInput: number): MushafPage | undefined {
+    const page = clampPage(pageInput);
+    const hit = pageCache.get(page);
+    if (hit) rememberPage(page, hit);
+    return hit;
   }
 
   /** Warm neighbouring pages for instant swipes. */

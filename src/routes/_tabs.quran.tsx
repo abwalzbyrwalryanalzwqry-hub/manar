@@ -46,7 +46,7 @@ const CARDS: Card[] = [
   {
     to: "/quran/recitations",
     title: "التلاوات",
-    hint: "١٨ قارئًا · آية آية",
+    hint: "١٨ قارئًا، آية آية",
     iconKey: "play",
     accent: "gold",
   },
@@ -96,7 +96,7 @@ function QuranHub() {
 
   return (
     <Screen>
-      <ScreenHeader title="القرآن الكريم" subtitle="١١٤ سورة · ٣٠ جزءًا · ٦٢٣٦ آية" />
+      <ScreenHeader title="القرآن الكريم" subtitle="١١٤ سورة، ٣٠ جزءًا، ٦٢٣٦ آية" />
 
       {/* Hero — resume reading */}
       <div className="px-5 animate-fade-up">
@@ -127,7 +127,7 @@ function QuranHub() {
                   سورة {SURAH_META[last.surah - 1].nameAr}
                 </div>
                 <p className="mt-1.5 text-xs font-light text-white/70 tabular-nums">
-                  الآية {toArabicDigits(last.ayah)} · صفحة {toArabicDigits(last.page)} ·{" "}
+                  الآية {toArabicDigits(last.ayah)}، صفحة {toArabicDigits(last.page)}،{" "}
                   <Relative at={last.at} />
                 </p>
               </>
@@ -137,7 +137,7 @@ function QuranHub() {
                   اقرأ. تدبّر. ارتقِ.
                 </div>
                 <p className="mt-2 max-w-[16rem] text-xs font-light leading-relaxed text-white/70">
-                  مساحتك القرآنية داخل منار — مصحف كامل، تفسير وتلاوات بدون إنترنت.
+                  مساحتك القرآنية داخل منار — مصحف كامل وتفسير بدون إنترنت، وتلاوات قابلة للتنزيل.
                 </p>
               </>
             )}

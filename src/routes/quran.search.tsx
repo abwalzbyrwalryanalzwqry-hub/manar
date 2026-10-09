@@ -4,6 +4,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "rea
 import { EmptyState, Icon, icons, Screen, ScreenHeader, Skeleton } from "@/components/manar/shell";
 import {
   clearRecentSearches,
+  parseAyahRef,
   pushRecentSearch,
   quranSearchService,
   readRecentSearches,
@@ -14,6 +15,8 @@ import {
 } from "@/lib/quran";
 import { SURAH_META } from "@/lib/quran/metadata";
 import { JUZ_META } from "@/lib/quran/juz-metadata";
+import { friendlyLoadError } from "@/lib/quran/reader-labels";
+import { useT } from "@/lib/quran/reader-text";
 
 export const Route = createFileRoute("/quran/search")({
   head: () => ({
@@ -25,6 +28,25 @@ export const Route = createFileRoute("/quran/search")({
       },
     ],
   }),
+  // من القارئ: ?scope=surah&surah=2 يفتح البحث في السورة المفتوحة، و?q= يملأ الحقل.
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { scope?: SearchScope; surah?: number; juz?: number; q?: string } => {
+    const num = (v: unknown, max: number) => {
+      const n = Number(v);
+      return Number.isInteger(n) && n >= 1 && n <= max ? n : undefined;
+    };
+    const scope =
+      search.scope === "surah" || search.scope === "juz" || search.scope === "all"
+        ? search.scope
+        : undefined;
+    return {
+      scope,
+      surah: num(search.surah, 114),
+      juz: num(search.juz, 30),
+      q: typeof search.q === "string" && search.q.trim() ? search.q.slice(0, 80) : undefined,
+    };
+  },
   component: QuranSearch,
 });
 
@@ -45,10 +67,12 @@ const SCOPES: { key: SearchScope; label: string }[] = [
 ];
 
 function QuranSearch() {
-  const [q, setQ] = useState("");
-  const [scope, setScope] = useState<SearchScope>("all");
-  const [surah, setSurah] = useState(1);
-  const [juz, setJuz] = useState(1);
+  const t = useT();
+  const params = Route.useSearch();
+  const [q, setQ] = useState(params.q ?? "");
+  const [scope, setScope] = useState<SearchScope>(params.scope ?? "all");
+  const [surah, setSurah] = useState(params.surah ?? 1);
+  const [juz, setJuz] = useState(params.juz ?? 1);
   const [ready, setReady] = useState(quranSearchService.ready);
   const [progress, setProgress] = useState(quranSearchService.progress);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +84,7 @@ function QuranSearch() {
     quranSearchService
       .build()
       .then(() => setReady(true))
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : "تعذّر تهيئة فهرس البحث"));
+      .catch((e: unknown) => setError(friendlyLoadError(e)));
     return off;
   }, []);
 
@@ -75,6 +99,8 @@ function QuranSearch() {
   }, [active, juz, ready, scope, surah, trimmed]);
 
   const nameHits = useMemo(() => (active ? searchSurahNames(trimmed, 6) : []), [active, trimmed]);
+  // «2:255» أو «البقرة 255» أو «آية الكرسي»: انتقال مباشر إلى الآية، ولو قبل جاهزية الفهرس.
+  const ayahRef = useMemo(() => parseAyahRef(q), [q]);
 
   const commit = useCallback((value: string) => {
     setQ(value);
@@ -87,7 +113,7 @@ function QuranSearch() {
     <Screen>
       <ScreenHeader
         title="البحث في القرآن"
-        subtitle="٦٢٣٦ آية · بحث فوري بدون إنترنت"
+        subtitle="٦٢٣٦ آية، بحث فوري بدون إنترنت"
         backTo="/quran"
       />
 
@@ -159,6 +185,31 @@ function QuranSearch() {
           </select>
         )}
       </div>
+
+      {ayahRef && (
+        <div className="mt-4 px-5">
+          <Link
+            to="/quran/mushaf"
+            search={{ surah: ayahRef.surah, ayah: ayahRef.ayah, mode: "surah" }}
+            className="flex items-center justify-between gap-3 rounded-3xl border border-gold/40 bg-gold/10 p-4 text-right shadow-soft transition active:scale-[0.99]"
+          >
+            <span className="min-w-0">
+              <span className="block text-[10px] text-muted-foreground">
+                {ayahRef.label ?? t("mushafReader.search.refLabel")}
+              </span>
+              <span className="mt-0.5 block font-display text-sm font-medium">
+                {t("mushafReader.ayahAria", {
+                  surah: SURAH_META[ayahRef.surah - 1].nameAr,
+                  ayah: toArabicDigits(ayahRef.ayah),
+                })}
+              </span>
+            </span>
+            <span className="shrink-0 rounded-full gradient-primary px-3 py-1.5 text-[11px] font-medium text-primary-foreground">
+              {t("mushafReader.search.open")}
+            </span>
+          </Link>
+        </div>
+      )}
 
       {/* Index build progress */}
       {!ready && !error && (
@@ -268,12 +319,12 @@ function QuranSearch() {
         </div>
       )}
 
-      {/* Ayah results */}
-      {ready && active && (
+      {/* Ayah results — تُخفى «لا نتائج» إن كان النص مرجعاً مباشراً لآية */}
+      {ready && active && (results.length > 0 || !ayahRef) && (
         <div className="mt-6 space-y-3 px-5">
           <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
             {toArabicDigits(total)} آية مطابقة
-            {total > results.length && ` · تُعرض ${toArabicDigits(results.length)}`}
+            {total > results.length && `، تُعرض ${toArabicDigits(results.length)}`}
           </div>
           {results.map((hit) => (
             <ResultCard key={`${hit.surah}-${hit.ayah}`} hit={hit} />
@@ -301,10 +352,10 @@ function ResultCard({ hit }: { hit: AyahHit }) {
     >
       <div className="flex items-center justify-between text-[10px] text-muted-foreground">
         <span>
-          سورة {hit.nameAr} · الآية {toArabicDigits(hit.ayah)}
+          سورة {hit.nameAr}، الآية {toArabicDigits(hit.ayah)}
         </span>
         <span className="tabular-nums">
-          صفحة {toArabicDigits(hit.page)} · جزء {toArabicDigits(hit.juz)}
+          صفحة {toArabicDigits(hit.page)}، جزء {toArabicDigits(hit.juz)}
         </span>
       </div>
       <p className="mt-2 font-quran text-[17px] leading-[2.1]">

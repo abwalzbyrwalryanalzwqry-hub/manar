@@ -120,6 +120,8 @@ jobs:
 
       - name: رفع الأدلة
         if: always()
+        # مخرج مساعد: امتلاء حصة التخزين في GitHub لا يُسقط فحصاً نجحت خطواته كلها.
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: install-test-evidence
