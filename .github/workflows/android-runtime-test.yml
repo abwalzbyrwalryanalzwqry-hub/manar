@@ -72,13 +72,30 @@ jobs:
           test "$(wc -l < aab.txt)" = "$expected"
           ls -la "$APK" "$AAB"
 
-      - uses: actions/upload-artifact@v7
+      # تسليم الحزم لوظيفة المحاكي عبر ذاكرة Actions المؤقتة لا المرفقات: حصة تخزين
+      # المرفقات (٥٠٠ ميغابايت في الخطة المجانية، مشتركة بين كل المستودعات الخاصة)
+      # امتلأت فأسقطت الفحص وتخطّت المحاكي. للذاكرة المؤقتة حصة منفصلة (١٠ غيغابايت
+      # لكل مستودع)، والمفتاح فريد لكل تشغيل، وتُحذف في وظيفة «تنظيف» آخر الملف.
+      - name: تجهيز الحزم للمحاكي
+        run: |
+          mkdir -p pkg
+          cp android/app/build/outputs/apk/debug/app-debug.apk pkg/
+          cp android/app/build/outputs/apk/release/app-release.apk pkg/
+          ls -la pkg
+      - name: حفظ الحزم في الذاكرة المؤقتة
+        uses: actions/cache/save@v6
+        with:
+          path: pkg
+          key: runtime-test-apks-${{ github.run_id }}-${{ github.run_attempt }}
+
+      # نسخة للتنزيل اليدوي فقط؛ امتلاء الحصة لا يُسقط الفحص.
+      - name: رفع الحزم مرفقًا (اختياري)
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
         with:
           name: runtime-test-apks
-          path: |
-            android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/release/app-release.apk
-          retention-days: 5
+          path: pkg
+          retention-days: 2
 
   emulator:
     name: محاكي API ${{ matrix.api }}
@@ -100,10 +117,12 @@ jobs:
             target: google_apis
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - name: استرجاع الحزم من الذاكرة المؤقتة
+        uses: actions/cache/restore@v6
         with:
-          name: runtime-test-apks
           path: pkg
+          key: runtime-test-apks-${{ github.run_id }}-${{ github.run_attempt }}
+          fail-on-cache-miss: true
       - name: تمكين KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
@@ -153,3 +172,18 @@ jobs:
           emit error "API ${{ matrix.api }} فشل" fails.txt
           emit notice "API ${{ matrix.api }} ملاحظات" notes.txt
           emit notice "API ${{ matrix.api }} تشخيص" "$D/diag.txt"
+
+  cleanup:
+    name: تنظيف الذاكرة المؤقتة
+    needs: [build, emulator]
+    if: always() && needs.build.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+    steps:
+      - name: حذف حزم هذا التشغيل
+        # طلبات الدمج من نسخ خارجية لا تملك صلاحية الحذف؛ تنتهي الذاكرة وحدها بعد ٧ أيام.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh cache delete "runtime-test-apks-${{ github.run_id }}-${{ github.run_attempt }}" --repo "${{ github.repository }}"

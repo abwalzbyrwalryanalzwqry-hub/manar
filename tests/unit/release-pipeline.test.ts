@@ -71,3 +71,32 @@ describe("بيئة واحدة", () => {
     }
   });
 });
+
+describe("حصة المرفقات", () => {
+  /* حصة تخزين المرفقات في الخطة المجانية مشتركة بين المستودعات الخاصة، وامتلاؤها
+   * أسقط «بناء وفحص ساكن» وتخطّى المحاكي. الرفع يجب أن يكون اختياريًا دائمًا، ولا
+   * تُسلَّم الحزم بين وظائف التشغيل نفسه بالمرفقات. */
+  const steps = workflows.flatMap((w) =>
+    w.text.split(/\n(?=\s*- (?:name|uses|run):)/).map((step) => ({ name: w.name, step })),
+  );
+
+  it("كل رفع مرفق اختياري (continue-on-error)", () => {
+    const uploads = steps.filter((s) => /uses:\s*actions\/upload-artifact@/.test(s.step));
+    expect(uploads.length).toBeGreaterThan(0);
+    for (const u of uploads) expect(u.step, u.name).toMatch(/continue-on-error:\s*true/);
+  });
+
+  it("تنزيل المرفقات لا يكون إلا من تشغيل سابق محدد (run-id)", () => {
+    const downloads = steps.filter((s) => /uses:\s*actions\/download-artifact@/.test(s.step));
+    for (const d of downloads) expect(d.step, d.name).toMatch(/run-id:/);
+  });
+
+  it("المحاكي يستلم الحزم من الذاكرة المؤقتة بمفتاح التشغيل نفسه", () => {
+    const w = workflows.find((x) => x.name === "android-runtime-test.yml")!.text;
+    const key = "runtime-test-apks-${{ github.run_id }}-${{ github.run_attempt }}";
+    expect(w).toContain("actions/cache/save@");
+    expect(w).toContain("actions/cache/restore@");
+    expect(w.split(key).length - 1).toBeGreaterThanOrEqual(3);
+    expect(w).toMatch(/fail-on-cache-miss:\s*true/);
+  });
+});
