@@ -61,12 +61,15 @@ jobs:
           AAPT2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
           APK=android/app/build/outputs/apk/release/app-release.apk
           AAB=android/app/build/outputs/bundle/release/app-release.aab
+          # العدد المتوقع من ملفات المكتبة نفسها (حُذفت iqamah_01…07 عمداً، فلم يعد ١٩ ثابتاً).
+          expected=$(ls public/audio/iqamah | grep -cE "^iqamah_[0-9]{2}\.")
+          test "$expected" -gt 0
           "$AAPT2" dump resources "$APK" > res.txt
           n=$(grep -cE "raw/iqamah_[0-9]{2}" res.txt || true)
-          echo "APK: $n مورد إقامة"; grep -E "raw/iqamah_" res.txt
-          test "$n" = 19
+          echo "APK: $n مورد إقامة من $expected"; grep -E "raw/iqamah_" res.txt
+          test "$n" = "$expected"
           unzip -l "$AAB" | grep -E "base/res/raw/iqamah_" | tee aab.txt
-          test "$(wc -l < aab.txt)" = 19
+          test "$(wc -l < aab.txt)" = "$expected"
           ls -la "$APK" "$AAB"
 
       - uses: actions/upload-artifact@v7
