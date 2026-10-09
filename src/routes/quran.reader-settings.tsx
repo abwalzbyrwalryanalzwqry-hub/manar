@@ -20,7 +20,7 @@ function ReaderSettingsScreen() {
     <Screen>
       <ScreenHeader
         title="إعدادات القراءة"
-        subtitle="الخط · الحجم · التنسيق"
+        subtitle="الخط، الحجم، التنسيق"
         backTo="/quran/mushaf"
       />
 

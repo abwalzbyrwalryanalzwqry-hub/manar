@@ -9,6 +9,8 @@ import { PAGE_STARTS } from "./structure-data";
 import { markPagesRead } from "./reading-history";
 import { recordPagesRead } from "./khatmah-plan";
 
+export { surahEndsPage } from "./page-math";
+
 /** أقل مدة مكوث على الصفحة لتُعدّ مقروءة (التقليب السريع تصفّح لا قراءة). */
 export const MIN_PAGE_DWELL_MS = 10_000;
 

@@ -78,7 +78,7 @@ function LastReadScreen() {
                 سورة {SURAH_META[last.surah - 1].nameAr}
               </div>
               <p className="mt-1.5 text-xs font-light text-white/70 tabular-nums">
-                الآية {toArabicDigits(last.ayah)} · صفحة {toArabicDigits(last.page)} · الجزء{" "}
+                الآية {toArabicDigits(last.ayah)}، صفحة {toArabicDigits(last.page)}، الجزء{" "}
                 {toArabicDigits(last.juz)}
               </p>
             </div>
@@ -212,13 +212,13 @@ function HistoryRow({ entry, onRemove }: { entry: ReadEntry; onRemove: () => voi
       >
         <div className="truncate text-[13px] font-medium">
           سورة {SURAH_META[entry.surah - 1].nameAr}
-          <span className="mx-1.5 text-muted-foreground">·</span>
+          <span className="text-muted-foreground">، </span>
           <span className="text-muted-foreground tabular-nums">
             آية {toArabicDigits(entry.ayah)}
           </span>
         </div>
         <div className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">
-          صفحة {toArabicDigits(entry.page)} · الجزء {toArabicDigits(entry.juz)} ·{" "}
+          صفحة {toArabicDigits(entry.page)}، الجزء {toArabicDigits(entry.juz)}،{" "}
           <Relative at={entry.at} />
         </div>
       </Link>

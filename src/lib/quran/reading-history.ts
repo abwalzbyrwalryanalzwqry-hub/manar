@@ -7,14 +7,15 @@ import { useCallback, useEffect, useState } from "react";
 import { SURAH_META } from "./metadata";
 import type { ReaderMode } from "@/lib/quran-reader-state";
 import { recordAyahs } from "@/lib/activity-log";
+import { ayahsOnPages } from "@/lib/quran/page-math";
 
 const KEY = "manar.quran.history.v1";
 const EVENT = "manar:quran-history";
 const MAX_ENTRIES = 40;
+/** أقصى عدد أيام محفوظة في السجل (يكفي سلسلة الأيام التي تُحسب حتى ٤٠٠ يوم). */
+const MAX_DAYS = 400;
 /** Two visits to the same surah inside this window are one entry. */
 const MERGE_WINDOW_MS = 30 * 60 * 1000;
-/** تقدّم أكبر من هذا يُعدّ تنقّلاً في المصحف، لا قراءة متصلة. */
-const MAX_READ_JUMP = 200;
 
 export interface ReadEntry {
   surah: number;
@@ -128,14 +129,8 @@ export function recordRead(entry: Omit<ReadEntry, "at">): void {
   const nextGlobal = globalAyahIndex(entry.surah, entry.ayah);
   const furthest = Math.max(state.furthest, nextGlobal);
   write({ ...state, entries, furthest });
-
-  /* السجل اليومي الموحّد: نحسب الآيات المقروءة فعلياً من التقدّم للأمام عن آخر
-   * موضع مسجّل. نتجاهل القفزات الكبيرة لأنها تنقّل في المصحف لا قراءة. */
-  const prev = state.entries[0];
-  if (prev) {
-    const delta = nextGlobal - globalAyahIndex(prev.surah, prev.ayah);
-    if (delta > 0 && delta <= MAX_READ_JUMP) recordAyahs(delta);
-  }
+  // السجل اليومي للآيات لا يُحسب هنا: تغيّر الموضع قد يكون تنقّلاً أو تقليباً سريعاً.
+  // الآيات تُحتسب في markPagesRead من الصفحات التي ثبتت قراءتها بالمكوث.
 }
 
 /**
@@ -155,8 +150,13 @@ export function markPagesRead(pages: number[], now: number = Date.now()): void {
   const last = state.sessionAt;
   const newSession = last === undefined || dayKey(last) !== key || now - last >= MERGE_WINDOW_MS;
   if (newSession) days[key] = (days[key] ?? 0) + 1;
+  // لا تنمو خريطة الأيام بلا حدّ: يكفي ما يغطي سلسلة الأيام وحسابها (٤٠٠ يوم).
+  const dayKeys = Object.keys(days).sort();
+  for (const old of dayKeys.slice(0, Math.max(0, dayKeys.length - MAX_DAYS))) delete days[old];
 
   write({ ...state, pages: merged, days, sessionAt: now });
+  // السجل اليومي الموحّد: آيات الصفحات المقروءة فعلاً (لا فرق المواضع).
+  recordAyahs(ayahsOnPages(valid), new Date(now));
 }
 
 export function clearHistory(): void {

@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Icon, icons } from "@/components/manar/shell";
+import { Icon } from "@/components/manar/shell";
+import { icons } from "@/components/manar/shell";
 import { toArabicDigits } from "@/lib/quran";
 import { bareSurahNameAr, juzLabelAr } from "@/lib/quran/page-labels";
 import {
@@ -10,6 +11,11 @@ import {
   type Mushaf15Line,
 } from "@/lib/quran/mushaf15";
 import { SURAH_META } from "@/lib/quran/metadata";
+import { markersOnPage, type PageMarker } from "@/lib/quran/page-math";
+import { friendlyLoadError, markerLabel } from "@/lib/quran/reader-labels";
+import type { BookmarkTag } from "@/lib/quran/bookmarks";
+import { useT } from "@/lib/quran/reader-text";
+import { Sep } from "@/components/manar/reader/Sep";
 import type { MushafPageState } from "@/hooks/use-mushaf-page";
 import type { AyahText } from "@/lib/quran/text-types";
 
@@ -23,9 +29,20 @@ interface Props {
   onAyahTap?: AyahTap;
   /** الآية المحددة حالياً ("سورة:آية") لتظليلها. */
   selectedKey?: string;
-  /** الآيات المعلَّمة ("سورة:آية"). */
-  markedKeys?: ReadonlySet<string>;
+  /** الآيات المعلَّمة ("سورة:آية") ولون علامة كلٍّ منها. */
+  markedTags?: ReadonlyMap<string, BookmarkTag>;
+  /** تكبير الصفحة (١ = عرض الشاشة). الأكبر يتمرّر أفقياً بدل تصغير الخط. */
+  zoom?: number;
 }
+
+/** خلفية الآية المعلَّمة بلون وسم العلامة. */
+const TAG_BG: Record<BookmarkTag, string> = {
+  tadabbur: "bg-gold/15",
+  hifz: "bg-amber-400/25",
+  dua: "bg-sky-500/15",
+  amal: "bg-emerald-500/15",
+  review: "bg-rose-500/15",
+};
 
 /**
  * صفحة من مصحف المدينة (١٥ سطراً) كما في المطبوع: كل سطر يحمل الكلمات نفسها
@@ -40,22 +57,29 @@ export function MushafPageRenderer({
   onRetry,
   onAyahTap,
   selectedKey,
-  markedKeys,
+  markedTags,
+  zoom = 1,
 }: Props) {
+  const t = useT();
   if (state.status === "loading") return <PageLoading page={page} />;
   if (state.status === "error") return <PageError error={state.error} onRetry={onRetry} />;
 
   const { segments, juz, hizb, layout } = state.data;
-  const headSurahs = segments.map((s) => bareSurahNameAr(s.nameAr)).join("  ");
+  const headSurahs = segments.map((s) => bareSurahNameAr(s.nameAr)).join("، ");
 
   return (
     <div className="flex w-full flex-col" dir="rtl">
       {/* الترويسة: السورة على جانب، والجزء والحزب على الآخر */}
-      <div className="flex items-center justify-between gap-3 pb-2 text-[12px] text-muted-foreground">
+      <div className="flex items-center justify-between gap-3 pb-2 text-[0.75rem] text-muted-foreground">
         <span className="truncate font-display">{headSurahs}</span>
         <span className="shrink-0 font-display">
           {juzLabelAr(juz)}
-          {hizb ? ` · الحزب ${toArabicDigits(hizb)}` : ""}
+          {hizb ? (
+            <>
+              <Sep />
+              {t("mushafReader.meta.hizb", { n: toArabicDigits(hizb) })}
+            </>
+          ) : null}
         </span>
       </div>
 
@@ -66,7 +90,8 @@ export function MushafPageRenderer({
         segments={segments}
         onAyahTap={onAyahTap}
         selectedKey={selectedKey}
-        markedKeys={markedKeys}
+        markedTags={markedTags}
+        zoom={zoom}
       />
 
       <div className="flex justify-center pt-2">
@@ -91,15 +116,18 @@ function PageLines({
   segments,
   onAyahTap,
   selectedKey,
-  markedKeys,
+  markedTags,
+  zoom,
 }: {
   page: number;
   lines: Mushaf15Line[];
   segments: MushafPageStateReady["segments"];
   onAyahTap?: AyahTap;
   selectedKey?: string;
-  markedKeys?: ReadonlySet<string>;
+  markedTags?: ReadonlyMap<string, BookmarkTag>;
+  zoom: number;
 }) {
+  const t = useT();
   const boxRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const opening = isOpeningPage(page);
@@ -115,7 +143,30 @@ function PageLines({
     return () => ro.disconnect();
   }, []);
 
-  const fontPx = width ? Math.max(12, Math.min(40, width / LINE_EM)) : 0;
+  const fontPx = width ? Math.max(12, Math.min(64, (width * zoom) / LINE_EM)) : 0;
+
+  // علامات الهامش: بداية جزء/حزب/ربع في سطر، وموضع السجدة — كما في هامش المصحف المطبوع.
+  const marginMarks = useMemo(() => {
+    const marks = markersOnPage(page);
+    const byLine = new Map<number, { start?: PageMarker; sajdah?: PageMarker }>();
+    lines.forEach((line, i) => {
+      if (!isAyahLine(line)) return;
+      for (const m of marks) {
+        if (m.surah !== line.s) continue;
+        const idx = line.w.findIndex(([a]) => a === m.ayah);
+        if (idx < 0) continue;
+        const entry = byLine.get(i) ?? {};
+        if (m.kind === "sajdah") {
+          // السجدة عند علامة نهاية الآية؛ البداية عند أول كلمة منها.
+          if (line.w.some(([a, text]) => a === m.ayah && !text)) entry.sajdah = m;
+        } else if (idx === 0 ? !prevLineHas(lines, i, m.ayah, m.surah) : true) {
+          entry.start ??= m;
+        }
+        byLine.set(i, entry);
+      }
+    });
+    return byLine;
+  }, [lines, page]);
 
   // تصغير أي سطر أطول من العرض — بعد تحميل الخط، وعند تغير العرض.
   const fitLines = useCallback(() => {
@@ -162,73 +213,108 @@ function PageLines({
   };
 
   return (
-    <div
-      ref={boxRef}
-      className={opening ? "flex flex-col justify-center py-[6%]" : ""}
-      style={{
-        fontFamily: MUSHAF15_FONT,
-        fontSize: fontPx ? `${fontPx}px` : undefined,
-        visibility: fontPx ? "visible" : "hidden",
-      }}
-      lang="ar"
-    >
-      {lines.map((line, i) => (
-        <div key={i} style={{ height: `${ROW_EM}em` }} className="flex items-center">
-          {line.t === "h" ? (
-            <SurahBanner nameAr={bareSurahNameAr(SURAH_META[line.s - 1].nameAr)} />
-          ) : line.t === "b" ? (
-            <div className="w-full text-center leading-none text-foreground">{QPC_BASMALA}</div>
-          ) : isAyahLine(line) ? (
-            <div
-              data-line
-              className={`flex w-full whitespace-nowrap leading-none text-foreground ${
-                opening ? "justify-center gap-[0.28em]" : "justify-between gap-[0.2em]"
-              }`}
-            >
-              {line.w.map(([ayah, text], j) => {
-                const key = `${line.s}:${ayah}`;
-                const selected = key === selectedKey;
-                const marked = markedKeys?.has(key);
-                return (
-                  <span
-                    key={j}
-                    data-ayah={key}
-                    onClick={onAyahTap ? () => tap(line.s, ayah) : undefined}
-                    className={`rounded-[0.2em] px-[0.02em] py-[0.3em] transition-colors ${
-                      onAyahTap ? "cursor-pointer" : ""
-                    } ${
-                      selected
-                        ? "bg-primary/15"
-                        : marked
-                          ? "bg-gold/15"
-                          : onAyahTap
-                            ? "active:bg-primary/10"
-                            : ""
-                    } ${text ? "" : "text-gold"}`}
-                    role={text ? undefined : "button"}
-                    tabIndex={text || !onAyahTap ? undefined : 0}
-                    aria-label={text ? undefined : `خيارات الآية ${toArabicDigits(ayah)}`}
-                    onKeyDown={
-                      text || !onAyahTap
-                        ? undefined
-                        : (e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              tap(line.s, ayah);
+    <div ref={boxRef} className={zoom > 1 ? "overflow-x-auto overscroll-x-contain" : ""}>
+      <div
+        className={`${opening ? "flex flex-col justify-center py-[6%]" : ""} ${zoom > 1 ? "px-3" : ""}`}
+        style={{
+          fontFamily: MUSHAF15_FONT,
+          fontSize: fontPx ? `${fontPx}px` : undefined,
+          width: zoom > 1 && width ? `${width * zoom}px` : undefined,
+          visibility: fontPx ? "visible" : "hidden",
+        }}
+        lang="ar"
+      >
+        {lines.map((line, i) => (
+          <div key={i} style={{ height: `${ROW_EM}em` }} className="relative flex items-center">
+            {marginMarks.get(i)?.start && (
+              <span
+                className="pointer-events-none absolute left-full top-1/2 ml-1 -translate-y-1/2 whitespace-nowrap font-sans text-[0.5rem] leading-none text-gold [writing-mode:vertical-rl]"
+                data-marker={marginMarks.get(i)?.start?.kind}
+              >
+                {markerLabel(marginMarks.get(i)!.start!)}
+              </span>
+            )}
+            {marginMarks.get(i)?.sajdah && (
+              <span
+                className="pointer-events-none absolute right-full top-1/2 mr-1 -translate-y-1/2 whitespace-nowrap font-sans text-[0.5rem] leading-none text-gold [writing-mode:vertical-rl]"
+                data-marker="sajdah"
+              >
+                {t("mushafReader.meta.sajdah")}
+              </span>
+            )}
+            {line.t === "h" ? (
+              <SurahBanner nameAr={bareSurahNameAr(SURAH_META[line.s - 1].nameAr)} />
+            ) : line.t === "b" ? (
+              <div className="w-full text-center leading-none text-foreground">{QPC_BASMALA}</div>
+            ) : isAyahLine(line) ? (
+              <div
+                data-line
+                className={`flex w-full whitespace-nowrap leading-none text-foreground ${
+                  opening ? "justify-center gap-[0.28em]" : "justify-between gap-[0.2em]"
+                }`}
+              >
+                {line.w.map(([ayah, text], j) => {
+                  const key = `${line.s}:${ayah}`;
+                  const selected = key === selectedKey;
+                  const tag = markedTags?.get(key);
+                  return (
+                    <span
+                      key={j}
+                      data-ayah={key}
+                      onClick={onAyahTap ? () => tap(line.s, ayah) : undefined}
+                      className={`rounded-[0.2em] px-[0.02em] py-[0.3em] transition-colors ${
+                        onAyahTap ? "cursor-pointer" : ""
+                      } ${
+                        selected
+                          ? "bg-primary/15"
+                          : tag
+                            ? TAG_BG[tag]
+                            : onAyahTap
+                              ? "active:bg-primary/10"
+                              : ""
+                      } ${text ? "" : "text-gold"}`}
+                      role={text ? undefined : "button"}
+                      tabIndex={text || !onAyahTap ? undefined : 0}
+                      aria-label={
+                        text
+                          ? undefined
+                          : t("mushafReader.ayahOptions", {
+                              surah: SURAH_META[line.s - 1].nameAr,
+                              ayah: toArabicDigits(ayah),
+                            })
+                      }
+                      onKeyDown={
+                        text || !onAyahTap
+                          ? undefined
+                          : (e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                tap(line.s, ayah);
+                              }
                             }
-                          }
-                    }
-                  >
-                    {text ?? toArabicDigits(ayah)}
-                  </span>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
-      ))}
+                      }
+                    >
+                      {text ?? toArabicDigits(ayah)}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
     </div>
   );
+}
+
+/** هل بدأت الآية في سطر سابق من الصفحة (فلا تُعلَّم بداية لها في هذا السطر)؟ */
+function prevLineHas(lines: Mushaf15Line[], i: number, ayah: number, surah: number): boolean {
+  for (let k = i - 1; k >= 0; k--) {
+    const l = lines[k];
+    if (!isAyahLine(l)) continue;
+    return l.s === surah && l.w.some(([a]) => a === ayah);
+  }
+  return false;
 }
 
 type MushafPageStateReady = Extract<MushafPageState, { status: "ready" }>["data"];
@@ -237,6 +323,7 @@ type MushafPageStateReady = Extract<MushafPageState, { status: "ready" }>["data"
 
 /** Ornamental surah headband, as printed in the Madani Mushaf. */
 function SurahBanner({ nameAr }: { nameAr: string }) {
+  const t = useT();
   return (
     <div className="flex w-full justify-center">
       <div className="relative w-full overflow-hidden rounded-md border-2 border-primary/70 bg-primary/90 p-[3px] shadow-soft">
@@ -247,7 +334,7 @@ function SurahBanner({ nameAr }: { nameAr: string }) {
             className="relative font-display font-medium leading-none text-foreground"
             style={{ fontSize: "0.72em" }}
           >
-            سُورَةُ {nameAr}
+            {t("mushafReader.bannerSurah", { surah: nameAr })}
           </span>
         </div>
       </div>
@@ -274,7 +361,7 @@ function PageNumberPlate({ page }: { page: number }) {
   return (
     <div className="flex items-center gap-1.5">
       <BannerFlourish className="h-4 w-10 scale-x-[-1] text-gold/60" />
-      <span className="rounded-md border border-primary/50 bg-primary/10 px-4 py-0.5 text-[12px] font-medium tabular-nums text-foreground">
+      <span className="rounded-md border border-primary/50 bg-primary/10 px-4 py-0.5 text-[0.75rem] font-medium tabular-nums text-foreground">
         {toArabicDigits(page)}
       </span>
       <BannerFlourish className="h-4 w-10 text-gold/60" />
@@ -285,12 +372,15 @@ function PageNumberPlate({ page }: { page: number }) {
 /* ---------------- States ---------------- */
 
 function PageLoading({ page }: { page: number }) {
+  const t = useT();
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-      <span className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.3em] text-gold">
-        جارٍ التحميل
+      <span className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[0.625rem] font-medium uppercase tracking-[0.3em] text-gold">
+        {t("mushafReader.loading")}
       </span>
-      <div className="font-display text-lg text-foreground/80">صفحة {toArabicDigits(page)}</div>
+      <div className="font-display text-lg text-foreground/80">
+        {t("mushafReader.meta.page", { n: toArabicDigits(page) })}
+      </div>
       <div className="mt-2 grid w-full gap-3">
         {[0, 1, 2, 3, 4, 5, 6].map((i) => (
           <div
@@ -305,20 +395,24 @@ function PageLoading({ page }: { page: number }) {
 }
 
 function PageError({ error, onRetry }: { error: Error; onRetry: () => void }) {
+  const t = useT();
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
       <span className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
         <Icon d={icons.info} size={20} />
       </span>
-      <div className="font-display text-base">تعذّر تحميل الصفحة</div>
-      <p className="max-w-[20rem] text-[11px] leading-relaxed text-muted-foreground">
-        {error.message}
+      <div className="font-display text-base">{t("mushafReader.error.page")}</div>
+      <p
+        className="max-w-[20rem] text-[0.6875rem] leading-relaxed text-muted-foreground"
+        title={error.message}
+      >
+        {friendlyLoadError(error)}
       </p>
       <button
         onClick={onRetry}
-        className="mt-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-[12px] font-medium text-primary transition hover:bg-primary/15 active:scale-95"
+        className="mt-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-[0.75rem] font-medium text-primary transition hover:bg-primary/15 active:scale-95"
       >
-        إعادة المحاولة
+        {t("mushafReader.error.retry")}
       </button>
     </div>
   );

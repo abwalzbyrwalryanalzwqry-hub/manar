@@ -269,8 +269,8 @@ export async function renderAyahCard(
   ctx.fillStyle = c.gold;
   const ref =
     input.ayahFrom === input.ayahTo
-      ? `سورة ${input.surahNameAr} · الآية ${toArabicDigits(input.ayahFrom)}`
-      : `سورة ${input.surahNameAr} · الآيات ${toArabicDigits(input.ayahFrom)}-${toArabicDigits(input.ayahTo)}`;
+      ? `سورة ${input.surahNameAr}، الآية ${toArabicDigits(input.ayahFrom)}`
+      : `سورة ${input.surahNameAr}، الآيات ${toArabicDigits(input.ayahFrom)}-${toArabicDigits(input.ayahTo)}`;
   ctx.fillText(ref, w / 2, dividerY + refSize * 2.1, contentWidth);
 
   // Optional note
@@ -372,6 +372,36 @@ export async function shareCardImage(
   return "downloaded";
 }
 
+/**
+ * ينسخ النص إلى الحافظة فعلاً (لا مربع المشاركة)، ويعيد نجاح الكتابة.
+ * Clipboard API أولاً (WebView في Capacitor سياق آمن)، ثم طريقة execCommand للمتصفحات القديمة.
+ */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* نجرّب الطريقة القديمة */
+  }
+  if (typeof document === "undefined") return false;
+  try {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Shares plain text, falling back to the clipboard. */
 export async function shareCardText(text: string): Promise<ShareOutcome> {
   if (Capacitor.isNativePlatform()) {
@@ -392,6 +422,5 @@ export async function shareCardText(text: string): Promise<ShareOutcome> {
       return "cancelled";
     }
   }
-  await navigator.clipboard.writeText(text);
-  return "copied";
+  return (await copyText(text)) ? "copied" : "cancelled";
 }

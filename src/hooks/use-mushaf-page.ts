@@ -42,7 +42,7 @@ export function useMushafPage(pageInput: number): MushafPageState & { retry: () 
           });
       });
 
-    quranPageService.prefetch([page - 1, page + 1, page + 2]);
+    quranPageService.prefetch([page - 1, page + 1, page + 2, page - 2]);
 
     return () => {
       cancelled = true;

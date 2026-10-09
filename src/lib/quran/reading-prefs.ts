@@ -12,8 +12,8 @@ export type FontSizeKey = "sm" | "md" | "lg" | "xl";
 export type LineHeightKey = "compact" | "normal" | "relaxed";
 export type WidthKey = "narrow" | "normal" | "wide";
 export type QuranFontKey = "amiri" | "scheherazade" | "naskh";
-/** لون ورق القراءة: كسمة التطبيق، أو سيبيا دافئ، أو ليلي مريح للعين. */
-export type PaperKey = "auto" | "sepia" | "night";
+/** لون ورق القراءة: كسمة التطبيق، أو سيبيا دافئ، أو ليلي مريح للعين، أو أسود لشاشات OLED. */
+export type PaperKey = "auto" | "sepia" | "night" | "black";
 
 export interface ReadingPrefs {
   fontSize: FontSizeKey;
@@ -23,6 +23,8 @@ export interface ReadingPrefs {
   /** إبقاء الشاشة مضاءة أثناء القراءة والتلاوة. */
   keepAwake: boolean;
   paper: PaperKey;
+  /** تكبير صفحة المصحف (١ = عرض الشاشة، حتى ٢). */
+  mushafZoom: number;
 }
 
 export const DEFAULT_PREFS: ReadingPrefs = {
@@ -32,12 +34,22 @@ export const DEFAULT_PREFS: ReadingPrefs = {
   font: "amiri",
   keepAwake: true,
   paper: "auto",
+  mushafZoom: 1,
 };
+
+/** درجات تكبير صفحة المصحف (أزرار التكبير والتصغير؛ القرص يتوقف عند أقربها). */
+export const MUSHAF_ZOOM_STEPS = [1, 1.15, 1.3, 1.5, 1.75, 2] as const;
+
+export function clampZoom(z: unknown): number {
+  const n = typeof z === "number" && Number.isFinite(z) ? z : 1;
+  return Math.min(2, Math.max(1, Math.round(n * 100) / 100));
+}
 
 export const PAPER_OPTIONS: { key: PaperKey; label: string }[] = [
   { key: "auto", label: "حسب سمة التطبيق" },
   { key: "sepia", label: "سيبيا" },
   { key: "night", label: "ليلي" },
+  { key: "black", label: "أسود (OLED)" },
 ];
 
 /** صنف CSS يعيد تعريف ألوان القارئ (انظر `.reading-paper-*` في styles.css). */
@@ -89,6 +101,8 @@ export const QURAN_FONT_OPTIONS: {
 /** Resolved CSS values for the current preferences. */
 export interface ResolvedReadingStyle {
   fontSizePx: number;
+  /** الحجم نفسه بوحدة rem: يكبر مع حجم خط النظام (إمكانية الوصول). */
+  fontSizeRem: number;
   lineHeight: number;
   maxWidth: string;
   fontFamily: string;
@@ -101,6 +115,7 @@ export function resolveReadingStyle(p: ReadingPrefs): ResolvedReadingStyle {
   const f = QURAN_FONT_OPTIONS.find((o) => o.key === p.font) ?? QURAN_FONT_OPTIONS[0];
   return {
     fontSizePx: size.px,
+    fontSizeRem: size.px / 16,
     lineHeight: lh.value,
     maxWidth: w.ch,
     fontFamily: f.stack,
@@ -112,7 +127,8 @@ function read(): ReadingPrefs {
   try {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return DEFAULT_PREFS;
-    return { ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<ReadingPrefs>) };
+    const merged = { ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<ReadingPrefs>) };
+    return { ...merged, mushafZoom: clampZoom(merged.mushafZoom) };
   } catch {
     return DEFAULT_PREFS;
   }
@@ -133,17 +149,17 @@ export function useReadingPrefs() {
     };
   }, []);
 
+  // الحفظ والإعلان خارج دالة التحديث: إطلاق الحدث داخلها يحدّث مكوّنات أخرى أثناء العرض
+  // (تحذير React «Cannot update a component while rendering…» عند تبديل الورق في القارئ).
   const update = useCallback((patch: Partial<ReadingPrefs>) => {
-    setPrefs((prev) => {
-      const next = { ...prev, ...patch };
-      try {
-        window.localStorage.setItem(KEY, JSON.stringify(next));
-        window.dispatchEvent(new Event(EVENT));
-      } catch {
-        /* ignore quota / privacy errors */
-      }
-      return next;
-    });
+    const next = { ...read(), ...patch };
+    setPrefs(next);
+    try {
+      window.localStorage.setItem(KEY, JSON.stringify(next));
+      window.dispatchEvent(new Event(EVENT));
+    } catch {
+      /* ignore quota / privacy errors */
+    }
   }, []);
 
   const reset = useCallback(() => {

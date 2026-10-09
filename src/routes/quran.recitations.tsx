@@ -83,7 +83,7 @@ function RecitationsScreen() {
     <Screen>
       <ScreenHeader
         title="التلاوات"
-        subtitle={`${toArabicDigits(RECITERS.length)} قارئًا · تلاوة آية بآية`}
+        subtitle={`${toArabicDigits(RECITERS.length)} قارئًا، تلاوة آية بآية`}
         backTo="/quran"
       />
 
@@ -102,7 +102,7 @@ function RecitationsScreen() {
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">{reciter.nameAr}</span>
               <span className="block truncate text-[10px] text-white/60">
-                {reciter.styleAr} · {toArabicDigits(reciter.kbps)} ك.ب/ث
+                {reciter.styleAr}، {toArabicDigits(reciter.kbps)} ك.ب/ث
               </span>
             </span>
             <span className="rotate-90 text-white/60">
@@ -116,7 +116,7 @@ function RecitationsScreen() {
               {player.track
                 ? `الآية ${toArabicDigits(player.track.ayah)} من ${toArabicDigits(currentMeta.ayatCount)}`
                 : `${toArabicDigits(currentMeta.ayatCount)} آية`}
-              {player.offline && " · بدون إنترنت"}
+              {player.offline && "، بدون إنترنت"}
             </div>
           </div>
 
@@ -334,7 +334,7 @@ function RecitationsScreen() {
                         سورة {SURAH_META[d.surah - 1].nameAr}
                       </div>
                       <div className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                        {rec?.nameAr ?? d.folder} · {formatBytesAr(d.bytes)} ·{" "}
+                        {rec?.nameAr ?? d.folder}، {formatBytesAr(d.bytes)}،{" "}
                         {toArabicDigits(d.ayahs)} آية
                       </div>
                     </div>
@@ -383,7 +383,7 @@ function RecitationsScreen() {
           <DialogHeader className="px-5 pt-5 text-right">
             <DialogTitle className="font-display text-xl">اختر القارئ</DialogTitle>
             <p className="text-[11px] text-muted-foreground">
-              {toArabicDigits(RECITERS.length)} قارئًا · تلاوة مرتّلة آية بآية
+              {toArabicDigits(RECITERS.length)} قارئًا، تلاوة مرتّلة آية بآية
             </p>
           </DialogHeader>
           <div className="max-h-[65vh] overflow-y-auto px-3 pb-4">
@@ -547,7 +547,7 @@ function SurahRow({
           </div>
           <div className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">
             {toArabicDigits(ayahs)} آية
-            {downloaded && " · محمّلة"}
+            {downloaded && "، محمّلة"}
           </div>
         </button>
 

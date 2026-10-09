@@ -68,16 +68,29 @@ export function useReaderState() {
   return [state, update] as const;
 }
 
-export function formatRelativeArabic(ms: number): string {
-  const diff = Math.max(0, Date.now() - ms);
+/**
+ * صيغة العدد العربية: ١ «دقيقة»، ٢ «دقيقتين»، ٣–١٠ «٣ دقائق»، ١١ فأكثر «١١ دقيقة».
+ * (كانت «قبل ٣ دقيقة» و«قبل ٥ يوم»). تُكتب يدوياً لا بـ Intl لأن WebView القديم يختلف فيها.
+ */
+function countAr(n: number, one: string, two: string, few: string, many: string): string {
+  if (n === 1) return one;
+  if (n === 2) return two;
+  const mod = n % 100;
+  if (mod >= 3 && mod <= 10) return `${toAr(n)} ${few}`;
+  return `${toAr(n)} ${many}`;
+}
+
+export function formatRelativeArabic(ms: number, now = Date.now()): string {
+  const diff = Math.max(0, now - ms);
   const sec = Math.floor(diff / 1000);
   if (sec < 60) return "قبل لحظات";
   const min = Math.floor(sec / 60);
-  if (min < 60) return `قبل ${toAr(min)} دقيقة`;
+  if (min < 60) return `قبل ${countAr(min, "دقيقة", "دقيقتين", "دقائق", "دقيقة")}`;
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `قبل ${toAr(hr)} ساعة`;
+  if (hr < 24) return `قبل ${countAr(hr, "ساعة", "ساعتين", "ساعات", "ساعة")}`;
   const day = Math.floor(hr / 24);
-  return `قبل ${toAr(day)} يوم`;
+  if (day === 1) return "أمس";
+  return `قبل ${countAr(day, "يوم", "يومين", "أيام", "يوماً")}`;
 }
 
 function toAr(n: number) {

@@ -231,21 +231,119 @@ export const quranSearchService = new QuranSearchService();
 
 /* ---------- Surah-name lookup (instant, needs no index) ---------- */
 
-export function searchSurahNames(query: string, limit = 8) {
+/**
+ * أسماء السور المشهورة غير أسمائها في المصحف، كما يكتبها الناس في البحث.
+ * «تبارك» للملك، و«عمّ» للنبأ، و«بني إسرائيل» للإسراء، و«براءة» للتوبة…
+ */
+export const SURAH_ALIASES: Readonly<Record<number, readonly string[]>> = {
+  1: ["أم الكتاب", "أم القرآن", "السبع المثاني", "الحمد"],
+  9: ["براءة"],
+  17: ["بني إسرائيل", "سبحان"],
+  40: ["المؤمن", "الطول"],
+  41: ["حم السجدة", "السجدة حم"],
+  47: ["القتال"],
+  67: ["تبارك", "تبارك الذي بيده الملك"],
+  68: ["ن", "نون", "ن والقلم"],
+  76: ["الدهر", "هل أتى", "الأبرار"],
+  78: ["عم", "عم يتساءلون"],
+  94: ["الانشراح", "ألم نشرح"],
+  96: ["اقرأ"],
+  98: ["لم يكن"],
+  111: ["تبت", "اللهب"],
+  112: ["التوحيد", "قل هو الله أحد"],
+};
+
+const ALIAS_INDEX: { id: number; alias: string }[] = Object.entries(SURAH_ALIASES).flatMap(
+  ([id, names]) => names.map((n) => ({ id: Number(id), alias: normalizeArabic(n) })),
+);
+
+type SurahRow = (typeof SURAH_META)[number];
+
+/** ترتيب السور حسب قرب الاسم: الرقم أو الاسم أو الاسم المشهور كاملاً، ثم البداية، ثم الاحتواء. */
+function rankSurahNames(query: string): { s: SurahRow; score: number }[] {
   // «سورة البقرة» تُعامل كـ«البقرة».
   const q = normalizeArabic(query)
     .replace(/^سوره\s+/, "")
     .trim();
   if (!q) return [];
   const digits = q.replace(/\D/g, "");
-  return SURAH_META.filter((s) => {
+  const scored: { s: SurahRow; score: number }[] = [];
+  for (const s of SURAH_META) {
     const nameAr = normalizeArabic(s.nameAr);
-    return (
-      nameAr.includes(q) ||
-      s.nameEn.toLowerCase().includes(query.trim().toLowerCase()) ||
-      (digits.length > 0 && String(s.id) === digits)
-    );
-  }).slice(0, limit);
+    const bare = nameAr.replace(/^ال/, "");
+    const aliases = ALIAS_INDEX.filter((a) => a.id === s.id).map((a) => a.alias);
+    let score = 0;
+    if (digits.length > 0 && digits === q && String(s.id) === digits) score = 100;
+    else if (nameAr === q || bare === q || aliases.includes(q)) score = 90;
+    else if (nameAr.startsWith(q) || bare.startsWith(q)) score = 60;
+    else if (aliases.some((a) => a.startsWith(q))) score = 55;
+    else if (nameAr.includes(q)) score = 30;
+    else if (q.length >= 3 && s.nameEn.toLowerCase().includes(query.trim().toLowerCase()))
+      score = 20;
+    if (score) scored.push({ s, score });
+  }
+  scored.sort((a, b) => b.score - a.score || a.s.id - b.s.id);
+  return scored;
+}
+
+export function searchSurahNames(query: string, limit = 8): SurahRow[] {
+  return rankSurahNames(query)
+    .slice(0, limit)
+    .map((x) => x.s);
+}
+
+/* ---------- Ayah references («2:255»، «البقرة 255»، «آية الكرسي») ---------- */
+
+export interface AyahRefHit {
+  surah: number;
+  ayah: number;
+  /** الاسم المشهور إن جاء المرجع منه («آية الكرسي»). */
+  label?: string;
+}
+
+/** آيات مشهورة بأسمائها. */
+export const FAMOUS_AYAHS: readonly { names: readonly string[]; surah: number; ayah: number }[] = [
+  { names: ["آية الكرسي"], surah: 2, ayah: 255 },
+  { names: ["خواتيم البقرة", "آمن الرسول"], surah: 2, ayah: 285 },
+  { names: ["آية الدين"], surah: 2, ayah: 282 },
+  { names: ["آية النور"], surah: 24, ayah: 35 },
+  { names: ["آية الحجاب"], surah: 33, ayah: 53 },
+  { names: ["آية السيف"], surah: 9, ayah: 5 },
+  { names: ["آية المباهلة"], surah: 3, ayah: 61 },
+];
+
+const toLatinDigits = (v: string) =>
+  v
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0));
+
+/**
+ * يفهم المرجع المكتوب بصيغه الشائعة ويتحقق من صحته:
+ * «2:255»، «٢:٢٥٥»، «2/255»، «2 255»، «البقرة 255»، «البقرة:255»، «سورة البقرة آية 255»، «آية الكرسي».
+ */
+export function parseAyahRef(query: string): AyahRefHit | null {
+  const raw = toLatinDigits(query).trim();
+  if (!raw) return null;
+  const norm = normalizeArabic(raw);
+  for (const f of FAMOUS_AYAHS) {
+    if (f.names.some((n) => normalizeArabic(n) === norm)) {
+      return { surah: f.surah, ayah: f.ayah, label: f.names[0] };
+    }
+  }
+  const valid = (surah: number, ayah: number): AyahRefHit | null =>
+    surah >= 1 && surah <= 114 && ayah >= 1 && ayah <= SURAH_META[surah - 1].ayatCount
+      ? { surah, ayah }
+      : null;
+  const numeric = raw.match(/^(\d{1,3})\s*[:：/\-. ]\s*(\d{1,3})$/);
+  if (numeric) return valid(Number(numeric[1]), Number(numeric[2]));
+  const named = norm.match(/^(.+?)\s*[: ]\s*(?:(?:الايه|ايه)\s*)?(\d{1,3})$/);
+  if (named) {
+    const name = named[1].replace(/\s+(?:الايه|ايه)$/, "").trim();
+    const best = rankSurahNames(name)[0];
+    // اسم السورة كاملاً أو بدايته الواضحة فقط، لا مجرد احتوائه.
+    if (best && best.score >= 55) return valid(best.s.id, Number(named[2]));
+  }
+  return null;
 }
 
 /* ---------- Recent queries ---------- */

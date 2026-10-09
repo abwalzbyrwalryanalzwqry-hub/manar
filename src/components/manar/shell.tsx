@@ -87,6 +87,15 @@ export const icons = {
   skipPrev: "M18 5l-9 7 9 7V5z M6 5v14",
   stop: "M6 6h12v12H6z",
 
+  /* ----- قارئ المصحف ----- */
+  fullscreen: "M4 9V4h5 M20 9V4h-5 M4 15v5h5 M20 15v5h-5",
+  exitFullscreen: "M9 4v5H4 M15 4v5h5 M9 20v-5H4 M15 20v-5h5",
+  history: "M3 12a9 9 0 1 0 3-6.7L3 8 M3 3v5h5 M12 7v5l4 2",
+  timer: "M10 2h4 M12 14l3-3 M12 22a8 8 0 100-16 8 8 0 000 16z",
+  zoomIn: "M11 19a8 8 0 100-16 8 8 0 000 16z M21 21l-4.35-4.35 M11 8v6 M8 11h6",
+  zoomOut: "M11 19a8 8 0 100-16 8 8 0 000 16z M21 21l-4.35-4.35 M8 11h6",
+  hash: "M4 9h16 M4 15h16 M10 3L8 21 M16 3l-2 18",
+
   /* ----- الويدجت وعن المطور ----- */
   clock: "M12 21a9 9 0 100-18 9 9 0 000 18z M12 7v5l3 2",
   widget: "M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z",

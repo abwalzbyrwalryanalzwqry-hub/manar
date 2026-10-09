@@ -7,7 +7,9 @@
  */
 
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useT } from "@/lib/quran/reader-text";
+import { SLEEP_OPTIONS } from "@/lib/quran/recitation-queue";
 import { toast } from "@/lib/toast";
 
 import { Icon, icons } from "@/components/manar/shell";
@@ -50,8 +52,10 @@ export function RecitationBar({
   /** يفتح نافذة تكرار المقطع (في القارئ فقط). */
   onRange?: () => void;
 }) {
+  const t = useT();
   const player = useRecitationPlayer();
-  const { track, status, range } = player;
+  const { track, status, range, sleep } = player;
+  const [sleepOpen, setSleepOpen] = useState(false);
   if (!track) return null;
 
   const meta = SURAH_META[track.surah - 1];
@@ -63,17 +67,25 @@ export function RecitationBar({
 
   const label = (
     <>
-      <span className="block truncate text-[13px] font-medium">
-        سورة {meta.nameAr} · الآية {toArabicDigits(track.ayah)}
+      <span className="block truncate text-[0.8125rem] font-medium">
+        سورة {meta.nameAr}، الآية {toArabicDigits(track.ayah)}
       </span>
-      <span className="block truncate text-[10px] text-muted-foreground">
+      <span className="block truncate text-[0.625rem] text-muted-foreground">
         {status === "error"
           ? (player.error ?? "تعذّر التشغيل")
           : range
-            ? `تكرار ${toArabicDigits(range.from)}–${toArabicDigits(range.to)}${
-                range.times ? ` · ${toArabicDigits(range.times)} مرات` : " · بلا حدّ"
-              }`
-            : `${player.reciter.nameAr}${player.offline ? " · بدون إنترنت" : ""}`}
+            ? `تكرار ${toArabicDigits(range.from)}–${range.toSurah ? `${SURAH_META[range.toSurah - 1].nameAr} ` : ""}${toArabicDigits(range.to)}${
+                range.times ? `، ${toArabicDigits(range.times)} مرات` : "، بلا حدّ"
+              }${range.ayahTimes && range.ayahTimes > 1 ? `، ${t("mushafReader.sleep.perAyah", { n: toArabicDigits(range.ayahTimes) })}` : ""}`
+            : `${player.reciter.nameAr}${player.offline ? "، بدون إنترنت" : ""}`}
+        {sleep && (
+          <span className="text-gold">
+            {"، "}
+            {sleep.kind === "surah"
+              ? t("mushafReader.sleep.untilSurahEnd")
+              : t("mushafReader.sleep.inMinutes", { n: toArabicDigits(sleep.minutes) })}
+          </span>
+        )}
       </span>
     </>
   );
@@ -124,8 +136,63 @@ export function RecitationBar({
             active={Boolean(range)}
           />
         )}
+        {variant === "reader" && (
+          <SmallButton
+            icon={icons.timer}
+            label={t("mushafReader.sleep.label")}
+            onClick={() => setSleepOpen((v) => !v)}
+            active={Boolean(sleep) || sleepOpen}
+          />
+        )}
         <SmallButton icon={icons.close} label="إيقاف التلاوة" onClick={player.stop} />
       </div>
+      {sleepOpen && (
+        <div
+          className="flex flex-wrap items-center gap-1.5 border-t border-border/50 px-3 py-2"
+          role="radiogroup"
+          aria-label={t("mushafReader.sleep.label")}
+        >
+          {SLEEP_OPTIONS.map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="radio"
+              aria-checked={sleep?.kind === "minutes" && sleep.minutes === m}
+              onClick={() => {
+                player.setSleep(m);
+                setSleepOpen(false);
+              }}
+              className="rounded-full border border-border/60 px-2.5 py-1 text-[0.6875rem] tabular-nums aria-checked:border-primary/50 aria-checked:bg-primary/10 aria-checked:text-primary"
+            >
+              {t("mushafReader.sleep.minutes", { n: toArabicDigits(m) })}
+            </button>
+          ))}
+          <button
+            type="button"
+            role="radio"
+            aria-checked={sleep?.kind === "surah"}
+            onClick={() => {
+              player.setSleep("surah");
+              setSleepOpen(false);
+            }}
+            className="rounded-full border border-border/60 px-2.5 py-1 text-[0.6875rem] aria-checked:border-primary/50 aria-checked:bg-primary/10 aria-checked:text-primary"
+          >
+            {t("mushafReader.sleep.surahEnd")}
+          </button>
+          {sleep && (
+            <button
+              type="button"
+              onClick={() => {
+                player.setSleep(null);
+                setSleepOpen(false);
+              }}
+              className="rounded-full px-2.5 py-1 text-[0.6875rem] text-muted-foreground underline"
+            >
+              {t("mushafReader.sleep.cancel")}
+            </button>
+          )}
+        </div>
+      )}
       <div className="h-0.5 bg-muted" aria-hidden>
         <div className="h-full bg-gold transition-[width]" style={{ width: `${progress}%` }} />
       </div>

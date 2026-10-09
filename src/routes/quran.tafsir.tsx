@@ -12,7 +12,7 @@ import {
 } from "@/lib/quran";
 import { SURAH_META } from "@/lib/quran/metadata";
 import { addBookmark, isBookmarked, removeBookmark, useBookmarks } from "@/lib/quran/bookmarks";
-import { shareCardText } from "@/lib/quran/share-card";
+import { copyText, shareCardText } from "@/lib/quran/share-card";
 
 /** أحجام خط التفسير (بكسل)، ويُحفظ الاختيار على الجهاز. */
 const FONT_SIZES = [13.5, 15, 16.5, 18.5, 21];
@@ -133,12 +133,8 @@ function TafsirScreen() {
       edition.nameAr
     }، سورة ${meta.nameAr}، ${rangeLabel}`;
   const copyTafsir = async () => {
-    try {
-      await navigator.clipboard.writeText(tafsirPlain());
-      setNotice("تم نسخ التفسير");
-    } catch {
-      setNotice("تعذّر النسخ على هذا الجهاز");
-    }
+    // copyText: الحافظة ثم طريقة execCommand في WebView القديم.
+    setNotice((await copyText(tafsirPlain())) ? "تم نسخ التفسير" : "تعذّر النسخ على هذا الجهاز");
   };
   const shareTafsir = async () => {
     const r = await shareCardText(tafsirPlain());
@@ -151,7 +147,7 @@ function TafsirScreen() {
     <Screen>
       <ScreenHeader
         title="التفسير"
-        subtitle={`${edition.nameAr} · ${edition.authorAr}`}
+        subtitle={`${edition.nameAr}، ${edition.authorAr}`}
         backTo="/quran"
         action={
           <Link
@@ -270,7 +266,7 @@ function TafsirScreen() {
           {ayahText && (
             <div className="mt-4 flex items-center justify-between">
               <span className="text-[10px] tabular-nums text-muted-foreground">
-                صفحة {toArabicDigits(ayahText.p)} · الجزء {toArabicDigits(ayahText.j)}
+                صفحة {toArabicDigits(ayahText.p)}، الجزء {toArabicDigits(ayahText.j)}
               </span>
               <button
                 onClick={() => {
@@ -412,7 +408,7 @@ function TafsirScreen() {
           )}
 
           <div className="mt-5 border-t border-border/50 pt-3 text-[10px] leading-relaxed text-muted-foreground">
-            المصدر: {edition.nameAr} — {edition.authorAr} · النص من مكتبة{" "}
+            المصدر: {edition.nameAr} — {edition.authorAr}، النص من مكتبة{" "}
             <a
               href={edition.sourceUrl}
               className="text-gold underline"
