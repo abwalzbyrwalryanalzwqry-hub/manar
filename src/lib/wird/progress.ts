@@ -9,6 +9,7 @@ import { dayKey, recordWird } from "@/lib/activity-log";
 import { useDayKey, useOnLeave } from "@/hooks/use-day-key";
 import { markAzkarComplete, readAzkarCompleted, type CompleteEntry } from "@/lib/azkar/progress";
 import { dailyCarryOver, linkedAzkarEntries, type LinkableItem } from "./link";
+import type { PersonalRef } from "./entries";
 
 const KEY = "manar.wird.progress.v1";
 const EVENT = "manar:wird-progress";
@@ -34,6 +35,11 @@ export interface WirdSessionProgress {
   layout?: number;
   /** يوم هذا التقدّم (YYYY-MM-DD محليًا). الوِرد يومي فيبدأ من الصفر كل يوم. */
   day?: string;
+  /**
+   * عدّادات الأذكار الشخصية في هذا الوِرد: معرّف الذكر ← العدد. منفصلة عن `counts`
+   * (المفهرسة بترتيب الأذكار الأصلية) فلا يتغيّر تقدّم الأذكار الأصلية ولا `WIRD_LAYOUT`.
+   */
+  personal?: Record<string, number>;
 }
 
 export type WirdStore = Record<WirdSessionKey, WirdSessionProgress>;
@@ -54,12 +60,69 @@ export function readSession(
   day = dayKey(),
 ): WirdSessionProgress {
   if (!raw || raw.layout !== WIRD_LAYOUT || raw.day !== day) return emptySession(day);
-  return { ...emptySession(day), ...raw };
+  const out: WirdSessionProgress = { ...emptySession(day), ...raw };
+  const personal = cleanPersonal(raw.personal);
+  if (personal) out.personal = personal;
+  else delete out.personal;
+  return out;
 }
 
-/** هل اكتملت كل أذكار الوِرد؟ */
-export function isWirdComplete(p: Pick<WirdSessionProgress, "counts">, items: WirdItemRef[]) {
-  return items.length > 0 && items.every((it) => (p.counts[it.order] ?? 0) >= it.repeat);
+function cleanPersonal(raw: unknown): Record<string, number> | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (Number.isSafeInteger(v) && (v as number) > 0) out[k] = v as number;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** عدد ذكر شخصي في جلسة الوِرد. */
+export function personalCount(p: Pick<WirdSessionProgress, "personal">, id: string): number {
+  return p.personal?.[id] ?? 0;
+}
+
+/**
+ * هل اكتملت كل أذكار الوِرد؟ الأذكار الشخصية ذات العدد تُحتسب إن مُرّرت؛
+ * الذكر المفتوح لا هدف له فلا يمنع الإتمام.
+ */
+export function isWirdComplete(
+  p: Pick<WirdSessionProgress, "counts" | "personal">,
+  items: WirdItemRef[],
+  personal: readonly PersonalRef[] = [],
+) {
+  return (
+    items.length > 0 &&
+    items.every((it) => (p.counts[it.order] ?? 0) >= it.repeat) &&
+    personal.every((r) => r.repeat == null || personalCount(p, r.id) >= r.repeat)
+  );
+}
+
+/** عدّة لذكر شخصي (دالة نقية). سقفه عدده، والمفتوح بلا سقف سوى الرقم الآمن. */
+export function applyPersonalIncrement(
+  p: WirdSessionProgress,
+  id: string,
+  repeat: number | null,
+): WirdSessionProgress {
+  const now = personalCount(p, id);
+  const cap = repeat ?? Number.MAX_SAFE_INTEGER;
+  if (now >= cap) return p;
+  return { ...p, personal: { ...p.personal, [id]: now + 1 } };
+}
+
+/** تراجع عن آخر عدّة لذكر شخصي؛ لا ينزل تحت الصفر. */
+export function applyPersonalDecrement(p: WirdSessionProgress, id: string): WirdSessionProgress {
+  const now = personalCount(p, id);
+  if (now <= 0) return p;
+  const personal = { ...p.personal, [id]: now - 1 };
+  if (personal[id] === 0) delete personal[id];
+  return { ...p, personal };
+}
+
+export function applyPersonalReset(p: WirdSessionProgress, id: string): WirdSessionProgress {
+  if (!personalCount(p, id)) return p;
+  const personal = { ...p.personal };
+  delete personal[id];
+  return { ...p, personal };
 }
 
 /** تراجع عن آخر عدّة (دالة نقية). */
@@ -258,13 +321,51 @@ export function useWirdSessionProgress(session: WirdSessionKey, items: WirdItemR
     [commit],
   );
 
-  return { progress: state, hydrated, increment, decrement, setCurrent, resetSession, resetItem };
+  /* الأذكار الشخصية: العدّاد نفسه وآلية الحفظ نفسها، بمفاتيح معرّفاتها. */
+  const incrementPersonal = useCallback(
+    (id: string, repeat: number | null) => commit((p) => applyPersonalIncrement(p, id, repeat)),
+    [commit],
+  );
+  const decrementPersonal = useCallback(
+    (id: string) => commit((p) => applyPersonalDecrement(p, id)),
+    [commit],
+  );
+  const resetPersonal = useCallback(
+    (id: string) => commit((p) => applyPersonalReset(p, id)),
+    [commit],
+  );
+
+  return {
+    progress: state,
+    hydrated,
+    increment,
+    decrement,
+    setCurrent,
+    resetSession,
+    resetItem,
+    incrementPersonal,
+    decrementPersonal,
+    resetPersonal,
+  };
 }
 
-/** نسبة إنجاز الوِرد (٠..١) بالنسبة لمجموع التكرارات المطلوبة. */
-export function wirdCompletion(p: WirdSessionProgress, items: { order: number; repeat: number }[]) {
-  const total = items.reduce((s, it) => s + it.repeat, 0);
-  const done = items.reduce((s, it) => s + Math.min(it.repeat, p.counts[it.order] ?? 0), 0);
-  const completedItems = items.filter((it) => (p.counts[it.order] ?? 0) >= it.repeat).length;
+/**
+ * نسبة إنجاز الوِرد (٠..١) بالنسبة لمجموع التكرارات المطلوبة. الأذكار الشخصية
+ * ذات العدد تدخل في المجموع إن مُرّرت؛ المفتوحة لا هدف لها فلا تدخل النسبة.
+ */
+export function wirdCompletion(
+  p: WirdSessionProgress,
+  items: { order: number; repeat: number }[],
+  personal: readonly PersonalRef[] = [],
+) {
+  const counted = personal.filter((r): r is { id: string; repeat: number } => r.repeat != null);
+  const total =
+    items.reduce((s, it) => s + it.repeat, 0) + counted.reduce((s, r) => s + r.repeat, 0);
+  const done =
+    items.reduce((s, it) => s + Math.min(it.repeat, p.counts[it.order] ?? 0), 0) +
+    counted.reduce((s, r) => s + Math.min(r.repeat, personalCount(p, r.id)), 0);
+  const completedItems =
+    items.filter((it) => (p.counts[it.order] ?? 0) >= it.repeat).length +
+    counted.filter((r) => personalCount(p, r.id) >= r.repeat).length;
   return { total, done, ratio: total ? done / total : 0, completedItems };
 }

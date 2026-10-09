@@ -11,7 +11,12 @@ import { getWirdSession } from "@/lib/wird/data";
 import { AzkarDisplayPanel, DisplayToggleButton } from "@/components/manar/azkar-display-controls";
 import { isDailyOnce } from "@/lib/azkar/variant";
 import { haptic, hapticFor, isCountableTap, textSizePx, useAzkarPrefs } from "@/lib/azkar/prefs";
-import { useWirdSessionProgress, wirdCompletion } from "@/lib/wird/progress";
+import { personalCount, useWirdSessionProgress, wirdCompletion } from "@/lib/wird/progress";
+import { buildWirdEntries, entryName, personalRefs, type WirdEntry } from "@/lib/wird/entries";
+import { usePersonalAzkar } from "@/lib/personal-azkar/store";
+import { PersonalBadge, PersonalMenuButton } from "@/components/manar/personal-zikr-actions";
+import { usePersonalControls } from "@/components/manar/personal-wird-controls";
+import { AddZikrButton } from "@/components/manar/personal-zikr-actions";
 
 export const Route = createFileRoute("/wird/$session")({
   head: () => ({
@@ -39,8 +44,24 @@ function WirdSessionPage() {
   const wird = getWirdSession(session);
   const key = wird?.key ?? "morning";
   const items = useMemo(() => wird?.items ?? [], [wird]);
-  const { progress, hydrated, increment, decrement, setCurrent, resetSession } =
-    useWirdSessionProgress(key, items);
+  const {
+    progress,
+    hydrated,
+    increment,
+    decrement,
+    setCurrent,
+    resetSession,
+    incrementPersonal,
+    decrementPersonal,
+  } = useWirdSessionProgress(key, items);
+  const personal = usePersonalAzkar();
+  /* الأذكار الأصلية بترتيبها الثابت، وأذكار المستخدم في مواضعها. */
+  const entries = useMemo(
+    () => buildWirdEntries(key, items, personal.items),
+    [key, items, personal.items],
+  );
+  const refs = useMemo(() => personalRefs(entries), [entries]);
+  const controls = usePersonalControls({ context: "wird", session: key });
   const [index, setIndex] = useState(0);
   const [confirmReset, setConfirmReset] = useState(false);
   const { prefs, update: updatePrefs } = useAzkarPrefs();
@@ -50,38 +71,74 @@ function WirdSessionPage() {
   const restored = useRef<string | null>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** الذكر المعروض الآن — يقرؤه مؤقت الانتقال التلقائي بدل فهرس قديم. */
-  const shownOrder = useRef<number | null>(null);
+  const shownKey = useRef<string | null>(null);
 
-  const item = items[index];
-  const count = item ? Math.min(item.repeat, progress.counts[item.order] ?? 0) : 0;
-  shownOrder.current = item?.order ?? null;
-  const remaining = item ? item.repeat - count : 0;
-  const overall = useMemo(() => wirdCompletion(progress, items), [progress, items]);
+  /** العدد الخام والهدف لأي عنصر (الأصلي بترتيبه، والشخصي بمعرّفه). */
+  const rawOf = useCallback(
+    (e: WirdEntry) =>
+      e.kind === "original"
+        ? (progress.counts[e.item.order] ?? 0)
+        : personalCount(progress, e.zikr.id),
+    [progress],
+  );
+  const repeatOf = (e: WirdEntry): number | null =>
+    e.kind === "original" ? e.item.repeat : e.repeat;
+  /** للتنقّل والاستئناف: ذو العدد يكتمل بعدده، والمفتوح يُعدّ مقولًا بعد أول عدّة. */
+  const flowDone = useCallback(
+    (e: WirdEntry) => {
+      const r = e.kind === "original" ? e.item.repeat : e.repeat;
+      return r == null ? rawOf(e) > 0 : rawOf(e) >= r;
+    },
+    [rawOf],
+  );
+
+  const entry = entries[index];
+  const repeat = entry ? repeatOf(entry) : 1;
+  const raw = entry ? rawOf(entry) : 0;
+  const count = repeat == null ? raw : Math.min(repeat, raw);
+  shownKey.current = entry?.key ?? null;
+  const remaining = repeat == null ? 0 : repeat - count;
+  const overall = useMemo(() => wirdCompletion(progress, items, refs), [progress, items, refs]);
+  const countable = items.length + refs.filter((r) => r.repeat != null).length;
   /* الشاشة تبقى مضاءة أثناء الجلسة (العدّ مئة مرة يتجاوز مهلة إطفائها). */
   useKeepAwake(Boolean(wird), { idleMs: KEEP_AWAKE_IDLE_MS });
 
   // استئناف: أول ذكر غير مكتمل (أو المحفوظ)
   useEffect(() => {
     const day = progress.day ?? "";
-    if (!hydrated || restored.current === day || items.length === 0) return;
+    if (!hydrated || !personal.hydrated || restored.current === day || entries.length === 0) return;
     restored.current = day;
-    const firstIncomplete = items.findIndex((it) => (progress.counts[it.order] ?? 0) < it.repeat);
-    const savedIdx = items.findIndex((it) => it.order === progress.current);
+    const firstIncomplete = entries.findIndex((e) => !flowDone(e));
+    const savedIdx = entries.findIndex(
+      (e) => e.kind === "original" && e.item.order === progress.current,
+    );
     setIndex(firstIncomplete >= 0 ? firstIncomplete : savedIdx >= 0 ? savedIdx : 0);
-  }, [hydrated, items, progress]);
+  }, [hydrated, personal.hydrated, entries, progress, flowDone]);
+
+  /* إن أُضيف ذكر شخصي أو حُذف والشاشة مفتوحة: يبقى الذكر المعروض نفسه. */
+  const lastKey = useRef<string | null>(null);
+  useEffect(() => {
+    const k = lastKey.current;
+    if (k && entries[index]?.key !== k) {
+      const at = entries.findIndex((e) => e.key === k);
+      setIndex(at >= 0 ? at : Math.max(0, Math.min(index, entries.length - 1)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- يُتابَع تغيّر القائمة وحده
+  }, [entries]);
+  lastKey.current = entry?.key ?? null;
 
   useEffect(() => {
-    if (item) setCurrent(item.order);
-  }, [item, setCurrent]);
+    if (entry?.kind === "original") setCurrent(entry.item.order);
+  }, [entry, setCurrent]);
 
   const goto = useCallback(
     (next: number) => {
-      if (next < 0 || next >= items.length) return;
+      if (next < 0 || next >= entries.length) return;
       if (advanceTimer.current) clearTimeout(advanceTimer.current);
       advanceTimer.current = null;
       setIndex(next);
     },
-    [items.length],
+    [entries.length],
   );
 
   useEffect(
@@ -93,32 +150,57 @@ function WirdSessionPage() {
 
   const { announce, node: liveRegion } = useAnnouncer();
   const onTap = useCallback(() => {
-    if (!item) return;
-    if (count >= item.repeat) {
+    if (!entry) return;
+    if (repeat != null && count >= repeat) {
       /* ذكر مكتمل: التالي، أو في آخر الوِرد أول ذكر ناقص — لا نقرة «ميتة». */
-      if (index + 1 < items.length) goto(index + 1);
+      if (index + 1 < entries.length) goto(index + 1);
       else {
-        const missing = items.findIndex((it) => (progress.counts[it.order] ?? 0) < it.repeat);
+        const missing = entries.findIndex((e) => {
+          const r = repeatOf(e);
+          return r != null && rawOf(e) < r;
+        });
         if (missing >= 0) goto(missing);
         else announce(`تم إكمال ${wird?.title ?? "الوِرد"}`);
       }
       return;
     }
-    haptic(prefs, hapticFor(count, item.repeat));
-    announce(counterAnnouncement(count, item.repeat));
-    increment(item.order, item.repeat);
+    if (repeat == null) {
+      /* عدد مفتوح: يزيد بلا سقف ولا انتقال تلقائي؛ «التالي» متى شاء المستخدم. */
+      haptic(prefs, "tap");
+      announce(toArabicDigits(raw + 1));
+      if (entry.kind === "personal") incrementPersonal(entry.zikr.id, null);
+      return;
+    }
+    haptic(prefs, hapticFor(count, repeat));
+    announce(counterAnnouncement(count, repeat));
+    if (entry.kind === "original") increment(entry.item.order, repeat);
+    else incrementPersonal(entry.zikr.id, repeat);
     /* الإكمال يُحسب في وحدة التقدّم من اكتمال كل الأذكار، لا من آخرها. */
-    if (count + 1 >= item.repeat && index + 1 < items.length) {
-      const doneOrder = item.order;
+    if (count + 1 >= repeat && index + 1 < entries.length) {
+      const doneKey = entry.key;
       if (advanceTimer.current) clearTimeout(advanceTimer.current);
       advanceTimer.current = setTimeout(() => {
         advanceTimer.current = null;
-        if (shownOrder.current !== doneOrder) return;
-        const at = items.findIndex((it) => it.order === doneOrder);
-        if (at >= 0 && at + 1 < items.length) setIndex(at + 1);
+        if (shownKey.current !== doneKey) return;
+        const at = entries.findIndex((e) => e.key === doneKey);
+        if (at >= 0 && at + 1 < entries.length) setIndex(at + 1);
       }, 320);
     }
-  }, [item, count, prefs, announce, increment, index, items, goto, progress.counts, wird?.title]);
+  }, [
+    entry,
+    repeat,
+    count,
+    raw,
+    prefs,
+    announce,
+    increment,
+    incrementPersonal,
+    index,
+    entries,
+    goto,
+    rawOf,
+    wird?.title,
+  ]);
 
   /** قراءة جديدة فورية بعد الإكمال (بلا تأكيد — لا شيء ناقص يضيع). */
   const startFresh = useCallback(() => {
@@ -130,12 +212,17 @@ function WirdSessionPage() {
   }, [resetSession, announce]);
 
   const onUndo = useCallback(() => {
-    if (!item || count <= 0) return;
+    if (!entry || count <= 0) return;
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
     advanceTimer.current = null;
-    decrement(item.order);
-    announce(`تراجع، ${toArabicDigits(count - 1)} من ${toArabicDigits(item.repeat)}`);
-  }, [item, count, decrement, announce]);
+    if (entry.kind === "original") decrement(entry.item.order);
+    else decrementPersonal(entry.zikr.id);
+    announce(
+      repeat == null
+        ? `تراجع، ${toArabicDigits(count - 1)}`
+        : `تراجع، ${toArabicDigits(count - 1)} من ${toArabicDigits(repeat)}`,
+    );
+  }, [entry, count, repeat, decrement, decrementPersonal, announce]);
 
   /** الضغط على نص الذكر يعدّ (إن فُعّل)، إلا على الأزرار أو أثناء تحديد نص. */
   const onTextTap = (e: React.MouseEvent) => {
@@ -171,7 +258,9 @@ function WirdSessionPage() {
     );
   }
 
-  const allDone = overall.completedItems === items.length && items.length > 0;
+  const allDone = overall.completedItems === countable && items.length > 0;
+  const item = entry?.kind === "original" ? entry.item : null;
+  const pz = entry?.kind === "personal" ? entry.zikr : null;
 
   return (
     <Screen padBottom={false}>
@@ -190,7 +279,7 @@ function WirdSessionPage() {
           <div className="text-center">
             <div className="font-display text-lg font-medium leading-tight">{wird.title}</div>
             <div className="text-[11px] text-muted-foreground">
-              الذكر {toArabicDigits(index + 1)} من {toArabicDigits(items.length)}
+              الذكر {toArabicDigits(index + 1)} من {toArabicDigits(entries.length)}
             </div>
           </div>
           <button
@@ -206,30 +295,73 @@ function WirdSessionPage() {
         <div className="mt-4 px-5">
           <WirdProgressBar
             ratio={overall.ratio}
-            currentName={item?.name}
-            currentOrder={item?.order ?? 1}
-            total={items.length}
-            remaining={remaining}
+            currentName={entry ? entryName(entry) : undefined}
+            currentOrder={index + 1}
+            total={entries.length}
+            countable={countable}
+            remaining={repeat == null ? null : remaining}
             completedItems={overall.completedItems}
             saved={Boolean(progress.updatedAt)}
           />
-          <Link
-            to="/wird/list/$session"
-            params={{ session: key }}
-            className="mt-3 block rounded-2xl border border-border bg-card py-2.5 text-center text-[11px] text-muted-foreground"
-          >
-            عرض كل الأذكار بالتفصيل
-          </Link>
+          <div className="mt-3 flex gap-2">
+            <Link
+              to="/wird/list/$session"
+              params={{ session: key }}
+              className="flex flex-1 items-center justify-center rounded-2xl border border-border bg-card py-2.5 text-center text-[11px] text-muted-foreground"
+            >
+              عرض كل الأذكار بالتفصيل
+            </Link>
+            <AddZikrButton onClick={controls.openAdd} className="min-h-[40px] text-[12px]" />
+          </div>
         </div>
 
         {/* الذكر */}
         <div className="flex-1 px-5 pt-5" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-          {!hydrated || !item ? (
+          {!hydrated || !entry ? (
             <div className="space-y-3">
               <Skeleton className="h-6 w-1/3 rounded-xl" />
               <Skeleton className="h-48 w-full rounded-[28px]" />
             </div>
-          ) : (
+          ) : pz && entry?.kind === "personal" ? (
+            <div
+              key={entry.key}
+              className="glass-flat relative overflow-hidden rounded-[28px] p-5 shadow-soft animate-fade-up"
+            >
+              <Arabesque className="pointer-events-none absolute -left-10 -bottom-10 h-40 w-40 text-primary/10" />
+              <div className="relative flex items-start gap-2">
+                <span className="mt-2 h-px w-4 shrink-0 bg-gold" />
+                <div className="min-w-0 flex-1">
+                  <div className="break-words text-[11px] font-medium tracking-wide text-foreground/80">
+                    {entry.name}
+                  </div>
+                  <div className="mt-1">
+                    <PersonalBadge pinned={pz.pinned} />
+                  </div>
+                </div>
+                <DisplayToggleButton open={showDisplay} onClick={() => setShowDisplay((v) => !v)} />
+                <PersonalMenuButton zikr={pz} onClick={() => controls.openMenu(pz)} />
+              </div>
+              {showDisplay && <AzkarDisplayPanel prefs={prefs} update={updatePrefs} />}
+              <div
+                onClick={onTextTap}
+                dir="auto"
+                className={`tap-text relative mt-4 max-h-[38vh] overflow-y-auto whitespace-pre-line break-words text-right font-display leading-[2.15] text-foreground ${
+                  prefs.tapAnywhere ? "cursor-pointer select-none" : ""
+                }`}
+                style={{ WebkitOverflowScrolling: "touch", fontSize: textSizePx(prefs) }}
+              >
+                {pz.text}
+              </div>
+              <div className="relative mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] text-muted-foreground">
+                {repeat == null ? "عدد مفتوح" : `${toArabicDigits(repeat)} مرة`}
+              </div>
+              {repeat == null && (
+                <p className="relative mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                  عدد مفتوح بلا هدف: انتقل بزر «التالي» متى شئت.
+                </p>
+              )}
+            </div>
+          ) : item ? (
             <div
               key={item.order}
               className="glass-flat relative overflow-hidden rounded-[28px] p-5 shadow-soft animate-fade-up"
@@ -266,7 +398,7 @@ function WirdSessionPage() {
                 </p>
               )}
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* العدّاد */}
@@ -293,13 +425,17 @@ function WirdSessionPage() {
               </div>
             </div>
           )}
-          {item && (
+          {entry && (
             <div className="flex flex-col items-center">
               {liveRegion}
               <button
                 onClick={onTap}
                 className="counter-tap relative flex h-40 w-40 items-center justify-center rounded-full border border-white/20 bg-card bg-gradient-to-br from-primary/25 via-card/70 to-gold/20 shadow-elegant transition-transform duration-100 active:scale-95"
-                aria-label={`زيادة العدّاد، ${toArabicDigits(count)} من ${toArabicDigits(item.repeat)}`}
+                aria-label={
+                  repeat == null
+                    ? `زيادة العدّاد، ${toArabicDigits(count)}، عدد مفتوح`
+                    : `زيادة العدّاد، ${toArabicDigits(count)} من ${toArabicDigits(repeat)}`
+                }
               >
                 <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
                   <circle
@@ -310,18 +446,20 @@ function WirdSessionPage() {
                     stroke="var(--border)"
                     strokeWidth="4"
                   />
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="45"
-                    fill="none"
-                    stroke="url(#wird-grad)"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    strokeDasharray={2 * Math.PI * 45}
-                    strokeDashoffset={2 * Math.PI * 45 * (1 - count / item.repeat)}
-                    style={{ transition: "stroke-dashoffset 140ms linear" }}
-                  />
+                  {repeat != null && (
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="45"
+                      fill="none"
+                      stroke="url(#wird-grad)"
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                      strokeDasharray={2 * Math.PI * 45}
+                      strokeDashoffset={2 * Math.PI * 45 * (1 - count / repeat)}
+                      style={{ transition: "stroke-dashoffset 140ms linear" }}
+                    />
+                  )}
                   <defs>
                     <linearGradient id="wird-grad" x1="0" y1="0" x2="1" y2="1">
                       <stop offset="0%" stopColor="#C9A227" />
@@ -334,12 +472,12 @@ function WirdSessionPage() {
                     {toArabicDigits(count)}
                   </span>
                   <span className="text-[11px] text-muted-foreground">
-                    من {toArabicDigits(item.repeat)}
+                    {repeat == null ? "عدد مفتوح" : `من ${toArabicDigits(repeat)}`}
                   </span>
                 </span>
               </button>
               <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-                <span>متبقي {toArabicDigits(remaining)}</span>
+                {repeat != null && <span>متبقي {toArabicDigits(remaining)}</span>}
                 <button
                   onClick={onUndo}
                   disabled={count <= 0}
@@ -362,7 +500,7 @@ function WirdSessionPage() {
                 </button>
                 <button
                   onClick={() => goto(index + 1)}
-                  disabled={index + 1 >= items.length}
+                  disabled={index + 1 >= entries.length}
                   className="flex-1 rounded-2xl border border-border bg-card py-3 text-xs disabled:opacity-40"
                 >
                   التالي
@@ -401,6 +539,7 @@ function WirdSessionPage() {
           </div>
         </div>
       )}
+      {controls.nodes}
     </Screen>
   );
 }

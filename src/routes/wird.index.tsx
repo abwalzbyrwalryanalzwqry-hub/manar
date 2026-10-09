@@ -16,6 +16,11 @@ import {
   useWirdOverview,
   wirdCompletion,
 } from "@/lib/wird/progress";
+import { buildWirdEntries, personalRefs } from "@/lib/wird/entries";
+import { personalForWird } from "@/lib/personal-azkar/model";
+import { usePersonalAzkar } from "@/lib/personal-azkar/store";
+import { usePersonalControls } from "@/components/manar/personal-wird-controls";
+import { AddZikrButton } from "@/components/manar/personal-zikr-actions";
 
 export const Route = createFileRoute("/wird/")({
   head: () => ({
@@ -45,6 +50,10 @@ const META: Record<WirdSessionKey, { icon: string; tint: string }> = {
 function WirdHub() {
   const store = useWirdOverview();
   const nav = useNavigate();
+  const personal = usePersonalAzkar();
+  const morning = usePersonalControls({ context: "wird", session: "morning" });
+  const evening = usePersonalControls({ context: "wird", session: "evening" });
+  const controls = { morning, evening };
 
   return (
     <Screen>
@@ -77,10 +86,16 @@ function WirdHub() {
         {WIRD_SESSION_KEYS.map((key) => {
           const s = WIRD_SESSIONS[key];
           const p = store[key];
-          const { ratio, completedItems } = wirdCompletion(p, s.items);
-          const started = completedItems > 0 || (p.counts[p.current] ?? 0) > 0;
+          const refs = personalRefs(buildWirdEntries(key, s.items, personal.items));
+          const { ratio, completedItems } = wirdCompletion(p, s.items, refs);
+          const started =
+            completedItems > 0 ||
+            (p.counts[p.current] ?? 0) > 0 ||
+            Object.keys(p.personal ?? {}).length > 0;
           const currentItem = s.items.find((i) => i.order === p.current) ?? s.items[0];
-          const complete = isWirdComplete(p, s.items);
+          const complete = isWirdComplete(p, s.items, refs);
+          const mine = personalForWird(personal.items, key).length;
+          const countable = s.items.length + refs.filter((r) => r.repeat != null).length;
           return (
             <div
               key={key}
@@ -150,13 +165,26 @@ function WirdHub() {
                   params={{ session: key }}
                   className="rounded-2xl border border-border bg-card px-3 py-3 text-[11px] tabular-nums text-muted-foreground"
                 >
-                  التفصيل {toArabicDigits(completedItems)}/{toArabicDigits(s.items.length)}
+                  التفصيل {toArabicDigits(completedItems)}/{toArabicDigits(countable)}
                 </Link>
+              </div>
+              <div className="relative mt-2 flex items-center justify-between gap-2">
+                <span className="text-[11px] text-muted-foreground">
+                  {mine > 0
+                    ? `فيه ${toArabicDigits(mine)} من أذكارك الخاصة`
+                    : "يمكنك إضافة أذكارك الخاصة إليه"}
+                </span>
+                <AddZikrButton
+                  onClick={controls[key].openAdd}
+                  className="min-h-[40px] text-[12px]"
+                />
               </div>
             </div>
           );
         })}
       </div>
+      {morning.nodes}
+      {evening.nodes}
     </Screen>
   );
 }

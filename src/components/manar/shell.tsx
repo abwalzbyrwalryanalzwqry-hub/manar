@@ -76,6 +76,8 @@ export const icons = {
   download: "M12 3v12 M8 11l4 4 4-4 M5 21h14",
   close: "M6 6l12 12 M18 6L6 18",
   plus: "M12 5v14 M5 12h14",
+  edit: "M4 20h4L19 9l-4-4L4 16v4z M13.5 6.5l4 4",
+  undo: "M9 14L4 9l5-5 M4 9h10a6 6 0 010 12h-3",
   minus: "M5 12h14",
   copy: "M9 9h9a2 2 0 012 2v9a2 2 0 01-2 2H9a2 2 0 01-2-2v-9a2 2 0 012-2z M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1",
   refresh: "M21 12a9 9 0 11-3.2-6.9 M21 4v5h-5",

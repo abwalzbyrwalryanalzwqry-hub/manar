@@ -8,6 +8,7 @@ import type { icons } from "@/components/manar/shell";
 
 export type MoreRoute =
   | "/wird"
+  | "/tasbih"
   | "/jumuah"
   | "/seasons"
   | "/qibla"
@@ -37,6 +38,7 @@ export const MORE_GROUPS: MoreGroup[] = [
     title: "العبادة اليومية",
     items: [
       { to: "/wird", label: "الوِرد", desc: "ورد الصباح والمساء", icon: "book" },
+      { to: "/tasbih", label: "المسبحة", desc: "عدّاد الذكر وأذكارك الخاصة", icon: "azkar" },
       { to: "/jumuah", label: "صلاة الجمعة", desc: "موعدها وسننها وسجلّ حضورك", icon: "mosque" },
       {
         to: "/seasons",

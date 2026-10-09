@@ -15,8 +15,11 @@ interface Props {
   currentOrder: number;
   /** عدد الأذكار في الوِرد */
   total: number;
+  /** عدد الأذكار ذات العدد (الذكر الشخصي المفتوح لا يكتمل). الافتراضي `total`. */
+  countable?: number;
   /** المتبقي من تكرارات الذكر الحالي */
-  remaining: number;
+  /** `null` = الذكر الحالي بعدد مفتوح. */
+  remaining: number | null;
   /** عدد الأذكار المكتملة */
   completedItems: number;
   /** حالة الحفظ */
@@ -28,6 +31,7 @@ export function WirdProgressBar({
   currentName,
   currentOrder,
   total,
+  countable = total,
   remaining,
   completedItems,
   saved,
@@ -77,8 +81,10 @@ export function WirdProgressBar({
 
       <div className="relative mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
         <span className="tabular-nums">
-          متبقي في هذا الذكر {toArabicDigits(remaining)} · مكتمل {toArabicDigits(completedItems)}/
-          {toArabicDigits(total)}
+          {remaining == null
+            ? "الذكر الحالي بعدد مفتوح"
+            : `متبقي في هذا الذكر ${toArabicDigits(remaining)}`}{" "}
+          · مكتمل {toArabicDigits(completedItems)}/{toArabicDigits(countable)}
         </span>
         <span className={saved ? "text-primary" : undefined}>
           {saved ? "تم حفظ التقدّم" : "سيُحفظ تقدّمك تلقائيًا"}
