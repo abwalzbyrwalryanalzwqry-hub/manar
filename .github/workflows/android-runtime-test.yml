@@ -128,6 +128,8 @@ jobs:
           script: bash scripts/android-runtime-test.sh "$(find pkg -name app-debug.apk | head -1)" "$(find pkg -name app-release.apk | head -1)" evidence-${{ matrix.api }}
       - name: رفع الأدلة
         if: always()
+        # مخرج مساعد: امتلاء حصة التخزين في GitHub لا يُسقط فحصاً نجحت خطواته كلها.
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: runtime-evidence-api${{ matrix.api }}
