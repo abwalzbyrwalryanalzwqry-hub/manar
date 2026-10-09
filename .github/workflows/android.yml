@@ -30,6 +30,8 @@ jobs:
   apk:
     name: حزمة APK
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write # احتياط الحصة: رفع الحزم إلى إصدار مسودة خاص
     timeout-minutes: 40
     steps:
       # التاريخ كاملاً: versionCode = عدد الالتزامات (android/app/build.gradle).
@@ -114,6 +116,8 @@ jobs:
         run: rm -f android/manar-release.keystore
 
       - name: رفع الحزم
+        id: artifact
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: manar-android-${{ github.sha }}
@@ -122,3 +126,26 @@ jobs:
             android/app/build/outputs/bundle/**/*.aab
           retention-days: 14
           if-no-files-found: error
+
+      # احتياط حصة المرفقات (كما في زِن): إن امتلأت حصة Actions تُحفظ الحزم في إصدار مسودة خاص
+      # بالمستودع (لا يُنشر ولا يراه غير المتعاونين)، فلا يضيع بناء main. على طلبات الدمج يكفي التنبيه.
+      - name: حفظ الحزم في إصدار مسودة (احتياط الحصة)
+        if: steps.artifact.outcome == 'failure' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          mkdir -p out
+          find android/app/build/outputs -name "*.apk" -o -name "*.aab" | while read f; do
+            cp "$f" "out/manar-$(basename "$(dirname "$f")")-$(basename "$f")"
+          done
+          ls out | grep -q . || { echo "لا حزم للحفظ"; exit 1; }
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="build-v${VERSION}-${GITHUB_SHA::7}"
+          gh release create "$TAG" out/* --draft --target "$GITHUB_SHA" \
+            --title "منار $VERSION (${GITHUB_SHA::7})" --notes "بناء آلي من main؛ حصة مرفقات Actions ممتلئة."
+          echo "الحزم في الإصدار المسودة \`$TAG\`." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: تنبيه تعذّر رفع الحزم على طلب دمج
+        if: steps.artifact.outcome == 'failure' && github.event_name == 'pull_request'
+        run: echo "::warning::تعذّر رفع الحزم (غالباً امتلاء حصة مرفقات Actions)؛ البناء نفسه نجح."
