@@ -32,6 +32,20 @@ SUMMARY="$OUT/summary.txt"
 : > "$SUMMARY"
 FAILED=0
 
+# مهلة لكل أمر adb: على محاكي API 24 (x86) يعلق أمرٌ أحياناً إلى الأبد فيُلغى العمل كله عند
+# ٦٠ دقيقة بلا نتيجة. بالمهلة يفشل ذلك الأمر وحده، ويُسجَّل في الخلاصة، ويكمل الاختبار.
+ADB_TIMEOUT="${ADB_TIMEOUT:-180}"
+ADB_BIN="$(command -v adb)"
+adb() {
+  local rc=0
+  timeout -k 15 "$ADB_TIMEOUT" "$ADB_BIN" "$@" || rc=$?
+  if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+    echo "NOTE  مهلة adb (${ADB_TIMEOUT}ث): adb $*" >> "$SUMMARY"
+    echo "adb timeout: adb $*" >&2
+  fi
+  return "$rc"
+}
+
 API=$(adb shell getprop ro.build.version.sdk | tr -d '\r')
 echo "API=$API" | tee -a "$SUMMARY"
 # مخزن السجل الافتراضي في المحاكي صغير (٢٥٦ ك.ب) فتدور أسطر الاختبار خارجه على
@@ -153,6 +167,8 @@ for _ in $(seq 1 180); do
 done
 # العدد المتوقع من ملفات المكتبة نفسها (حُذفت iqamah_01…07 عمداً، فلم يعد ١٩ ثابتاً).
 IQ_N=$(ls "$(dirname "$0")/../public/audio/iqamah" | grep -cE "^iqamah_[0-9]{2}\.")
+[ "$IQ_N" -gt 0 ] || fail "لا ملفات في public/audio/iqamah"
+expect "كل ملفات الإقامة مضمَّنة في res/raw" "$OUT/decode.txt" "DECODE_LIST count=${IQ_N}\b"
 expect "فكّ ترميز كامل لكل ملف إقامة (MediaCodec)" "$OUT/decode.txt" "DECODE iqamah_[0-9]{2} OK" "$IQ_N"
 expect "تشغيل كل ملف إقامة (MediaPlayer)" "$OUT/decode.txt" "PLAY iqamah_[0-9]{2} OK" "$IQ_N"
 expect "خلاصة الفكّ والتشغيل" "$OUT/decode.txt" "DECODE_DONE pass=$IQ_N fail=0"

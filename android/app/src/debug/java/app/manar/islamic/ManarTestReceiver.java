@@ -47,11 +47,15 @@ public class ManarTestReceiver extends BroadcastReceiver {
     private static void decodeAll(Context ctx) {
         // المكتبة لم تعد ١٩ ثابتة (حُذفت iqamah_01…07 عمداً)، فيُفحص كل مورد إقامة موجود فعلاً
         // في الحزمة؛ والسكربت يقارن العدد بملفات public/audio/iqamah حتى لا يسقط ملفٌ دون أن يُلاحظ.
-        int pass = 0;
-        int fail = 0;
+        List<String> names = new ArrayList<>();
         for (int i = 1; i <= 99; i++) {
             String name = String.format(java.util.Locale.US, "iqamah_%02d", i);
-            if (ctx.getResources().getIdentifier(name, "raw", ctx.getPackageName()) == 0) continue;
+            if (ctx.getResources().getIdentifier(name, "raw", ctx.getPackageName()) != 0) names.add(name);
+        }
+        Log.i(TAG, "DECODE_LIST count=" + names.size());
+        int pass = 0;
+        int fail = 0;
+        for (String name : names) {
             if (decodeOne(ctx, name) && playOne(ctx, name)) pass++;
             else fail++;
         }
