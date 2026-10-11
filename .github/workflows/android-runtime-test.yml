@@ -19,6 +19,10 @@ on:
       - ".github/workflows/android-runtime-test.yml"
   workflow_dispatch:
 
+# أقل صلاحيات لازمة لرمز GITHUB_TOKEN (قراءة فقط).
+permissions:
+  contents: read
+
 concurrency:
   group: runtime-test-${{ github.ref }}
   cancel-in-progress: true

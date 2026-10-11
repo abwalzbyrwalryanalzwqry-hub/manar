@@ -48,6 +48,10 @@ npm run build:android      # بناء الويب + نسخ الأصوات إلى 
 npm run android:apk:debug  # APK تجريبي
 ```
 
+خط الواجهة (ثمانية) لا يُرفع إلى المستودع لأن ترخيصه يمنع إعادة توزيع ملفاته؛ نزّله من مصدره الرسمي
+وضعه في `public/fonts/` قبل البناء كما في [public/fonts/THMANYAH.md](public/fonts/THMANYAH.md). وبدونه
+يعمل التطبيق بالخطوط البديلة المضمّنة.
+
 ## الفحوص
 
 ```bash
@@ -81,6 +85,10 @@ bash scripts/android/javac-check.sh       # ترجمة Java دون Gradle
 نص القرآن من مشروع تنزيل، والتفاسير عبر مكتبة QUL، والتلاوات من EveryAyah، والأماكن من
 GeoNames (CC BY 4.0)، وأسماء المدن عبر OpenStreetMap (ODbL). القائمة الكاملة مع التراخيص في
 شاشة «المصادر والتراخيص» داخل التطبيق (`src/lib/sources.ts`).
+
+## الأمان
+
+للإبلاغ عن ثغرة راجع [SECURITY.md](SECURITY.md).
 
 ## خطة التطوير
 

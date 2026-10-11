@@ -55,3 +55,8 @@ __pycache__/
 # bun.lock محلياً، فلا يُرفع حتى لا يتباين القفلان مرة أخرى (المرحلة ٣١).
 bun.lock
 bun.lockb
+
+# خط ثمانية: ترخيصه يمنع رفع ملفات الخط أو استضافتها في أي منصة عامة.
+# تُنزَّل من المصدر الرسمي وتوضع محلياً قبل البناء (انظر public/fonts/THMANYAH.md).
+public/fonts/thmanyah-*.woff2
+public/fonts/thmanyah/
