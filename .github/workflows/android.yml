@@ -53,6 +53,15 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
+      # خط ثمانية من المستودع الخاص manar-fonts (ترخيصه يمنع رفعه هنا). إلزامي لبناء main
+      # والإصدار، واختياري لطلبات الدمج التي لا تصلها الأسرار (Dependabot والتفرعات).
+      - name: جلب خط ثمانية
+        id: fonts
+        env:
+          MANAR_FONTS_DEPLOY_KEY: ${{ secrets.MANAR_FONTS_DEPLOY_KEY }}
+          MANAR_REQUIRE_FONTS: ${{ github.event_name != 'pull_request' }}
+        run: bash scripts/fetch-thmanyah-fonts.sh
+
       - name: تنصيب الحزم
         run: npm ci --no-audit --no-fund
 
@@ -60,6 +69,13 @@ jobs:
       # يرسمه العميل داخل القشرة الأصلية، فلا يقع عدم تطابق ترطيب عند الإقلاع.
       - name: بناء حزمة الويب ومزامنة Capacitor
         run: npm run build:android
+
+      - name: التحقق من تضمين خط ثمانية في الحزمة
+        if: steps.fonts.outputs.fetched == 'true'
+        run: |
+          n=$(ls android/app/src/main/assets/public/fonts/thmanyah-*.woff2 2>/dev/null | wc -l)
+          [ "$n" -eq 7 ] || { echo "::error::خط ثمانية غير مضمّن في الحزمة ($n/7)"; exit 1; }
+          echo "خط ثمانية مضمّن (7/7)."
 
       # المفتاح يُحفظ في أسرار المستودع base64، ولا يلمس الشجرة إلا هنا.
       - name: تجهيز مفتاح التوقيع
