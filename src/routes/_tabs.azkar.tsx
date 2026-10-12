@@ -205,6 +205,21 @@ function AzkarHub() {
           </div>
           <Icon d={icons.back} size={16} />
         </Link>
+        <Link
+          to="/tasbih"
+          className="glass mt-3 flex items-center gap-3 rounded-2xl border border-border/60 p-4 text-right transition hover:-translate-y-0.5 hover:shadow-elegant"
+        >
+          <span className="gradient-gold flex h-11 w-11 items-center justify-center rounded-2xl text-navy shadow-glow">
+            <Icon d={icons.azkar} size={20} />
+          </span>
+          <div className="flex-1">
+            <div className="text-sm font-medium">المسبحة والذكر</div>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+              مسبحة إلكترونية بأذكار موثّقة المصدر وأذكارك الخاصة.
+            </p>
+          </div>
+          <Icon d={icons.back} size={16} />
+        </Link>
       </div>
 
       {/* Smart search entry */}

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WirdRouteImport } from './routes/wird'
 import { Route as WidgetRouteImport } from './routes/widget'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as TasbihRouteImport } from './routes/tasbih'
 import { Route as StatisticsRouteImport } from './routes/statistics'
 import { Route as SourcesRouteImport } from './routes/sources'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -30,8 +31,10 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as TabsRouteImport } from './routes/_tabs'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WirdIndexRouteImport } from './routes/wird.index'
+import { Route as TasbihIndexRouteImport } from './routes/tasbih.index'
 import { Route as SeasonsIndexRouteImport } from './routes/seasons.index'
 import { Route as WirdSessionRouteImport } from './routes/wird.$session'
+import { Route as TasbihLibraryRouteImport } from './routes/tasbih.library'
 import { Route as SeasonsSeasonRouteImport } from './routes/seasons.$season'
 import { Route as QuranTafsirRouteImport } from './routes/quran.tafsir'
 import { Route as QuranShareRouteImport } from './routes/quran.share'
@@ -66,6 +69,11 @@ const WidgetRoute = WidgetRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TasbihRoute = TasbihRouteImport.update({
+  id: '/tasbih',
+  path: '/tasbih',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StatisticsRoute = StatisticsRouteImport.update({
@@ -157,6 +165,11 @@ const WirdIndexRoute = WirdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => WirdRoute,
 } as any)
+const TasbihIndexRoute = TasbihIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TasbihRoute,
+} as any)
 const SeasonsIndexRoute = SeasonsIndexRouteImport.update({
   id: '/seasons/',
   path: '/seasons/',
@@ -166,6 +179,11 @@ const WirdSessionRoute = WirdSessionRouteImport.update({
   id: '/$session',
   path: '/$session',
   getParentRoute: () => WirdRoute,
+} as any)
+const TasbihLibraryRoute = TasbihLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => TasbihRoute,
 } as any)
 const SeasonsSeasonRoute = SeasonsSeasonRouteImport.update({
   id: '/seasons/$season',
@@ -285,6 +303,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/sources': typeof SourcesRoute
   '/statistics': typeof StatisticsRoute
+  '/tasbih': typeof TasbihRouteWithChildren
   '/terms': typeof TermsRoute
   '/widget': typeof WidgetRoute
   '/wird': typeof WirdRouteWithChildren
@@ -306,8 +325,10 @@ export interface FileRoutesByFullPath {
   '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
   '/seasons/$season': typeof SeasonsSeasonRoute
+  '/tasbih/library': typeof TasbihLibraryRoute
   '/wird/$session': typeof WirdSessionRoute
   '/seasons/': typeof SeasonsIndexRoute
+  '/tasbih/': typeof TasbihIndexRoute
   '/wird/': typeof WirdIndexRoute
   '/azkar/group/$group': typeof AzkarGroupGroupRoute
   '/wird/list/$session': typeof WirdListSessionRoute
@@ -349,8 +370,10 @@ export interface FileRoutesByTo {
   '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
   '/seasons/$season': typeof SeasonsSeasonRoute
+  '/tasbih/library': typeof TasbihLibraryRoute
   '/wird/$session': typeof WirdSessionRoute
   '/seasons': typeof SeasonsIndexRoute
+  '/tasbih': typeof TasbihIndexRoute
   '/wird': typeof WirdIndexRoute
   '/azkar/group/$group': typeof AzkarGroupGroupRoute
   '/wird/list/$session': typeof WirdListSessionRoute
@@ -374,6 +397,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/sources': typeof SourcesRoute
   '/statistics': typeof StatisticsRoute
+  '/tasbih': typeof TasbihRouteWithChildren
   '/terms': typeof TermsRoute
   '/widget': typeof WidgetRoute
   '/wird': typeof WirdRouteWithChildren
@@ -395,8 +419,10 @@ export interface FileRoutesById {
   '/quran/share': typeof QuranShareRoute
   '/quran/tafsir': typeof QuranTafsirRoute
   '/seasons/$season': typeof SeasonsSeasonRoute
+  '/tasbih/library': typeof TasbihLibraryRoute
   '/wird/$session': typeof WirdSessionRoute
   '/seasons/': typeof SeasonsIndexRoute
+  '/tasbih/': typeof TasbihIndexRoute
   '/wird/': typeof WirdIndexRoute
   '/azkar/group/$group': typeof AzkarGroupGroupRoute
   '/wird/list/$session': typeof WirdListSessionRoute
@@ -420,6 +446,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sources'
     | '/statistics'
+    | '/tasbih'
     | '/terms'
     | '/widget'
     | '/wird'
@@ -441,8 +468,10 @@ export interface FileRouteTypes {
     | '/quran/share'
     | '/quran/tafsir'
     | '/seasons/$season'
+    | '/tasbih/library'
     | '/wird/$session'
     | '/seasons/'
+    | '/tasbih/'
     | '/wird/'
     | '/azkar/group/$group'
     | '/wird/list/$session'
@@ -484,8 +513,10 @@ export interface FileRouteTypes {
     | '/quran/share'
     | '/quran/tafsir'
     | '/seasons/$season'
+    | '/tasbih/library'
     | '/wird/$session'
     | '/seasons'
+    | '/tasbih'
     | '/wird'
     | '/azkar/group/$group'
     | '/wird/list/$session'
@@ -508,6 +539,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sources'
     | '/statistics'
+    | '/tasbih'
     | '/terms'
     | '/widget'
     | '/wird'
@@ -529,8 +561,10 @@ export interface FileRouteTypes {
     | '/quran/share'
     | '/quran/tafsir'
     | '/seasons/$season'
+    | '/tasbih/library'
     | '/wird/$session'
     | '/seasons/'
+    | '/tasbih/'
     | '/wird/'
     | '/azkar/group/$group'
     | '/wird/list/$session'
@@ -554,6 +588,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SourcesRoute: typeof SourcesRoute
   StatisticsRoute: typeof StatisticsRoute
+  TasbihRoute: typeof TasbihRouteWithChildren
   TermsRoute: typeof TermsRoute
   WidgetRoute: typeof WidgetRoute
   WirdRoute: typeof WirdRouteWithChildren
@@ -595,6 +630,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tasbih': {
+      id: '/tasbih'
+      path: '/tasbih'
+      fullPath: '/tasbih'
+      preLoaderRoute: typeof TasbihRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/statistics': {
@@ -723,6 +765,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WirdIndexRouteImport
       parentRoute: typeof WirdRoute
     }
+    '/tasbih/': {
+      id: '/tasbih/'
+      path: '/'
+      fullPath: '/tasbih/'
+      preLoaderRoute: typeof TasbihIndexRouteImport
+      parentRoute: typeof TasbihRoute
+    }
     '/seasons/': {
       id: '/seasons/'
       path: '/seasons'
@@ -736,6 +785,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/wird/$session'
       preLoaderRoute: typeof WirdSessionRouteImport
       parentRoute: typeof WirdRoute
+    }
+    '/tasbih/library': {
+      id: '/tasbih/library'
+      path: '/library'
+      fullPath: '/tasbih/library'
+      preLoaderRoute: typeof TasbihLibraryRouteImport
+      parentRoute: typeof TasbihRoute
     }
     '/seasons/$season': {
       id: '/seasons/$season'
@@ -898,6 +954,19 @@ const TabsRouteChildren: TabsRouteChildren = {
 
 const TabsRouteWithChildren = TabsRoute._addFileChildren(TabsRouteChildren)
 
+interface TasbihRouteChildren {
+  TasbihLibraryRoute: typeof TasbihLibraryRoute
+  TasbihIndexRoute: typeof TasbihIndexRoute
+}
+
+const TasbihRouteChildren: TasbihRouteChildren = {
+  TasbihLibraryRoute: TasbihLibraryRoute,
+  TasbihIndexRoute: TasbihIndexRoute,
+}
+
+const TasbihRouteWithChildren =
+  TasbihRoute._addFileChildren(TasbihRouteChildren)
+
 interface WirdRouteChildren {
   WirdSessionRoute: typeof WirdSessionRoute
   WirdIndexRoute: typeof WirdIndexRoute
@@ -930,6 +999,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SourcesRoute: SourcesRoute,
   StatisticsRoute: StatisticsRoute,
+  TasbihRoute: TasbihRouteWithChildren,
   TermsRoute: TermsRoute,
   WidgetRoute: WidgetRoute,
   WirdRoute: WirdRouteWithChildren,

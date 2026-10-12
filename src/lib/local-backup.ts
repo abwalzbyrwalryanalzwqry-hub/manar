@@ -12,6 +12,8 @@
  */
 
 import { hasStructuralMerge, mergeEntry } from "./sync-merge";
+import { mergePersonalStores } from "./personal-azkar/model";
+import { mergeTasbihStores } from "./tasbih/session";
 
 /** كل مفتاح يخصّ المستخدم ويُحمل في النسخة الاحتياطية. */
 export const BACKUP_KEYS: string[] = [
@@ -42,6 +44,10 @@ export const BACKUP_KEYS: string[] = [
   "manar.quran.reading-prefs.v1",
   "manar.quran.reader.v1",
   "manar.wird.progress.v1",
+  /* الأذكار الشخصية والمسبحة */
+  "manar.azkar.custom.v1",
+  "manar.tasbih.v1",
+  "manar.tasbih.prefs.v1",
   "manar.khatmah.v1",
   /* المواسم والإحصائيات */
   "manar.seasons.v1",
@@ -93,6 +99,9 @@ export const KEY_EVENTS: Record<string, string> = {
   "manar.quran.reading-prefs.v1": "manar:reading-prefs",
   "manar.quran.reader.v1": "manar:reader-state",
   "manar.wird.progress.v1": "manar:wird-progress",
+  "manar.azkar.custom.v1": "manar:custom-azkar",
+  "manar.tasbih.v1": "manar:tasbih",
+  "manar.tasbih.prefs.v1": "manar:tasbih-prefs",
   "manar.khatmah.v1": "manar:khatmah",
   "manar.seasons.v1": "manar:seasons",
   "manar.seasons.history.v1": "manar:seasons-history",
@@ -220,6 +229,17 @@ export function summarizeBackup(b: ManarBackup) {
 export type ImportMode = "merge" | "replace";
 
 const BOOKMARKS_KEY = "manar.quran.bookmarks.v1";
+const PERSONAL_KEY = "manar.azkar.custom.v1";
+const TASBIH_KEY = "manar.tasbih.v1";
+
+/** دمج بنيوي لمخزن JSON؛ إن تعذّرت قراءة أحدهما يبقى ما على الجهاز. */
+function mergeJson(local: string, file: string, fn: (a: unknown, b: unknown) => unknown): string {
+  try {
+    return JSON.stringify(fn(JSON.parse(local), JSON.parse(file)));
+  } catch {
+    return local;
+  }
+}
 
 /** اتحاد العلامات بالمعرّف؛ علامة الجهاز تفوز إن وُجدت في الجهتين. */
 function mergeBookmarks(local: string, file: string): string {
@@ -257,6 +277,8 @@ export function applyBackup(store: KV, b: ManarBackup, mode: ImportMode): string
     let next: string;
     if (localV == null) next = fileV;
     else if (k === BOOKMARKS_KEY) next = mergeBookmarks(localV, fileV);
+    else if (k === PERSONAL_KEY) next = mergeJson(localV, fileV, mergePersonalStores);
+    else if (k === TASBIH_KEY) next = mergeJson(localV, fileV, mergeTasbihStores);
     else if (hasStructuralMerge(k)) {
       /* الجهاز «الأحدث» فيفوز في القيم المفردة، والدمج البنيوي يضمّ الباقي. */
       next = mergeEntry(k, { v: localV, at: 1 }, { v: fileV, at: 0 })?.v ?? localV;
