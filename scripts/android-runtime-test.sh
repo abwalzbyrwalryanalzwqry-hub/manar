@@ -8,7 +8,7 @@
 # (am kill — كما يفعل النظام، لا «إيقاف إجباري»)، والشاشة مطفأة.
 #
 #   أ) نسخة التصحيح (المستقبِل الاختباري + الشيفرة الأصلية نفسها):
-#      ١. فكّ كامل وتشغيل لكل تسجيلات الإقامة الـ١٩ من res/raw.
+#      ١. فكّ كامل وتشغيل لكل تسجيلات الإقامة في res/raw (عددها من public/audio/iqamah).
 #      ٢. تدفّق: أذان ← تنبيه قبل الإقامة ← إقامة، ومنع التكرار، وصوت واحد فقط.
 #      ٣. إعادة الضبط بالمفاتيح نفسها بعد إطلاقها: لا يُطلق شيء مرّتين.
 #      ٤. مورد مفقود: لا انهيار، لا صوت بديل، إشعار مكتوب.
@@ -31,6 +31,31 @@ mkdir -p "$OUT"
 SUMMARY="$OUT/summary.txt"
 : > "$SUMMARY"
 FAILED=0
+
+# مهلة لكل أمر adb: على محاكي API 24 (x86) يعلق أمرٌ أحياناً إلى الأبد فيُلغى العمل كله عند
+# ٦٠ دقيقة بلا نتيجة. بالمهلة يفشل ذلك الأمر وحده، ويُسجَّل في الخلاصة، ويكمل الاختبار.
+ADB_TIMEOUT="${ADB_TIMEOUT:-180}"
+ADB_BIN="$(command -v adb)"
+# وإن تتابعت المهل فالمحاكي نفسه متجمّد (لا يستجيب لأي أمر): نُنهي فوراً برسالة صريحة
+# بدل أن تتوالى إخفاقات لا معنى لها حتى يُلغى العمل.
+ADB_HUNG=0
+adb() {
+  local rc=0
+  timeout -k 15 "$ADB_TIMEOUT" "$ADB_BIN" "$@" || rc=$?
+  if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+    ADB_HUNG=$((ADB_HUNG + 1))
+    echo "NOTE  مهلة adb (${ADB_TIMEOUT}ث): adb $*" >> "$SUMMARY"
+    echo "adb timeout: adb $*" >&2
+    if [ "$ADB_HUNG" -ge 3 ]; then
+      echo "FAIL  المحاكي توقّف عن الاستجابة (${ADB_HUNG} مهل adb متتالية) — عطل في بيئة المحاكي لا في التطبيق" \
+        | tee -a "$SUMMARY" >&2
+      exit 1
+    fi
+  else
+    ADB_HUNG=0
+  fi
+  return "$rc"
+}
 
 API=$(adb shell getprop ro.build.version.sdk | tr -d '\r')
 echo "API=$API" | tee -a "$SUMMARY"
@@ -151,9 +176,13 @@ for _ in $(seq 1 180); do
   grep -q DECODE_DONE "$OUT/decode.txt" && break
   sleep 2
 done
-expect "فكّ ترميز كامل لكل ملف إقامة (MediaCodec)" "$OUT/decode.txt" "DECODE iqamah_[0-9]{2} OK" 19
-expect "تشغيل كل ملف إقامة (MediaPlayer)" "$OUT/decode.txt" "PLAY iqamah_[0-9]{2} OK" 19
-expect "خلاصة الفكّ والتشغيل" "$OUT/decode.txt" "DECODE_DONE pass=19 fail=0"
+# العدد المتوقع من ملفات المكتبة نفسها (حُذفت iqamah_01…07 عمداً، فلم يعد ١٩ ثابتاً).
+IQ_N=$(ls "$(dirname "$0")/../public/audio/iqamah" | grep -cE "^iqamah_[0-9]{2}\.")
+[ "$IQ_N" -gt 0 ] || fail "لا ملفات في public/audio/iqamah"
+expect "كل ملفات الإقامة مضمَّنة في res/raw" "$OUT/decode.txt" "DECODE_LIST count=${IQ_N}\b"
+expect "فكّ ترميز كامل لكل ملف إقامة (MediaCodec)" "$OUT/decode.txt" "DECODE iqamah_[0-9]{2} OK" "$IQ_N"
+expect "تشغيل كل ملف إقامة (MediaPlayer)" "$OUT/decode.txt" "PLAY iqamah_[0-9]{2} OK" "$IQ_N"
+expect "خلاصة الفكّ والتشغيل" "$OUT/decode.txt" "DECODE_DONE pass=$IQ_N fail=0"
 grep -E "FAIL|DECODE_DONE" "$OUT/decode.txt" | head -8 | sed 's/^/DIAG decode: /' >> "$OUT/diag.txt" || true
 
 # ---- ٢. التدفّق الكامل والتطبيق مغلق والشاشة مطفأة ----
@@ -318,16 +347,22 @@ expect "زرّ الصوت والشاشة مضاءة يُسكت الإقامة" "
 expect "زرّ التشغيل والشاشة مضاءة يُسكت الإقامة" "$Q" "muted by=power-key key=t_q2_iqamah" 1
 expect "زرّ التشغيل والشاشة مطفأة يُسكت الأذان" "$Q" "muted by=power-key key=t_q3_adhan" 1
 expect "لا صوت يكمل بعد الإيقاف" "$Q" "completed key=t_q[1-4]_" 0
-expect "يبقى تنبيه الصلاة مكتوباً بعد الإسكات" "$OUT/quick-notifications.txt" "id=40995"
+# معرّف الإشعار = ID_BASE (300000) + معرّف الحدث (ManarNotices.notificationId) منذ المرحلة ٢٩.
+expect "يبقى تنبيه الصلاة مكتوباً بعد الإسكات" "$OUT/quick-notifications.txt" "id=30930[1-4]"
 expect_no_crash "الإيقاف السريع: لا انهيار" "$Q"
 
 # ---- ٥. إعادة تشغيل الجهاز ----
 adb shell am broadcast -n "$RECV" -a app.manar.islamic.test.SCHEDULE --es scenario reboot
 sleep 2
+# إذن المنبّهات الدقيقة الممنوح بـ appops يُكتب على القرص متأخراً، فتُسقطه إعادة التشغيل الفورية
+# (exact=false بعد الإقلاع) — بخلاف منح المستخدم من الإعدادات. نحفظه قبل الإقلاع، ونعيد منحه
+# بعده احتياطاً (فيُعيد التطبيق الضبط دقيقاً عند SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED).
+adb shell cmd appops write-settings > /dev/null 2>&1 || adb shell appops write-settings > /dev/null 2>&1 || true
 T0=$(date +%s)
 adb reboot
 wait_boot
 echo "boot took $(($(date +%s) - T0))s" | tee -a "$SUMMARY"
+grant "$DP"
 adb shell input keyevent KEYCODE_SLEEP || true
 adb shell dumpsys alarm > "$OUT/reboot-alarms.txt"
 REMAIN=$((250 - ($(date +%s) - T0)))
@@ -436,7 +471,7 @@ ok(len({e["id"] for e in events}) == len(events), "الإصدار: معرّفا�
 iq = [e for e in events if e["kind"] == "iqama"]
 ok(all(re.fullmatch(r"iqamah_\d\d", e["sound"]) or e["sound"] == "" for e in iq), "الإصدار: كل أحداث الإقامة بأصوات iqamah_*")
 ok(not any(e["sound"].startswith("iqamah") for e in events if e["kind"] == "adhan"), "الإصدار: لا أذان بصوت إقامة")
-ok(all(re.fullmatch(r"[a-z]+_[a-z_]+_\d{4}_\d{2}_\d{2}", e["key"]) for e in events), "الإصدار: صيغة المفاتيح fajr_iqamah_YYYY_MM_DD")
+ok(all(re.fullmatch(r"[a-z]+_[a-z0-9_]+_\d{4}_\d{2}_\d{2}", e["key"]) for e in events), "الإصدار: صيغة المفاتيح fajr_iqamah_YYYY_MM_DD (وasr_reminder15m_…)")
 print("NOTE  أمثلة: " + ", ".join(e["key"] for e in sorted(events, key=lambda e: e["at"])[:6]))
 # أول إقامة بصوت، وأذان صلاتها.
 iq = sorted([e for e in iq if e["sound"]], key=lambda e: e["at"])

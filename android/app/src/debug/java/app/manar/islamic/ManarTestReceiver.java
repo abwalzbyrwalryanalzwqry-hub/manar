@@ -45,10 +45,17 @@ public class ManarTestReceiver extends BroadcastReceiver {
     /* --------------------------- فكّ وتشغيل --------------------------- */
 
     private static void decodeAll(Context ctx) {
+        // المكتبة لم تعد ١٩ ثابتة (حُذفت iqamah_01…07 عمداً)، فيُفحص كل مورد إقامة موجود فعلاً
+        // في الحزمة؛ والسكربت يقارن العدد بملفات public/audio/iqamah حتى لا يسقط ملفٌ دون أن يُلاحظ.
+        List<String> names = new ArrayList<>();
+        for (int i = 1; i <= 99; i++) {
+            String name = String.format(java.util.Locale.US, "iqamah_%02d", i);
+            if (ctx.getResources().getIdentifier(name, "raw", ctx.getPackageName()) != 0) names.add(name);
+        }
+        Log.i(TAG, "DECODE_LIST count=" + names.size());
         int pass = 0;
         int fail = 0;
-        for (int i = 1; i <= 19; i++) {
-            String name = String.format(java.util.Locale.US, "iqamah_%02d", i);
+        for (String name : names) {
             if (decodeOne(ctx, name) && playOne(ctx, name)) pass++;
             else fail++;
         }
@@ -178,8 +185,9 @@ public class ManarTestReceiver extends BroadcastReceiver {
             list.add(ev(9002, "t_dhuhr_adhan", now + 61_000, "madinah_short", "adhan", "", true));
             list.add(ev(9003, "t_dhuhr_iqamah_reminder", now + 100_000, "", "notice", "iqama", false));
             list.add(ev(9004, "t_dhuhr_iqamah", now + 125_000, "iqamah_08", "iqama", "", false));
-            list.add(ev(9005, "t_asr_iqamah", now + 150_000, "iqamah_02", "iqama", "", false));
-            list.add(ev(9006, "t_asr_adhan", now + 160_000, "madinah_short", "adhan", "", false));
+            // مقاطع الإقامة الحالية قصيرة (~٥ ث)، فيأتي الأذان بعد ثانيتين ليقطعها وهي تعمل.
+            list.add(ev(9005, "t_asr_iqamah", now + 150_000, "iqamah_15", "iqama", "", false));
+            list.add(ev(9006, "t_asr_adhan", now + 152_000, "madinah_short", "adhan", "", false));
             list.add(ev(9007, "t_maghrib_prayer_notice", now + 175_000, "", "notice", "adhan", false));
         } else if ("refire".equals(scenario)) {
             // المفاتيح نفسها التي أُطلقت: يجب ألا يُضبط منها شيء.
@@ -191,9 +199,9 @@ public class ManarTestReceiver extends BroadcastReceiver {
         } else if ("quick".equals(scenario)) {
             // الإيقاف السريع بأزرار الجهاز: أصوات طويلة يُسكتها الاختبار قبل نهايتها.
             list.add(ev(9301, "t_q1_adhan", now + 20_000, "afasy_full_1", "adhan", "", false));
-            list.add(ev(9302, "t_q2_iqamah", now + 70_000, "iqamah_02", "iqama", "", false));
+            list.add(ev(9302, "t_q2_iqamah", now + 70_000, "iqamah_15", "iqama", "", false));
             list.add(ev(9303, "t_q3_adhan", now + 120_000, "afasy_full_2", "adhan", "", false));
-            list.add(ev(9304, "t_q4_iqamah", now + 170_000, "iqamah_02", "iqama", "", false));
+            list.add(ev(9304, "t_q4_iqamah", now + 170_000, "iqamah_15", "iqama", "", false));
         } else if ("missing".equals(scenario)) {
             // مورد غير موجود: لا انهيار، لا صوت بديل، يبقى الإشعار المكتوب.
             list.add(ev(9201, "t_missing_iqamah", now + 20_000, "iqamah_99", "iqama", "", false));
