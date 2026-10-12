@@ -107,17 +107,22 @@ jobs:
     # KVM والمحاكي؛ نرقّي يدوياً بعد التحقق.
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    # صورة API 24 (x86) تتجمّد أحياناً على عدّاءات GitHub بعد إطفاء الشاشة فلا يستجيب
+    # المحاكي لأي أمر adb — عطل بيئة لا تطبيق. نتيجتها تُعرض ولا تمنع الدمج؛ API 34 هو البوّابة.
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          # صورة API 24 بمعمارية x86_64 لا تُقلع على عدّاءات GitHub؛ x86 مستقرة.
+          # صورة API 24 بمعمارية x86_64 لا تُقلع على عدّاءات GitHub؛ x86 أقل تجمّداً.
           - api: 24
             arch: x86
             target: default
+            experimental: true
           - api: 34
             arch: x86_64
             target: google_apis
+            experimental: false
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8

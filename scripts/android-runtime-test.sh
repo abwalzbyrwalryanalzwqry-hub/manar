@@ -36,12 +36,23 @@ FAILED=0
 # ٦٠ دقيقة بلا نتيجة. بالمهلة يفشل ذلك الأمر وحده، ويُسجَّل في الخلاصة، ويكمل الاختبار.
 ADB_TIMEOUT="${ADB_TIMEOUT:-180}"
 ADB_BIN="$(command -v adb)"
+# وإن تتابعت المهل فالمحاكي نفسه متجمّد (لا يستجيب لأي أمر): نُنهي فوراً برسالة صريحة
+# بدل أن تتوالى إخفاقات لا معنى لها حتى يُلغى العمل.
+ADB_HUNG=0
 adb() {
   local rc=0
   timeout -k 15 "$ADB_TIMEOUT" "$ADB_BIN" "$@" || rc=$?
   if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+    ADB_HUNG=$((ADB_HUNG + 1))
     echo "NOTE  مهلة adb (${ADB_TIMEOUT}ث): adb $*" >> "$SUMMARY"
     echo "adb timeout: adb $*" >&2
+    if [ "$ADB_HUNG" -ge 3 ]; then
+      echo "FAIL  المحاكي توقّف عن الاستجابة (${ADB_HUNG} مهل adb متتالية) — عطل في بيئة المحاكي لا في التطبيق" \
+        | tee -a "$SUMMARY" >&2
+      exit 1
+    fi
+  else
+    ADB_HUNG=0
   fi
   return "$rc"
 }
