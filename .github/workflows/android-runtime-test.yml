@@ -19,6 +19,10 @@ on:
       - ".github/workflows/android-runtime-test.yml"
   workflow_dispatch:
 
+# أقل صلاحيات لازمة لرمز GITHUB_TOKEN (قراءة فقط).
+permissions:
+  contents: read
+
 concurrency:
   group: runtime-test-${{ github.ref }}
   cancel-in-progress: true
@@ -42,8 +46,24 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v5
+      # خط ثمانية من المستودع الخاص manar-fonts (ترخيصه يمنع رفعه هنا). إلزامي لبناء main
+      # والإصدار، واختياري لطلبات الدمج التي لا تصلها الأسرار (Dependabot والتفرعات).
+      - name: جلب خط ثمانية
+        id: fonts
+        env:
+          MANAR_FONTS_DEPLOY_KEY: ${{ secrets.MANAR_FONTS_DEPLOY_KEY }}
+          MANAR_REQUIRE_FONTS: ${{ github.event_name != 'pull_request' }}
+        run: bash scripts/fetch-thmanyah-fonts.sh
+
       - run: npm ci --no-audit --no-fund
       - run: npm run build:android
+
+      - name: التحقق من تضمين خط ثمانية في الحزمة
+        if: steps.fonts.outputs.fetched == 'true'
+        run: |
+          n=$(ls android/app/src/main/assets/public/fonts/thmanyah-*.woff2 2>/dev/null | wc -l)
+          [ "$n" -eq 7 ] || { echo "::error::خط ثمانية غير مضمّن في الحزمة ($n/7)"; exit 1; }
+          echo "خط ثمانية مضمّن (7/7)."
 
       - name: لا روابط صوت خارجية في حزمة الويب
         run: |
@@ -87,17 +107,22 @@ jobs:
     # KVM والمحاكي؛ نرقّي يدوياً بعد التحقق.
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    # صورة API 24 (x86) تتجمّد أحياناً على عدّاءات GitHub بعد إطفاء الشاشة فلا يستجيب
+    # المحاكي لأي أمر adb — عطل بيئة لا تطبيق. نتيجتها تُعرض ولا تمنع الدمج؛ API 34 هو البوّابة.
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          # صورة API 24 بمعمارية x86_64 لا تُقلع على عدّاءات GitHub؛ x86 مستقرة.
+          # صورة API 24 بمعمارية x86_64 لا تُقلع على عدّاءات GitHub؛ x86 أقل تجمّداً.
           - api: 24
             arch: x86
             target: default
+            experimental: true
           - api: 34
             arch: x86_64
             target: google_apis
+            experimental: false
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
