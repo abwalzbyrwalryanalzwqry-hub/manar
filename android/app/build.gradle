@@ -159,6 +159,13 @@ android {
         }
     }
 
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            systemProperty "widgetLab", System.getenv("WIDGET_LAB_DIR") ?: ""
+            systemProperty "robolectric.graphicsMode", "NATIVE"
+        }
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
@@ -220,6 +227,9 @@ dependencies {
     implementation "androidx.media:media:$androidxMediaVersion"
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
+    // اختبارات الويدجت على JVM: Robolectric يرسم RemoteViews فعلياً (رسم أصلي).
+    testImplementation "org.robolectric:robolectric:4.14.1"
+    testImplementation "androidx.test:core:1.6.1"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')

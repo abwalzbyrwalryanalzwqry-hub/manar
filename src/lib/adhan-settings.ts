@@ -285,6 +285,7 @@ function migratePhase26(parsed: Record<string, unknown>): Partial<AdhanSettings>
 
 const LS_KEY = "manar.adhan-settings.v2";
 const EVT = "manar:adhan-settings";
+export const ADHAN_SETTINGS_EVENT = EVT;
 
 function read(): AdhanSettings {
   if (typeof window === "undefined") return DEFAULTS;

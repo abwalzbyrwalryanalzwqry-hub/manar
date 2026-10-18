@@ -137,9 +137,9 @@ describe("اليوم الهجري عند المغرب", () => {
     expect(off.days[0].hijriEvening).toBeUndefined();
     expect(on.days[0].hijriEvening).toBe(off.days[1].hijri);
     expect(Math.abs((on.days[0].hijriFrom ?? 0) - from.getTime())).toBeLessThan(DAY);
-    const java = read("android/app/src/main/java/app/manar/islamic/ManarWidget.java");
-    expect(java).toMatch(/if \(from > 0 && now >= from && !evening\.isEmpty\(\)\) return evening;/);
-    expect(java).toContain("String hijri = hijriFor(shown, now);");
+    const java = read("android/app/src/main/java/app/manar/islamic/WidgetData.java");
+    expect(java).toContain("d.hijriFrom > 0 && now >= d.hijriFrom");
+    expect(java).toContain("s.hijri = evening ? d.hijriEvening : d.hijri;");
   });
 });
 

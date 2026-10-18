@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- العدّاد الحيّ بالثواني (خيار): Chronometer لا يقبل خطاً مخصّصاً. -->
+<Chronometer xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wd_chrono"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:countDown="true"
+    android:fontFeatureSettings="tnum"
+    android:includeFontPadding="false"
+    android:textDirection="ltr"
+    android:textSize="18sp"
+    android:textStyle="bold" />

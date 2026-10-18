@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- منار — «ألوان النظام» (Material You): تتبدّل مع خلفية الجهاز. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient android:angle="315" android:startColor="@android:color/system_accent1_800" android:endColor="@android:color/system_neutral1_900" />
+    <corners android:radius="@dimen/wd_radius" />
+</shape>

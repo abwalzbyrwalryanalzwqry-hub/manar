@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- نصّ مرسوم بخط التطبيق (قناع يُلوَّن). -->
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wd_img"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:scaleType="fitCenter" />

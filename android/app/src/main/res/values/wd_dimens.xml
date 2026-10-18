@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="wd_radius">22dp</dimen>
+    <dimen name="wd_pad_h">14dp</dimen>
+    <dimen name="wd_pad_v">12dp</dimen>
+</resources>

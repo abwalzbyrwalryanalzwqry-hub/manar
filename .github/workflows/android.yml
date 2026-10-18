@@ -109,6 +109,12 @@ jobs:
         working-directory: android
         run: ./gradlew --no-daemon assembleDebug
 
+      # اختبارات JVM للطبقة الأصلية (Robolectric): منطق حالة الويدجت، وأن كل
+      # تخطيط ويدجت يُنفخ ويُرسم فعلاً بكل المقاسات والسمات.
+      - name: اختبارات الوحدة الأصلية
+        working-directory: android
+        run: ./gradlew --no-daemon testDebugUnitTest
+
       # التقرير الكامل لفحص أندرويد. لا يوقف البناء بعد (المرحلة ٣١): يُراجَع أول
       # تقرير ثم يُشدَّد. الأخطاء القاتلة وحدها توقف بناء الإصدار (lintVitalRelease).
       - name: فحص أندرويد (تقرير)
