@@ -155,6 +155,23 @@ final class WidgetPaint {
                     return p;
                 }
             }
+            /* فاصلة عربية ملتصقة بآخر الكلمة: «هـ،» = الكلمة + «،» يسارها. */
+            if (w.length() > 1 && w.charAt(w.length() - 1) == '،' && l.g.containsKey("،")) {
+                String head = w.substring(0, w.length() - 1);
+                Piece body = wordPiece(art, style, l, head, fb);
+                Piece comma = glyphPiece(art, style, l, "،");
+                if (body.fallback == null && comma.fallback == null) {
+                    Piece p = new Piece();
+                    // الصور تُرسم من اليسار: الفاصلة ثم الكلمة يمينها.
+                    p.imgs.addAll(comma.imgs);
+                    p.metas.addAll(comma.metas);
+                    p.imgs.addAll(body.imgs);
+                    p.metas.addAll(body.metas);
+                    p.width = body.width + comma.width;
+                    p.ltr = true;
+                    return p;
+                }
+            }
         }
         Piece p = new Piece();
         p.fallback = w;

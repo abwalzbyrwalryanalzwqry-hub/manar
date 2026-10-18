@@ -10,7 +10,8 @@ import { recordAyahs } from "@/lib/activity-log";
 import { ayahsOnPages } from "@/lib/quran/page-math";
 
 const KEY = "manar.quran.history.v1";
-const EVENT = "manar:quran-history";
+export const QURAN_HISTORY_EVENT = "manar:quran-history";
+const EVENT = QURAN_HISTORY_EVENT;
 const MAX_ENTRIES = 40;
 /** أقصى عدد أيام محفوظة في السجل (يكفي سلسلة الأيام التي تُحسب حتى ٤٠٠ يوم). */
 const MAX_DAYS = 400;

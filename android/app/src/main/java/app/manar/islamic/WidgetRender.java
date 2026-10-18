@@ -72,8 +72,30 @@ final class WidgetRender {
     }
 
     static RemoteViews render(Frame f) {
-        if (f.data == null || f.state == null || f.state.prayer == null) return stale(f);
+        if (f.data == null) return stale(f);
+        // أنواع لا تحتاج المواقيت.
         switch (f.kind) {
+            case "tasbih":
+                return WidgetKinds.tasbih(f);
+            case "quran":
+                return WidgetKinds.quran(f);
+            case "azkar":
+                return WidgetKinds.azkar(f);
+            case "verse":
+                return WidgetKinds.verse(f);
+            default:
+                break;
+        }
+        if (f.state == null || f.state.prayer == null) return stale(f);
+        switch (f.kind) {
+            case "next":
+                return WidgetKinds.next(f);
+            case "day":
+                return WidgetKinds.day(f);
+            case "prayed":
+                return WidgetKinds.prayed(f);
+            case "hijri":
+                return WidgetKinds.hijri(f);
             default:
                 return hub(f);
         }
@@ -142,7 +164,7 @@ final class WidgetRender {
         if (f.bool("season", true) && season != null && !season.isEmpty()) b.append(season);
         else if (f.bool("hijri", true) && !s.hijri.isEmpty()) b.append(s.hijri);
         if (f.bool("city", true) && f.data.city != null && !f.data.city.isEmpty()) {
-            if (b.length() > 0) b.append(' ').append(WidgetWords.DOT).append(' ');
+            if (b.length() > 0) b.append("، ");
             b.append(f.data.city);
         }
         return b.length() == 0 ? null : b.toString();

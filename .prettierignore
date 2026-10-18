@@ -19,3 +19,7 @@ public/data
 
 # مولَّد آلياً من GeoNames عبر scripts/build-world-cities.py
 src/lib/world-cities.ts
+
+# قيم مرجعية مولَّدة (tests/unit/prayer-golden و widget-calc)
+android/app/src/test/resources/prayer/golden.json
+android/app/src/test/resources/widget/extend.json

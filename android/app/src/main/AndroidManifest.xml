@@ -117,6 +117,102 @@
                 android:resource="@xml/manar_widget_info" />
         </receiver>
 
+        <receiver
+            android:name=".NextPrayerWidget"
+            android:exported="true"
+            android:label="@string/wd_label_next">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/wd_info_next" />
+        </receiver>
+
+        <receiver
+            android:name=".DayTimesWidget"
+            android:exported="true"
+            android:label="@string/wd_label_day">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/wd_info_day" />
+        </receiver>
+
+        <receiver
+            android:name=".VerseWidget"
+            android:exported="true"
+            android:label="@string/wd_label_verse">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/wd_info_verse" />
+        </receiver>
+
+        <receiver
+            android:name=".AzkarWidget"
+            android:exported="true"
+            android:label="@string/wd_label_azkar">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/wd_info_azkar" />
+        </receiver>
+
+        <receiver
+            android:name=".TasbihWidget"
+            android:exported="true"
+            android:label="@string/wd_label_tasbih">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/wd_info_tasbih" />
+        </receiver>
+
+        <receiver
+            android:name=".PrayedWidget"
+            android:exported="true"
+            android:label="@string/wd_label_prayed">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/wd_info_prayed" />
+        </receiver>
+
+        <receiver
+            android:name=".HijriWidget"
+            android:exported="true"
+            android:label="@string/wd_label_hijri">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/wd_info_hijri" />
+        </receiver>
+
+        <receiver
+            android:name=".QuranWidget"
+            android:exported="true"
+            android:label="@string/wd_label_quran">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/wd_info_quran" />
+        </receiver>
+
         <!-- إجراءات الويدجتات ومنبّه تحديثها: غير مُصدَّر. -->
         <receiver
             android:name=".WidgetActionReceiver"

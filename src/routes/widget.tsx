@@ -28,7 +28,7 @@ import {
   requestPinHomeWidget,
   type HomeWidgetStatus,
 } from "@/lib/native-notifications";
-import { kindInfo, WIDGET_KINDS, type WidgetKind } from "@/lib/widgets/kinds";
+import { kindInfo, WIDGET_KINDS, type WidgetKind, type WidgetOptionKey } from "@/lib/widgets/kinds";
 import { widgetMetaLine, widgetProgress, widgetState } from "@/lib/widgets/state";
 import { afterPhrase } from "@/lib/widgets/words";
 import { widgetVerseFor } from "@/lib/widgets/verse";
@@ -189,6 +189,11 @@ function WidgetScreen() {
     ? effectiveWidgetOptions(general.options, instance.overrides)
     : general.options;
 
+  /* نسخة بعينها: خيارات نوعها فقط؛ الإعدادات العامة: كل الخيارات. */
+  const kind = selected?.kind ?? "hub";
+  const shows = (key: WidgetOptionKey) =>
+    !editingInstance || (kindInfo(kind)?.options ?? []).includes(key);
+
   const update = (patch: WidgetOverrides) =>
     editingInstance ? instance.update(patch) : general.update(patch);
 
@@ -221,7 +226,11 @@ function WidgetScreen() {
         backTo="/more"
       />
 
-      <PreviewPanel options={effective} />
+      {editingInstance && kind !== "hub" ? (
+        <StaticPreview kind={kind} />
+      ) : (
+        <PreviewPanel options={effective} />
+      )}
 
       {editingInstance ? (
         <div className="mt-3 flex gap-2 px-5">
@@ -310,32 +319,47 @@ function WidgetScreen() {
             {WIDGET_KINDS.map((k) => (
               <div
                 key={k.kind}
-                className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-soft"
+                className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft"
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
-                  <Icon d={icons.widget} size={18} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium">
-                    {k.label}
-                    <span className="ms-2 text-[10px] text-muted-foreground">
-                      {toArabicDigits(k.cells[0])}×{toArabicDigits(k.cells[1])}
+                <div
+                  className="flex items-center justify-center px-4 py-4"
+                  style={{ background: "linear-gradient(160deg,#5E7A93,#3B5168 60%,#2A3A4C)" }}
+                >
+                  <img
+                    src={`/widgets/${k.kind}.webp`}
+                    alt={`معاينة ويدجت ${k.label}`}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-auto drop-shadow-lg"
+                    style={{
+                      width: k.cells[0] >= 4 ? "100%" : "52%",
+                      maxWidth: k.cells[0] >= 4 ? 320 : 170,
+                    }}
+                  />
+                </div>
+                <div className="flex items-center gap-3 p-4">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium">
+                      {k.label}
+                      <span className="ms-2 text-[10px] text-muted-foreground">
+                        {toArabicDigits(k.cells[0])}×{toArabicDigits(k.cells[1])}
+                      </span>
+                    </span>
+                    <span className="block text-[11px] leading-relaxed text-muted-foreground">
+                      {k.sub}
                     </span>
                   </span>
-                  <span className="block text-[11px] leading-relaxed text-muted-foreground">
-                    {k.sub}
-                  </span>
-                </span>
-                {native && status?.pinSupported && (
-                  <button
-                    onClick={() => void addToHome(k.kind)}
-                    aria-label={`إضافة ويدجت ${k.label}`}
-                    className="gradient-primary flex min-h-10 shrink-0 items-center gap-1 rounded-xl px-3 text-xs font-medium text-primary-foreground"
-                  >
-                    <Icon d={icons.plus} size={14} />
-                    إضافة
-                  </button>
-                )}
+                  {native && status?.pinSupported && (
+                    <button
+                      onClick={() => void addToHome(k.kind)}
+                      aria-label={`إضافة ويدجت ${k.label}`}
+                      className="gradient-primary flex min-h-10 shrink-0 items-center gap-1 rounded-xl px-3 text-xs font-medium text-primary-foreground"
+                    >
+                      <Icon d={icons.plus} size={14} />
+                      إضافة
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -343,44 +367,46 @@ function WidgetScreen() {
       )}
 
       <SectionLabel hint={editingInstance ? undefined : "تنطبق على كل النسخ ما لم تُخصَّص"}>
-        {editingInstance ? "ما يظهر في هذه النسخة" : "ما يظهر في الويدجت"}
+        {editingInstance ? "ما يظهر في هذه النسخة" : "ما يظهر في الويدجتات"}
       </SectionLabel>
       <div className="space-y-2 px-5">
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-          <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-            <Icon d={icons.timer} size={16} />
-            العدّ للصلاة القادمة
+        {shows("countdown") && (
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+            <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+              <Icon d={icons.timer} size={16} />
+              العدّ للصلاة القادمة
+            </div>
+            <div
+              className="grid grid-cols-3 gap-2"
+              role="radiogroup"
+              aria-label="العدّ للصلاة القادمة"
+            >
+              {COUNTDOWNS.map((c) => (
+                <button
+                  key={c}
+                  role="radio"
+                  aria-checked={effective.countdown === c}
+                  onClick={() => update({ countdown: c })}
+                  className={`min-h-11 rounded-xl border px-2 text-[11px] font-medium transition ${
+                    effective.countdown === c
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-secondary/30"
+                  }`}
+                >
+                  {COUNTDOWN_LABELS[c]}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+              {effective.countdown === "seconds"
+                ? "عدّاد حيّ يتحرّك كل ثانية؛ أرقامه بخط النظام لأن أندرويد يرسمها بنفسه."
+                : effective.countdown === "minutes"
+                  ? "«بعد ساعة و٢٠ دقيقة» بخط منار، يتحدّث كل دقيقة والشاشة مضاءة."
+                  : "يظهر الوقت فقط بلا عدّ."}
+            </p>
           </div>
-          <div
-            className="grid grid-cols-3 gap-2"
-            role="radiogroup"
-            aria-label="العدّ للصلاة القادمة"
-          >
-            {COUNTDOWNS.map((c) => (
-              <button
-                key={c}
-                role="radio"
-                aria-checked={effective.countdown === c}
-                onClick={() => update({ countdown: c })}
-                className={`min-h-11 rounded-xl border px-2 text-[11px] font-medium transition ${
-                  effective.countdown === c
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-secondary/30"
-                }`}
-              >
-                {COUNTDOWN_LABELS[c]}
-              </button>
-            ))}
-          </div>
-          <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-            {effective.countdown === "seconds"
-              ? "عدّاد حيّ يتحرّك كل ثانية؛ أرقامه بخط النظام لأن أندرويد يرسمها بنفسه."
-              : effective.countdown === "minutes"
-                ? "«بعد ساعة و٢٠ دقيقة» بخط منار، يتحدّث كل دقيقة والشاشة مضاءة."
-                : "يظهر الوقت فقط بلا عدّ."}
-          </p>
-        </div>
-        {TOGGLES.map((t) => (
+        )}
+        {TOGGLES.filter((t) => shows(t.key)).map((t) => (
           <SwitchRow
             key={t.key}
             icon={t.icon}
@@ -567,12 +593,37 @@ function usePreviewSnapshot(options: WidgetOptions): WidgetSnapshot | null {
           const per = adhan.perPrayer[p] ?? { adhan: true, reminder: true, iqama: true };
           return per.iqama ? iqamahTimeFor(adhan, p, at) : null;
         },
+        /* كالويدجت الحقيقي: الحساب الأصلي يمدّ الأيام، فلا تنبيه تجديد في المعاينة. */
+        iqamaOffset: () => null,
+        calcDays: 30,
       });
     } catch {
       return null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location, settings, adjust, atMaghrib, verse, options, day]);
+}
+
+function StaticPreview({ kind }: { kind: string }) {
+  const info = kindInfo(kind);
+  return (
+    <div className="px-5">
+      <div
+        className="flex items-center justify-center rounded-3xl p-4"
+        style={{ background: "linear-gradient(160deg,#5E7A93,#3B5168 60%,#2A3A4C)" }}
+      >
+        <img
+          src={`/widgets/${kind}.webp`}
+          alt={`معاينة ويدجت ${info?.label ?? ""}`}
+          className="h-auto drop-shadow-lg"
+          style={{ width: (info?.cells[0] ?? 4) >= 4 ? "100%" : "52%", maxWidth: 320 }}
+        />
+      </div>
+      <p className="mt-1 text-center text-[10px] text-muted-foreground">
+        السمة والشفافية تنطبقان فوراً على الويدجت في الشاشة الرئيسية
+      </p>
+    </div>
+  );
 }
 
 function PreviewPanel({ options }: { options: WidgetOptions }) {

@@ -58,4 +58,20 @@ describe("حالة الويدجت", () => {
   it("خارج نطاق اللقطة: لا حالة", () => {
     expect(widgetState(snap, snap.days[9].prayers[5].at + 10 * 3600_000)).toBeNull();
   });
+
+  it("مع الحساب الأصلي: الأيام المتبقية حتى نهاية المدى فلا تنبيه تجديد", () => {
+    const short = buildWidgetSnapshot({
+      location: SANAA,
+      settings: normalizeSettings({}),
+      from: new Date(2026, 8, 23, 1),
+      days: 3,
+      iqamaOffset: () => null,
+      calcDays: 30,
+    });
+    const s = widgetState(short, short.days[2].prayers[2].at - 60_000)!;
+    expect(s.daysLeft).toBe(27);
+    expect(widgetMetaLine(s, DEFAULT_WIDGET_OPTIONS, short.city)).not.toContain("افتح منار");
+    const old = widgetState({ ...short, calc: undefined }, short.days[2].prayers[2].at - 60_000)!;
+    expect(old.daysLeft).toBe(0);
+  });
 });

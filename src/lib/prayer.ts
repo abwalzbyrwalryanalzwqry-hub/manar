@@ -228,6 +228,46 @@ export function computePrayerTimes(
   return new PrayerTimes(coords, date, params);
 }
 
+/**
+ * معاملات الحساب كما تُمرَّر إلى الطبقة الأصلية (`PrayerCalc.java`)، لتولّد
+ * الويدجتات مواقيت الأيام بعد نهاية اللقطة بالخوارزمية نفسها دون فتح التطبيق.
+ * الإزاحات مجموعة (يدوية + التوقيت الصيفي + إزاحات الطريقة) بترتيب
+ * الفجر، الشروق، الظهر، العصر، المغرب، العشاء.
+ * `ramadanIsha`: عشاء أم القرى في رمضان بعد المغرب بـ١٢٠ دقيقة.
+ */
+export interface PrayerCalcSpec {
+  lat: number;
+  lng: number;
+  method: string;
+  fajrAngle: number;
+  ishaAngle: number;
+  ishaInterval: number;
+  maghribAngle: number;
+  shadow: 1 | 2;
+  rounding: string;
+  shafaq: string;
+  adj: number[];
+  ramadanIsha: boolean;
+}
+
+export function prayerCalcSpec(loc: LocationState, settings: Settings): PrayerCalcSpec {
+  const p = buildParams(settings);
+  return {
+    lat: loc.lat,
+    lng: loc.lng,
+    method: p.method ?? "Other",
+    fajrAngle: p.fajrAngle,
+    ishaAngle: p.ishaAngle,
+    ishaInterval: p.ishaInterval,
+    maghribAngle: p.maghribAngle,
+    shadow: p.madhab === Madhab.Hanafi ? 2 : 1,
+    rounding: p.rounding,
+    shafaq: p.shafaq,
+    adj: PRAYER_ORDER.map((k) => (p.adjustments[k] || 0) + (p.methodAdjustments[k] || 0)),
+    ramadanIsha: settings.method === "UmmAlQura",
+  };
+}
+
 export function computeSunnahTimes(times: PrayerTimes): SunnahTimes {
   return new SunnahTimes(times);
 }
