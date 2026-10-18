@@ -4,7 +4,6 @@
     <string name="title_activity_main">منار</string>
     <string name="package_name">app.manar.islamic</string>
     <string name="custom_url_scheme">app.manar.islamic</string>
-    <string name="widget_description">الصلاة القادمة بعدّ تنازلي، والتاريخ الهجري، وآية اليوم</string>
-    <string name="widget_remaining">متبقٍّ</string>
-    <string name="widget_open_app">افتح منار لتحديث المواقيت</string>
+    <string name="widget_hub_label">منار — الشامل</string>
+    <string name="widget_description">الصلاة القادمة والعدّ، التاريخ الهجري والمواسم، آية اليوم، واختصارات</string>
 </resources>

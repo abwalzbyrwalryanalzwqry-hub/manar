@@ -262,9 +262,10 @@ describe("٤.٧ الموسم في الويدجت", () => {
     });
     expect(snap.days[0].season).toMatch(/^اليوم ١٢ من رمضان · الإفطار /);
     expect(normalizeWidgetOptions({}).season).toBe(true);
-    const java = read("android/app/src/main/java/app/manar/islamic/ManarWidget.java");
-    expect(java).toContain('optString("season"');
-    expect(java).toContain('optBoolean("season", true)');
+    const data = read("android/app/src/main/java/app/manar/islamic/WidgetData.java");
+    expect(data).toContain('optString("season"');
+    const render = read("android/app/src/main/java/app/manar/islamic/WidgetRender.java");
+    expect(render).toContain('f.bool("season", true)');
   });
 });
 

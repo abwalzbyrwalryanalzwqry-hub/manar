@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 
 const KEY = "manar.appearance.v1";
 const EVENT = "manar:appearance";
+export const APPEARANCE_EVENT = EVENT;
 
 export type ThemeMode = "light" | "dark" | "system";
 export type FontScale = "small" | "medium" | "large" | "xlarge";
@@ -33,7 +34,7 @@ export const FONT_SCALE_LABELS: Record<FontScale, string> = {
   xlarge: "كبير جداً",
 };
 
-const FONT_SCALE_VALUES: Record<FontScale, number> = {
+export const FONT_SCALE_VALUES: Record<FontScale, number> = {
   small: 0.9,
   medium: 1,
   large: 1.12,

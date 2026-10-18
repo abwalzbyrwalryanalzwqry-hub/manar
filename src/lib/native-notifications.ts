@@ -208,8 +208,11 @@ type ManarAdhanPlugin = {
   /** صوت «المنبّه» في الجوال — الأذان نسبةٌ منه. */
   alarmVolume: () => Promise<{ level: number; max: number; percent: number }>;
   setAlarmVolume: (o: { fraction: number }) => Promise<{ ok: boolean; percent: number }>;
-  widgetStatus: () => Promise<{ placed: number; pinSupported: boolean }>;
-  pinWidget: () => Promise<{ requested: boolean }>;
+  widgetStatus: () => Promise<HomeWidgetStatus>;
+  pinWidget: (o?: { kind?: string }) => Promise<{ requested: boolean }>;
+  widgetArtSheet: (o: { hash: string; index: number; data: string }) => Promise<void>;
+  widgetArtCommit: (o: { hash: string; index: string }) => Promise<{ ok: boolean }>;
+  widgetTakeTaps: () => Promise<{ taps: string }>;
   openExternal: (o: { urls: string[] }) => Promise<{ opened: boolean; url?: string }>;
   status: () => Promise<NativeAdhanStatus>;
   /** لقطة ويدجت الشاشة الرئيسية (JSON من `buildWidgetSnapshot`). */
@@ -330,7 +333,14 @@ export async function setPhoneAlarmVolume(fraction: number): Promise<number | nu
   }
 }
 
-export type HomeWidgetStatus = { placed: number; pinSupported: boolean };
+export type HomeWidgetInstance = { id: number; kind: string };
+export type HomeWidgetStatus = {
+  placed: number;
+  pinSupported: boolean;
+  /** بصمة حزمة الخطوط المرسومة الموجودة عند الأصلي ("" إن لم توجد). */
+  artHash?: string;
+  instances?: HomeWidgetInstance[];
+};
 
 /** حالة ويدجت الشاشة الرئيسية، أو `null` خارج أندرويد. */
 export async function getHomeWidgetStatus(): Promise<HomeWidgetStatus | null> {
@@ -344,11 +354,11 @@ export async function getHomeWidgetStatus(): Promise<HomeWidgetStatus | null> {
 }
 
 /** يطلب من المُشغّل إضافة الويدجت مباشرة. `false` إن لم يدعم ذلك. */
-export async function requestPinHomeWidget(): Promise<boolean> {
+export async function requestPinHomeWidget(kind = "hub"): Promise<boolean> {
   const p = adhanPlugin();
   if (!p) return false;
   try {
-    return (await p.pinWidget()).requested;
+    return (await p.pinWidget({ kind })).requested;
   } catch {
     return false;
   }
@@ -362,6 +372,44 @@ export async function openExternalNative(urls: string[]): Promise<boolean | null
     return (await p.openExternal({ urls })).opened;
   } catch {
     return null;
+  }
+}
+
+/**
+ * يسلّم حزمة الكلمات المرسومة بخطوط التطبيق للأصلي: صفيحةً صفيحة (تجنّباً
+ * لرسالة جسر ضخمة) ثم الفهرس الذي يجعلها نافذة. `false` إن فشل أي جزء.
+ */
+export async function sendWidgetArt(
+  hash: string,
+  index: string,
+  sheets: string[],
+): Promise<boolean> {
+  const p = adhanPlugin();
+  if (!p) return false;
+  try {
+    for (let i = 0; i < sheets.length; i += 1) {
+      await p.widgetArtSheet({ hash, index: i, data: sheets[i] });
+    }
+    return (await p.widgetArtCommit({ hash, index })).ok;
+  } catch {
+    return false;
+  }
+}
+
+/** ضغطات المسبحة من الويدجت منذ آخر فتح: `{ [sessionId]: n }`. تُفرَّغ عند الأصلي. */
+export async function takeWidgetTasbihTaps(): Promise<Record<string, number>> {
+  const p = adhanPlugin();
+  if (!p) return {};
+  try {
+    const raw = JSON.parse((await p.widgetTakeTaps()).taps || "{}");
+    const out: Record<string, number> = {};
+    if (raw && typeof raw === "object") {
+      for (const [k, v] of Object.entries(raw))
+        if (typeof v === "number" && v > 0) out[k] = Math.floor(v);
+    }
+    return out;
+  } catch {
+    return {};
   }
 }
 

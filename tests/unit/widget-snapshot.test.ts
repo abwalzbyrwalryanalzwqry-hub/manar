@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWidgetSnapshot, widgetVerseText, WIDGET_PRAYERS } from "@/lib/widget-snapshot";
+import { buildWidgetSnapshot, widgetVerseText, WIDGET_TIMES } from "@/lib/widget-snapshot";
 import { normalizeSettings, type LocationState } from "@/lib/prayer";
 
 const SANAA: LocationState = { lat: 15.3694, lng: 44.191, city: "صنعاء", source: "manual" };
@@ -25,9 +25,9 @@ describe("لقطة الويدجت", () => {
     expect(snap.generatedAt).toBe(42);
   });
 
-  it("خمس صلوات مرتّبة بأسماء عربية وأوقات بأرقام عربية", () => {
+  it("المواقيت الستة (مع الشروق) مرتّبة بأسماء عربية وأوقات بأرقام عربية", () => {
     for (const d of snap.days) {
-      expect(d.prayers.map((p) => p.key)).toEqual(WIDGET_PRAYERS);
+      expect(d.prayers.map((p) => p.key)).toEqual(WIDGET_TIMES);
       for (let i = 1; i < d.prayers.length; i += 1) {
         expect(d.prayers[i].at).toBeGreaterThan(d.prayers[i - 1].at);
       }
@@ -57,19 +57,10 @@ describe("لقطة الويدجت", () => {
   });
 });
 
-describe("اختصار الآية", () => {
-  it("لا يمسّ النص القصير", () => {
+describe("نص الآية", () => {
+  it("يوحّد المسافات ولا يقصّ أبداً", () => {
     expect(widgetVerseText("  قل   هو الله أحد ")).toBe("قل هو الله أحد");
-  });
-  it("يقصّ عند حدّ كلمة", () => {
     const long = Array(80).fill("كلمة").join(" ");
-    const out = widgetVerseText(long, 50);
-    expect(out.endsWith(" …")).toBe(true);
-    expect(
-      out
-        .replace(" …", "")
-        .split(" ")
-        .every((w) => w === "كلمة"),
-    ).toBe(true);
+    expect(widgetVerseText(long)).toBe(long);
   });
 });

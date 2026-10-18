@@ -317,35 +317,73 @@ public class ManarAdhanPlugin extends Plugin {
         Context context = getContext();
         android.appwidget.AppWidgetManager manager =
                 android.appwidget.AppWidgetManager.getInstance(context);
-        int[] ids = manager.getAppWidgetIds(
-                new android.content.ComponentName(context, ManarWidget.class));
+        java.util.List<WidgetHub.Instance> list = WidgetHub.instances(context);
         JSObject result = new JSObject();
-        result.put("placed", ids == null ? 0 : ids.length);
+        result.put("placed", list.size());
         result.put("pinSupported",
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                         && manager.isRequestPinAppWidgetSupported());
+        result.put("artHash", WidgetArt.currentHash(context));
+        com.getcapacitor.JSArray arr = new com.getcapacitor.JSArray();
+        for (WidgetHub.Instance in : list) {
+            JSObject o = new JSObject();
+            o.put("id", in.id);
+            o.put("kind", in.kind);
+            arr.put(o);
+        }
+        result.put("instances", arr);
         call.resolve(result);
     }
 
-    /** يطلب من المُشغّل إضافة ويدجت منار مباشرة (أندرويد ٨+ ومُشغّل يدعم ذلك). */
+    /** يطلب من المُشغّل إضافة ويدجت بعينه مباشرة (أندرويد ٨+ ومُشغّل يدعم ذلك). */
     @PluginMethod
     public void pinWidget(PluginCall call) {
         Context context = getContext();
         JSObject result = new JSObject();
         boolean requested = false;
+        String kind = call.getString("kind", "hub");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             android.appwidget.AppWidgetManager manager =
                     android.appwidget.AppWidgetManager.getInstance(context);
             if (manager.isRequestPinAppWidgetSupported()) {
                 try {
                     requested = manager.requestPinAppWidget(
-                            new android.content.ComponentName(context, ManarWidget.class), null, null);
+                            new android.content.ComponentName(context, WidgetHub.providerFor(kind)),
+                            null, null);
                 } catch (Exception ignored) {
                     requested = false;
                 }
             }
         }
         result.put("requested", requested);
+        call.resolve(result);
+    }
+
+    /** صفيحة من حزمة الكلمات المرسومة بخطوط التطبيق (src/lib/widgets/art.ts). */
+    @PluginMethod
+    public void widgetArtSheet(PluginCall call) {
+        boolean ok = WidgetArt.putSheet(getContext(), call.getString("hash", ""),
+                call.getInt("index", -1), call.getString("data", ""));
+        if (ok) call.resolve();
+        else call.reject("sheet rejected");
+    }
+
+    /** يجعل الحزمة نافذة ويعيد رسم الويدجتات بها. */
+    @PluginMethod
+    public void widgetArtCommit(PluginCall call) {
+        Context context = getContext();
+        boolean ok = WidgetArt.commit(context, call.getString("hash", ""), call.getString("index", ""));
+        if (ok) WidgetHub.updateAll(context);
+        JSObject result = new JSObject();
+        result.put("ok", ok);
+        call.resolve(result);
+    }
+
+    /** ضغطات المسبحة من الويدجت بانتظار التطبيق (تُفرَّغ). */
+    @PluginMethod
+    public void widgetTakeTaps(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("taps", WidgetPrefs.takeTaps(getContext()));
         call.resolve(result);
     }
 

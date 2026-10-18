@@ -32,6 +32,13 @@ public class AdhanAlarmReceiver extends BroadcastReceiver {
             return;
         }
         if (!ACTION_FIRE.equals(intent.getAction())) return;
+        // منبّه الأذان الدقيق يصل في وقته حتى في Doze: نحدّث الويدجتات معه فلا
+        // يبقى «الصلاة القادمة» على صلاةٍ دخل وقتها.
+        try {
+            WidgetHub.updateAll(context);
+        } catch (Exception e) {
+            Log.w("ManarWidget", "widget refresh on fire failed", e);
+        }
         // كل إطلاق فرصة لتقديم النافذة أيضاً — لا ننتظر منبّه التعبئة.
         try {
             AdhanScheduler.topUp(context);

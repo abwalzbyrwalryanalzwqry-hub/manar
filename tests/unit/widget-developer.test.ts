@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { buildWidgetSnapshot } from "@/lib/widget-snapshot";
-import { DEFAULT_WIDGET_OPTIONS, normalizeWidgetOptions } from "@/lib/widget-settings";
+import {
+  DEFAULT_WIDGET_OPTIONS,
+  effectiveWidgetOptions,
+  normalizeWidgetOptions,
+  normalizeWidgetOverrides,
+} from "@/lib/widget-settings";
 import { contactUrls, DEVELOPER } from "@/lib/developer";
 import { PRIVACY, TERMS } from "@/lib/legal";
 import { normalizeSettings, type LocationState } from "@/lib/prayer";
@@ -13,15 +18,37 @@ describe("إعدادات الويدجت", () => {
     expect(normalizeWidgetOptions({ verse: "x", theme: "pink" })).toEqual(DEFAULT_WIDGET_OPTIONS);
     expect(normalizeWidgetOptions({ verse: false, theme: "emerald" })).toMatchObject({
       verse: false,
-      countdown: true,
+      countdown: "minutes",
       theme: "emerald",
     });
+  });
+
+  it("يرحّل العدّ المنطقي القديم", () => {
+    expect(normalizeWidgetOptions({ countdown: true }).countdown).toBe("minutes");
+    expect(normalizeWidgetOptions({ countdown: false }).countdown).toBe("off");
+    expect(normalizeWidgetOptions({ countdown: "seconds" }).countdown).toBe("seconds");
+    expect(normalizeWidgetOptions({ opacity: 250 }).opacity).toBe(100);
+    expect(normalizeWidgetOptions({ opacity: -3 }).opacity).toBe(0);
+  });
+
+  it("إعدادات النسخة تحفظ المخالف فقط وبقيم صالحة", () => {
+    expect(normalizeWidgetOverrides({ theme: "sand", verse: "x", opacity: 40, junk: 1 })).toEqual({
+      theme: "sand",
+      opacity: 40,
+    });
+    expect(normalizeWidgetOverrides({ countdown: false })).toEqual({ countdown: "off" });
+    expect(normalizeWidgetOverrides(null)).toEqual({});
+    expect(effectiveWidgetOptions(DEFAULT_WIDGET_OPTIONS, { theme: "clear" }).theme).toBe("clear");
   });
 
   it("اللقطة تحمل خيارات العرض إلى الطبقة الأصلية", () => {
     const base = { location: SANAA, settings: normalizeSettings({}), from: new Date(2026, 8, 23) };
     expect(buildWidgetSnapshot(base).options).toEqual(DEFAULT_WIDGET_OPTIONS);
-    const opts = { ...DEFAULT_WIDGET_OPTIONS, countdown: false, theme: "emerald" as const };
+    const opts = {
+      ...DEFAULT_WIDGET_OPTIONS,
+      countdown: "off" as const,
+      theme: "emerald" as const,
+    };
     expect(buildWidgetSnapshot({ ...base, options: opts }).options).toEqual(opts);
   });
 });
