@@ -46,7 +46,10 @@ export function widgetState(snap: WidgetSnapshot, now: number): WidgetState | nu
 
   const evening = today.hijriFrom != null && now >= today.hijriFrom && !!today.hijriEvening;
   const hijri = evening ? today.hijriEvening! : today.hijri;
-  const daysLeft = snap.days.length - 1 - idx;
+  /* مع الحساب الأصلي يستمر الويدجت حتى `calc.until` (كما في WidgetData.java). */
+  const daysLeft = snap.calc
+    ? Math.max(0, Math.round((Date.parse(snap.calc.until) - Date.parse(today.date)) / 86_400_000))
+    : snap.days.length - 1 - idx;
 
   if (current) {
     const iq = current.iq ?? 0;

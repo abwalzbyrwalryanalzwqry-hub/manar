@@ -593,6 +593,9 @@ function usePreviewSnapshot(options: WidgetOptions): WidgetSnapshot | null {
           const per = adhan.perPrayer[p] ?? { adhan: true, reminder: true, iqama: true };
           return per.iqama ? iqamahTimeFor(adhan, p, at) : null;
         },
+        /* كالويدجت الحقيقي: الحساب الأصلي يمدّ الأيام، فلا تنبيه تجديد في المعاينة. */
+        iqamaOffset: () => null,
+        calcDays: 30,
       });
     } catch {
       return null;
