@@ -92,5 +92,5 @@ export function widgetMetaLine(
   if (o.season && s.today.season) parts.push(s.today.season);
   else if (o.hijri && s.hijri) parts.push(s.hijri);
   if (o.city && city) parts.push(city);
-  return parts.length ? parts.join(" · ") : null;
+  return parts.length ? parts.join("، ") : null;
 }

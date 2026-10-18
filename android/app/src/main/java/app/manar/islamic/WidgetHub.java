@@ -24,10 +24,27 @@ final class WidgetHub {
     static final String ACTION_REFRESH = "app.manar.islamic.WIDGET_REFRESH";
 
     /** الأنواع ومزوّداتها — يطابق `WIDGET_KINDS` في src/lib/widgets/kinds.ts. */
-    static final String[] KINDS = {"hub"};
+    static final String[] KINDS = {
+            "hub", "next", "day", "verse", "azkar", "tasbih", "prayed", "hijri", "quran"};
 
     static Class<?> providerFor(String kind) {
         switch (kind) {
+            case "next":
+                return NextPrayerWidget.class;
+            case "day":
+                return DayTimesWidget.class;
+            case "verse":
+                return VerseWidget.class;
+            case "azkar":
+                return AzkarWidget.class;
+            case "tasbih":
+                return TasbihWidget.class;
+            case "prayed":
+                return PrayedWidget.class;
+            case "hijri":
+                return HijriWidget.class;
+            case "quran":
+                return QuranWidget.class;
             default:
                 return ManarWidget.class;
         }

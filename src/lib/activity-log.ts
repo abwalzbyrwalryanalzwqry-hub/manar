@@ -11,7 +11,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PRAYER_ORDER, type PrayerKey } from "./prayer";
 
 const KEY = "manar.activity.v1";
-const EVENT = "manar:activity";
+export const ACTIVITY_EVENT = "manar:activity";
+const EVENT = ACTIVITY_EVENT;
 
 /** الصلوات المفروضة فقط — الشروق ليس صلاة. */
 export const FARD_PRAYERS: PrayerKey[] = PRAYER_ORDER.filter((p) => p !== "sunrise");

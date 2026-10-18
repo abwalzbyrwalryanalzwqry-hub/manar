@@ -25,6 +25,8 @@ import { hijriMonthName, toHijri } from "./hijri";
 import {
   computePrayerTimes,
   PRAYER_LABELS,
+  prayerCalcSpec,
+  type PrayerCalcSpec,
   type LocationState,
   type PrayerKey,
   type Settings,
@@ -108,6 +110,105 @@ export interface WidgetDisplay {
   dark: boolean;
 }
 
+/** بداية شهر هجري (أو أول يوم في الجدول) بتاريخ ميلادي محلي. */
+export interface WidgetHijriMark {
+  /** `YYYY-MM-DD` */
+  from: string;
+  /** اليوم الهجري في `from` (١ عند بداية الشهر). */
+  d: number;
+  /** رقم الشهر ١–١٢. */
+  n: number;
+  m: string;
+  /** اسم الشهر كما في التاريخ الكامل (`formatHijriAr`) إن اختلف عن `m` («شوال» و«شوّال»). */
+  mf?: string;
+  y: number;
+}
+
+/**
+ * ما يلزم الطبقة الأصلية لتوليد أيام بعد نهاية اللقطة (`PrayerCalc.java`):
+ * معاملات الحساب، وفواصل الإقامة، وجدول بدايات الأشهر الهجرية بإزاحة المستخدم
+ * وتأكيداته. بها يبقى الويدجت صحيحاً حتى `until` دون فتح التطبيق.
+ */
+export interface WidgetCalc {
+  spec: PrayerCalcSpec;
+  /** دقائق الإقامة: الفجر، الظهر، العصر، المغرب، العشاء (٠ = بلا إقامة). */
+  iq: number[];
+  /** إقامة الجمعة بالدقائق (٠ = بلا إقامة). */
+  jumua: number;
+  hijri: WidgetHijriMark[];
+  /** الهجري يتقدّم عند المغرب. */
+  hm: boolean;
+  /** آخر يوم يمكن توليده (`YYYY-MM-DD`). */
+  until: string;
+}
+
+/** أيام الحساب الأصلي بعد بداية اللقطة: سنة كاملة. */
+export const WIDGET_CALC_DAYS = 365;
+
+/** فاصل الإقامة لصلاة: يوم عادي أو جمعة. */
+export type WidgetIqamaOffsetFn = (prayer: PrayerKey, friday: boolean) => number | null;
+
+export function buildWidgetCalc(input: {
+  location: LocationState;
+  settings: Settings;
+  from: Date;
+  hijriAdjust: number;
+  hijriAtMaghrib: boolean;
+  iqamaOffset?: WidgetIqamaOffsetFn;
+  days?: number;
+}): WidgetCalc {
+  const count = input.days ?? WIDGET_CALC_DAYS;
+  const hijri: WidgetHijriMark[] = [];
+  let last: { n: number; y: number } | null = null;
+  /* يوم زائد في الآخر: هجري المساء لآخر يوم. */
+  for (let i = 0; i <= count; i += 1) {
+    const date = new Date(
+      input.from.getFullYear(),
+      input.from.getMonth(),
+      input.from.getDate() + i,
+      12,
+    );
+    const h = toHijri(date, input.hijriAdjust);
+    if (!last || last.n !== h.month || last.y !== h.year) {
+      const m = hijriMonthName(h.month);
+      /* «٧ جمادى الأولى ١٤٤٨ هـ»: ما بين اليوم والسنة. */
+      const words = formatHijriAr(date, input.hijriAdjust).split(/\s+/);
+      const mf = words.slice(1, -2).join(" ");
+      hijri.push({
+        from: dayKey(date),
+        d: h.day,
+        n: h.month,
+        m,
+        ...(mf && mf !== m ? { mf } : {}),
+        y: h.year,
+      });
+      last = { n: h.month, y: h.year };
+    }
+  }
+  const off = (p: PrayerKey, friday: boolean) => {
+    try {
+      const v = input.iqamaOffset?.(p, friday);
+      return v && Number.isFinite(v) && v > 0 ? Math.round(v) : 0;
+    } catch {
+      return 0;
+    }
+  };
+  const until = new Date(
+    input.from.getFullYear(),
+    input.from.getMonth(),
+    input.from.getDate() + count - 1,
+    12,
+  );
+  return {
+    spec: prayerCalcSpec(input.location, input.settings),
+    iq: WIDGET_PRAYERS.map((p) => off(p, false)),
+    jumua: off("dhuhr", true),
+    hijri,
+    hm: input.hijriAtMaghrib,
+    until: dayKey(until),
+  };
+}
+
 export interface WidgetSnapshot {
   v: 2;
   city: string;
@@ -120,6 +221,8 @@ export interface WidgetSnapshot {
   configs: WidgetInstanceConfigs;
   /** بيانات الويدجتات الأخرى (الأذكار، المسبحة، الختمة…). */
   extras?: WidgetExtras;
+  /** الحساب الأصلي لما بعد الأيام المحسوبة هنا. */
+  calc?: WidgetCalc;
 }
 
 export type WidgetIqamaFn = (prayer: PrayerKey, adhanAt: Date) => Date | null;
@@ -148,6 +251,9 @@ export function buildWidgetSnapshot(input: {
   iqama?: WidgetIqamaFn;
   display?: Partial<WidgetDisplay>;
   extras?: WidgetExtras;
+  /** فواصل الإقامة للأيام المولَّدة أصلياً؛ وجودها (ولو بلا قيمة) يفعّل `calc`. */
+  iqamaOffset?: WidgetIqamaOffsetFn;
+  calcDays?: number;
 }): WidgetSnapshot {
   const count = input.days ?? WIDGET_DAYS;
   const adjust = input.hijriAdjust ?? 0;
@@ -225,6 +331,19 @@ export function buildWidgetSnapshot(input: {
     options: input.options ?? DEFAULT_WIDGET_OPTIONS,
     configs: input.configs ?? {},
     ...(input.extras ? { extras: input.extras } : {}),
+    ...(input.iqamaOffset
+      ? {
+          calc: buildWidgetCalc({
+            location: input.location,
+            settings: input.settings,
+            from: input.from,
+            hijriAdjust: adjust,
+            hijriAtMaghrib: Boolean(input.hijriAtMaghrib),
+            iqamaOffset: input.iqamaOffset,
+            days: input.calcDays,
+          }),
+        }
+      : {}),
   };
 }
 
@@ -263,6 +382,13 @@ export function collectArt(snap: WidgetSnapshot): ArtRequest {
     }
   }
   addLine(req, "S", "هـ");
+  /* أشهر الأيام المولَّدة أصلياً بعد نهاية اللقطة. */
+  for (const h of snap.calc?.hijri ?? []) {
+    addLine(req, "S", h.m);
+    addLine(req, "B", h.m);
+    addLine(req, "R", h.mf ?? h.m);
+    addLine(req, "M", h.mf ?? h.m);
+  }
   const ex = snap.extras;
   if (ex) {
     for (const list of [ex.azkar?.morning, ex.azkar?.evening]) {
@@ -282,14 +408,8 @@ export function collectArt(snap: WidgetSnapshot): ArtRequest {
       }
     }
     if (ex.lastRead) {
+      addLine(req, "B", ex.lastRead.label);
       addLine(req, "M", ex.lastRead.label);
-      addLine(req, "R", ex.lastRead.label);
-    }
-    for (const s of ex.seasons ?? []) {
-      addLine(req, "B", s.title);
-      addLine(req, "M", s.title);
-      addLine(req, "R", s.line);
-      addLine(req, "M", s.line);
     }
   }
   return req;

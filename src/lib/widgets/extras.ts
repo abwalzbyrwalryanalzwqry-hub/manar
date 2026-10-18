@@ -1,16 +1,17 @@
-/* منار — بيانات الويدجتات غير المواقيت: الأذكار، المسبحة، الختمة، الصلوات،
- * المواسم. تُبنى في `widget-sync.tsx` وتحملها اللقطة (`WidgetSnapshot.extras`).
+/* منار — بيانات الويدجتات غير المواقيت: الأذكار، المسبحة، الختمة ومتابعة
+ * القراءة، الصلوات المؤدّاة. تُبنى في `collect-extras.ts` وتحملها اللقطة
+ * (`WidgetSnapshot.extras`) ويقرؤها WidgetData.java.
  */
 
 export interface WidgetZikr {
-  /** رقم الذكر في الباب. */
+  /** رقم الذكر في الباب (لرابط الفتح عليه). */
   id: number;
   text: string;
   /** عدد التكرار الموصى به. */
   repeat: number;
   /** نصّ قرآني ← يُرسم بخط المصحف. */
   q?: boolean;
-  /** إرشاد قصير يلي الذكر («ثلاث مرات»). */
+  /** «٣ مرات»، «مرة واحدة». */
   note?: string;
   /** مفتاح الصورة في الحزمة. */
   pk: string;
@@ -33,32 +34,20 @@ export interface WidgetTasbih {
 }
 
 export interface WidgetKhatmah {
+  /** «اليوم ٣ من ٣٠». */
   title: string;
-  /** «ورد اليوم: البقرة ١٤٢ ← آل عمران ١٢». */
+  /** «ورد اليوم: البقرة ← آل عمران» أو «أتممت ورد اليوم». */
   portion: string;
   /** ٠..١ */
   progress: number;
-  /** أُتمّ ورد اليوم. */
   todayDone: boolean;
 }
 
 export interface WidgetLastRead {
+  /** «سورة البقرة · الآية ١٤٢». */
   label: string;
-  surah: number;
-  ayah: number;
-}
-
-/** موسم يوم بعينه: الجاري أو أقرب القادم. */
-export interface WidgetSeason {
-  date: string;
-  id: string;
-  title: string;
-  /** «اليوم ١٢ من رمضان» أو «بعد ١٢ يوماً». */
-  line: string;
-  /** رمضان: يعرض الأصلي عدّ الإفطار/الإمساك. */
-  ramadan?: boolean;
-  /** ٠..١ للموسم الجاري. */
-  progress?: number;
+  /** مسار الاستئناف داخل التطبيق. */
+  route: string;
 }
 
 export interface WidgetExtras {
@@ -66,7 +55,6 @@ export interface WidgetExtras {
   tasbih?: WidgetTasbih | null;
   khatmah?: WidgetKhatmah | null;
   lastRead?: WidgetLastRead | null;
-  /** الصلوات المؤدّاة بمفتاح اليوم `YYYY-MM-DD`. */
+  /** الصلوات المؤدّاة بمفتاح اليوم `YYYY-MM-DD` (اليوم وأمس). */
   prayed?: Record<string, string[]>;
-  seasons?: WidgetSeason[];
 }

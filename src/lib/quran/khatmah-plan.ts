@@ -24,7 +24,8 @@ export const MIN_DAYS = 1;
 export const MAX_DAYS = 365;
 
 const KEY = "manar.khatmah.v1";
-const EVENT = "manar:khatmah";
+export const KHATMAH_EVENT = "manar:khatmah";
+const EVENT = KHATMAH_EVENT;
 
 export interface KhatmahPlan {
   /** يوم البداية بالتوقيت المحلي. */

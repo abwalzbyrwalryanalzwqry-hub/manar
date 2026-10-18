@@ -6,4 +6,20 @@
     <string name="custom_url_scheme">app.manar.islamic</string>
     <string name="widget_hub_label">منار — الشامل</string>
     <string name="widget_description">الصلاة القادمة والعدّ، التاريخ الهجري والمواسم، آية اليوم، واختصارات</string>
+    <string name="wd_label_next">منار — الصلاة القادمة</string>
+    <string name="wd_desc_next">حلقة تقدّم حتى الصلاة القادمة مع العدّ</string>
+    <string name="wd_label_day">منار — مواقيت اليوم</string>
+    <string name="wd_desc_day">الصلوات الخمس والشروق مع تمييز القادمة</string>
+    <string name="wd_label_verse">منار — آية اليوم</string>
+    <string name="wd_desc_verse">آية كل يوم بخط المصحف، كاملة بلا قصّ</string>
+    <string name="wd_label_azkar">منار — أذكار الصباح والمساء</string>
+    <string name="wd_desc_azkar">ذكر بعد ذكر بحسب الوقت، مع زر «التالي»</string>
+    <string name="wd_label_tasbih">منار — المسبحة</string>
+    <string name="wd_desc_tasbih">سبّح من الشاشة الرئيسية؛ يُضاف العدّ إلى جلستك</string>
+    <string name="wd_label_prayed">منار — صلواتي اليوم</string>
+    <string name="wd_desc_prayed">سجّل صلاتك بلمسة وتابع يومك</string>
+    <string name="wd_label_hijri">منار — التقويم الهجري</string>
+    <string name="wd_desc_hijri">اليوم الهجري والشهر والموسم</string>
+    <string name="wd_label_quran">منار — القرآن والختمة</string>
+    <string name="wd_desc_quran">متابعة القراءة من حيث توقفت وتقدّم الختمة</string>
 </resources>

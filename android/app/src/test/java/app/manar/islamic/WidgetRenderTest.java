@@ -42,7 +42,8 @@ public class WidgetRenderTest {
 
     @Test
     public void renderGallery() throws Exception {
-        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"));
+        String tz = System.getenv("WIDGET_LAB_TZ");
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(tz == null || tz.isEmpty() ? "UTC" : tz));
         String lab = System.getProperty("widgetLab", "");
         Context ctx = ApplicationProvider.getApplicationContext();
         File dir;
@@ -88,6 +89,21 @@ public class WidgetRenderTest {
                 {"hub_4x1_clear", "hub", "320", "70", "dhuhr-2000000", "clear", "minutes"},
                 {"hub_3x2_iqama", "hub", "240", "170", "isha+120000", "night", "minutes"},
                 {"hub_4x2_seconds", "hub", "320", "170", "dhuhr-5000000", "night", "seconds"},
+                {"next_2x2_night", "next", "160", "170", "dhuhr-5000000", "night", "minutes"},
+                {"next_2x1_sand", "next", "160", "70", "dhuhr-5000000", "sand", "minutes"},
+                {"day_4x1_night", "day", "320", "70", "dhuhr-5000000", "night", "minutes"},
+                {"day_4x2_emerald", "day", "320", "170", "dhuhr-5000000", "emerald", "minutes"},
+                {"verse_4x2_sand", "verse", "320", "170", "dhuhr-5000000", "sand", "minutes"},
+                {"azkar_4x2_night", "azkar", "320", "170", "dhuhr-5000000", "night", "minutes"},
+                {"azkar_4x2_evening", "azkar", "320", "170", "isha+3600000", "emerald", "minutes"},
+                {"tasbih_2x2_night", "tasbih", "160", "170", "dhuhr-5000000", "night", "minutes"},
+                {"tasbih_2x2_sand", "tasbih", "160", "170", "dhuhr-5000000", "sand", "minutes"},
+                {"prayed_4x1_night", "prayed", "320", "70", "dhuhr+3600000", "night", "minutes"},
+                {"prayed_4x2_sand", "prayed", "320", "130", "dhuhr+3600000", "sand", "minutes"},
+                {"hijri_2x2_emerald", "hijri", "160", "170", "dhuhr-5000000", "emerald", "minutes"},
+                {"hijri_2x1_night", "hijri", "160", "70", "dhuhr-5000000", "night", "minutes"},
+                {"quran_4x2_night", "quran", "320", "170", "dhuhr-5000000", "night", "minutes"},
+                {"quran_4x1_sand", "quran", "320", "70", "dhuhr-5000000", "sand", "minutes"},
         };
         for (String[] sc : list) {
             if (!scenarios.isEmpty() && !scenarios.contains(sc[0])) continue;

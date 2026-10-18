@@ -39,6 +39,22 @@ final class PrayedQueue {
         }
     }
 
+    /** صلوات يوم بعينه في الطابور (دون تفريغه) — ليعرضها الويدجت فوراً. */
+    static synchronized java.util.Set<String> peek(Context context, String day) {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        SharedPreferences p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        try {
+            JSONArray a = new JSONArray(p.getString(KEY, "[]"));
+            for (int i = 0; i < a.length(); i++) {
+                JSONObject o = a.optJSONObject(i);
+                if (o != null && day.equals(o.optString("day"))) out.add(o.optString("prayer"));
+            }
+        } catch (Exception ignored) {
+            // طابور تالف: لا شيء معلّق.
+        }
+        return out;
+    }
+
     /** يعيد الطابور ويفرّغه. */
     static synchronized JSONArray take(Context context) {
         SharedPreferences p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);

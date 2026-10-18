@@ -319,3 +319,24 @@ export function mergeTasbihStores(local: unknown, incoming: unknown): TasbihStor
   );
   return normalizeTasbihStore({ v: 1, activeId: a.activeId, sessions });
 }
+
+/**
+ * يضيف ضغطات ويدجت المسبحة إلى جلساتها (بالمعرّف، ولو لم تعد نشطة) ويثبّت
+ * لحظة بلوغ الهدف إن بلغته. معرّف غير معروف يُهمل.
+ */
+export function applyExternalTaps(
+  store: TasbihStore,
+  taps: Readonly<Record<string, number>>,
+  now = Date.now(),
+): TasbihStore {
+  let changed = false;
+  const sessions = store.sessions.map((s) => {
+    const n = Math.floor(taps[s.id] ?? 0);
+    if (n <= 0 || s.status === "ended") return s;
+    changed = true;
+    const count = Math.min(Number.MAX_SAFE_INTEGER, s.count + n);
+    const hit = s.target != null && count >= s.target && s.reachedAt == null;
+    return { ...s, count, updatedAt: now, reachedAt: hit ? now : s.reachedAt };
+  });
+  return changed ? { ...store, sessions } : store;
+}

@@ -4,4 +4,20 @@
     <string name="title_activity_main">Manar</string>
     <string name="widget_hub_label">Manar — Overview</string>
     <string name="widget_description">Next prayer with countdown, Hijri date and seasons, verse of the day and shortcuts</string>
+    <string name="wd_label_next">Manar — Next prayer</string>
+    <string name="wd_desc_next">Progress ring to the next prayer with countdown</string>
+    <string name="wd_label_day">Manar — Today\'s times</string>
+    <string name="wd_desc_day">The five prayers and sunrise, next one highlighted</string>
+    <string name="wd_label_verse">Manar — Verse of the day</string>
+    <string name="wd_desc_verse">A daily verse in Mushaf script, never truncated</string>
+    <string name="wd_label_azkar">Manar — Morning &amp; evening adhkar</string>
+    <string name="wd_desc_azkar">One dhikr at a time for the current period, with Next</string>
+    <string name="wd_label_tasbih">Manar — Tasbih</string>
+    <string name="wd_desc_tasbih">Count from the home screen; taps join your session</string>
+    <string name="wd_label_prayed">Manar — My prayers today</string>
+    <string name="wd_desc_prayed">Log each prayer with one tap</string>
+    <string name="wd_label_hijri">Manar — Hijri calendar</string>
+    <string name="wd_desc_hijri">Hijri day, month and season</string>
+    <string name="wd_label_quran">Manar — Quran &amp; khatmah</string>
+    <string name="wd_desc_quran">Resume reading and track your khatmah</string>
 </resources>

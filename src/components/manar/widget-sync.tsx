@@ -24,6 +24,7 @@ import {
   getHomeWidgetStatus,
   isNativeShell,
   sendWidgetArt,
+  takeWidgetTasbihTaps,
   updateHomeWidget,
 } from "@/lib/native-notifications";
 import {
@@ -39,9 +40,11 @@ import {
   resolveDark,
 } from "@/lib/app-settings";
 import { ADHAN_SETTINGS_EVENT, getAdhanSettings } from "@/lib/adhan-settings";
-import { iqamahTimeFor } from "@/lib/prayer-schedule";
+import { iqamahOffsetFor, iqamahTimeFor } from "@/lib/prayer-schedule";
 import { artHash } from "@/lib/widgets/art-spec";
 import { buildWidgetExtras, WIDGET_EXTRAS_EVENTS } from "@/lib/widgets/collect-extras";
+import { applyExternalTaps } from "@/lib/tasbih/session";
+import { readTasbihStore, writeTasbihStore } from "@/lib/tasbih/store";
 
 export function WidgetSync() {
   const { location } = useLocation();
@@ -54,6 +57,11 @@ export function WidgetSync() {
 
   useEffect(() => {
     const bump = () => setTick((n) => n + 1);
+    /* العودة إلى التطبيق: قد يكون المستخدم سبّح أو سجّل صلاة من الويدجت. */
+    const onVisible = () => {
+      if (document.visibilityState === "visible") bump();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     const events = [
       WIDGET_REFRESH_EVENT,
       WIDGET_SETTINGS_EVENT,
@@ -63,6 +71,7 @@ export function WidgetSync() {
     ];
     for (const e of events) window.addEventListener(e, bump);
     return () => {
+      document.removeEventListener("visibilitychange", onVisible);
       for (const e of events) window.removeEventListener(e, bump);
     };
   }, []);
@@ -82,9 +91,14 @@ export function WidgetSync() {
       }
       const adhan = getAdhanSettings();
       const appearance = readAppearance();
-      const extras = await buildWidgetExtras({ location, settings, from, hijriAdjust }).catch(
-        () => undefined,
-      );
+      /* ضغطات المسبحة من الويدجت تدخل الجلسة قبل بناء اللقطة. */
+      const taps = await takeWidgetTasbihTaps();
+      if (Object.keys(taps).length > 0) {
+        const store = readTasbihStore();
+        const next = applyExternalTaps(store, taps);
+        if (next !== store) writeTasbihStore(next);
+      }
+      const extras = await buildWidgetExtras({ from }).catch(() => undefined);
       if (cancelled) return;
       const snapshot = buildWidgetSnapshot({
         location,
@@ -98,6 +112,13 @@ export function WidgetSync() {
         iqama: (p: PrayerKey, at: Date) => {
           const per = adhan.perPrayer[p] ?? { adhan: true, reminder: true, iqama: true };
           return per.iqama ? iqamahTimeFor(adhan, p, at) : null;
+        },
+        iqamaOffset: (p: PrayerKey, friday: boolean) => {
+          const per = adhan.perPrayer[p] ?? { adhan: true, reminder: true, iqama: true };
+          if (!per.iqama) return null;
+          /* يوم مرجعي من الأسبوع: الجمعة أو الخميس (الفاصل لا يتغيّر بغير ذلك). */
+          const ref = new Date(2026, 0, friday ? 2 : 1, 12);
+          return iqamahOffsetFor(adhan, p, ref);
         },
         display: {
           scale: FONT_SCALE_VALUES[appearance.fontScale] ?? 1,
